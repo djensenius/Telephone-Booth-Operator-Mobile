@@ -1,0 +1,64 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.scheme }}
+    runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scheme: TBOperatorMobile
+            destination: 'platform=iOS Simulator,name=iPhone 17 Pro'
+          - scheme: TBOperatorMobileMac
+            destination: 'platform=macOS'
+          - scheme: TBOperatorMobileVision
+            destination: 'platform=visionOS Simulator,name=Apple Vision Pro'
+          - scheme: TBOperatorMobileTV
+            destination: 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation)'
+          - scheme: TBOperatorMobileWatch
+            destination: 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+          xcrun --show-sdk-version
+      - name: Install xcodegen
+        run: brew install xcodegen
+      - name: Verify project.yml is in sync with .xcodeproj
+        run: |
+          xcodegen generate --spec project.yml
+          if ! git diff --quiet -- '*.xcodeproj'; then
+            echo "::error::project.yml is out of sync with the checked-in .xcodeproj"
+            git diff --stat -- '*.xcodeproj'
+            exit 1
+          fi
+      - name: Build ${{ matrix.scheme }}
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project TelephoneBoothOperatorMobile.xcodeproj \
+            -scheme "${{ matrix.scheme }}" \
+            -destination "${{ matrix.destination }}" \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build | xcbeautify || xcodebuild \
+              -project TelephoneBoothOperatorMobile.xcodeproj \
+              -scheme "${{ matrix.scheme }}" \
+              -destination "${{ matrix.destination }}" \
+              -configuration Debug \
+              CODE_SIGNING_ALLOWED=NO \
+              build

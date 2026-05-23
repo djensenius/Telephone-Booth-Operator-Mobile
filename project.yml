@@ -1,0 +1,387 @@
+name: TelephoneBoothOperatorMobile
+options:
+  bundleIdPrefix: org.davidjensenius
+  deploymentTarget:
+    iOS: "26.0"
+    watchOS: "26.0"
+    macOS: "26.0"
+    visionOS: "26.0"
+    tvOS: "26.0"
+  xcodeVersion: "26.5"
+  createIntermediateGroups: true
+  defaultConfig: Debug
+
+settings:
+  base:
+    SWIFT_VERSION: "5"
+    DEVELOPMENT_TEAM: 9JALHNGRBQ
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEAD_CODE_STRIPPING: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+    SWIFT_STRICT_CONCURRENCY: complete
+
+targets:
+  TBOperatorMobile:
+    type: application
+    platform: iOS
+    sources:
+      - path: TBOperatorMobile
+        excludes:
+          - "**/.DS_Store"
+      - path: Shared
+        excludes:
+          - "**/.DS_Store"
+    info:
+      path: TBOperatorMobile/Info.plist
+      properties:
+        CFBundleDisplayName: TB Operator
+        CFBundleName: TBOperatorMobile
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIBackgroundModes:
+          - remote-notification
+          - audio
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: true
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - tboperator
+        ITSAppUsesNonExemptEncryption: false
+        LSApplicationCategoryType: public.app-category.utilities
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "iPhone Developer"
+        GENERATE_INFOPLIST_FILE: false
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    entitlements:
+      path: TBOperatorMobile/TBOperatorMobile.entitlements
+      properties:
+        aps-environment: development
+    dependencies:
+      - target: TBOperatorMobileWidgets
+        embed: true
+      - target: TBOperatorMobileWatch
+        embed: true
+        codeSign: true
+
+  TBOperatorMobileWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: TBOperatorMobileWidgets
+        excludes:
+          - "**/.DS_Store"
+      - path: Shared
+        excludes:
+          - "**/.DS_Store"
+    info:
+      path: TBOperatorMobileWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: TB Operator Widgets
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        NSSupportsLiveActivities: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.widgets
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: false
+
+  TBOperatorMobileWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: TBOperatorMobileWatch
+        excludes:
+          - "**/.DS_Store"
+      - path: Shared
+        includes:
+          - Theme.swift
+    info:
+      path: TBOperatorMobileWatch/Info.plist
+      properties:
+        CFBundleDisplayName: TB Operator
+        CFBundleName: TBOperatorMobileWatch
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: org.davidjensenius.TelephoneBoothOperatorMobile
+        WKSupportsLiveActivities: true
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.watch
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: false
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "4"
+
+  TBOperatorMobileMac:
+    type: application
+    platform: macOS
+    sources:
+      - path: TBOperatorMobileMac
+        excludes:
+          - "**/.DS_Store"
+      - path: Shared
+        excludes:
+          - "**/.DS_Store"
+    info:
+      path: TBOperatorMobileMac/Info.plist
+      properties:
+        CFBundleDisplayName: TB Operator
+        CFBundleName: TBOperatorMobileMac
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+        LSApplicationCategoryType: public.app-category.utilities
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - tboperator
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: false
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_HARDENED_RUNTIME: true
+        ENABLE_APP_SANDBOX: true
+        ENABLE_INCOMING_NETWORK_CONNECTIONS: false
+        ENABLE_OUTGOING_NETWORK_CONNECTIONS: true
+        COMBINE_HIDPI_IMAGES: true
+    entitlements:
+      path: TBOperatorMobileMac/TBOperatorMobileMac.entitlements
+
+  TBOperatorMobileVision:
+    type: application
+    platform: visionOS
+    sources:
+      - path: TBOperatorMobileVision
+        excludes:
+          - "**/.DS_Store"
+      - path: Shared
+        excludes:
+          - "**/.DS_Store"
+    info:
+      path: TBOperatorMobileVision/Info.plist
+      properties:
+        CFBundleDisplayName: TB Operator
+        CFBundleName: TBOperatorMobileVision
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - tboperator
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: false
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "7"
+
+  TBOperatorMobileTV:
+    type: application
+    platform: tvOS
+    sources:
+      - path: TBOperatorMobileTV
+        excludes:
+          - "**/.DS_Store"
+      - path: Shared
+        excludes:
+          - "**/.DS_Store"
+    info:
+      path: TBOperatorMobileTV/Info.plist
+      properties:
+        CFBundleDisplayName: TB Operator
+        CFBundleName: TBOperatorMobileTV
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: false
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "3"
+
+  TBOperatorMobileTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: TBOperatorMobileTests
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.tests
+        GENERATE_INFOPLIST_FILE: true
+    dependencies:
+      - target: TBOperatorMobile
+        embed: false
+
+  TBOperatorMobileMacTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: TBOperatorMobileMacTests
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.tests.mac
+        GENERATE_INFOPLIST_FILE: true
+    dependencies:
+      - target: TBOperatorMobileMac
+        embed: false
+
+  TBOperatorMobileVisionTests:
+    type: bundle.unit-test
+    platform: visionOS
+    sources:
+      - path: TBOperatorMobileVisionTests
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.tests.vision
+        GENERATE_INFOPLIST_FILE: true
+    dependencies:
+      - target: TBOperatorMobileVision
+        embed: false
+
+  TBOperatorMobileTVTests:
+    type: bundle.unit-test
+    platform: tvOS
+    sources:
+      - path: TBOperatorMobileTVTests
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.tests.tv
+        GENERATE_INFOPLIST_FILE: true
+    dependencies:
+      - target: TBOperatorMobileTV
+        embed: false
+
+  TBOperatorMobileWatchTests:
+    type: bundle.unit-test
+    platform: watchOS
+    sources:
+      - path: TBOperatorMobileWatchTests
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.watch.tests
+        GENERATE_INFOPLIST_FILE: true
+    dependencies:
+      - target: TBOperatorMobileWatch
+        embed: false
+
+schemes:
+  TBOperatorMobile:
+    build:
+      targets:
+        TBOperatorMobile: all
+        TBOperatorMobileWidgets: all
+        TBOperatorMobileWatch: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - TBOperatorMobileTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+
+  TBOperatorMobileMac:
+    build:
+      targets:
+        TBOperatorMobileMac: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - TBOperatorMobileMacTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+
+  TBOperatorMobileVision:
+    build:
+      targets:
+        TBOperatorMobileVision: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - TBOperatorMobileVisionTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+
+  TBOperatorMobileTV:
+    build:
+      targets:
+        TBOperatorMobileTV: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - TBOperatorMobileTVTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+
+  TBOperatorMobileWatch:
+    build:
+      targets:
+        TBOperatorMobileWatch: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - TBOperatorMobileWatchTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+
+  TBOperatorMobileWidgets:
+    build:
+      targets:
+        TBOperatorMobileWidgets: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug

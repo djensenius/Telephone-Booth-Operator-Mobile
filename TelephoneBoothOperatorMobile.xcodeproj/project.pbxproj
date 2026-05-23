@@ -1,0 +1,1504 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0500245ABDE4B8CE79C3135F /* TBOperatorMobileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7781B42DE486F0C2D94C10F2 /* TBOperatorMobileTests.swift */; };
+		0B67E5AFD6EB89768514B619 /* TBOperatorMobileWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ED6F561ED8EE0E60389F8E2 /* TBOperatorMobileWidgetsBundle.swift */; };
+		0EC9C76130EAAA082C84B92A /* WatchRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9788C3669150B5B106FC5163 /* WatchRootView.swift */; };
+		1006CF0CAB7F2E36A9BC5DE2 /* TBOperatorMobileWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 532E67687BBA95CEAA7D1170 /* TBOperatorMobileWatchApp.swift */; };
+		1AFB808F214D7B00934E842C /* TBOperatorMobileMacTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 822292093B6E5CAFFBDEB223 /* TBOperatorMobileMacTests.swift */; };
+		1C14915ADFDA06F39A4857D9 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 074C6E78C90D78891DA22883 /* RootView.swift */; };
+		1C96A954C0964D281AE47105 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EB74D640D1DAB2E6B23EC3D6 /* Assets.xcassets */; };
+		20C7CA404B507AC4B4B24C20 /* TBOperatorMobileWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = F8032074CE9DCC9846FBAC1B /* TBOperatorMobileWatch.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		2538AB497C74412A142600B7 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9BEF55EDB7C524CD74FF30 /* Theme.swift */; };
+		26B3F87535A6BCA6A78888AE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BAFFC7B9FF0AD511172567F7 /* Assets.xcassets */; };
+		2F5B530E1CC2F5901BA223CA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7BA7371AA3B2B5A69CB1BE9B /* Assets.xcassets */; };
+		338F28CD18D65653AA9770D0 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9BEF55EDB7C524CD74FF30 /* Theme.swift */; };
+		36FBCAA3FB2BFB3DB8C30E14 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9BEF55EDB7C524CD74FF30 /* Theme.swift */; };
+		4A6921633FC847AEC59FA5F9 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9BEF55EDB7C524CD74FF30 /* Theme.swift */; };
+		4A8A0892AA647DFAE3AF5B28 /* TBOperatorMobileWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 64D8117CD256C7761ED9AC02 /* TBOperatorMobileWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		5162B2D5879006736232C184 /* TBOperatorMobileTVApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A199B7DACB57B19D19CC7D43 /* TBOperatorMobileTVApp.swift */; };
+		57656F7E6D3B92028DC82EE9 /* TBOperatorMobileTVTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88E5064AF164DFB98529BEA6 /* TBOperatorMobileTVTests.swift */; };
+		576E6A30B36B51202ADDB5C1 /* TBOperatorMobileMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74746E8A4D48CE8D37DE85CE /* TBOperatorMobileMacApp.swift */; };
+		6C27CBDF2F60C554EE4134B0 /* TBOperatorMobileVisionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95E11C0E2DD74108268E3F8C /* TBOperatorMobileVisionApp.swift */; };
+		722643B8D0FB5DCE9BBB07F5 /* TBOperatorMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FCD4A95FE28379BBB7EB287 /* TBOperatorMobileApp.swift */; };
+		7CC2A1E051F1683294123CE8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CF95A5EBC7E9F12851F0DDF5 /* Assets.xcassets */; };
+		A695C3AE96CEA77CE6DF2A1C /* MacRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 912D180035088D90FBCF1853 /* MacRootView.swift */; };
+		ACFA6CEAC296F8E3BEC15D8E /* TBOperatorMobileWatchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4712BB66C17DA005792F6F5 /* TBOperatorMobileWatchTests.swift */; };
+		C3FFF94FD785EAC6079A2D0D /* VisionRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A4B02DFDD846689BA1EE7FD /* VisionRootView.swift */; };
+		C97C8863A1E44E8CD86243C8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0CBAB12EDD9EE92394B8915E /* Assets.xcassets */; };
+		D49BD67B3EF451BA00E8DA4D /* TBOperatorMobileVisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E7A0A3E1C5B6796DC9FC9F5 /* TBOperatorMobileVisionTests.swift */; };
+		D4DC22D9876F23869DA9AC58 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9BEF55EDB7C524CD74FF30 /* Theme.swift */; };
+		EDBDF12B41AC08CDB269C32C /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9BEF55EDB7C524CD74FF30 /* Theme.swift */; };
+		F1B3EC533E68C8D0696B60B8 /* TVRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7FE0FC2FCA5F9C5003918ED /* TVRootView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		01876065DE6F8BEA6C0B7AA6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2B2680F45392B6F974ECC1D7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C58C6FD56A4AA671700B8ED3;
+			remoteInfo = TBOperatorMobileWidgets;
+		};
+		48A276900B3AA968AD8E9309 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2B2680F45392B6F974ECC1D7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2E142B191C49D384967A1F74;
+			remoteInfo = TBOperatorMobileTV;
+		};
+		495A5987115D538553F2D016 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2B2680F45392B6F974ECC1D7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FDDE76584B9EC36E383EF62C;
+			remoteInfo = TBOperatorMobile;
+		};
+		5990836F6F041DCD0122EC1D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2B2680F45392B6F974ECC1D7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E1606AB971FC8E4E16A1375F;
+			remoteInfo = TBOperatorMobileWatch;
+		};
+		67DAA7C192047C4B3C949887 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2B2680F45392B6F974ECC1D7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4A47F610A11EE2109713BC3B;
+			remoteInfo = TBOperatorMobileMac;
+		};
+		C6DAD95F006A61D13A30E6CE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2B2680F45392B6F974ECC1D7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E1606AB971FC8E4E16A1375F;
+			remoteInfo = TBOperatorMobileWatch;
+		};
+		E4F9A90E5F83AC3E86C87F81 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2B2680F45392B6F974ECC1D7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4F8BB5FD8CB50CE70817C083;
+			remoteInfo = TBOperatorMobileVision;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		5B58A1CB469B7747251B4A30 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				20C7CA404B507AC4B4B24C20 /* TBOperatorMobileWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E9CB19E10777F37F522A8302 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				4A8A0892AA647DFAE3AF5B28 /* TBOperatorMobileWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		074C6E78C90D78891DA22883 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		08B3EAE1F65AA6CB51D9E86D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		0CBAB12EDD9EE92394B8915E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		0F90FB3E819E53B3BC4B0D40 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		17F541E9B55A13C6C21C16E0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		1C9BEF55EDB7C524CD74FF30 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		21C84250D07EE47701706618 /* TBOperatorMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TBOperatorMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		31A5CE8C0DC868F1CB16B6D8 /* TBOperatorMobileMac.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TBOperatorMobileMac.entitlements; sourceTree = "<group>"; };
+		532E67687BBA95CEAA7D1170 /* TBOperatorMobileWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileWatchApp.swift; sourceTree = "<group>"; };
+		54B95B5CB82C1EA4566FB125 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		5FCD4A95FE28379BBB7EB287 /* TBOperatorMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileApp.swift; sourceTree = "<group>"; };
+		639D048BC18DF919F87157A8 /* TBOperatorMobileVisionTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TBOperatorMobileVisionTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		64D8117CD256C7761ED9AC02 /* TBOperatorMobileWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = TBOperatorMobileWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		6CFFD585B5A1F75B140A5A34 /* TBOperatorMobile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TBOperatorMobile.entitlements; sourceTree = "<group>"; };
+		6DC5C1CD29977E507EFA1B8A /* TBOperatorMobileWatchTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TBOperatorMobileWatchTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7037F65F660FA295067270FD /* TBOperatorMobileTV.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TBOperatorMobileTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		74746E8A4D48CE8D37DE85CE /* TBOperatorMobileMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileMacApp.swift; sourceTree = "<group>"; };
+		7781B42DE486F0C2D94C10F2 /* TBOperatorMobileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileTests.swift; sourceTree = "<group>"; };
+		780C407DD460CD29AB231FC4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		7A4B02DFDD846689BA1EE7FD /* VisionRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionRootView.swift; sourceTree = "<group>"; };
+		7BA7371AA3B2B5A69CB1BE9B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		7E06750B91E418C031E6E4BF /* TBOperatorMobileVision.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TBOperatorMobileVision.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7E7A0A3E1C5B6796DC9FC9F5 /* TBOperatorMobileVisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileVisionTests.swift; sourceTree = "<group>"; };
+		822292093B6E5CAFFBDEB223 /* TBOperatorMobileMacTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileMacTests.swift; sourceTree = "<group>"; };
+		833C61477E6ACD862ACD1BAA /* TBOperatorMobileMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TBOperatorMobileMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		88E5064AF164DFB98529BEA6 /* TBOperatorMobileTVTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileTVTests.swift; sourceTree = "<group>"; };
+		912D180035088D90FBCF1853 /* MacRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacRootView.swift; sourceTree = "<group>"; };
+		95E11C0E2DD74108268E3F8C /* TBOperatorMobileVisionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileVisionApp.swift; sourceTree = "<group>"; };
+		9788C3669150B5B106FC5163 /* WatchRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRootView.swift; sourceTree = "<group>"; };
+		9ED6F561ED8EE0E60389F8E2 /* TBOperatorMobileWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileWidgetsBundle.swift; sourceTree = "<group>"; };
+		A199B7DACB57B19D19CC7D43 /* TBOperatorMobileTVApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileTVApp.swift; sourceTree = "<group>"; };
+		B7FE0FC2FCA5F9C5003918ED /* TVRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVRootView.swift; sourceTree = "<group>"; };
+		BAFFC7B9FF0AD511172567F7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CF95A5EBC7E9F12851F0DDF5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		DCFA0AB24888F1432EDD5ABC /* TBOperatorMobileTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TBOperatorMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EAE7E5BE122F827582FDF9B7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		EB17F4B9CEC57CBFAC21C2E6 /* TBOperatorMobileTVTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TBOperatorMobileTVTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB74D640D1DAB2E6B23EC3D6 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		EF82DE622771064D6E1A74EE /* TBOperatorMobileMacTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TBOperatorMobileMacTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F4712BB66C17DA005792F6F5 /* TBOperatorMobileWatchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileWatchTests.swift; sourceTree = "<group>"; };
+		F8032074CE9DCC9846FBAC1B /* TBOperatorMobileWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TBOperatorMobileWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		05DBE1553ADAA73D7052F42E /* TBOperatorMobileTests */ = {
+			isa = PBXGroup;
+			children = (
+				7781B42DE486F0C2D94C10F2 /* TBOperatorMobileTests.swift */,
+			);
+			path = TBOperatorMobileTests;
+			sourceTree = "<group>";
+		};
+		3106B9131E6652139D79E04A /* TBOperatorMobileVisionTests */ = {
+			isa = PBXGroup;
+			children = (
+				7E7A0A3E1C5B6796DC9FC9F5 /* TBOperatorMobileVisionTests.swift */,
+			);
+			path = TBOperatorMobileVisionTests;
+			sourceTree = "<group>";
+		};
+		36F6230753F4E424A7B01559 /* TBOperatorMobileMac */ = {
+			isa = PBXGroup;
+			children = (
+				BAFFC7B9FF0AD511172567F7 /* Assets.xcassets */,
+				780C407DD460CD29AB231FC4 /* Info.plist */,
+				31A5CE8C0DC868F1CB16B6D8 /* TBOperatorMobileMac.entitlements */,
+				9969958D3A60340EE037CEDF /* App */,
+				A982C299AB547C10B8B520C6 /* Views */,
+			);
+			path = TBOperatorMobileMac;
+			sourceTree = "<group>";
+		};
+		4719F2BBF755FE56E71EDD30 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				95E11C0E2DD74108268E3F8C /* TBOperatorMobileVisionApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		543AF244F6A40262774841C1 /* TBOperatorMobileTV */ = {
+			isa = PBXGroup;
+			children = (
+				EB74D640D1DAB2E6B23EC3D6 /* Assets.xcassets */,
+				08B3EAE1F65AA6CB51D9E86D /* Info.plist */,
+				A165DA21109202A6EDC0C975 /* App */,
+				B1B9147C75B5485F086D3862 /* Views */,
+			);
+			path = TBOperatorMobileTV;
+			sourceTree = "<group>";
+		};
+		55C58C1C710F4B6DEAE0BA00 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				5FCD4A95FE28379BBB7EB287 /* TBOperatorMobileApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		617D45B10E4B59BDAAC56F9C /* TBOperatorMobileVision */ = {
+			isa = PBXGroup;
+			children = (
+				7BA7371AA3B2B5A69CB1BE9B /* Assets.xcassets */,
+				17F541E9B55A13C6C21C16E0 /* Info.plist */,
+				4719F2BBF755FE56E71EDD30 /* App */,
+				AF038200C84EABE53F6CC913 /* Views */,
+			);
+			path = TBOperatorMobileVision;
+			sourceTree = "<group>";
+		};
+		6FB819876D4D56568B0B3E9F /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				1C9BEF55EDB7C524CD74FF30 /* Theme.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		854D4D47A2CBB0B60B212FDF /* TBOperatorMobileWatch */ = {
+			isa = PBXGroup;
+			children = (
+				0CBAB12EDD9EE92394B8915E /* Assets.xcassets */,
+				54B95B5CB82C1EA4566FB125 /* Info.plist */,
+				AC2863E6D7E6D87B036BF42F /* App */,
+				ED16117949AA7E286BAA22E5 /* Views */,
+			);
+			path = TBOperatorMobileWatch;
+			sourceTree = "<group>";
+		};
+		9969958D3A60340EE037CEDF /* App */ = {
+			isa = PBXGroup;
+			children = (
+				74746E8A4D48CE8D37DE85CE /* TBOperatorMobileMacApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A165DA21109202A6EDC0C975 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A199B7DACB57B19D19CC7D43 /* TBOperatorMobileTVApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A8B68F640815F1B80B7390E6 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				21C84250D07EE47701706618 /* TBOperatorMobile.app */,
+				833C61477E6ACD862ACD1BAA /* TBOperatorMobileMac.app */,
+				EF82DE622771064D6E1A74EE /* TBOperatorMobileMacTests.xctest */,
+				DCFA0AB24888F1432EDD5ABC /* TBOperatorMobileTests.xctest */,
+				7037F65F660FA295067270FD /* TBOperatorMobileTV.app */,
+				EB17F4B9CEC57CBFAC21C2E6 /* TBOperatorMobileTVTests.xctest */,
+				7E06750B91E418C031E6E4BF /* TBOperatorMobileVision.app */,
+				639D048BC18DF919F87157A8 /* TBOperatorMobileVisionTests.xctest */,
+				F8032074CE9DCC9846FBAC1B /* TBOperatorMobileWatch.app */,
+				6DC5C1CD29977E507EFA1B8A /* TBOperatorMobileWatchTests.xctest */,
+				64D8117CD256C7761ED9AC02 /* TBOperatorMobileWidgets.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A982C299AB547C10B8B520C6 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				912D180035088D90FBCF1853 /* MacRootView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		AA5E1D91F9B392866DEC7107 /* TBOperatorMobileTVTests */ = {
+			isa = PBXGroup;
+			children = (
+				88E5064AF164DFB98529BEA6 /* TBOperatorMobileTVTests.swift */,
+			);
+			path = TBOperatorMobileTVTests;
+			sourceTree = "<group>";
+		};
+		AC2863E6D7E6D87B036BF42F /* App */ = {
+			isa = PBXGroup;
+			children = (
+				532E67687BBA95CEAA7D1170 /* TBOperatorMobileWatchApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		AF038200C84EABE53F6CC913 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				7A4B02DFDD846689BA1EE7FD /* VisionRootView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		B1B9147C75B5485F086D3862 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				B7FE0FC2FCA5F9C5003918ED /* TVRootView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		B44A641CB5E2E24C717948BA = {
+			isa = PBXGroup;
+			children = (
+				6FB819876D4D56568B0B3E9F /* Shared */,
+				FA31893A143FBFFB154B8349 /* TBOperatorMobile */,
+				36F6230753F4E424A7B01559 /* TBOperatorMobileMac */,
+				D75AD42FD3BB3C55B23730A1 /* TBOperatorMobileMacTests */,
+				05DBE1553ADAA73D7052F42E /* TBOperatorMobileTests */,
+				543AF244F6A40262774841C1 /* TBOperatorMobileTV */,
+				AA5E1D91F9B392866DEC7107 /* TBOperatorMobileTVTests */,
+				617D45B10E4B59BDAAC56F9C /* TBOperatorMobileVision */,
+				3106B9131E6652139D79E04A /* TBOperatorMobileVisionTests */,
+				854D4D47A2CBB0B60B212FDF /* TBOperatorMobileWatch */,
+				FB360DB7D89904435EC1EEF8 /* TBOperatorMobileWatchTests */,
+				B946A4EF16AEBFDD98B9A320 /* TBOperatorMobileWidgets */,
+				A8B68F640815F1B80B7390E6 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B946A4EF16AEBFDD98B9A320 /* TBOperatorMobileWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				0F90FB3E819E53B3BC4B0D40 /* Info.plist */,
+				9ED6F561ED8EE0E60389F8E2 /* TBOperatorMobileWidgetsBundle.swift */,
+			);
+			path = TBOperatorMobileWidgets;
+			sourceTree = "<group>";
+		};
+		D75AD42FD3BB3C55B23730A1 /* TBOperatorMobileMacTests */ = {
+			isa = PBXGroup;
+			children = (
+				822292093B6E5CAFFBDEB223 /* TBOperatorMobileMacTests.swift */,
+			);
+			path = TBOperatorMobileMacTests;
+			sourceTree = "<group>";
+		};
+		E536F604C2E0BBB665434459 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				074C6E78C90D78891DA22883 /* RootView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		ED16117949AA7E286BAA22E5 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				9788C3669150B5B106FC5163 /* WatchRootView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		FA31893A143FBFFB154B8349 /* TBOperatorMobile */ = {
+			isa = PBXGroup;
+			children = (
+				CF95A5EBC7E9F12851F0DDF5 /* Assets.xcassets */,
+				EAE7E5BE122F827582FDF9B7 /* Info.plist */,
+				6CFFD585B5A1F75B140A5A34 /* TBOperatorMobile.entitlements */,
+				55C58C1C710F4B6DEAE0BA00 /* App */,
+				E536F604C2E0BBB665434459 /* Views */,
+			);
+			path = TBOperatorMobile;
+			sourceTree = "<group>";
+		};
+		FB360DB7D89904435EC1EEF8 /* TBOperatorMobileWatchTests */ = {
+			isa = PBXGroup;
+			children = (
+				F4712BB66C17DA005792F6F5 /* TBOperatorMobileWatchTests.swift */,
+			);
+			path = TBOperatorMobileWatchTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2E142B191C49D384967A1F74 /* TBOperatorMobileTV */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 846EF3080B6F20D41A784883 /* Build configuration list for PBXNativeTarget "TBOperatorMobileTV" */;
+			buildPhases = (
+				C0E40EE9E089BDAC2E414852 /* Sources */,
+				C31DF8A4A991D735532D69A3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TBOperatorMobileTV;
+			packageProductDependencies = (
+			);
+			productName = TBOperatorMobileTV;
+			productReference = 7037F65F660FA295067270FD /* TBOperatorMobileTV.app */;
+			productType = "com.apple.product-type.application";
+		};
+		3828AA21DAEBFE03873B738C /* TBOperatorMobileMacTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6EF8B48010E0C8CD45E05DF8 /* Build configuration list for PBXNativeTarget "TBOperatorMobileMacTests" */;
+			buildPhases = (
+				619E316034162D1CD1775634 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B03F2CCD8A4DF1836303B2BE /* PBXTargetDependency */,
+			);
+			name = TBOperatorMobileMacTests;
+			packageProductDependencies = (
+			);
+			productName = TBOperatorMobileMacTests;
+			productReference = EF82DE622771064D6E1A74EE /* TBOperatorMobileMacTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		4A47F610A11EE2109713BC3B /* TBOperatorMobileMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6C0D799A84303276F8B30C53 /* Build configuration list for PBXNativeTarget "TBOperatorMobileMac" */;
+			buildPhases = (
+				B09A6FEFD38B75AACFE60361 /* Sources */,
+				D407B1DAB940019A27CF00CE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TBOperatorMobileMac;
+			packageProductDependencies = (
+			);
+			productName = TBOperatorMobileMac;
+			productReference = 833C61477E6ACD862ACD1BAA /* TBOperatorMobileMac.app */;
+			productType = "com.apple.product-type.application";
+		};
+		4F8BB5FD8CB50CE70817C083 /* TBOperatorMobileVision */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B6B3A2416E458FD67C080547 /* Build configuration list for PBXNativeTarget "TBOperatorMobileVision" */;
+			buildPhases = (
+				004318010C53278F164A7739 /* Sources */,
+				48760D14287830E91C359ACC /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TBOperatorMobileVision;
+			packageProductDependencies = (
+			);
+			productName = TBOperatorMobileVision;
+			productReference = 7E06750B91E418C031E6E4BF /* TBOperatorMobileVision.app */;
+			productType = "com.apple.product-type.application";
+		};
+		C58C6FD56A4AA671700B8ED3 /* TBOperatorMobileWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D5E487C1B77F6E6394AA1B72 /* Build configuration list for PBXNativeTarget "TBOperatorMobileWidgets" */;
+			buildPhases = (
+				72EC3F305C22C7D3B81F8AB6 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TBOperatorMobileWidgets;
+			packageProductDependencies = (
+			);
+			productName = TBOperatorMobileWidgets;
+			productReference = 64D8117CD256C7761ED9AC02 /* TBOperatorMobileWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		C95F7C89B59F27C631B35CC0 /* TBOperatorMobileWatchTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 13A2097CD336C974627DE51D /* Build configuration list for PBXNativeTarget "TBOperatorMobileWatchTests" */;
+			buildPhases = (
+				6D55B1E40754A2F47FB26A0B /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				84F347180EF45A6D041313BA /* PBXTargetDependency */,
+			);
+			name = TBOperatorMobileWatchTests;
+			packageProductDependencies = (
+			);
+			productName = TBOperatorMobileWatchTests;
+			productReference = 6DC5C1CD29977E507EFA1B8A /* TBOperatorMobileWatchTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		E1606AB971FC8E4E16A1375F /* TBOperatorMobileWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FAF380DADDB1398A60D5EE35 /* Build configuration list for PBXNativeTarget "TBOperatorMobileWatch" */;
+			buildPhases = (
+				863C8163F44ED67F402A4D14 /* Sources */,
+				6559E6CB5663942F1E752C66 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TBOperatorMobileWatch;
+			packageProductDependencies = (
+			);
+			productName = TBOperatorMobileWatch;
+			productReference = F8032074CE9DCC9846FBAC1B /* TBOperatorMobileWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+		EBB4F07764C04815F55A3C9B /* TBOperatorMobileVisionTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7316DFB9EB4C7BD014660B05 /* Build configuration list for PBXNativeTarget "TBOperatorMobileVisionTests" */;
+			buildPhases = (
+				F8CB8AC6ED6BA98B49E3CF89 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DCE3514128EB0384BA87BD02 /* PBXTargetDependency */,
+			);
+			name = TBOperatorMobileVisionTests;
+			packageProductDependencies = (
+			);
+			productName = TBOperatorMobileVisionTests;
+			productReference = 639D048BC18DF919F87157A8 /* TBOperatorMobileVisionTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		ED33EE6901AFD85F494096C5 /* TBOperatorMobileTVTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0312471CD1775DB17D45E3B1 /* Build configuration list for PBXNativeTarget "TBOperatorMobileTVTests" */;
+			buildPhases = (
+				3FE134500C8A76766D254208 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5A9CC372F10995E4FF1CA5B3 /* PBXTargetDependency */,
+			);
+			name = TBOperatorMobileTVTests;
+			packageProductDependencies = (
+			);
+			productName = TBOperatorMobileTVTests;
+			productReference = EB17F4B9CEC57CBFAC21C2E6 /* TBOperatorMobileTVTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		F42DDA303244D3C3D961A65E /* TBOperatorMobileTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 50AFC54F04263D53CCB5A193 /* Build configuration list for PBXNativeTarget "TBOperatorMobileTests" */;
+			buildPhases = (
+				90DBDD0D64A23AF72DF46333 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BDDD6D616A76157C260615E1 /* PBXTargetDependency */,
+			);
+			name = TBOperatorMobileTests;
+			packageProductDependencies = (
+			);
+			productName = TBOperatorMobileTests;
+			productReference = DCFA0AB24888F1432EDD5ABC /* TBOperatorMobileTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		FDDE76584B9EC36E383EF62C /* TBOperatorMobile */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CAA9D003673EB696E4149BB3 /* Build configuration list for PBXNativeTarget "TBOperatorMobile" */;
+			buildPhases = (
+				05BCED0C7F1D8FC4511D3CEB /* Sources */,
+				E4C109F1F8D36065B5B79EFA /* Resources */,
+				E9CB19E10777F37F522A8302 /* Embed Foundation Extensions */,
+				5B58A1CB469B7747251B4A30 /* Embed Watch Content */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				148FE567553C98D6038D1B1D /* PBXTargetDependency */,
+				14851FF58F97643D366F4BFA /* PBXTargetDependency */,
+			);
+			name = TBOperatorMobile;
+			packageProductDependencies = (
+			);
+			productName = TBOperatorMobile;
+			productReference = 21C84250D07EE47701706618 /* TBOperatorMobile.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		2B2680F45392B6F974ECC1D7 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2650;
+				TargetAttributes = {
+					2E142B191C49D384967A1F74 = {
+						DevelopmentTeam = 9JALHNGRBQ;
+						ProvisioningStyle = Automatic;
+					};
+					3828AA21DAEBFE03873B738C = {
+						DevelopmentTeam = 9JALHNGRBQ;
+					};
+					4A47F610A11EE2109713BC3B = {
+						DevelopmentTeam = 9JALHNGRBQ;
+						ProvisioningStyle = Automatic;
+					};
+					4F8BB5FD8CB50CE70817C083 = {
+						DevelopmentTeam = 9JALHNGRBQ;
+						ProvisioningStyle = Automatic;
+					};
+					C58C6FD56A4AA671700B8ED3 = {
+						DevelopmentTeam = 9JALHNGRBQ;
+						ProvisioningStyle = Automatic;
+					};
+					C95F7C89B59F27C631B35CC0 = {
+						DevelopmentTeam = 9JALHNGRBQ;
+					};
+					E1606AB971FC8E4E16A1375F = {
+						DevelopmentTeam = 9JALHNGRBQ;
+						ProvisioningStyle = Automatic;
+					};
+					EBB4F07764C04815F55A3C9B = {
+						DevelopmentTeam = 9JALHNGRBQ;
+					};
+					ED33EE6901AFD85F494096C5 = {
+						DevelopmentTeam = 9JALHNGRBQ;
+					};
+					F42DDA303244D3C3D961A65E = {
+						DevelopmentTeam = 9JALHNGRBQ;
+					};
+					FDDE76584B9EC36E383EF62C = {
+						DevelopmentTeam = 9JALHNGRBQ;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = AF2C5093CE0A54B7EB5965F8 /* Build configuration list for PBXProject "TelephoneBoothOperatorMobile" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = B44A641CB5E2E24C717948BA;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A8B68F640815F1B80B7390E6 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FDDE76584B9EC36E383EF62C /* TBOperatorMobile */,
+				4A47F610A11EE2109713BC3B /* TBOperatorMobileMac */,
+				3828AA21DAEBFE03873B738C /* TBOperatorMobileMacTests */,
+				2E142B191C49D384967A1F74 /* TBOperatorMobileTV */,
+				ED33EE6901AFD85F494096C5 /* TBOperatorMobileTVTests */,
+				F42DDA303244D3C3D961A65E /* TBOperatorMobileTests */,
+				4F8BB5FD8CB50CE70817C083 /* TBOperatorMobileVision */,
+				EBB4F07764C04815F55A3C9B /* TBOperatorMobileVisionTests */,
+				E1606AB971FC8E4E16A1375F /* TBOperatorMobileWatch */,
+				C95F7C89B59F27C631B35CC0 /* TBOperatorMobileWatchTests */,
+				C58C6FD56A4AA671700B8ED3 /* TBOperatorMobileWidgets */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		48760D14287830E91C359ACC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2F5B530E1CC2F5901BA223CA /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6559E6CB5663942F1E752C66 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C97C8863A1E44E8CD86243C8 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C31DF8A4A991D735532D69A3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C96A954C0964D281AE47105 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D407B1DAB940019A27CF00CE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				26B3F87535A6BCA6A78888AE /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E4C109F1F8D36065B5B79EFA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7CC2A1E051F1683294123CE8 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		004318010C53278F164A7739 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6C27CBDF2F60C554EE4134B0 /* TBOperatorMobileVisionApp.swift in Sources */,
+				36FBCAA3FB2BFB3DB8C30E14 /* Theme.swift in Sources */,
+				C3FFF94FD785EAC6079A2D0D /* VisionRootView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		05BCED0C7F1D8FC4511D3CEB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C14915ADFDA06F39A4857D9 /* RootView.swift in Sources */,
+				722643B8D0FB5DCE9BBB07F5 /* TBOperatorMobileApp.swift in Sources */,
+				4A6921633FC847AEC59FA5F9 /* Theme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3FE134500C8A76766D254208 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				57656F7E6D3B92028DC82EE9 /* TBOperatorMobileTVTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		619E316034162D1CD1775634 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1AFB808F214D7B00934E842C /* TBOperatorMobileMacTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6D55B1E40754A2F47FB26A0B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ACFA6CEAC296F8E3BEC15D8E /* TBOperatorMobileWatchTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72EC3F305C22C7D3B81F8AB6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0B67E5AFD6EB89768514B619 /* TBOperatorMobileWidgetsBundle.swift in Sources */,
+				338F28CD18D65653AA9770D0 /* Theme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		863C8163F44ED67F402A4D14 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1006CF0CAB7F2E36A9BC5DE2 /* TBOperatorMobileWatchApp.swift in Sources */,
+				D4DC22D9876F23869DA9AC58 /* Theme.swift in Sources */,
+				0EC9C76130EAAA082C84B92A /* WatchRootView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		90DBDD0D64A23AF72DF46333 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0500245ABDE4B8CE79C3135F /* TBOperatorMobileTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B09A6FEFD38B75AACFE60361 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A695C3AE96CEA77CE6DF2A1C /* MacRootView.swift in Sources */,
+				576E6A30B36B51202ADDB5C1 /* TBOperatorMobileMacApp.swift in Sources */,
+				2538AB497C74412A142600B7 /* Theme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0E40EE9E089BDAC2E414852 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5162B2D5879006736232C184 /* TBOperatorMobileTVApp.swift in Sources */,
+				F1B3EC533E68C8D0696B60B8 /* TVRootView.swift in Sources */,
+				EDBDF12B41AC08CDB269C32C /* Theme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F8CB8AC6ED6BA98B49E3CF89 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D49BD67B3EF451BA00E8DA4D /* TBOperatorMobileVisionTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		14851FF58F97643D366F4BFA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E1606AB971FC8E4E16A1375F /* TBOperatorMobileWatch */;
+			targetProxy = C6DAD95F006A61D13A30E6CE /* PBXContainerItemProxy */;
+		};
+		148FE567553C98D6038D1B1D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C58C6FD56A4AA671700B8ED3 /* TBOperatorMobileWidgets */;
+			targetProxy = 01876065DE6F8BEA6C0B7AA6 /* PBXContainerItemProxy */;
+		};
+		5A9CC372F10995E4FF1CA5B3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2E142B191C49D384967A1F74 /* TBOperatorMobileTV */;
+			targetProxy = 48A276900B3AA968AD8E9309 /* PBXContainerItemProxy */;
+		};
+		84F347180EF45A6D041313BA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E1606AB971FC8E4E16A1375F /* TBOperatorMobileWatch */;
+			targetProxy = 5990836F6F041DCD0122EC1D /* PBXContainerItemProxy */;
+		};
+		B03F2CCD8A4DF1836303B2BE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4A47F610A11EE2109713BC3B /* TBOperatorMobileMac */;
+			targetProxy = 67DAA7C192047C4B3C949887 /* PBXContainerItemProxy */;
+		};
+		BDDD6D616A76157C260615E1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FDDE76584B9EC36E383EF62C /* TBOperatorMobile */;
+			targetProxy = 495A5987115D538553F2D016 /* PBXContainerItemProxy */;
+		};
+		DCE3514128EB0384BA87BD02 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4F8BB5FD8CB50CE70817C083 /* TBOperatorMobileVision */;
+			targetProxy = E4F9A90E5F83AC3E86C87F81 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		04753E52B2AF20C5DE3B6882 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobileVision/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile;
+				SDKROOT = xros;
+				TARGETED_DEVICE_FAMILY = 7;
+			};
+			name = Release;
+		};
+		0555CFE4ADC8B66A1FD28FAB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobileWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.watch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Debug;
+		};
+		181F249525BA6C72AC6DAA5D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 9JALHNGRBQ;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 5;
+				TVOS_DEPLOYMENT_TARGET = 26.0;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
+		1891E581D49FB96BDFDA6258 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.tests.vision;
+				SDKROOT = xros;
+				TARGETED_DEVICE_FAMILY = 7;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TBOperatorMobileVision.app/TBOperatorMobileVision";
+			};
+			name = Release;
+		};
+		1E5ECFDB4BC77475CA5F9002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TBOperatorMobile.app/TBOperatorMobile";
+			};
+			name = Release;
+		};
+		22BE112E1F04E7B109D5F207 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.watch.tests;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TBOperatorMobileWatch.app/TBOperatorMobileWatch";
+			};
+			name = Debug;
+		};
+		27DE6FE911ECAC73A7A3BCFE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobileVision/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile;
+				SDKROOT = xros;
+				TARGETED_DEVICE_FAMILY = 7;
+			};
+			name = Debug;
+		};
+		2B847C2B30B1C5B7A0F31790 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.tests.tv;
+				SDKROOT = appletvos;
+				TARGETED_DEVICE_FAMILY = 3;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TBOperatorMobileTV.app/TBOperatorMobileTV";
+			};
+			name = Debug;
+		};
+		40F0A46D799B47619F6DECF9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = TBOperatorMobile/TBOperatorMobile.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobile/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		43FB47F37BBA2477B934ED29 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.watch.tests;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TBOperatorMobileWatch.app/TBOperatorMobileWatch";
+			};
+			name = Release;
+		};
+		50F040D3220DF0C43855BCFE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobileTV/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile;
+				SDKROOT = appletvos;
+				TARGETED_DEVICE_FAMILY = 3;
+			};
+			name = Release;
+		};
+		533C9D60AD26CD497D23E9C1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.tests.vision;
+				SDKROOT = xros;
+				TARGETED_DEVICE_FAMILY = 7;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TBOperatorMobileVision.app/TBOperatorMobileVision";
+			};
+			name = Debug;
+		};
+		5E41966E75B3E224F21E1E95 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobileWidgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.widgets;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		7603CACE3AB941D0AAF2C3DE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.tests.mac;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TBOperatorMobileMac.app/Contents/MacOS/TBOperatorMobileMac";
+			};
+			name = Debug;
+		};
+		7B6662A2C4713436ABB1574B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.tests.tv;
+				SDKROOT = appletvos;
+				TARGETED_DEVICE_FAMILY = 3;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TBOperatorMobileTV.app/TBOperatorMobileTV";
+			};
+			name = Release;
+		};
+		9306AC001C6A648E5F828837 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.tests.mac;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TBOperatorMobileMac.app/Contents/MacOS/TBOperatorMobileMac";
+			};
+			name = Release;
+		};
+		948DC85D0EE18481375F91BF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobileWidgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.widgets;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AB38EC6712B0A2959ED2263E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobileTV/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile;
+				SDKROOT = appletvos;
+				TARGETED_DEVICE_FAMILY = 3;
+			};
+			name = Debug;
+		};
+		B824C44E0022FF3F02BAF8E9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = TBOperatorMobileMac/TBOperatorMobileMac.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobileMac/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		BF8B0B6EFA6BA90F9041AC09 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobileWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.watch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Release;
+		};
+		D6DC8BD2C8BE4A195554CCBF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = TBOperatorMobile/TBOperatorMobile.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobile/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E61F127F33FD58F78E0E082D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TBOperatorMobile.app/TBOperatorMobile";
+			};
+			name = Debug;
+		};
+		FA3E64AEB12F2C0FE7B7B9A5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 9JALHNGRBQ;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 5;
+				TVOS_DEPLOYMENT_TARGET = 26.0;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		FCBBB7FFBF0F39712EA2734B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = TBOperatorMobileMac/TBOperatorMobileMac.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobileMac/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0312471CD1775DB17D45E3B1 /* Build configuration list for PBXNativeTarget "TBOperatorMobileTVTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2B847C2B30B1C5B7A0F31790 /* Debug */,
+				7B6662A2C4713436ABB1574B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		13A2097CD336C974627DE51D /* Build configuration list for PBXNativeTarget "TBOperatorMobileWatchTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				22BE112E1F04E7B109D5F207 /* Debug */,
+				43FB47F37BBA2477B934ED29 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		50AFC54F04263D53CCB5A193 /* Build configuration list for PBXNativeTarget "TBOperatorMobileTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E61F127F33FD58F78E0E082D /* Debug */,
+				1E5ECFDB4BC77475CA5F9002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6C0D799A84303276F8B30C53 /* Build configuration list for PBXNativeTarget "TBOperatorMobileMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FCBBB7FFBF0F39712EA2734B /* Debug */,
+				B824C44E0022FF3F02BAF8E9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6EF8B48010E0C8CD45E05DF8 /* Build configuration list for PBXNativeTarget "TBOperatorMobileMacTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7603CACE3AB941D0AAF2C3DE /* Debug */,
+				9306AC001C6A648E5F828837 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7316DFB9EB4C7BD014660B05 /* Build configuration list for PBXNativeTarget "TBOperatorMobileVisionTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				533C9D60AD26CD497D23E9C1 /* Debug */,
+				1891E581D49FB96BDFDA6258 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		846EF3080B6F20D41A784883 /* Build configuration list for PBXNativeTarget "TBOperatorMobileTV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB38EC6712B0A2959ED2263E /* Debug */,
+				50F040D3220DF0C43855BCFE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		AF2C5093CE0A54B7EB5965F8 /* Build configuration list for PBXProject "TelephoneBoothOperatorMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA3E64AEB12F2C0FE7B7B9A5 /* Debug */,
+				181F249525BA6C72AC6DAA5D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B6B3A2416E458FD67C080547 /* Build configuration list for PBXNativeTarget "TBOperatorMobileVision" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				27DE6FE911ECAC73A7A3BCFE /* Debug */,
+				04753E52B2AF20C5DE3B6882 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CAA9D003673EB696E4149BB3 /* Build configuration list for PBXNativeTarget "TBOperatorMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6DC8BD2C8BE4A195554CCBF /* Debug */,
+				40F0A46D799B47619F6DECF9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D5E487C1B77F6E6394AA1B72 /* Build configuration list for PBXNativeTarget "TBOperatorMobileWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				948DC85D0EE18481375F91BF /* Debug */,
+				5E41966E75B3E224F21E1E95 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FAF380DADDB1398A60D5EE35 /* Build configuration list for PBXNativeTarget "TBOperatorMobileWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0555CFE4ADC8B66A1FD28FAB /* Debug */,
+				BF8B0B6EFA6BA90F9041AC09 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 2B2680F45392B6F974ECC1D7 /* Project object */;
+}
