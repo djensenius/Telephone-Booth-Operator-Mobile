@@ -16,7 +16,6 @@
 #if !os(watchOS) && !os(tvOS)
 
 import AVFoundation
-import Combine
 import Foundation
 import Observation
 
@@ -39,6 +38,7 @@ public final class AudioPlaybackController {
     private var player: AVPlayer?
     private var timeObserver: Any?
     private var endObserver: NSObjectProtocol?
+    private var statusObservation: NSKeyValueObservation?
 
     public init() {}
 
@@ -51,6 +51,27 @@ public final class AudioPlaybackController {
         let item = AVPlayerItem(url: url)
         let player = AVPlayer(playerItem: item)
         self.player = player
+
+        statusObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
+            let status = item.status
+            let errorMessage = (item.error as NSError?)?.localizedDescription
+                ?? "Unable to load audio."
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                switch status {
+                case .failed:
+                    self.state = .failed(errorMessage)
+                case .readyToPlay:
+                    if case .loading = self.state {
+                        self.state = .paused
+                    }
+                case .unknown:
+                    break
+                @unknown default:
+                    break
+                }
+            }
+        }
 
         let interval = CMTime(seconds: 0.25, preferredTimescale: 600)
         timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
@@ -79,6 +100,7 @@ public final class AudioPlaybackController {
 
     public func play() {
         guard let player else { return }
+        if case .failed = state { return }
         if case .finished = state {
             player.seek(to: .zero)
         }
@@ -113,6 +135,8 @@ public final class AudioPlaybackController {
         if let endObserver {
             NotificationCenter.default.removeObserver(endObserver)
         }
+        statusObservation?.invalidate()
+        statusObservation = nil
         timeObserver = nil
         endObserver = nil
         player?.pause()

@@ -30,6 +30,7 @@ public struct AudioPlayerView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(disablePlayButton)
+                .accessibilityLabel(playButtonAccessibilityLabel)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(audio.url.lastPathComponent)
@@ -77,6 +78,15 @@ public struct AudioPlayerView: View {
         case .loading: return "arrow.clockwise.circle"
         case .failed: return "exclamationmark.circle.fill"
         default: return "play.circle.fill"
+        }
+    }
+
+    private var playButtonAccessibilityLabel: String {
+        switch controller.state {
+        case .playing: return "Pause"
+        case .loading: return "Loading"
+        case .failed: return "Playback failed"
+        case .paused, .idle, .finished: return "Play"
         }
     }
 
