@@ -145,6 +145,12 @@ targets:
         GENERATE_INFOPLIST_FILE: false
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "4"
+    entitlements:
+      path: TBOperatorMobileWatch/TBOperatorMobileWatch.entitlements
+      properties:
+        aps-environment: development
+        com.apple.security.application-groups:
+          - group.org.davidjensenius.TelephoneBoothOperatorMobile
 
   TBOperatorMobileMac:
     type: application
@@ -186,6 +192,7 @@ targets:
     entitlements:
       path: TBOperatorMobileMac/TBOperatorMobileMac.entitlements
       properties:
+        aps-environment: development
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
         com.apple.security.application-groups:
@@ -222,6 +229,12 @@ targets:
         GENERATE_INFOPLIST_FILE: false
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "7"
+    entitlements:
+      path: TBOperatorMobileVision/TBOperatorMobileVision.entitlements
+      properties:
+        aps-environment: development
+        com.apple.security.application-groups:
+          - group.org.davidjensenius.TelephoneBoothOperatorMobile
 
   TBOperatorMobileTV:
     type: application

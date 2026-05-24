@@ -175,6 +175,35 @@ public actor OperatorClient {
         try await delete("/v1/questions/\(id)")
     }
 
+    // MARK: - Mobile device registry
+
+    /// `GET /v1/devices` — the caller's active mobile devices.
+    public func fetchDevices() async throws -> [MobileDevice] {
+        try await get("/v1/devices")
+    }
+
+    /// `POST /v1/devices` — register or refresh the APNs token. Server
+    /// upserts on `(apnsToken, platform)` so calling this on every launch
+    /// (after permission is granted) is the intended flow.
+    public func registerDevice(_ body: RegisterMobileDeviceRequest) async throws -> MobileDevice {
+        try await postJSON("/v1/devices", body: body)
+    }
+
+    /// `PATCH /v1/devices/{id}` — push a new preference set or device name
+    /// to the server. Returns the merged record.
+    public func updateDevice(
+        id: String,
+        body: UpdateMobileDevicePreferencesRequest
+    ) async throws -> MobileDevice {
+        try await request(method: "PATCH", path: "/v1/devices/\(id)", body: body, requireAuth: true)
+    }
+
+    /// `DELETE /v1/devices/{id}` — revoke a device. The server sets
+    /// `revokedAt` so APNs delivery to that token stops immediately.
+    public func revokeDevice(id: String) async throws {
+        try await delete("/v1/devices/\(id)")
+    }
+
     // MARK: - Core request helpers
 
     private func get<T: Decodable>(
@@ -198,6 +227,13 @@ public actor OperatorClient {
             body: Optional<Data>.none,
             requireAuth: true
         )
+    }
+
+    private func postJSON<Body: Encodable, Response: Decodable>(
+        _ path: String,
+        body: Body
+    ) async throws -> Response {
+        try await request(method: "POST", path: path, body: body, requireAuth: true)
     }
 
     private func delete(_ path: String) async throws {
