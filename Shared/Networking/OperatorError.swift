@@ -14,6 +14,8 @@ public enum OperatorError: Error, LocalizedError {
     case httpError(status: Int, body: String)
     /// Response body could not be decoded.
     case decoding(Error)
+    /// Request body could not be encoded.
+    case encoding(Error)
     /// Network transport failure.
     case transport(Error)
     /// Caller invoked the client with an invalid URL.
@@ -29,6 +31,8 @@ public enum OperatorError: Error, LocalizedError {
             return "Server returned \(status). \(body)"
         case .decoding(let error):
             return "Failed to decode server response: \(error.localizedDescription)"
+        case .encoding(let error):
+            return "Failed to encode request body: \(error.localizedDescription)"
         case .transport(let error):
             return error.localizedDescription
         case .invalidURL:

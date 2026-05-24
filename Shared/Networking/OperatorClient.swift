@@ -76,7 +76,7 @@ public actor OperatorClient {
             do {
                 request.httpBody = try OperatorJSON.encoder.encode(body)
             } catch {
-                throw OperatorError.decoding(error)
+                throw OperatorError.encoding(error)
             }
         }
 
