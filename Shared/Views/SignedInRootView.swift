@@ -99,10 +99,7 @@ public struct SignedInRootView: View {
 
     #if os(tvOS)
     private var compactShell: some View {
-        NavigationStack {
-            StatusDashboardView()
-                .navigationTitle("Operator")
-        }
+        TVBoothWallView()
     }
     #endif
 }

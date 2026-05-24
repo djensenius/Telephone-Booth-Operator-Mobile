@@ -19,6 +19,12 @@ public enum AuthError: Error, LocalizedError {
     /// Refresh failed for a transient reason (offline, DNS, 5xx). Caller
     /// should keep the cached tokens and retry later.
     case transientRefreshFailure(Error)
+    /// The device-code authorization request failed to even start.
+    case deviceAuthorizationFailed(String)
+    /// The user denied authorization on the verification page.
+    case deviceAuthorizationDenied
+    /// The device code expired before the user finished signing in.
+    case deviceCodeExpired
 
     public var errorDescription: String? {
         switch self {
@@ -38,6 +44,12 @@ public enum AuthError: Error, LocalizedError {
             return "Session expired: \(msg)"
         case .transientRefreshFailure(let err):
             return "Temporary refresh failure: \(err.localizedDescription)"
+        case .deviceAuthorizationFailed(let msg):
+            return "Couldn't start device sign-in: \(msg)"
+        case .deviceAuthorizationDenied:
+            return "Authorization was denied on the verification page."
+        case .deviceCodeExpired:
+            return "The sign-in code expired. Please try again."
         }
     }
 }
