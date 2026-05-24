@@ -419,4 +419,30 @@ final class TBOperatorMobileTests: XCTestCase {
         XCTAssertEqual(one, two)
         XCTAssertNotEqual(one, three)
     }
+
+    // MARK: - WidgetSnapshot
+
+    func testWidgetSnapshotFromStatsSummary() {
+        let stats = StatsSummary.placeholder
+        let snapshot = WidgetSnapshot(stats: stats)
+        XCTAssertEqual(snapshot.boothState, stats.booth.state)
+        XCTAssertEqual(snapshot.boothUpdatedAt, stats.booth.updatedAt)
+        XCTAssertEqual(snapshot.pendingMessages, stats.messages.pending)
+        XCTAssertEqual(snapshot.receivedToday, stats.messages.receivedToday)
+        XCTAssertEqual(snapshot.callsToday, stats.calls.today)
+        XCTAssertEqual(snapshot.callsInProgress, stats.calls.inProgress)
+        XCTAssertEqual(snapshot.wsClients, stats.realtime.wsClients)
+        XCTAssertEqual(snapshot.generatedAt, stats.generatedAt)
+    }
+
+    func testWidgetSnapshotRoundTrip() throws {
+        let snapshot = WidgetSnapshot.placeholder
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let data = try encoder.encode(snapshot)
+        let decoded = try decoder.decode(WidgetSnapshot.self, from: data)
+        XCTAssertEqual(snapshot, decoded)
+    }
 }
