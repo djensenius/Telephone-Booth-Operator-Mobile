@@ -4,8 +4,8 @@
 //
 //  Big-screen booth status wall for tvOS. Read-only by design — the
 //  remote doesn't translate well to moderation gestures. Polls
-//  /v1/stats/summary every 10 seconds and tails the SSE event stream
-//  for the most recent activity.
+//  /v1/stats/summary and /v1/messages every 10 seconds to keep the
+//  state badge, stat column, and recent-messages strip fresh.
 //
 
 #if os(tvOS)
