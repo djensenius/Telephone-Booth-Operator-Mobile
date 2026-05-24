@@ -115,4 +115,125 @@ final class TBOperatorMobileTests: XCTestCase {
         let url = AppConfig.shared.url(forPath: "v1/auth/me")
         XCTAssertEqual(url.path, "/v1/auth/me")
     }
+
+    // MARK: - CallSession decoding
+
+    func testCallSessionDecodesAllFields() throws {
+        let json = """
+        {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "boothId": "booth-a",
+          "bootId": "11111111-1111-1111-1111-111111111111",
+          "startedAt": "2026-05-23T14:30:00Z",
+          "endedAt": "2026-05-23T14:32:11Z",
+          "digitsDialed": "1234",
+          "outcome": "recording_completed",
+          "recordingId": "rec-9001",
+          "durationMs": 131000
+        }
+        """
+        let data = Data(json.utf8)
+        let session = try OperatorJSON.decoder.decode(CallSession.self, from: data)
+        XCTAssertEqual(session.outcome, .recordingCompleted)
+        XCTAssertTrue(session.outcome?.isSuccess == true)
+        XCTAssertEqual(session.durationMs, 131_000)
+        XCTAssertEqual(session.digitsDialed, "1234")
+    }
+
+    func testCallSessionDecodesOptionalNulls() throws {
+        let json = """
+        {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "boothId": "booth-a",
+          "bootId": "11111111-1111-1111-1111-111111111111",
+          "startedAt": "2026-05-23T14:30:00Z",
+          "endedAt": null,
+          "digitsDialed": null,
+          "outcome": null,
+          "recordingId": null,
+          "durationMs": null
+        }
+        """
+        let data = Data(json.utf8)
+        let session = try OperatorJSON.decoder.decode(CallSession.self, from: data)
+        XCTAssertNil(session.outcome)
+        XCTAssertNil(session.durationMs)
+    }
+
+    func testSessionListPageDecodesCursor() throws {
+        let json = """
+        {
+          "items": [],
+          "nextCursor": "abc123"
+        }
+        """
+        let data = Data(json.utf8)
+        let page = try OperatorJSON.decoder.decode(SessionListPage.self, from: data)
+        XCTAssertEqual(page.nextCursor, "abc123")
+        XCTAssertTrue(page.items.isEmpty)
+    }
+
+    // MARK: - System snapshot
+
+    func testSystemSnapshotComputesMemoryRatio() {
+        let snapshot = BoothSystemSnapshot(
+            boothId: "booth-a",
+            capturedAt: Date(),
+            uptimeSeconds: 12_345,
+            cpuTemperatureCelsius: 47.5,
+            cpuUsageRatio: 0.42,
+            loadAverage1m: 0.5,
+            loadAverage5m: 0.6,
+            loadAverage15m: 0.7,
+            memoryUsedBytes: 3_000_000_000,
+            memoryTotalBytes: 8_000_000_000,
+            tailscaleConnected: true,
+            throttlingFlags: nil
+        )
+        XCTAssertEqual(snapshot.memoryUsedRatio ?? 0, 0.375, accuracy: 0.0001)
+    }
+
+    func testSystemSnapshotMemoryRatioGuardsAgainstZeroTotal() {
+        let snapshot = BoothSystemSnapshot(
+            boothId: "booth-a",
+            capturedAt: Date(),
+            uptimeSeconds: nil,
+            cpuTemperatureCelsius: nil,
+            cpuUsageRatio: nil,
+            loadAverage1m: nil,
+            loadAverage5m: nil,
+            loadAverage15m: nil,
+            memoryUsedBytes: 1_000,
+            memoryTotalBytes: 0,
+            tailscaleConnected: nil,
+            throttlingFlags: nil
+        )
+        XCTAssertNil(snapshot.memoryUsedRatio)
+    }
+
+    // MARK: - Booth event
+
+    func testBoothEventTypeDisplayName() {
+        XCTAssertEqual(BoothEventType.callStarted.displayName, "Call Started")
+        XCTAssertEqual(BoothEventType.recordingStopped.displayName, "Recording Stopped")
+        XCTAssertEqual(BoothEventType.error.displayName, "Error")
+    }
+
+    // MARK: - DurationFormatter
+
+    func testDurationFormatterReturnsNilForMissingOrNonPositive() {
+        XCTAssertNil(DurationFormatter.shortString(milliseconds: nil))
+        XCTAssertNil(DurationFormatter.shortString(milliseconds: 0))
+        XCTAssertNil(DurationFormatter.shortString(milliseconds: -500))
+    }
+
+    func testDurationFormatterFormatsSeconds() {
+        XCTAssertEqual(DurationFormatter.shortString(milliseconds: 45_000), "45s")
+        XCTAssertEqual(DurationFormatter.shortString(milliseconds: 500), "1s")
+    }
+
+    func testDurationFormatterFormatsMinutesAndSeconds() {
+        XCTAssertEqual(DurationFormatter.shortString(milliseconds: 131_000), "2m 11s")
+        XCTAssertEqual(DurationFormatter.shortString(milliseconds: 600_000), "10m 00s")
+    }
 }

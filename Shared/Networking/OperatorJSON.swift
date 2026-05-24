@@ -47,4 +47,10 @@ public enum OperatorJSON {
         }
         return encoder
     }()
+
+    /// Format a Swift `Date` as an ISO-8601 string with fractional seconds,
+    /// suitable for use in query parameters.
+    public static func iso8601String(from date: Date) -> String {
+        isoFractional.string(from: date)
+    }
 }

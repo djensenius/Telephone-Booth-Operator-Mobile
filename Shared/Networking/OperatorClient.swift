@@ -55,19 +55,83 @@ public actor OperatorClient {
         try await get("/v1/status", requireAuth: false)
     }
 
+    /// `GET /v1/status/history` — recent booth status snapshots used to
+    /// render the uptime chart. `since` is optional; default `limit` is
+    /// 100 (server caps at 500).
+    public func fetchStatusHistory(since: Date? = nil, limit: Int = 100) async throws -> StatusHistory {
+        var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
+        if let since {
+            items.append(URLQueryItem(name: "since", value: OperatorJSON.iso8601String(from: since)))
+        }
+        return try await get("/v1/status/history", query: items)
+    }
+
+    /// `GET /v1/sessions` — paged call sessions. `cursor` is the opaque
+    /// token returned in the previous page's `nextCursor`.
+    public func fetchSessions(
+        boothId: String? = nil,
+        cursor: String? = nil,
+        limit: Int = 50
+    ) async throws -> SessionListPage {
+        var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
+        if let boothId { items.append(URLQueryItem(name: "boothId", value: boothId)) }
+        if let cursor { items.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try await get("/v1/sessions", query: items)
+    }
+
+    /// `GET /v1/sessions/{id}` — one session with its ordered events.
+    public func fetchSession(id: String) async throws -> CallSessionDetail {
+        try await get("/v1/sessions/\(id)")
+    }
+
+    /// `GET /v1/system/current` — latest cached system snapshot for one
+    /// booth, or all booths when `boothId` is nil.
+    public func fetchCurrentSystem(boothId: String? = nil) async throws -> BoothSystemSnapshot? {
+        let items = boothId.map { [URLQueryItem(name: "boothId", value: $0)] } ?? []
+        // The endpoint returns 404 when no snapshot has ever been pushed;
+        // that's not an error from the UI's perspective, just "no data yet".
+        do {
+            return try await get("/v1/system/current", query: items)
+        } catch let OperatorError.httpError(status, _) where status == 404 {
+            return nil
+        }
+    }
+
     // MARK: - Core request helpers
 
-    private func get<T: Decodable>(_ path: String, requireAuth: Bool = true) async throws -> T {
-        try await request(method: "GET", path: path, body: Optional<Data>.none, requireAuth: requireAuth)
+    private func get<T: Decodable>(
+        _ path: String,
+        query: [URLQueryItem] = [],
+        requireAuth: Bool = true
+    ) async throws -> T {
+        try await request(
+            method: "GET",
+            path: path,
+            query: query,
+            body: Optional<Data>.none,
+            requireAuth: requireAuth
+        )
     }
 
     private func request<Body: Encodable, Response: Decodable>(
         method: String,
         path: String,
+        query: [URLQueryItem] = [],
         body: Body?,
         requireAuth: Bool = true
     ) async throws -> Response {
-        let url = config.url(forPath: path)
+        let baseURL = config.url(forPath: path)
+        let url: URL
+        if query.isEmpty {
+            url = baseURL
+        } else {
+            guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+                throw OperatorError.invalidURL
+            }
+            components.queryItems = (components.queryItems ?? []) + query
+            guard let composed = components.url else { throw OperatorError.invalidURL }
+            url = composed
+        }
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
