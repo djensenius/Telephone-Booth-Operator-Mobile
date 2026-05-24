@@ -236,4 +236,102 @@ final class TBOperatorMobileTests: XCTestCase {
         XCTAssertEqual(DurationFormatter.shortString(milliseconds: 131_000), "2m 11s")
         XCTAssertEqual(DurationFormatter.shortString(milliseconds: 600_000), "10m 00s")
     }
+
+    // MARK: - Message decoding
+
+    func testMessageDecodesWithLatestTranscriptionAndModeration() throws {
+        let json = """
+        {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "status": "approved",
+          "questionId": "22222222-2222-2222-2222-222222222222",
+          "notes": "Sounds good.",
+          "createdAt": "2026-05-23T14:30:00Z",
+          "receivedAt": "2026-05-23T14:30:42Z",
+          "audio": {
+            "url": "https://example.com/audio.flac",
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "durationMs": 12300
+          },
+          "latestTranscription": {
+            "id": "33333333-3333-3333-3333-333333333333",
+            "messageId": "11111111-1111-1111-1111-111111111111",
+            "provider": "openai",
+            "model": "whisper-1",
+            "status": "succeeded",
+            "text": "Hello, operator.",
+            "language": "en",
+            "durationMs": 12300,
+            "latencyMs": 850,
+            "error": null,
+            "requestedById": null,
+            "createdAt": "2026-05-23T14:31:00Z",
+            "completedAt": "2026-05-23T14:31:01Z"
+          },
+          "latestModeration": {
+            "id": "44444444-4444-4444-4444-444444444444",
+            "messageId": "11111111-1111-1111-1111-111111111111",
+            "transcriptionId": "33333333-3333-3333-3333-333333333333",
+            "provider": "openai",
+            "model": "omni-moderation-latest",
+            "status": "succeeded",
+            "flagged": false,
+            "recommendation": "approve",
+            "maxScore": 0.05,
+            "categories": {"hate": 0.01},
+            "reasonSummary": null,
+            "latencyMs": 120,
+            "error": null,
+            "createdAt": "2026-05-23T14:31:02Z"
+          }
+        }
+        """
+        let data = Data(json.utf8)
+        let message = try OperatorJSON.decoder.decode(Message.self, from: data)
+        XCTAssertEqual(message.status, .approved)
+        XCTAssertEqual(message.audio.durationMs, 12_300)
+        XCTAssertEqual(message.latestTranscription?.text, "Hello, operator.")
+        XCTAssertEqual(message.latestTranscription?.provider, .openai)
+        XCTAssertEqual(message.latestModeration?.recommendation, .approve)
+        XCTAssertEqual(message.latestModeration?.flagged, false)
+    }
+
+    func testMessageDecodesWithoutTranscription() throws {
+        let json = """
+        {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "status": "received",
+          "questionId": null,
+          "notes": null,
+          "createdAt": "2026-05-23T14:30:00Z",
+          "receivedAt": null,
+          "audio": {
+            "url": "https://example.com/audio.flac",
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "durationMs": null
+          },
+          "latestTranscription": null,
+          "latestModeration": null
+        }
+        """
+        let data = Data(json.utf8)
+        let message = try OperatorJSON.decoder.decode(Message.self, from: data)
+        XCTAssertNil(message.latestTranscription)
+        XCTAssertNil(message.latestModeration)
+        XCTAssertNil(message.audio.durationMs)
+    }
+
+    func testAiProviderDisplayNames() {
+        XCTAssertEqual(AiProvider.openai.displayName, "OpenAI")
+        XCTAssertEqual(AiProvider.macApp.displayName, "Mac app")
+        XCTAssertEqual(AiProvider.disabled.displayName, "Disabled")
+    }
+
+    func testMessageStatusRoundTrip() throws {
+        for status in MessageStatus.allCases {
+            let data = try JSONEncoder().encode(status)
+            let decoded = try JSONDecoder().decode(MessageStatus.self, from: data)
+            XCTAssertEqual(status, decoded)
+        }
+    }
 }

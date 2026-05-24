@@ -97,6 +97,38 @@ public actor OperatorClient {
         }
     }
 
+    /// `GET /v1/messages` — list (filterable by status, since, limit).
+    public func fetchMessages(
+        status: MessageStatus? = nil,
+        since: Date? = nil,
+        limit: Int = 50
+    ) async throws -> MessageList {
+        var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
+        if let status { items.append(URLQueryItem(name: "status", value: status.rawValue)) }
+        if let since {
+            items.append(URLQueryItem(name: "since", value: OperatorJSON.iso8601String(from: since)))
+        }
+        return try await get("/v1/messages", query: items)
+    }
+
+    /// `GET /v1/messages/{id}` — single message, including a freshly-
+    /// signed audio URL on `audio.url`.
+    public func fetchMessage(id: String) async throws -> Message {
+        try await get("/v1/messages/\(id)")
+    }
+
+    /// `GET /v1/messages/{id}/transcriptions` — every transcription
+    /// attempt for the message, newest first.
+    public func fetchTranscriptions(messageId: String) async throws -> TranscriptionList {
+        try await get("/v1/messages/\(messageId)/transcriptions")
+    }
+
+    /// `POST /v1/messages/{id}/transcribe` — re-runs transcription (and
+    /// downstream moderation). Returns the new `Transcription`.
+    public func transcribeMessage(id: String) async throws -> Transcription {
+        try await postEmpty("/v1/messages/\(id)/transcribe")
+    }
+
     // MARK: - Core request helpers
 
     private func get<T: Decodable>(
@@ -110,6 +142,15 @@ public actor OperatorClient {
             query: query,
             body: Optional<Data>.none,
             requireAuth: requireAuth
+        )
+    }
+
+    private func postEmpty<T: Decodable>(_ path: String) async throws -> T {
+        try await request(
+            method: "POST",
+            path: path,
+            body: Optional<Data>.none,
+            requireAuth: true
         )
     }
 
