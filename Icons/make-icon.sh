@@ -10,7 +10,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ICONS="$ROOT/Icons"
 SOURCE="$ICONS/AppIconSource.png"
-REFERENCE_BACKGROUND="${REFERENCE_BACKGROUND:-$HOME/Developer/gt3pro/Icons/scooter-bkgrd.png}"
+DEFAULT_REFERENCE_BACKGROUND="$HOME/Developer/gt3pro/Icons/scooter-bkgrd.png"
+REFERENCE_BACKGROUND="${REFERENCE_BACKGROUND:-}"
 
 if ! command -v magick >/dev/null 2>&1; then
   echo "magick not found — brew install imagemagick" >&2
@@ -22,11 +23,6 @@ if [[ ! -f "$SOURCE" ]]; then
   exit 1
 fi
 
-if [[ ! -f "$REFERENCE_BACKGROUND" ]]; then
-  echo "missing reference background $REFERENCE_BACKGROUND" >&2
-  exit 1
-fi
-
 mkdir -p "$ICONS"
 
 BACKGROUND="$ICONS/AppIcon-background.png"
@@ -34,7 +30,17 @@ FOREGROUND="$ICONS/AppIcon-foreground.png"
 COMPOSITE="$ICONS/AppIcon-composite.png"
 MASK="$ICONS/.AppIcon-mask.png"
 
-magick "$REFERENCE_BACKGROUND" -resize 1024x1024! -depth 8 "$BACKGROUND"
+if [[ -z "$REFERENCE_BACKGROUND" && -f "$DEFAULT_REFERENCE_BACKGROUND" ]]; then
+  REFERENCE_BACKGROUND="$DEFAULT_REFERENCE_BACKGROUND"
+fi
+
+if [[ -n "$REFERENCE_BACKGROUND" || ! -f "$BACKGROUND" ]]; then
+  if [[ ! -f "$REFERENCE_BACKGROUND" ]]; then
+    echo "missing reference background $REFERENCE_BACKGROUND" >&2
+    exit 1
+  fi
+  magick "$REFERENCE_BACKGROUND" -resize 1024x1024! -depth 8 "$BACKGROUND"
+fi
 
 magick "$SOURCE" -resize 1024x1024! \
   -alpha off \
@@ -177,10 +183,10 @@ APP_STACK="$TV/App Icon.imagestack"
 create_tv_stack "$APP_STACK" 800 480 ', "scale" : "2x"'
 for layer in Back Front; do
   case "$layer" in
-    Back) source="$BACKGROUND"; file1x="back-1x.png"; file2x="back.png" ;;
-    Front) source="$FOREGROUND"; file1x="front-1x.png"; file2x="front.png" ;;
+    Back) layer_source="$BACKGROUND"; file1x="back-1x.png"; file2x="back.png"; mode="cover" ;;
+    Front) layer_source="$FOREGROUND"; file1x="front-1x.png"; file2x="front.png"; mode="contain" ;;
   esac
-  render_layer "$source" "$APP_STACK/$layer.imagestacklayer/Content.imageset/$file1x" 400 240 contain
+  render_layer "$layer_source" "$APP_STACK/$layer.imagestacklayer/Content.imageset/$file1x" 400 240 "$mode"
   write_json "$APP_STACK/$layer.imagestacklayer/Content.imageset/Contents.json" "{
   \"images\" : [
     { \"filename\" : \"$file1x\", \"idiom\" : \"tv\", \"scale\" : \"1x\" },
