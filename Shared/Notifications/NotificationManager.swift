@@ -198,7 +198,7 @@ public final class NotificationManager {
 
     private func registerForRemoteNotifications() {
         #if canImport(WatchKit)
-        WKExtension.shared().registerForRemoteNotifications()
+        WKApplication.shared().registerForRemoteNotifications()
         #elseif canImport(UIKit)
         UIApplication.shared.registerForRemoteNotifications()
         #elseif canImport(AppKit)
@@ -208,7 +208,7 @@ public final class NotificationManager {
 
     private func unregisterForRemoteNotifications() {
         #if canImport(WatchKit)
-        WKExtension.shared().unregisterForRemoteNotifications()
+        WKApplication.shared().unregisterForRemoteNotifications()
         #elseif canImport(UIKit)
         UIApplication.shared.unregisterForRemoteNotifications()
         #elseif canImport(AppKit)
