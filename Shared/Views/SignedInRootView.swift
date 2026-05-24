@@ -44,6 +44,13 @@ public struct SignedInRootView: View {
             .tabItem { Label("Sessions", systemImage: "phone.connection.fill") }
 
             NavigationStack {
+                MessageListView()
+                    .navigationTitle("Messages")
+                    .toolbar { settingsToolbar }
+            }
+            .tabItem { Label("Messages", systemImage: "tray.full") }
+
+            NavigationStack {
                 SystemView()
                     .navigationTitle("System")
                     .toolbar { settingsToolbar }
