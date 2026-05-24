@@ -7,7 +7,7 @@
 [![Swift](https://img.shields.io/badge/Swift-5-orange.svg)](https://swift.org)
 
 <p align="center">
-  <img src="Icons/AppIcon.svg" alt="Telephone Booth Operator Mobile app icon" width="180" />
+  <img src="Icons/AppIcon-composite.png" alt="Telephone Booth Operator Mobile app icon" width="180" />
 </p>
 
 > _"This is Bell Canada calling. Please hold for the operator."_

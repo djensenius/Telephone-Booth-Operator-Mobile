@@ -1,11 +1,16 @@
 # Icons
 
-App icon sources live here. The icon is a phone-operator illustration
-matching the visual family of [`FluxHaus`](https://github.com/djensenius/FluxHaus),
-[`Rhizome`](https://github.com/djensenius/Rhizome),
-[`gt3pro`](https://github.com/djensenius/gt3pro), and
-[`Telephone-Booth-Transcription`](https://github.com/djensenius/Telephone-Booth-Transcription)
-— a circular glyph on a soft-red background with a 1980s Bell Contempra
-handset silhouette.
+App icon sources live here. `AppIconSource.png` is the generated sumi-e ink
+artwork. `make-icon.sh` strips the source's generated background and renders a
+two-layer split for every target: gt3pro-style background plus brushstroke
+foreground.
 
-The source SVG + `make-icon.sh` rendering script land in PR 11.
+Run:
+
+```bash
+./Icons/make-icon.sh
+```
+
+The generated `AppIcon-background.png`, `AppIcon-foreground.png`, and
+`AppIcon-composite.png` are committed so the layer sources are visible without
+rebuilding.
