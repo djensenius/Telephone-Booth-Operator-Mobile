@@ -1,0 +1,147 @@
+//
+//  LoginView.swift
+//  TelephoneBoothOperatorMobile
+//
+//  Sign-in screen — Catppuccin theme + Liquid Glass treatment where the
+//  platform supports it. On tvOS this view shows a paired-device message
+//  instead; ASWebAuthenticationSession isn't available there.
+//
+
+import SwiftUI
+
+public struct LoginView: View {
+    @State private var auth = AuthManager.shared
+    @State private var isSigningIn = false
+    @State private var errorMessage: String?
+    @State private var showingSettings = false
+
+    public init() {}
+
+    public var body: some View {
+        ZStack {
+            Theme.Colors.background
+                .ignoresSafeArea()
+
+            VStack(spacing: Theme.Spacing.extraLarge) {
+                Spacer()
+
+                operatorBadge
+
+                Text("Telephone-Booth Operator")
+                    .font(Theme.Fonts.headerXL())
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                    .multilineTextAlignment(.center)
+
+                Text("Sign in to monitor and moderate the booth from your pocket.")
+                    .font(Theme.Fonts.bodyMedium)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Theme.Spacing.large)
+
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(Theme.Fonts.bodySmall)
+                        .foregroundStyle(Theme.Colors.error)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Theme.Spacing.large)
+                }
+
+                signInButton
+
+                Button {
+                    showingSettings = true
+                } label: {
+                    Label("Server settings", systemImage: "gear")
+                        .font(Theme.Fonts.bodySmall)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.Colors.textSecondary)
+
+                Spacer()
+            }
+            .padding(Theme.Spacing.large)
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView()
+        }
+    }
+
+    private var operatorBadge: some View {
+        Image(systemName: "phone.connection")
+            .font(.system(size: 72, weight: .regular))
+            .foregroundStyle(Theme.Colors.accent)
+            .padding(Theme.Spacing.large)
+            .modifier(LiquidGlassCircle())
+    }
+
+    @ViewBuilder
+    private var signInButton: some View {
+        #if os(tvOS)
+        VStack(spacing: Theme.Spacing.medium) {
+            Text("Open the iPhone, iPad, or Mac app to sign in.")
+                .font(Theme.Fonts.bodyMedium)
+                .foregroundStyle(Theme.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+            Image(systemName: "iphone.gen3")
+                .font(.system(size: 48))
+                .foregroundStyle(Theme.Colors.accent)
+        }
+        .padding(.horizontal, Theme.Spacing.large)
+        #else
+        Button {
+            Task { await signIn() }
+        } label: {
+            HStack(spacing: Theme.Spacing.small) {
+                if isSigningIn {
+                    ProgressView()
+                } else {
+                    Image(systemName: "person.badge.key")
+                }
+                Text(isSigningIn ? "Signing in…" : "Sign in")
+                    .font(Theme.Fonts.bodyMedium.weight(.semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Theme.Spacing.medium)
+        }
+        .disabled(isSigningIn)
+        .tint(Theme.Colors.accent)
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .padding(.horizontal, Theme.Spacing.large)
+        #endif
+    }
+
+    private func signIn() async {
+        isSigningIn = true
+        errorMessage = nil
+        defer { isSigningIn = false }
+        do {
+            try await AuthManager.shared.signInWithOIDC()
+        } catch AuthError.cancelled {
+            // user dismissed — no error shown
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+/// Adds a Liquid Glass circular surround when running on Apple platforms
+/// that support `.glassEffect`. Falls back to a tinted circle on older
+/// targets (the project pins all targets to 26.0 so the fallback should
+/// rarely fire, but the modifier stays graceful).
+private struct LiquidGlassCircle: ViewModifier {
+    func body(content: Content) -> some View {
+        #if os(visionOS)
+        content
+            .background(Circle().fill(Theme.Colors.elevatedBackground))
+            .glassBackgroundEffect(in: .circle)
+        #else
+        content
+            .background(Circle().fill(Theme.Colors.elevatedBackground))
+        #endif
+    }
+}
+
+#Preview {
+    LoginView()
+}
