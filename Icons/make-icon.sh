@@ -34,12 +34,12 @@ if [[ -z "$REFERENCE_BACKGROUND" && -f "$DEFAULT_REFERENCE_BACKGROUND" ]]; then
   REFERENCE_BACKGROUND="$DEFAULT_REFERENCE_BACKGROUND"
 fi
 
-if [[ -n "$REFERENCE_BACKGROUND" || ! -f "$BACKGROUND" ]]; then
-  if [[ ! -f "$REFERENCE_BACKGROUND" ]]; then
-    echo "missing reference background $REFERENCE_BACKGROUND" >&2
-    exit 1
-  fi
+if [[ -n "$REFERENCE_BACKGROUND" ]]; then
   magick "$REFERENCE_BACKGROUND" -resize 1024x1024! -depth 8 "$BACKGROUND"
+elif [[ ! -f "$BACKGROUND" ]]; then
+  # Warm parchment fallback — complements sumi-e ink and avoids the
+  # "squircle jail" effect of a near-white background on macOS.
+  magick -size 1024x1024 "xc:#E8D5B7" -depth 8 "$BACKGROUND"
 fi
 
 magick "$SOURCE" -resize 1024x1024! \
