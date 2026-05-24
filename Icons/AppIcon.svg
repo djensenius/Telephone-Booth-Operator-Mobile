@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Telephone-Booth-Operator-Mobile app icon.
+  Vintage Bell Contempra-style handset on a soft red booth-paint background,
+  matching the FluxHaus / Rhizome / gt3pro / Telephone-Booth-Transcription
+  brushstroke family — same warm off-white halo, same sumi-e ink filter.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Telephone Booth Operator Mobile">
+  <defs>
+    <radialGradient id="booth" cx="50%" cy="42%" r="78%">
+      <stop offset="0%" stop-color="#c44545"/>
+      <stop offset="55%" stop-color="#a8302f"/>
+      <stop offset="100%" stop-color="#7c1f1f"/>
+    </radialGradient>
+
+    <radialGradient id="halo" cx="50%" cy="46%" r="38%">
+      <stop offset="0%" stop-color="#fff5e7" stop-opacity="0.92"/>
+      <stop offset="60%" stop-color="#fbe1c1" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#fbe1c1" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="handset" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a1a1a"/>
+      <stop offset="100%" stop-color="#050505"/>
+    </linearGradient>
+
+    <linearGradient id="cord" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a1a1a"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </linearGradient>
+
+    <filter id="ink" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="1.15" numOctaves="3" seed="29" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.2"/>
+    </filter>
+
+    <filter id="paint" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="11" result="grain"/>
+      <feColorMatrix in="grain" type="matrix" values="0 0 0 0 0.55  0 0 0 0 0.20  0 0 0 0 0.20  0 0 0 0.18 0" result="tinted"/>
+      <feComposite in="tinted" in2="SourceGraphic" operator="in" result="masked"/>
+      <feMerge>
+        <feMergeNode in="SourceGraphic"/>
+        <feMergeNode in="masked"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" rx="224" ry="224" fill="url(#booth)" filter="url(#paint)"/>
+
+  <circle cx="512" cy="468" r="320" fill="url(#halo)"/>
+
+  <!--
+    Coiled handset cord. Springs from the earpiece (lower-left in the
+    rotated frame, roughly (300, 580) in icon space) and trails
+    diagonally toward the bottom-right.
+  -->
+  <g fill="none" stroke="url(#cord)" stroke-linecap="round" filter="url(#ink)">
+    <path d="M 320 590
+             C 360 612, 420 600, 440 632
+             C 458 662, 408 678, 408 706
+             C 408 736, 466 738, 472 766
+             C 477 794, 420 802, 432 832
+             C 446 866, 510 858, 540 882
+             C 568 904, 612 902, 660 906"
+          stroke="#0a0a0a" stroke-width="22" opacity="0.92"/>
+    <path d="M 320 590
+             C 360 612, 420 600, 440 632
+             C 458 662, 408 678, 408 706
+             C 408 736, 466 738, 472 766
+             C 477 794, 420 802, 432 832
+             C 446 866, 510 858, 540 882
+             C 568 904, 612 902, 660 906"
+          stroke="#fbe1c1" stroke-width="6" opacity="0.55"/>
+  </g>
+
+  <!--
+    Bell Contempra-inspired handset. A long, low ovoid body with a
+    rounded mouthpiece (right) and earpiece (left), held diagonally.
+  -->
+  <g filter="url(#ink)">
+    <g transform="translate(512 460) rotate(-22) translate(-512 -460)">
+      <!-- main handset body -->
+      <path d="M 244 414
+               C 244 358, 308 322, 384 322
+               L 640 322
+               C 716 322, 780 358, 780 414
+               L 780 506
+               C 780 562, 716 598, 640 598
+               L 384 598
+               C 308 598, 244 562, 244 506 Z"
+            fill="url(#handset)"/>
+      <!-- earpiece dome (left) -->
+      <ellipse cx="312" cy="460" rx="78" ry="86" fill="#050505"/>
+      <!-- mouthpiece dome (right) -->
+      <ellipse cx="712" cy="460" rx="78" ry="86" fill="#050505"/>
+      <!-- earpiece speaker grille -->
+      <g fill="#fbe1c1" opacity="0.55">
+        <circle cx="290" cy="438" r="6"/>
+        <circle cx="314" cy="430" r="6"/>
+        <circle cx="338" cy="438" r="6"/>
+        <circle cx="290" cy="462" r="6"/>
+        <circle cx="314" cy="454" r="6"/>
+        <circle cx="338" cy="462" r="6"/>
+        <circle cx="290" cy="486" r="6"/>
+        <circle cx="314" cy="478" r="6"/>
+        <circle cx="338" cy="486" r="6"/>
+      </g>
+      <!-- mouthpiece grille -->
+      <g fill="#fbe1c1" opacity="0.55">
+        <circle cx="690" cy="438" r="6"/>
+        <circle cx="714" cy="430" r="6"/>
+        <circle cx="738" cy="438" r="6"/>
+        <circle cx="690" cy="462" r="6"/>
+        <circle cx="714" cy="454" r="6"/>
+        <circle cx="738" cy="462" r="6"/>
+        <circle cx="690" cy="486" r="6"/>
+        <circle cx="714" cy="478" r="6"/>
+        <circle cx="738" cy="486" r="6"/>
+      </g>
+      <!-- inset highlight along the back of the handset -->
+      <path d="M 330 348
+               C 432 332, 600 332, 700 348
+               C 690 358, 596 354, 512 354
+               C 426 354, 340 358, 330 348 Z"
+            fill="#fbe1c1" opacity="0.18"/>
+    </g>
+  </g>
+
+  <!--
+    Subtle base shadow under the handset for grounding.
+  -->
+  <ellipse cx="512" cy="640" rx="280" ry="22" fill="#000000" opacity="0.22" filter="url(#ink)"/>
+</svg>
