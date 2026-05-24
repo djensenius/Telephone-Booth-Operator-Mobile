@@ -19,7 +19,9 @@ public struct SignedInRootView: View {
     public init() {}
 
     public var body: some View {
-        #if os(watchOS) || os(tvOS)
+        #if os(watchOS)
+        WatchHomeView()
+        #elseif os(tvOS)
         compactShell
         #else
         tabbedShell
@@ -95,29 +97,12 @@ public struct SignedInRootView: View {
     }
     #endif
 
-    #if os(watchOS) || os(tvOS)
+    #if os(tvOS)
     private var compactShell: some View {
         NavigationStack {
             StatusDashboardView()
                 .navigationTitle("Operator")
-                #if os(watchOS)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            showingSettings = true
-                        } label: {
-                            Image(systemName: "gear")
-                        }
-                        .accessibilityLabel("Settings")
-                    }
-                }
-                #endif
         }
-        #if os(watchOS)
-        .sheet(isPresented: $showingSettings) {
-            SettingsView()
-        }
-        #endif
     }
     #endif
 }
