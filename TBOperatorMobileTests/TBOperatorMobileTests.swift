@@ -33,9 +33,10 @@ final class TBOperatorMobileTests: XCTestCase {
           },
           "generatedAt": "2026-05-23T14:32:11.250Z"
         }
-        """.data(using: .utf8)!
+        """
+        let data = Data(json.utf8)
 
-        let summary = try OperatorJSON.decoder.decode(StatsSummary.self, from: json)
+        let summary = try OperatorJSON.decoder.decode(StatsSummary.self, from: data)
         XCTAssertEqual(summary.booth.state, .playingMessage)
         XCTAssertTrue(summary.booth.state.isCallActive)
         XCTAssertEqual(summary.messages.pending, 3)
@@ -58,9 +59,10 @@ final class TBOperatorMobileTests: XCTestCase {
           "realtime": { "wsClients": 0 },
           "generatedAt": "2026-05-23T14:32:11Z"
         }
-        """.data(using: .utf8)!
+        """
+        let data = Data(json.utf8)
 
-        let summary = try OperatorJSON.decoder.decode(StatsSummary.self, from: json)
+        let summary = try OperatorJSON.decoder.decode(StatsSummary.self, from: data)
         XCTAssertEqual(summary.booth.state, .idle)
         XCTAssertNil(summary.booth.currentQuestionId)
     }
@@ -75,13 +77,14 @@ final class TBOperatorMobileTests: XCTestCase {
           "picture": "https://example.com/avatar.png",
           "providerName": "Authentik"
         }
-        """.data(using: .utf8)!
+        """
+        let data = Data(json.utf8)
 
-        let me = try OperatorJSON.decoder.decode(OperatorMe.self, from: json)
-        XCTAssertEqual(me.id, "auth0|operator-1")
-        XCTAssertEqual(me.email, "ada@example.com")
-        XCTAssertEqual(me.picture?.host, "example.com")
-        XCTAssertEqual(me.groups, ["telephone-booth-operators"])
+        let profile = try OperatorJSON.decoder.decode(OperatorMe.self, from: data)
+        XCTAssertEqual(profile.id, "auth0|operator-1")
+        XCTAssertEqual(profile.email, "ada@example.com")
+        XCTAssertEqual(profile.picture?.host, "example.com")
+        XCTAssertEqual(profile.groups, ["telephone-booth-operators"])
     }
 
     // MARK: - BoothState helpers
