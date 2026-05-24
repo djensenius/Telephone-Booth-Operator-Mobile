@@ -5,7 +5,9 @@ Authentik. This document describes how to register the app on Authentik
 and how the in-app flow works once the bearer middleware lands in the
 operator API (operator PR 1).
 
-> **Status:** scaffold. `Shared/AuthManager.swift` lands in PR 2.
+> **Status:** implemented in PR 2. `Shared/Auth/AuthManager.swift` is the
+> entrypoint; tokens persist in the Keychain and refresh proactively when
+> they're within 60 s of expiry.
 
 ## Authentik: register the mobile client
 
