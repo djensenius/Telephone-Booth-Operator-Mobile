@@ -12,6 +12,7 @@ public struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var auth = AuthManager.shared
     @State private var config = AppConfig.shared
+    @State private var notifications = NotificationManager.shared
 
     @State private var apiBaseString: String
     @State private var errorMessage: String?
@@ -65,6 +66,9 @@ public struct SettingsView: View {
                 }
 
                 if auth.isSignedIn {
+                    #if !os(tvOS)
+                    NotificationSettingsSection(notifications: notifications)
+                    #endif
                     Section {
                         Button(role: .destructive) {
                             auth.signOut()
@@ -83,6 +87,9 @@ public struct SettingsView: View {
                 }
             }
             #endif
+            .task {
+                await notifications.refreshAuthorizationStatus()
+            }
         }
     }
 
