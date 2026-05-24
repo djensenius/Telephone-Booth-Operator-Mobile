@@ -51,6 +51,20 @@ public struct SignedInRootView: View {
             .tabItem { Label("Messages", systemImage: "tray.full") }
 
             NavigationStack {
+                EventsFeedView()
+                    .navigationTitle("Events")
+                    .toolbar { settingsToolbar }
+            }
+            .tabItem { Label("Events", systemImage: "antenna.radiowaves.left.and.right") }
+
+            NavigationStack {
+                QuestionsView()
+                    .navigationTitle("Questions")
+                    .toolbar { settingsToolbar }
+            }
+            .tabItem { Label("Questions", systemImage: "questionmark.bubble") }
+
+            NavigationStack {
                 SystemView()
                     .navigationTitle("System")
                     .toolbar { settingsToolbar }
