@@ -59,7 +59,7 @@ for at-a-glance booth health.
 | `TBOperatorMobileWidgets/` | WidgetKit extension (Live Activity + widgets). |
 | `TBOperatorMobile*Tests/` | XCTest / Swift Testing suites per platform. |
 | `docs/` | Architecture, auth, widget design, runbooks. |
-| `Icons/` | App icon source files (SVG + PSD). |
+| `Icons/` | PNG app icon source, extracted layers, and rendering script. |
 | `scripts/` | `make-icon.sh` and other helper scripts. |
 | `.github/workflows/` | CI: `swiftlint.yml`, `build.yml` (matrix across all platforms with project drift check). |
 

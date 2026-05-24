@@ -1,52 +1,214 @@
 #!/usr/bin/env bash
 #
-#  make-icon.sh — render Icons/AppIcon.svg into every Assets.xcassets
-#  AppIcon.appiconset across the project. Requires rsvg-convert (brew
-#  install librsvg). Re-run whenever AppIcon.svg changes; the rendered
-#  PNGs are committed alongside the SVG so contributors don't need the
-#  toolchain locally.
+# Render the PNG source artwork into flat and layered Apple app-icon assets.
 #
-#  Usage: ./Icons/make-icon.sh
+# The generated source background is stripped away. All targets use only two
+# layers: the gt3pro-style background and the extracted brushstroke foreground.
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SVG="$ROOT/Icons/AppIcon.svg"
+ICONS="$ROOT/Icons"
+SOURCE="$ICONS/AppIconSource.png"
+REFERENCE_BACKGROUND="${REFERENCE_BACKGROUND:-$HOME/Developer/gt3pro/Icons/scooter-bkgrd.png}"
 
-if ! command -v rsvg-convert >/dev/null 2>&1; then
-  echo "rsvg-convert not found — brew install librsvg" >&2
+if ! command -v magick >/dev/null 2>&1; then
+  echo "magick not found — brew install imagemagick" >&2
   exit 1
 fi
 
-render() {
+if [[ ! -f "$SOURCE" ]]; then
+  echo "missing $SOURCE" >&2
+  exit 1
+fi
+
+if [[ ! -f "$REFERENCE_BACKGROUND" ]]; then
+  echo "missing reference background $REFERENCE_BACKGROUND" >&2
+  exit 1
+fi
+
+mkdir -p "$ICONS"
+
+BACKGROUND="$ICONS/AppIcon-background.png"
+FOREGROUND="$ICONS/AppIcon-foreground.png"
+COMPOSITE="$ICONS/AppIcon-composite.png"
+MASK="$ICONS/.AppIcon-mask.png"
+
+magick "$REFERENCE_BACKGROUND" -resize 1024x1024! -depth 8 "$BACKGROUND"
+
+magick "$SOURCE" -resize 1024x1024! \
+  -alpha off \
+  -colorspace Gray \
+  -negate \
+  -level 34%,82% \
+  -blur 0x0.25 \
+  "$MASK"
+
+magick "$SOURCE" -resize 1024x1024! "$MASK" \
+  -compose CopyOpacity \
+  -composite \
+  -depth 8 \
+  "$FOREGROUND"
+
+magick "$BACKGROUND" "$FOREGROUND" -composite -depth 8 "$COMPOSITE"
+
+rm -f "$MASK"
+
+render_square() {
   local out="$1" size="$2"
   mkdir -p "$(dirname "$out")"
-  rsvg-convert --width "$size" --height "$size" --format png "$SVG" --output "$out"
+  magick "$COMPOSITE" -resize "${size}x${size}!" -depth 8 "$out"
   echo "  ${size}x${size} -> ${out#$ROOT/}"
 }
 
-# Single-image idioms (iOS / iPadOS / watchOS / visionOS) — Xcode wants
-# a single 1024×1024 PNG and renders the rest at build time.
-for set in TBOperatorMobile TBOperatorMobileWatch TBOperatorMobileVision; do
-  target="$ROOT/$set/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png"
-  render "$target" 1024
+render_layer() {
+  local source="$1" out="$2" width="$3" height="$4" mode="${5:-contain}"
+  mkdir -p "$(dirname "$out")"
+  if [[ "$mode" == "cover" ]]; then
+    magick "$source" -resize "${width}x${height}^" -gravity center -extent "${width}x${height}" -depth 8 "$out"
+  else
+    magick -size "${width}x${height}" xc:none \
+      "$source" -resize "${width}x${height}" -gravity center -compose over -composite \
+      -depth 8 "$out"
+  fi
+}
+
+render_tv_composite() {
+  local out="$1" width="$2" height="$3"
+  mkdir -p "$(dirname "$out")"
+  magick "$COMPOSITE" -resize "${width}x${height}^" -gravity center -extent "${width}x${height}" -depth 8 "$out"
+}
+
+write_json() {
+  local file="$1" content="$2"
+  mkdir -p "$(dirname "$file")"
+  printf '%s\n' "$content" > "$file"
+}
+
+# Single-image idioms: iOS / iPadOS / watchOS.
+for set in TBOperatorMobile TBOperatorMobileWatch; do
+  render_square "$ROOT/$set/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png" 1024
 done
 
-# macOS .icns needs every size pre-rendered.
+# macOS .icns-style appiconset.
 MAC="$ROOT/TBOperatorMobileMac/Assets.xcassets/AppIcon.appiconset"
-render "$MAC/icon_16x16.png"      16
-render "$MAC/icon_16x16@2x.png"   32
-render "$MAC/icon_32x32.png"      32
-render "$MAC/icon_32x32@2x.png"   64
-render "$MAC/icon_128x128.png"   128
-render "$MAC/icon_128x128@2x.png" 256
-render "$MAC/icon_256x256.png"   256
-render "$MAC/icon_256x256@2x.png" 512
-render "$MAC/icon_512x512.png"   512
-render "$MAC/icon_512x512@2x.png" 1024
+render_square "$MAC/icon_16x16.png" 16
+render_square "$MAC/icon_16x16@2x.png" 32
+render_square "$MAC/icon_32x32.png" 32
+render_square "$MAC/icon_32x32@2x.png" 64
+render_square "$MAC/icon_128x128.png" 128
+render_square "$MAC/icon_128x128@2x.png" 256
+render_square "$MAC/icon_256x256.png" 256
+render_square "$MAC/icon_256x256@2x.png" 512
+render_square "$MAC/icon_512x512.png" 512
+render_square "$MAC/icon_512x512@2x.png" 1024
 
-# tvOS uses a Brand Assets group rather than a flat AppIcon; the existing
-# Contents.json keeps the placeholder, and the SVG is supplied here for
-# future hand-rendered layered tiles.
+# visionOS layered icon: background + brushstroke only.
+VISION="$ROOT/TBOperatorMobileVision/Assets.xcassets/AppIcon.solidimagestack"
+rm -rf "$ROOT/TBOperatorMobileVision/Assets.xcassets/AppIcon.appiconset" "$VISION"
+for layer in Back Front; do
+  mkdir -p "$VISION/$layer.solidimagestacklayer/Content.imageset"
+  write_json "$VISION/$layer.solidimagestacklayer/Contents.json" '{
+  "info" : { "author" : "xcode", "version" : 1 }
+}'
+done
+write_json "$VISION/Contents.json" '{
+  "info" : { "author" : "xcode", "version" : 1 },
+  "layers" : [
+    { "filename" : "Front.solidimagestacklayer" },
+    { "filename" : "Back.solidimagestacklayer" }
+  ]
+}'
+render_layer "$BACKGROUND" "$VISION/Back.solidimagestacklayer/Content.imageset/background.png" 1024 1024 cover
+render_layer "$FOREGROUND" "$VISION/Front.solidimagestacklayer/Content.imageset/foreground.png" 1024 1024 contain
+write_json "$VISION/Back.solidimagestacklayer/Content.imageset/Contents.json" '{
+  "images" : [{ "filename" : "background.png", "idiom" : "vision", "scale" : "2x" }],
+  "info" : { "author" : "xcode", "version" : 1 }
+}'
+write_json "$VISION/Front.solidimagestacklayer/Content.imageset/Contents.json" '{
+  "images" : [{ "filename" : "foreground.png", "idiom" : "vision", "scale" : "2x" }],
+  "info" : { "author" : "xcode", "version" : 1 }
+}'
 
-echo "Done. Rendered AppIcon.svg into every Assets.xcassets."
+# tvOS brand assets: background + brushstroke app-icon stacks.
+TV="$ROOT/TBOperatorMobileTV/Assets.xcassets/AppIcon.brandassets"
+rm -rf "$ROOT/TBOperatorMobileTV/Assets.xcassets/AppIcon.appiconset" "$TV"
+write_json "$TV/Contents.json" '{
+  "assets" : [
+    { "filename" : "App Icon - App Store.imagestack", "idiom" : "tv", "role" : "primary-app-icon", "size" : "1280x768" },
+    { "filename" : "App Icon.imagestack", "idiom" : "tv", "role" : "primary-app-icon", "size" : "400x240" },
+    { "filename" : "Top Shelf Image Wide.imageset", "idiom" : "tv", "role" : "top-shelf-image-wide", "size" : "2320x720" },
+    { "filename" : "Top Shelf Image.imageset", "idiom" : "tv", "role" : "top-shelf-image", "size" : "1920x720" }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}'
+
+create_tv_stack() {
+  local stack="$1" width="$2" height="$3" scale_json="$4"
+  mkdir -p "$stack"
+  write_json "$stack/Contents.json" '{
+  "info" : { "author" : "xcode", "version" : 1 },
+  "layers" : [
+    { "filename" : "Front.imagestacklayer" },
+    { "filename" : "Back.imagestacklayer" }
+  ]
+}'
+  for layer in Back Front; do
+    mkdir -p "$stack/$layer.imagestacklayer/Content.imageset"
+    write_json "$stack/$layer.imagestacklayer/Contents.json" '{
+  "info" : { "author" : "xcode", "version" : 1 }
+}'
+  done
+  render_layer "$BACKGROUND" "$stack/Back.imagestacklayer/Content.imageset/back.png" "$width" "$height" cover
+  render_layer "$FOREGROUND" "$stack/Front.imagestacklayer/Content.imageset/front.png" "$width" "$height" contain
+  write_json "$stack/Back.imagestacklayer/Content.imageset/Contents.json" "{
+  \"images\" : [{ \"filename\" : \"back.png\", \"idiom\" : \"tv\"$scale_json }],
+  \"info\" : { \"author\" : \"xcode\", \"version\" : 1 }
+}"
+  write_json "$stack/Front.imagestacklayer/Content.imageset/Contents.json" "{
+  \"images\" : [{ \"filename\" : \"front.png\", \"idiom\" : \"tv\"$scale_json }],
+  \"info\" : { \"author\" : \"xcode\", \"version\" : 1 }
+}"
+}
+
+create_tv_stack "$TV/App Icon - App Store.imagestack" 1280 768 ""
+
+APP_STACK="$TV/App Icon.imagestack"
+create_tv_stack "$APP_STACK" 800 480 ', "scale" : "2x"'
+for layer in Back Front; do
+  case "$layer" in
+    Back) source="$BACKGROUND"; file1x="back-1x.png"; file2x="back.png" ;;
+    Front) source="$FOREGROUND"; file1x="front-1x.png"; file2x="front.png" ;;
+  esac
+  render_layer "$source" "$APP_STACK/$layer.imagestacklayer/Content.imageset/$file1x" 400 240 contain
+  write_json "$APP_STACK/$layer.imagestacklayer/Content.imageset/Contents.json" "{
+  \"images\" : [
+    { \"filename\" : \"$file1x\", \"idiom\" : \"tv\", \"scale\" : \"1x\" },
+    { \"filename\" : \"$file2x\", \"idiom\" : \"tv\", \"scale\" : \"2x\" }
+  ],
+  \"info\" : { \"author\" : \"xcode\", \"version\" : 1 }
+}"
+done
+
+TOP="$TV/Top Shelf Image.imageset"
+TOP_WIDE="$TV/Top Shelf Image Wide.imageset"
+render_tv_composite "$TOP/topshelf-1x.png" 1920 720
+render_tv_composite "$TOP/topshelf-2x.png" 3840 1440
+render_tv_composite "$TOP_WIDE/topshelf-wide-1x.png" 2320 720
+render_tv_composite "$TOP_WIDE/topshelf-wide-2x.png" 4640 1440
+write_json "$TOP/Contents.json" '{
+  "images" : [
+    { "filename" : "topshelf-1x.png", "idiom" : "tv", "scale" : "1x" },
+    { "filename" : "topshelf-2x.png", "idiom" : "tv", "scale" : "2x" }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}'
+write_json "$TOP_WIDE/Contents.json" '{
+  "images" : [
+    { "filename" : "topshelf-wide-1x.png", "idiom" : "tv", "scale" : "1x" },
+    { "filename" : "topshelf-wide-2x.png", "idiom" : "tv", "scale" : "2x" }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}'
+
+echo "Done. Rendered extracted brush artwork into flat and two-layer app-icon assets."
