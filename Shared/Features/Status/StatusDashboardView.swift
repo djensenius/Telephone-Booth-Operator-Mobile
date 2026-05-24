@@ -64,6 +64,9 @@ public struct StatusDashboardView: View {
         let (newMe, newStats, newHistory) = await (meTask, statsTask, historyTask)
         profile = newMe ?? profile
         stats = newStats ?? stats
+        if let newStats {
+            WidgetSnapshotStore.write(WidgetSnapshot(stats: newStats))
+        }
         if let newHistory {
             history = newHistory.items
         } else if history.isEmpty {

@@ -72,6 +72,8 @@ targets:
       path: TBOperatorMobile/TBOperatorMobile.entitlements
       properties:
         aps-environment: development
+        com.apple.security.application-groups:
+          - group.org.davidjensenius.TelephoneBoothOperatorMobile
     dependencies:
       - target: TBOperatorMobileWidgets
         embed: true
@@ -106,6 +108,11 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.widgets
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: false
+    entitlements:
+      path: TBOperatorMobileWidgets/TBOperatorMobileWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.org.davidjensenius.TelephoneBoothOperatorMobile
 
   TBOperatorMobileWatch:
     type: application
@@ -178,6 +185,11 @@ targets:
         COMBINE_HIDPI_IMAGES: true
     entitlements:
       path: TBOperatorMobileMac/TBOperatorMobileMac.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.application-groups:
+          - group.org.davidjensenius.TelephoneBoothOperatorMobile
 
   TBOperatorMobileVision:
     type: application
