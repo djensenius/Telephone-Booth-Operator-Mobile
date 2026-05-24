@@ -18,6 +18,7 @@ public struct MessageDetailView: View {
     @State private var transcriptions: [Transcription] = []
     @State private var loading = false
     @State private var transcribing = false
+    @State private var moderating = false
     @State private var errorMessage: String?
     @State private var statusMessage: String?
     @State private var showAllTranscripts = false
@@ -120,9 +121,26 @@ public struct MessageDetailView: View {
 
     @ViewBuilder
     private func moderationCard(_ message: Message) -> some View {
-        if let moderation = message.latestModeration {
-            VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+            HStack {
                 SectionHeader(text: "Moderation")
+                Spacer()
+                Button {
+                    Task { await moderate() }
+                } label: {
+                    if moderating {
+                        ProgressView()
+                    } else {
+                        Label("Re-run", systemImage: "shield.lefthalf.filled")
+                            .font(Theme.Fonts.bodySmall.weight(.semibold))
+                    }
+                }
+                .buttonStyle(.bordered)
+                .tint(Theme.Colors.accent)
+                .disabled(moderating || message.latestTranscription?.status != .succeeded)
+                .accessibilityLabel("Re-run moderation")
+            }
+            if let moderation = message.latestModeration {
                 if let rec = moderation.recommendation {
                     StatRow(label: "Recommendation", value: rec.displayName)
                 }
@@ -139,11 +157,17 @@ public struct MessageDetailView: View {
                         .foregroundStyle(Theme.Colors.textSecondary)
                         .padding(.top, Theme.Spacing.small)
                 }
+            } else {
+                Text(message.latestTranscription?.status == .succeeded
+                     ? "Moderation hasn't run yet for this message."
+                     : "Transcribe the message before moderating.")
+                    .font(Theme.Fonts.bodySmall)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(Theme.Spacing.large)
-            .glassCardBackground()
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Spacing.large)
+        .glassCardBackground()
     }
 
     private func metadataCard(_ message: Message) -> some View {
@@ -204,6 +228,24 @@ public struct MessageDetailView: View {
             await load()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't re-run transcription."
+        }
+    }
+
+    private func moderate() async {
+        moderating = true
+        errorMessage = nil
+        statusMessage = nil
+        defer { moderating = false }
+        do {
+            let newest = try await client.moderateMessage(id: messageId)
+            if let rec = newest.recommendation {
+                statusMessage = "Moderation: \(rec.displayName)."
+            } else {
+                statusMessage = "Moderation re-run requested."
+            }
+            await load()
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't re-run moderation."
         }
     }
 }

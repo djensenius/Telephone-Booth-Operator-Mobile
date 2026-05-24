@@ -334,4 +334,89 @@ final class TBOperatorMobileTests: XCTestCase {
             XCTAssertEqual(status, decoded)
         }
     }
+
+    // MARK: - Question decoding
+
+    func testQuestionDecodesFromOperatorJSON() throws {
+        let json = """
+        {
+          "id": "44444444-4444-4444-4444-444444444444",
+          "prompt": "Tell me about your favourite phone call.",
+          "audio": {
+            "url": "https://example.com/q.flac",
+            "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "durationMs": 4321
+          },
+          "createdAt": "2026-05-23T14:32:11.250Z",
+          "retiredAt": null
+        }
+        """
+        let question = try OperatorJSON.decoder.decode(Question.self, from: Data(json.utf8))
+        XCTAssertEqual(question.id, "44444444-4444-4444-4444-444444444444")
+        XCTAssertEqual(question.prompt, "Tell me about your favourite phone call.")
+        XCTAssertEqual(question.audio.durationMs, 4321)
+        XCTAssertNil(question.retiredAt)
+    }
+
+    func testQuestionListPaging() throws {
+        let json = """
+        {
+          "items": [
+            {
+              "id": "55555555-5555-5555-5555-555555555555",
+              "prompt": "What did the dial tone sound like?",
+              "audio": {
+                "url": "https://example.com/q1.flac",
+                "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                "durationMs": 2200
+              },
+              "createdAt": "2026-05-23T14:30:00.000Z",
+              "retiredAt": null
+            }
+          ],
+          "nextCursor": "55555555-5555-5555-5555-555555555556"
+        }
+        """
+        let page = try OperatorJSON.decoder.decode(QuestionList.self, from: Data(json.utf8))
+        XCTAssertEqual(page.items.count, 1)
+        XCTAssertEqual(page.nextCursor, "55555555-5555-5555-5555-555555555556")
+    }
+
+    // MARK: - Event list decoding
+
+    func testEventListDecodesNestedRecords() throws {
+        let json = """
+        {
+          "items": [
+            {
+              "id": "66666666-6666-6666-6666-666666666666",
+              "eventId": "evt-1",
+              "boothId": "booth-a",
+              "bootId": "boot-z",
+              "type": "call_started",
+              "occurredAt": "2026-05-23T14:32:00.000Z",
+              "receivedAt": "2026-05-23T14:32:00.500Z",
+              "sessionId": "77777777-7777-7777-7777-777777777777",
+              "recordingId": null,
+              "payload": { "anything": "ignored" }
+            }
+          ],
+          "nextCursor": null
+        }
+        """
+        let page = try OperatorJSON.decoder.decode(EventList.self, from: Data(json.utf8))
+        XCTAssertEqual(page.items.count, 1)
+        XCTAssertEqual(page.items.first?.type, .callStarted)
+        XCTAssertNil(page.nextCursor)
+    }
+
+    // MARK: - EventStreamFilters
+
+    func testEventStreamFiltersEquality() {
+        let one = EventStreamFilters(boothId: "booth-a", sessionId: nil, type: .callStarted)
+        let two = EventStreamFilters(boothId: "booth-a", sessionId: nil, type: .callStarted)
+        let three = EventStreamFilters(boothId: "booth-b", sessionId: nil, type: .callStarted)
+        XCTAssertEqual(one, two)
+        XCTAssertNotEqual(one, three)
+    }
 }

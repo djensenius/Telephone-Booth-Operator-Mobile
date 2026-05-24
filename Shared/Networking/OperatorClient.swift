@@ -129,6 +129,52 @@ public actor OperatorClient {
         try await postEmpty("/v1/messages/\(id)/transcribe")
     }
 
+    /// `POST /v1/messages/{id}/moderate` — re-runs AI moderation against
+    /// the latest succeeded transcription. Returns the new `Moderation`.
+    public func moderateMessage(id: String) async throws -> Moderation {
+        try await postEmpty("/v1/messages/\(id)/moderate")
+    }
+
+    /// `GET /v1/events` — paged booth event log, newest first. `cursor` is
+    /// the opaque token returned in the previous page's `nextCursor`.
+    public func fetchEvents(
+        boothId: String? = nil,
+        type: BoothEventType? = nil,
+        sessionId: String? = nil,
+        since: Date? = nil,
+        until: Date? = nil,
+        cursor: String? = nil,
+        limit: Int = 100
+    ) async throws -> EventList {
+        var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
+        if let boothId { items.append(URLQueryItem(name: "boothId", value: boothId)) }
+        if let type { items.append(URLQueryItem(name: "type", value: type.rawValue)) }
+        if let sessionId { items.append(URLQueryItem(name: "sessionId", value: sessionId)) }
+        if let since {
+            items.append(URLQueryItem(name: "since", value: OperatorJSON.iso8601String(from: since)))
+        }
+        if let until {
+            items.append(URLQueryItem(name: "until", value: OperatorJSON.iso8601String(from: until)))
+        }
+        if let cursor { items.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try await get("/v1/events", query: items)
+    }
+
+    /// `GET /v1/questions` — paged active questions, newest first.
+    public func fetchQuestions(
+        cursor: String? = nil,
+        limit: Int = 50
+    ) async throws -> QuestionList {
+        var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
+        if let cursor { items.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try await get("/v1/questions", query: items)
+    }
+
+    /// `DELETE /v1/questions/{id}` — soft-deletes (retires) a question.
+    public func deleteQuestion(id: String) async throws {
+        try await delete("/v1/questions/\(id)")
+    }
+
     // MARK: - Core request helpers
 
     private func get<T: Decodable>(
@@ -152,6 +198,38 @@ public actor OperatorClient {
             body: Optional<Data>.none,
             requireAuth: true
         )
+    }
+
+    private func delete(_ path: String) async throws {
+        let url = config.url(forPath: path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        guard let header = await auth.authorizationHeader() else {
+            throw OperatorError.unauthenticated
+        }
+        request.setValue(header, forHTTPHeaderField: "Authorization")
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw OperatorError.transport(error)
+        }
+        guard let http = response as? HTTPURLResponse else {
+            throw OperatorError.transport(URLError(.badServerResponse))
+        }
+        if http.statusCode == 401 || http.statusCode == 403 {
+            logger.warning("\(path, privacy: .public) → \(http.statusCode)")
+            throw OperatorError.unauthorized(String(data: data, encoding: .utf8) ?? "")
+        }
+        guard (200...299).contains(http.statusCode) else {
+            throw OperatorError.httpError(
+                status: http.statusCode,
+                body: String(data: data, encoding: .utf8) ?? ""
+            )
+        }
     }
 
     private func request<Body: Encodable, Response: Decodable>(

@@ -43,6 +43,16 @@ public struct BoothEventRecord: Codable, Sendable, Equatable, Identifiable {
     public let recordingId: String?
 }
 
+public struct EventList: Codable, Sendable, Equatable {
+    public let items: [BoothEventRecord]
+    public let nextCursor: String?
+
+    public init(items: [BoothEventRecord], nextCursor: String?) {
+        self.items = items
+        self.nextCursor = nextCursor
+    }
+}
+
 public struct CallSessionDetail: Codable, Sendable, Equatable, Identifiable {
     public let id: String
     public let boothId: String
