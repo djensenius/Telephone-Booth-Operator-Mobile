@@ -177,7 +177,7 @@ struct SessionRow: View {
                         .font(Theme.Fonts.caption)
                         .foregroundStyle(Theme.Colors.textSecondary)
                 }
-                if let duration = formattedDuration(session.durationMs) {
+                if let duration = DurationFormatter.shortString(milliseconds: session.durationMs) {
                     Label(duration, systemImage: "clock")
                         .font(Theme.Fonts.caption)
                         .foregroundStyle(Theme.Colors.textSecondary)
@@ -185,17 +185,6 @@ struct SessionRow: View {
             }
         }
         .padding(.vertical, Theme.Spacing.small)
-    }
-
-    private func formattedDuration(_ durationMs: Int?) -> String? {
-        guard let durationMs, durationMs > 0 else { return nil }
-        let totalSeconds = Int((Double(durationMs) / 1000.0).rounded())
-        let minutes = totalSeconds / 60
-        let seconds = totalSeconds % 60
-        if minutes > 0 {
-            return String(format: "%dm %02ds", minutes, seconds)
-        }
-        return "\(seconds)s"
     }
 }
 

@@ -75,8 +75,9 @@ public struct SessionDetailView: View {
             if let outcome = detail.outcome {
                 StatRow(label: "Outcome", value: outcome.displayName)
             }
-            if let durationMs = detail.durationMs {
-                StatRow(label: "Duration", value: formattedDuration(durationMs))
+            if let durationMs = detail.durationMs,
+               let duration = DurationFormatter.shortString(milliseconds: durationMs) {
+                StatRow(label: "Duration", value: duration)
             }
             if let recordingId = detail.recordingId {
                 StatRow(label: "Recording", value: recordingId)
@@ -114,13 +115,6 @@ public struct SessionDetailView: View {
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't load this session."
         }
-    }
-
-    private func formattedDuration(_ durationMs: Int) -> String {
-        let totalSeconds = Int((Double(durationMs) / 1000.0).rounded())
-        let minutes = totalSeconds / 60
-        let seconds = totalSeconds % 60
-        return minutes > 0 ? String(format: "%dm %02ds", minutes, seconds) : "\(seconds)s"
     }
 }
 

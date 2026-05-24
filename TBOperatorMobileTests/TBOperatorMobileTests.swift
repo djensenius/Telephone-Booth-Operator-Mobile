@@ -218,4 +218,22 @@ final class TBOperatorMobileTests: XCTestCase {
         XCTAssertEqual(BoothEventType.recordingStopped.displayName, "Recording Stopped")
         XCTAssertEqual(BoothEventType.error.displayName, "Error")
     }
+
+    // MARK: - DurationFormatter
+
+    func testDurationFormatterReturnsNilForMissingOrNonPositive() {
+        XCTAssertNil(DurationFormatter.shortString(milliseconds: nil))
+        XCTAssertNil(DurationFormatter.shortString(milliseconds: 0))
+        XCTAssertNil(DurationFormatter.shortString(milliseconds: -500))
+    }
+
+    func testDurationFormatterFormatsSeconds() {
+        XCTAssertEqual(DurationFormatter.shortString(milliseconds: 45_000), "45s")
+        XCTAssertEqual(DurationFormatter.shortString(milliseconds: 500), "1s")
+    }
+
+    func testDurationFormatterFormatsMinutesAndSeconds() {
+        XCTAssertEqual(DurationFormatter.shortString(milliseconds: 131_000), "2m 11s")
+        XCTAssertEqual(DurationFormatter.shortString(milliseconds: 600_000), "10m 00s")
+    }
 }
