@@ -1,5 +1,15 @@
 # Telephone-Booth-Operator-Mobile
 
+[![Build](https://github.com/djensenius/Telephone-Booth-Operator-Mobile/actions/workflows/build.yml/badge.svg)](https://github.com/djensenius/Telephone-Booth-Operator-Mobile/actions/workflows/build.yml)
+[![Lint](https://github.com/djensenius/Telephone-Booth-Operator-Mobile/actions/workflows/swiftlint.yml/badge.svg)](https://github.com/djensenius/Telephone-Booth-Operator-Mobile/actions/workflows/swiftlint.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20iPadOS%20%7C%20macOS%20%7C%20watchOS%20%7C%20visionOS%20%7C%20tvOS-lightgrey.svg)](#platforms)
+[![Swift](https://img.shields.io/badge/Swift-6.0-orange.svg)](https://swift.org)
+
+<p align="center">
+  <img src="Icons/AppIcon.svg" alt="Telephone Booth Operator Mobile app icon" width="180" />
+</p>
+
 > _"This is Bell Canada calling. Please hold for the operator."_
 
 A native Swift / SwiftUI front end for the
