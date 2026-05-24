@@ -103,11 +103,11 @@ struct WatchModerationRow: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Circle()
-                    .fill(statusColor)
+                    .fill(message.status.watchStatusColor)
                     .frame(width: 8, height: 8)
                 Text(message.status.displayName)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(statusColor)
+                    .foregroundStyle(message.status.watchStatusColor)
                 Spacer()
                 Text(message.receivedAt ?? message.createdAt, style: .relative)
                     .font(.caption2)
@@ -122,15 +122,6 @@ struct WatchModerationRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-        }
-    }
-
-    private var statusColor: Color {
-        switch message.status {
-        case .approved: return Theme.Colors.success
-        case .rejected: return Theme.Colors.error
-        case .pending, .received: return Theme.Colors.warning
-        case .uploading: return .secondary
         }
     }
 }

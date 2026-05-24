@@ -11,9 +11,19 @@
 
 import SwiftUI
 
+extension MessageStatus {
+    var watchStatusColor: Color {
+        switch self {
+        case .approved: return Theme.Colors.success
+        case .rejected: return Theme.Colors.error
+        case .pending, .received: return Theme.Colors.warning
+        case .uploading: return .secondary
+        }
+    }
+}
+
 struct WatchHomeView: View {
     @State private var showingSettings = false
-
     var body: some View {
         TabView {
             NavigationStack {

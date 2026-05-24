@@ -48,11 +48,11 @@ struct WatchLatestMessageView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Circle()
-                    .fill(statusColor(msg.status))
+                    .fill(msg.status.watchStatusColor)
                     .frame(width: 8, height: 8)
                 Text(msg.status.displayName)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(statusColor(msg.status))
+                    .foregroundStyle(msg.status.watchStatusColor)
                 Spacer()
                 Text(msg.receivedAt ?? msg.createdAt, style: .relative)
                     .font(.caption2)
@@ -92,15 +92,6 @@ struct WatchLatestMessageView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 24)
-    }
-
-    private func statusColor(_ status: MessageStatus) -> Color {
-        switch status {
-        case .approved: return Theme.Colors.success
-        case .rejected: return Theme.Colors.error
-        case .pending, .received: return Theme.Colors.warning
-        case .uploading: return .secondary
-        }
     }
 
     func refresh() async {
