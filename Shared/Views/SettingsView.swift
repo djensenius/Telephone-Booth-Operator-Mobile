@@ -27,7 +27,6 @@ public struct SettingsView: View {
             Form {
                 Section {
                     TextField("https://operator.example.com", text: $apiBaseString)
-                        .textFieldStyle(.automatic)
                         #if os(iOS) || os(visionOS)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -52,12 +51,34 @@ public struct SettingsView: View {
                 }
 
                 Section {
+                    #if os(macOS)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+                        LabeledContent("OIDC issuer") {
+                            Text(config.oidcIssuerBase)
+                                .textSelection(.enabled)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .font(Theme.Fonts.bodySmall)
+                        LabeledContent("Client ID") {
+                            Text(config.oidcClientID)
+                                .textSelection(.enabled)
+                        }
+                        .font(Theme.Fonts.bodySmall)
+                        LabeledContent("Redirect") {
+                            Text(config.redirectURI)
+                                .textSelection(.enabled)
+                        }
+                        .font(Theme.Fonts.bodySmall)
+                    }
+                    #else
                     LabeledContent("OIDC issuer", value: config.oidcIssuerBase)
                         .font(Theme.Fonts.bodySmall)
                     LabeledContent("Client ID", value: config.oidcClientID)
                         .font(Theme.Fonts.bodySmall)
                     LabeledContent("Redirect", value: config.redirectURI)
                         .font(Theme.Fonts.bodySmall)
+                    #endif
                 } header: {
                     Text("Authentication")
                 } footer: {
@@ -80,6 +101,10 @@ public struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            #if os(macOS)
+            .formStyle(.grouped)
+            .frame(minWidth: 480, idealWidth: 540)
+            #endif
             #if !os(tvOS)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
