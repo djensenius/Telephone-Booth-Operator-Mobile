@@ -24,7 +24,7 @@ operator API (operator PR 1).
 | Signing Key                 | _default (RSA)_                                                      |
 | Subject mode                | Based on the User's hashed ID                                        |
 | Include claims in id_token  | Yes                                                                  |
-| Scopes                      | `openid` `profile` `email` `offline_access` `goauthentik.io/api`     |
+| Scopes                      | `openid` `profile` `email` `offline_access`                         |
 | PKCE                        | **Required**                                                         |
 | Access code validity        | 60 seconds                                                           |
 | Access token validity       | 5 minutes                                                            |
@@ -33,6 +33,21 @@ operator API (operator PR 1).
 Bind the existing `telephone-booth-operators` group to the new
 application's policy / group bindings (same group used by the web
 operator).
+
+The mobile app sends Authentik's access token to the operator API, so the
+provider must include a `groups` claim in the access token. Authentik's
+default `profile` scope mapping includes group membership. If your provider
+has been customized and no longer emits `groups`, add a scope mapping on
+`profile`:
+
+```python
+return {"groups": [group.name for group in user.groups.all()]}
+```
+
+That expression returns the signed-in user's group names. The operator API
+then checks whether any returned group matches the configured allow-list
+(`OIDC_ALLOWED_GROUPS` / `AUTHENTIK_ALLOWED_GROUPS`), usually
+`telephone-booth-operators`.
 
 ## In-app flow
 
