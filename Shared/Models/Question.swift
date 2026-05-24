@@ -36,13 +36,3 @@ public struct QuestionList: Codable, Sendable, Equatable {
         self.nextCursor = nextCursor
     }
 }
-
-public struct EventList: Codable, Sendable, Equatable {
-    public let items: [BoothEventRecord]
-    public let nextCursor: String?
-
-    public init(items: [BoothEventRecord], nextCursor: String?) {
-        self.items = items
-        self.nextCursor = nextCursor
-    }
-}

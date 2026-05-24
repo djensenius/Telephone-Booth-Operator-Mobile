@@ -221,6 +221,7 @@ public actor OperatorClient {
             throw OperatorError.transport(URLError(.badServerResponse))
         }
         if http.statusCode == 401 || http.statusCode == 403 {
+            logger.warning("\(path, privacy: .public) → \(http.statusCode)")
             throw OperatorError.unauthorized(String(data: data, encoding: .utf8) ?? "")
         }
         guard (200...299).contains(http.statusCode) else {

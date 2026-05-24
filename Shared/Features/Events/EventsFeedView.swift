@@ -160,11 +160,11 @@ public struct EventsFeedView: View {
     private func startStream() {
         guard streamTask == nil else { return }
         streamError = nil
-        let stream = stream
+        let eventStream = stream
         streamTask = Task { @MainActor in
             do {
                 isStreaming = true
-                for try await record in stream.subscribe() {
+                for try await record in eventStream.subscribe() {
                     if Task.isCancelled { break }
                     appendLive(record)
                 }
