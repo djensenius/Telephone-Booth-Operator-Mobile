@@ -20,10 +20,12 @@ import os
 import AuthenticationServices
 #endif
 
-private let logger = Logger(
+let authManagerLogger = Logger(
     subsystem: "org.davidjensenius.TelephoneBoothOperatorMobile",
     category: "AuthManager"
 )
+
+private let logger = authManagerLogger
 
 /// Serialises concurrent refresh attempts: at most one in-flight refresh
 /// per process.
@@ -210,6 +212,13 @@ public final class AuthManager: @unchecked Sendable {
         logger.info("Signed out")
     }
 
+    /// Marks the session as signed-in. Used by other auth flows (e.g.
+    /// device authorization grant) that live in extensions but can't
+    /// touch the `private(set)` setter directly.
+    @MainActor func markSignedIn() {
+        authState = .signedIn
+    }
+
     // MARK: - Token storage / refresh
 
     public func getAccessToken() -> String? {
@@ -269,8 +278,12 @@ public final class AuthManager: @unchecked Sendable {
         urlByReplacingFinalSegment("authorize") ?? URL(string: config.oidcIssuerBase + "/authorize/")!
     }
 
-    private var tokenURL: URL {
+    var tokenURL: URL {
         urlByReplacingFinalSegment("token") ?? URL(string: config.oidcIssuerBase + "/token/")!
+    }
+
+    var deviceAuthorizationURL: URL {
+        urlByReplacingFinalSegment("device") ?? URL(string: config.oidcIssuerBase + "/device/")!
     }
 
     private func urlByReplacingFinalSegment(_ segment: String) -> URL? {
@@ -324,7 +337,7 @@ public final class AuthManager: @unchecked Sendable {
         throw AuthError.transientRefreshFailure(URLError(.badServerResponse))
     }
 
-    private func postForm(_ url: URL, params: [(String, String)]) async throws -> (Data, HTTPURLResponse) {
+    func postForm(_ url: URL, params: [(String, String)]) async throws -> (Data, HTTPURLResponse) {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
@@ -336,7 +349,7 @@ public final class AuthManager: @unchecked Sendable {
         return (data, http)
     }
 
-    private func storeTokens(_ tokens: OIDCTokens) {
+    func storeTokens(_ tokens: OIDCTokens) {
         setKeychainItem(account: "oidc_access_token", value: tokens.accessToken)
         if let refresh = tokens.refreshToken {
             setKeychainItem(account: "oidc_refresh_token", value: refresh)

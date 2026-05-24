@@ -77,16 +77,7 @@ public struct LoginView: View {
     @ViewBuilder
     private var signInButton: some View {
         #if os(tvOS)
-        VStack(spacing: Theme.Spacing.medium) {
-            Text("Open the iPhone, iPad, or Mac app to sign in.")
-                .font(Theme.Fonts.bodyMedium)
-                .foregroundStyle(Theme.Colors.textSecondary)
-                .multilineTextAlignment(.center)
-            Image(systemName: "iphone.gen3")
-                .font(.system(size: 48))
-                .foregroundStyle(Theme.Colors.accent)
-        }
-        .padding(.horizontal, Theme.Spacing.large)
+        TVDeviceLoginView()
         #else
         Button {
             Task { await signIn() }
