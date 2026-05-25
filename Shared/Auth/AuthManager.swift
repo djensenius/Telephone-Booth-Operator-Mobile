@@ -83,6 +83,10 @@ public final class AuthManager {
     @ObservationIgnored
     private let refreshCoordinator = RefreshCoordinator()
 
+    /// URLSession used for token operations. Internal so tests can swap it.
+    @ObservationIgnored
+    var urlSession: URLSession = .shared
+
     private init() {
         if getAccessToken() != nil {
             if let expiryStr = getKeychainItem(account: "oidc_token_expiry"),
@@ -104,7 +108,7 @@ public final class AuthManager {
 
     /// Validates the cached session at app launch. On a definitive 4xx
     /// refresh rejection the session is cleared; transient/offline failures
-    /// allow the cached token to be used.
+    /// allow the cached token only when it hasn't expired yet.
     public func validateSessionOnLaunch() async {
         guard authState == .unknown else { return }
         guard getKeychainItem(account: "oidc_refresh_token") != nil else {
@@ -113,10 +117,16 @@ public final class AuthManager {
             return
         }
 
-        _ = await refreshTokenIfNeeded()
-        if authState == .unknown {
+        let refreshed = await refreshTokenIfNeeded()
+        if refreshed {
             authState = .signedIn
-            logger.info("validateSession: session restored")
+            logger.info("validateSession: session restored via refresh")
+        } else if authState == .unknown, getAccessToken() != nil, !isTokenExpired() {
+            authState = .signedIn
+            logger.info("validateSession: refresh failed but token still valid")
+        } else if authState == .unknown {
+            signOut()
+            logger.warning("validateSession: expired token + refresh failure — signed out")
         }
     }
 
@@ -379,7 +389,7 @@ public final class AuthManager {
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = Self.formEncode(params).data(using: .utf8)
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await urlSession.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
         }
@@ -490,5 +500,13 @@ public final class AuthManager {
         var buf = [UInt8](repeating: 0, count: 32)
         _ = SecRandomCopyBytes(kSecRandomDefault, buf.count, &buf)
         return base64URLEncode(Data(buf))
+    }
+
+    // MARK: - Test support
+
+    /// Resets auth state to `.unknown` so `validateSessionOnLaunch()` can be
+    /// exercised again. Internal — visible only via `@testable import`.
+    func resetStateForTesting() {
+        authState = .unknown
     }
 }
