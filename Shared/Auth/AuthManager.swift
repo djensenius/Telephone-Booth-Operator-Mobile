@@ -199,7 +199,9 @@ public final class AuthManager {
         }
 
         let tokens = try await exchangeCode(code, verifier: verifier)
-        storeTokens(tokens)
+        guard storeTokens(tokens) else {
+            throw AuthError.keychainWriteFailed
+        }
         authState = .signedIn
         logger.info("Signed in via OIDC")
         #endif
@@ -257,10 +259,14 @@ public final class AuthManager {
         }
         do {
             let tokens = try await refreshAccessToken(refreshToken)
-            storeTokens(tokens)
-            logger.info("Token refreshed (expiresIn=\(tokens.expiresIn ?? -1))")
-            await refreshCoordinator.complete(success: true)
-            return true
+            let persisted = storeTokens(tokens)
+            if persisted {
+                logger.info("Token refreshed (expiresIn=\(tokens.expiresIn ?? -1))")
+            } else {
+                logger.error("Token refreshed but keychain write failed")
+            }
+            await refreshCoordinator.complete(success: persisted)
+            return persisted
         } catch AuthError.refreshTokenInvalid(let reason) {
             logger.error("Refresh token rejected — signing out: \(reason, privacy: .public)")
             await refreshCoordinator.complete(success: false)
@@ -350,13 +356,16 @@ public final class AuthManager {
         return (data, http)
     }
 
-    func storeTokens(_ tokens: OIDCTokens) {
-        setKeychainItem(account: "oidc_access_token", value: tokens.accessToken)
+    @discardableResult
+    func storeTokens(_ tokens: OIDCTokens) -> Bool {
+        let accessOK = setKeychainItem(account: "oidc_access_token", value: tokens.accessToken)
+        var refreshOK = true
         if let refresh = tokens.refreshToken {
-            setKeychainItem(account: "oidc_refresh_token", value: refresh)
+            refreshOK = setKeychainItem(account: "oidc_refresh_token", value: refresh)
         }
         if let expiresIn = tokens.expiresIn {
             let expiry = Date().addingTimeInterval(TimeInterval(expiresIn))
+            // Expiry write failure is non-critical (worst case: aggressive refresh)
             setKeychainItem(
                 account: "oidc_token_expiry",
                 value: String(expiry.timeIntervalSince1970)
@@ -365,26 +374,45 @@ public final class AuthManager {
             deleteKeychainItem(account: "oidc_token_expiry")
             logger.warning("storeTokens: missing expiresIn — cannot track expiry")
         }
+        if !accessOK || !refreshOK {
+            logger.error("storeTokens: critical keychain write failed (access=\(accessOK), refresh=\(refreshOK))")
+        }
+        return accessOK && refreshOK
     }
 
     // MARK: - Keychain
 
     private static let keychainService = "org.davidjensenius.TelephoneBoothOperatorMobile.oidc"
 
-    private func setKeychainItem(account: String, value: String) {
-        deleteKeychainItem(account: account)
-        guard let data = value.data(using: .utf8) else { return }
-        let attrs: [String: Any] = [
+    @discardableResult
+    private func setKeychainItem(account: String, value: String) -> Bool {
+        guard let data = value.data(using: .utf8) else { return false }
+        let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.keychainService,
-            kSecAttrAccount as String: account,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-            kSecValueData as String: data
+            kSecAttrAccount as String: account
         ]
-        let status = SecItemAdd(attrs as CFDictionary, nil)
-        if status != noErr {
-            logger.error("Keychain write failed for \(account, privacy: .public): \(status)")
+        let updateAttrs: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+        ]
+        let updateStatus = SecItemUpdate(query as CFDictionary, updateAttrs as CFDictionary)
+        if updateStatus == noErr {
+            return true
         }
+        if updateStatus == errSecItemNotFound {
+            var addAttrs = query
+            addAttrs[kSecValueData as String] = data
+            addAttrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+            let addStatus = SecItemAdd(addAttrs as CFDictionary, nil)
+            if addStatus == noErr {
+                return true
+            }
+            logger.error("Keychain add failed for \(account, privacy: .public): \(addStatus)")
+            return false
+        }
+        logger.error("Keychain update failed for \(account, privacy: .public): \(updateStatus)")
+        return false
     }
 
     private func getKeychainItem(account: String) -> String? {
