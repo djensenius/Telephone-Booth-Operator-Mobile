@@ -26,12 +26,14 @@ struct CallInProgressLiveActivity: Widget {
                     Text(context.state.startedAt, style: .timer)
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
+                        .privacySensitive()
                 }
                 DynamicIslandExpandedRegion(.center) {
                     Text(context.state.stateDisplayName)
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
+                        .privacySensitive()
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
@@ -39,6 +41,7 @@ struct CallInProgressLiveActivity: Widget {
                             Text(digits)
                                 .font(.caption.monospacedDigit())
                                 .foregroundStyle(.secondary)
+                                .privacySensitive()
                         }
                         Spacer()
                         Link(destination: approveURL(sessionId: context.attributes.sessionId)) {
@@ -76,11 +79,13 @@ struct CallInProgressLiveActivity: Widget {
                 Text(context.state.stateDisplayName)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .privacySensitive()
             }
             Spacer()
             Text(context.state.startedAt, style: .timer)
                 .font(.title3.monospacedDigit())
                 .foregroundStyle(.primary)
+                .privacySensitive()
         }
         .padding()
         .activityBackgroundTint(.black.opacity(0.7))
