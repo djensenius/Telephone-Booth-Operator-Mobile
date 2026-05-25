@@ -25,40 +25,40 @@ public struct IDTokenValidator: Sendable {
     /// Maximum acceptable clock skew between device and issuer.
     public static let defaultClockSkew: TimeInterval = 300 // 5 minutes
 
+    /// `aud` can be a single string or an array of strings.
+    enum AudienceClaim: Decodable {
+        case single(String)
+        case multiple([String])
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            if let array = try? container.decode([String].self) {
+                self = .multiple(array)
+            } else if let string = try? container.decode(String.self) {
+                self = .single(string)
+            } else {
+                throw DecodingError.typeMismatch(
+                    AudienceClaim.self,
+                    .init(codingPath: decoder.codingPath,
+                          debugDescription: "aud must be a string or array of strings")
+                )
+            }
+        }
+
+        func contains(_ clientID: String) -> Bool {
+            switch self {
+            case .single(let value): return value == clientID
+            case .multiple(let values): return values.contains(clientID)
+            }
+        }
+    }
+
     /// Decoded claims from an ID token's payload segment.
     struct IDTokenClaims: Decodable {
         let iss: String?
         let aud: AudienceClaim?
         let exp: Double?
         let nonce: String?
-
-        /// `aud` can be a single string or an array of strings.
-        enum AudienceClaim: Decodable {
-            case single(String)
-            case multiple([String])
-
-            init(from decoder: Decoder) throws {
-                let container = try decoder.singleValueContainer()
-                if let array = try? container.decode([String].self) {
-                    self = .multiple(array)
-                } else if let string = try? container.decode(String.self) {
-                    self = .single(string)
-                } else {
-                    throw DecodingError.typeMismatch(
-                        AudienceClaim.self,
-                        .init(codingPath: decoder.codingPath,
-                              debugDescription: "aud must be a string or array of strings")
-                    )
-                }
-            }
-
-            func contains(_ clientID: String) -> Bool {
-                switch self {
-                case .single(let value): return value == clientID
-                case .multiple(let values): return values.contains(clientID)
-                }
-            }
-        }
     }
 
     /// Validates claims in the given ID token JWT.
@@ -128,7 +128,7 @@ public struct IDTokenValidator: Sendable {
 
     // MARK: - Private
 
-    static func decodeClaims(from jwt: String) throws -> IDTokenClaims {
+    private static func decodeClaims(from jwt: String) throws -> IDTokenClaims {
         let segments = jwt.split(separator: ".", omittingEmptySubsequences: false)
         guard segments.count == 3 else {
             throw AuthError.idTokenValidationFailed(

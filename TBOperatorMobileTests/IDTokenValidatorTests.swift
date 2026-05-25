@@ -10,9 +10,9 @@ final class IDTokenValidatorTests: XCTestCase {
     // MARK: - Test helpers
 
     /// Creates a minimal JWT with the given claims payload (no signature verification needed).
-    private func makeJWT(claims: [String: Any]) -> String {
+    private func makeJWT(claims: [String: Any]) throws -> String {
         let header = Data(#"{"alg":"RS256","typ":"JWT"}"#.utf8).base64URLEncoded()
-        let payloadData = try! JSONSerialization.data(withJSONObject: claims)
+        let payloadData = try JSONSerialization.data(withJSONObject: claims)
         let payload = payloadData.base64URLEncoded()
         let signature = Data("fake-signature".utf8).base64URLEncoded()
         return "\(header).\(payload).\(signature)"
@@ -41,7 +41,7 @@ final class IDTokenValidatorTests: XCTestCase {
     // MARK: - Tests
 
     func testValidTokenPassesValidation() throws {
-        let jwt = makeJWT(claims: validClaims())
+        let jwt = try makeJWT(claims: validClaims())
         XCTAssertNoThrow(try IDTokenValidator.validate(
             idToken: jwt,
             expectedNonce: testNonce,
@@ -51,7 +51,7 @@ final class IDTokenValidatorTests: XCTestCase {
     }
 
     func testValidTokenWithTrailingSlashIssuer() throws {
-        let jwt = makeJWT(claims: validClaims(iss: testIssuer + "/"))
+        let jwt = try makeJWT(claims: validClaims(iss: testIssuer + "/"))
         XCTAssertNoThrow(try IDTokenValidator.validate(
             idToken: jwt,
             expectedNonce: testNonce,
@@ -61,7 +61,7 @@ final class IDTokenValidatorTests: XCTestCase {
     }
 
     func testValidTokenWithArrayAudience() throws {
-        let jwt = makeJWT(claims: validClaims(aud: [testClientID, "other-client"]))
+        let jwt = try makeJWT(claims: validClaims(aud: [testClientID, "other-client"]))
         XCTAssertNoThrow(try IDTokenValidator.validate(
             idToken: jwt,
             expectedNonce: testNonce,
@@ -70,8 +70,8 @@ final class IDTokenValidatorTests: XCTestCase {
         ))
     }
 
-    func testWrongIssuerThrows() {
-        let jwt = makeJWT(claims: validClaims(iss: "https://evil.example.com"))
+    func testWrongIssuerThrows() throws {
+        let jwt = try makeJWT(claims: validClaims(iss: "https://evil.example.com"))
         XCTAssertThrowsError(try IDTokenValidator.validate(
             idToken: jwt,
             expectedNonce: testNonce,
@@ -86,8 +86,8 @@ final class IDTokenValidatorTests: XCTestCase {
         }
     }
 
-    func testWrongAudienceThrows() {
-        let jwt = makeJWT(claims: validClaims(aud: "wrong-client-id"))
+    func testWrongAudienceThrows() throws {
+        let jwt = try makeJWT(claims: validClaims(aud: "wrong-client-id"))
         XCTAssertThrowsError(try IDTokenValidator.validate(
             idToken: jwt,
             expectedNonce: testNonce,
@@ -102,9 +102,9 @@ final class IDTokenValidatorTests: XCTestCase {
         }
     }
 
-    func testExpiredTokenThrows() {
+    func testExpiredTokenThrows() throws {
         let expiredExp = Date().addingTimeInterval(-600).timeIntervalSince1970
-        let jwt = makeJWT(claims: validClaims(exp: expiredExp))
+        let jwt = try makeJWT(claims: validClaims(exp: expiredExp))
         XCTAssertThrowsError(try IDTokenValidator.validate(
             idToken: jwt,
             expectedNonce: testNonce,
@@ -122,7 +122,7 @@ final class IDTokenValidatorTests: XCTestCase {
     func testTokenWithinClockSkewPasses() throws {
         // Token expired 2 minutes ago — within 5-minute skew tolerance
         let recentlyExpired = Date().addingTimeInterval(-120).timeIntervalSince1970
-        let jwt = makeJWT(claims: validClaims(exp: recentlyExpired))
+        let jwt = try makeJWT(claims: validClaims(exp: recentlyExpired))
         XCTAssertNoThrow(try IDTokenValidator.validate(
             idToken: jwt,
             expectedNonce: testNonce,
@@ -131,8 +131,8 @@ final class IDTokenValidatorTests: XCTestCase {
         ))
     }
 
-    func testWrongNonceThrows() {
-        let jwt = makeJWT(claims: validClaims(nonce: "wrong-nonce"))
+    func testWrongNonceThrows() throws {
+        let jwt = try makeJWT(claims: validClaims(nonce: "wrong-nonce"))
         XCTAssertThrowsError(try IDTokenValidator.validate(
             idToken: jwt,
             expectedNonce: testNonce,
@@ -147,7 +147,7 @@ final class IDTokenValidatorTests: XCTestCase {
         }
     }
 
-    func testMalformedJWTThrows() {
+    func testMalformedJWTThrows() throws {
         XCTAssertThrowsError(try IDTokenValidator.validate(
             idToken: "not-a-jwt",
             expectedNonce: testNonce,
@@ -162,10 +162,10 @@ final class IDTokenValidatorTests: XCTestCase {
         }
     }
 
-    func testMissingIssuerClaimThrows() {
+    func testMissingIssuerClaimThrows() throws {
         var claims = validClaims()
         claims.removeValue(forKey: "iss")
-        let jwt = makeJWT(claims: claims)
+        let jwt = try makeJWT(claims: claims)
         XCTAssertThrowsError(try IDTokenValidator.validate(
             idToken: jwt,
             expectedNonce: testNonce,
@@ -180,10 +180,10 @@ final class IDTokenValidatorTests: XCTestCase {
         }
     }
 
-    func testMissingNonceClaimThrows() {
+    func testMissingNonceClaimThrows() throws {
         var claims = validClaims()
         claims.removeValue(forKey: "nonce")
-        let jwt = makeJWT(claims: claims)
+        let jwt = try makeJWT(claims: claims)
         XCTAssertThrowsError(try IDTokenValidator.validate(
             idToken: jwt,
             expectedNonce: testNonce,
