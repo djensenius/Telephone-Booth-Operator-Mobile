@@ -54,7 +54,9 @@ extension AuthManager {
             let outcome = await exchangeDeviceCode(deviceCode)
             switch outcome {
             case .tokens(let tokens):
-                storeTokens(tokens)
+                guard storeTokens(tokens) else {
+                    throw AuthError.keychainWriteFailed
+                }
                 markSignedIn()
                 authManagerLogger.info("Signed in via device flow")
                 return

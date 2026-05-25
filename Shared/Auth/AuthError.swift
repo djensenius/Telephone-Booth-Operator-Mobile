@@ -27,6 +27,8 @@ public enum AuthError: Error, LocalizedError {
     case deviceCodeExpired
     /// ASWebAuthenticationSession failed to present (start() returned false).
     case presentationFailed
+    /// Keychain write failed — tokens could not be persisted.
+    case keychainWriteFailed
 
     public var errorDescription: String? {
         switch self {
@@ -54,6 +56,8 @@ public enum AuthError: Error, LocalizedError {
             return "The sign-in code expired. Please try again."
         case .presentationFailed:
             return "Unable to present the sign-in window. Please try again."
+        case .keychainWriteFailed:
+            return "Failed to save credentials securely. Please try again."
         }
     }
 }
