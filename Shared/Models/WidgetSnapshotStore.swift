@@ -19,6 +19,10 @@ public enum WidgetSnapshotStore {
     public static let appGroup = "group.org.davidjensenius.TelephoneBoothOperatorMobile"
 
     private static let filename = "widget-snapshot.json"
+    private static let reloadTimestampFilename = "widget-last-reload"
+
+    /// Minimum interval between `reloadAllTimelines()` calls (seconds).
+    private static let reloadThrottleInterval: TimeInterval = 60
 
     private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
@@ -41,16 +45,31 @@ public enum WidgetSnapshotStore {
         return container.appendingPathComponent(filename, isDirectory: false)
     }
 
+    private static var reloadTimestampURL: URL? {
+        guard let container = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: appGroup)
+        else { return nil }
+        return container.appendingPathComponent(reloadTimestampFilename, isDirectory: false)
+    }
+
     /// Persist a snapshot for widget consumption. Writes are atomic so the
-    /// widget never reads a partially-written file.
+    /// widget never reads a partially-written file. Timeline reloads are
+    /// skipped when the snapshot is unchanged, and throttled to at most
+    /// once per 60 seconds to avoid storming WidgetKit.
     @discardableResult
     public static func write(_ snapshot: WidgetSnapshot) -> Bool {
         guard let url = snapshotURL else { return false }
+
+        // Change detection: skip write entirely if data hasn't changed.
+        if let existing = read(), existing == snapshot {
+            return true
+        }
+
         do {
             let data = try encoder.encode(snapshot)
             try data.write(to: url, options: [.atomic])
             #if canImport(WidgetKit) && !os(tvOS)
-            WidgetCenter.shared.reloadAllTimelines()
+            reloadTimelinesIfNeeded()
             #endif
             return true
         } catch {
@@ -68,5 +87,35 @@ public enum WidgetSnapshotStore {
         } catch {
             return nil
         }
+    }
+
+    // MARK: - Reload Throttling
+
+    #if canImport(WidgetKit) && !os(tvOS)
+    private static func reloadTimelinesIfNeeded() {
+        let now = Date()
+        if let lastReload = readLastReloadDate(),
+           now.timeIntervalSince(lastReload) < reloadThrottleInterval {
+            return
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+        writeLastReloadDate(now)
+    }
+    #endif
+
+    private static func readLastReloadDate() -> Date? {
+        guard let url = reloadTimestampURL,
+              let data = try? Data(contentsOf: url),
+              let string = String(data: data, encoding: .utf8),
+              let interval = TimeInterval(string) else {
+            return nil
+        }
+        return Date(timeIntervalSince1970: interval)
+    }
+
+    private static func writeLastReloadDate(_ date: Date) {
+        guard let url = reloadTimestampURL else { return }
+        let string = String(date.timeIntervalSince1970)
+        try? string.data(using: .utf8)?.write(to: url, options: [.atomic])
     }
 }
