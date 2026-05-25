@@ -94,7 +94,7 @@ public final class AudioPlaybackController {
             object: item,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 guard let self, self.generation == loadGeneration else { return }
                 self.state = .finished
                 self.currentTime = self.duration
@@ -133,6 +133,7 @@ public final class AudioPlaybackController {
     }
 
     public func teardown() {
+        generation &+= 1
         if let timeObserver, let player {
             player.removeTimeObserver(timeObserver)
         }
