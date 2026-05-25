@@ -50,15 +50,16 @@ public final class LiveActivityManager {
         )
 
         // If an activity for this session already exists, update it.
-        if let existing = existingActivity(sessionId: sessionId) {
+        if let existing = Self.existingActivity(sessionId: sessionId) {
             let mergedState = CallInProgressAttributes.ContentState(
                 boothState: boothState,
                 startedAt: startedAt,
                 digitsDialed: digitsDialed ?? existing.content.state.digitsDialed
             )
             Task {
-                await existing.update(
-                    ActivityContent(state: mergedState, staleDate: nil)
+                await Self.updateActivity(
+                    sessionId: sessionId,
+                    state: mergedState
                 )
             }
             return
@@ -86,7 +87,7 @@ public final class LiveActivityManager {
         boothState: String,
         digitsDialed: String? = nil
     ) {
-        guard let activity = existingActivity(sessionId: sessionId) else {
+        guard let activity = Self.existingActivity(sessionId: sessionId) else {
             logger.debug("No active Live Activity for session \(sessionId, privacy: .public); ignoring update")
             return
         }
@@ -100,23 +101,25 @@ public final class LiveActivityManager {
         )
 
         Task {
-            await activity.update(
-                ActivityContent(state: newState, staleDate: nil)
+            await Self.updateActivity(
+                sessionId: sessionId,
+                state: newState
             )
         }
     }
 
     /// Ends the Live Activity for the given session.
     public func callEnded(sessionId: String) {
-        guard let activity = existingActivity(sessionId: sessionId) else {
+        guard let activity = Self.existingActivity(sessionId: sessionId) else {
             logger.debug("No active Live Activity for session \(sessionId, privacy: .public); ignoring end")
             return
         }
 
         let finalState = activity.content.state
         Task {
-            await activity.end(
-                ActivityContent(state: finalState, staleDate: nil),
+            await Self.endActivity(
+                sessionId: sessionId,
+                state: finalState,
                 dismissalPolicy: .after(.now + 30)
             )
             logger.info("Ended Live Activity for session \(sessionId, privacy: .public)")
@@ -125,11 +128,15 @@ public final class LiveActivityManager {
 
     /// Ends all running call activities. Useful on sign-out or app reset.
     public func endAll() {
-        for activity in Activity<CallInProgressAttributes>.activities {
-            let state = activity.content.state
+        let activeSessions = Activity<CallInProgressAttributes>.activities.map {
+            (sessionId: $0.attributes.sessionId, state: $0.content.state)
+        }
+
+        for activeSession in activeSessions {
             Task {
-                await activity.end(
-                    ActivityContent(state: state, staleDate: nil),
+                await Self.endActivity(
+                    sessionId: activeSession.sessionId,
+                    state: activeSession.state,
                     dismissalPolicy: .immediate
                 )
             }
@@ -138,7 +145,35 @@ public final class LiveActivityManager {
 
     // MARK: - Private
 
-    private func existingActivity(
+    private nonisolated static func updateActivity(
+        sessionId: String,
+        state: CallInProgressAttributes.ContentState
+    ) async {
+        guard let activity = existingActivity(sessionId: sessionId) else {
+            return
+        }
+
+        await activity.update(
+            ActivityContent(state: state, staleDate: nil)
+        )
+    }
+
+    private nonisolated static func endActivity(
+        sessionId: String,
+        state: CallInProgressAttributes.ContentState,
+        dismissalPolicy: ActivityUIDismissalPolicy
+    ) async {
+        guard let activity = existingActivity(sessionId: sessionId) else {
+            return
+        }
+
+        await activity.end(
+            ActivityContent(state: state, staleDate: nil),
+            dismissalPolicy: dismissalPolicy
+        )
+    }
+
+    private nonisolated static func existingActivity(
         sessionId: String
     ) -> Activity<CallInProgressAttributes>? {
         Activity<CallInProgressAttributes>.activities.first {
