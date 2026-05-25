@@ -284,12 +284,12 @@ public final class AuthManager {
             await refreshCoordinator.complete(success: persisted)
             return persisted
         } catch AuthError.refreshTokenInvalid(let reason) {
-            logger.error("Refresh token rejected — signing out: \(reason, privacy: .public)")
+            logger.error("Refresh token rejected — signing out: \(reason, privacy: .private)")
             await refreshCoordinator.complete(success: false)
             signOut()
             return false
         } catch {
-            logger.warning("Refresh failed transiently: \(error.localizedDescription, privacy: .public)")
+            logger.warning("Refresh failed transiently: \(error.localizedDescription, privacy: .private)")
             await refreshCoordinator.complete(success: false)
             return false
         }
@@ -353,7 +353,7 @@ public final class AuthManager {
         }
         let body = String(data: data, encoding: .utf8) ?? "unknown"
         if (400...499).contains(http.statusCode) {
-            logger.error("Refresh rejected (\(http.statusCode)): \(body, privacy: .public)")
+            logger.error("Refresh rejected (\(http.statusCode)): \(body, privacy: .private)")
             throw AuthError.refreshTokenInvalid(body)
         }
         logger.warning("Refresh failed transiently (\(http.statusCode))")
