@@ -88,6 +88,7 @@ public final class AuthManager {
     var urlSession: URLSession = .shared
 
     private init() {
+        migrateKeychainAccessibility()
         if getAccessToken() != nil {
             if let expiryStr = getKeychainItem(account: "oidc_token_expiry"),
                let interval = TimeInterval(expiryStr),
@@ -424,6 +425,28 @@ public final class AuthManager {
 
     private static let keychainService = "org.davidjensenius.TelephoneBoothOperatorMobile.oidc"
 
+    /// Migrates existing Keychain items from `kSecAttrAccessibleAfterFirstUnlock`
+    /// to `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`. This prevents tokens
+    /// from being restored to other devices via iCloud Backup.
+    private func migrateKeychainAccessibility() {
+        let accounts = ["oidc_access_token", "oidc_refresh_token", "oidc_token_expiry"]
+        for account in accounts {
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: Self.keychainService,
+                kSecAttrAccount as String: account
+            ]
+            let update: [String: Any] = [
+                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            ]
+            let status = SecItemUpdate(query as CFDictionary, update as CFDictionary)
+            if status == noErr {
+                logger.info("Migrated keychain accessibility for \(account, privacy: .public)")
+            }
+            // errSecItemNotFound is expected for fresh installs; other errors are non-fatal.
+        }
+    }
+
     @discardableResult
     private func setKeychainItem(account: String, value: String) -> Bool {
         guard let data = value.data(using: .utf8) else { return false }
@@ -434,7 +457,7 @@ public final class AuthManager {
         ]
         let updateAttrs: [String: Any] = [
             kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
         let updateStatus = SecItemUpdate(query as CFDictionary, updateAttrs as CFDictionary)
         if updateStatus == noErr {
@@ -443,7 +466,7 @@ public final class AuthManager {
         if updateStatus == errSecItemNotFound {
             var addAttrs = query
             addAttrs[kSecValueData as String] = data
-            addAttrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+            addAttrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
             let addStatus = SecItemAdd(addAttrs as CFDictionary, nil)
             if addStatus == noErr {
                 return true
