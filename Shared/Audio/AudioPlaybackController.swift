@@ -39,11 +39,14 @@ public final class AudioPlaybackController {
     private var timeObserver: Any?
     private var endObserver: NSObjectProtocol?
     private var statusObservation: NSKeyValueObservation?
+    private var generation: UInt64 = 0
 
     public init() {}
 
     public func load(url: URL, durationMs: Int?) {
         teardown()
+        generation &+= 1
+        let loadGeneration = generation
         state = .loading
         if let durationMs {
             duration = Double(durationMs) / 1000.0
@@ -57,7 +60,7 @@ public final class AudioPlaybackController {
             let errorMessage = (item.error as NSError?)?.localizedDescription
                 ?? "Unable to load audio."
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, self.generation == loadGeneration else { return }
                 switch status {
                 case .failed:
                     self.state = .failed(errorMessage)
@@ -77,7 +80,7 @@ public final class AudioPlaybackController {
         timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             let seconds = time.seconds.isFinite ? max(0, time.seconds) : 0
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, self.generation == loadGeneration else { return }
                 self.currentTime = seconds
                 if let itemDuration = self.player?.currentItem?.duration.seconds,
                    itemDuration.isFinite, itemDuration > 0 {
@@ -91,9 +94,10 @@ public final class AudioPlaybackController {
             object: item,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in
-                self?.state = .finished
-                self?.currentTime = self?.duration ?? 0
+            Task { @MainActor [weak self] in
+                guard let self, self.generation == loadGeneration else { return }
+                self.state = .finished
+                self.currentTime = self.duration
             }
         }
     }
@@ -129,6 +133,7 @@ public final class AudioPlaybackController {
     }
 
     public func teardown() {
+        generation &+= 1
         if let timeObserver, let player {
             player.removeTimeObserver(timeObserver)
         }
