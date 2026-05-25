@@ -7,7 +7,7 @@
 //  when the call concludes. Only compiled on platforms with ActivityKit.
 //
 
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !os(macOS)
 import ActivityKit
 import Foundation
 import os

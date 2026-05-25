@@ -6,7 +6,7 @@
 //  the Lock Screen, Dynamic Island (compact + expanded), and StandBy.
 //
 
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !os(macOS)
 import ActivityKit
 import SwiftUI
 import WidgetKit

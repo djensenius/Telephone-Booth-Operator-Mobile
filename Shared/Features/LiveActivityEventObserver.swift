@@ -7,7 +7,7 @@
 //  Attached as a background task to the signed-in root view.
 //
 
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !os(macOS)
 import ActivityKit
 import Foundation
 import os

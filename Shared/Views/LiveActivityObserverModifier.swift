@@ -9,7 +9,7 @@
 
 import SwiftUI
 
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !os(macOS)
 private struct LiveActivityObserverModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
@@ -26,7 +26,7 @@ private struct LiveActivityObserverModifier: ViewModifier {
 extension View {
     @ViewBuilder
     func liveActivityObserver() -> some View {
-        #if canImport(ActivityKit)
+        #if canImport(ActivityKit) && !os(macOS)
         self.modifier(LiveActivityObserverModifier())
         #else
         self

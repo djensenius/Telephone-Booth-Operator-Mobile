@@ -7,7 +7,7 @@
 //  (which starts/updates/ends the activity via LiveActivityManager).
 //
 
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !os(macOS)
 import ActivityKit
 import Foundation
 

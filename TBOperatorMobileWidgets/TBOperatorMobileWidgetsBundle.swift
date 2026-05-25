@@ -16,7 +16,7 @@ struct TBOperatorMobileWidgetsBundle: WidgetBundle {
         BoothStatusWidget()
         PendingModerationWidget()
         CallsTodayWidget()
-        #if canImport(ActivityKit)
+        #if canImport(ActivityKit) && !os(macOS)
         CallInProgressLiveActivity()
         #endif
     }
