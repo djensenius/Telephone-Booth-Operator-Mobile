@@ -25,6 +25,8 @@ public enum AuthError: Error, LocalizedError {
     case deviceAuthorizationDenied
     /// The device code expired before the user finished signing in.
     case deviceCodeExpired
+    /// ASWebAuthenticationSession failed to present (start() returned false).
+    case presentationFailed
 
     public var errorDescription: String? {
         switch self {
@@ -50,6 +52,8 @@ public enum AuthError: Error, LocalizedError {
             return "Authorization was denied on the verification page."
         case .deviceCodeExpired:
             return "The sign-in code expired. Please try again."
+        case .presentationFailed:
+            return "Unable to present the sign-in window. Please try again."
         }
     }
 }
