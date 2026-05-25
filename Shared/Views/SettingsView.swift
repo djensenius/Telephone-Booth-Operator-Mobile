@@ -17,6 +17,7 @@ public struct SettingsView: View {
     @State private var apiBaseString: String
     @State private var errorMessage: String?
     @State private var savedMessage: String?
+    @State private var showHostChangeAlert = false
 
     public init() {
         _apiBaseString = State(initialValue: AppConfig.shared.apiBaseURL.absoluteString)
@@ -115,6 +116,12 @@ public struct SettingsView: View {
             .task {
                 await notifications.refreshAuthorizationStatus()
             }
+            .alert("Server Changed", isPresented: $showHostChangeAlert) {
+                Button("OK") { dismiss() }
+            } message: {
+                Text("You have been signed out because the API server changed. " +
+                     "Please sign in again to continue.")
+            }
         }
     }
 
@@ -122,9 +129,13 @@ public struct SettingsView: View {
         errorMessage = nil
         savedMessage = nil
         do {
-            try config.setAPIBase(apiBaseString)
+            let hostChanged = try config.setAPIBase(apiBaseString)
             apiBaseString = config.apiBaseURL.absoluteString
-            savedMessage = "Saved"
+            if hostChanged {
+                showHostChangeAlert = true
+            } else {
+                savedMessage = "Saved"
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
