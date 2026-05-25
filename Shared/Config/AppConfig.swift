@@ -95,60 +95,7 @@ public final class AppConfig {
     /// - Returns: `true` if the host changed (tokens were cleared), `false` otherwise.
     @discardableResult
     public func setAPIBase(_ rawString: String) throws -> Bool {
-        let trimmed = rawString.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty,
-              let components = URLComponents(string: trimmed),
-              let scheme = components.scheme?.lowercased(),
-              let host = components.host?.lowercased(), !host.isEmpty
-        else {
-            throw AppConfigError.invalidURL
-        }
-
-        // Scheme validation
-        #if DEBUG
-        guard scheme == "https" || scheme == "http" else {
-            throw AppConfigError.invalidURL
-        }
-        #else
-        guard scheme == "https" else {
-            throw AppConfigError.httpsRequired
-        }
-        #endif
-
-        // Reject userinfo, query, and fragments — these have no legitimate use
-        // for an API base and could be used to exfiltrate data.
-        if components.user != nil || components.password != nil {
-            throw AppConfigError.unsafeURLComponent("userinfo")
-        }
-        if components.query != nil || components.queryItems?.isEmpty == false {
-            throw AppConfigError.unsafeURLComponent("query parameters")
-        }
-        if components.fragment != nil {
-            throw AppConfigError.unsafeURLComponent("fragment")
-        }
-
-        // Block private/loopback addresses in release builds
-        #if !DEBUG
-        if Self.isPrivateOrLoopback(host) {
-            throw AppConfigError.unsafeHost
-        }
-        #endif
-
-        // Trusted-host allowlist (release only)
-        #if !DEBUG
-        if !Self.trustedHosts.isEmpty && !Self.trustedHosts.contains(host) {
-            throw AppConfigError.untrustedHost(host)
-        }
-        #endif
-
-        // Normalise trailing slashes
-        var normalised = trimmed
-        while normalised.hasSuffix("/") {
-            normalised.removeLast()
-        }
-        guard let url = URL(string: normalised) else {
-            throw AppConfigError.invalidURL
-        }
+        let (host, url) = try Self.validateAndNormalise(rawString)
 
         // Detect host change and clear tokens if needed
         let previousHost = apiBaseURL.host?.lowercased()
@@ -165,6 +112,69 @@ public final class AppConfig {
         }
 
         return hostChanged
+    }
+
+    /// Validates and normalises a raw URL string for use as the API base.
+    /// Returns the lowercased host and the normalised URL on success.
+    private static func validateAndNormalise(
+        _ rawString: String
+    ) throws -> (host: String, url: URL) {
+        let trimmed = rawString.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let components = URLComponents(string: trimmed),
+              let scheme = components.scheme?.lowercased(),
+              let host = components.host?.lowercased(), !host.isEmpty
+        else {
+            throw AppConfigError.invalidURL
+        }
+
+        try validateScheme(scheme)
+        try validateComponents(components)
+
+        #if !DEBUG
+        if isPrivateOrLoopback(host) {
+            throw AppConfigError.unsafeHost
+        }
+        if !trustedHosts.isEmpty && !trustedHosts.contains(host) {
+            throw AppConfigError.untrustedHost(host)
+        }
+        #endif
+
+        var normalised = trimmed
+        while normalised.hasSuffix("/") {
+            normalised.removeLast()
+        }
+        guard let url = URL(string: normalised) else {
+            throw AppConfigError.invalidURL
+        }
+
+        return (host, url)
+    }
+
+    private static func validateScheme(_ scheme: String) throws {
+        #if DEBUG
+        guard scheme == "https" || scheme == "http" else {
+            throw AppConfigError.invalidURL
+        }
+        #else
+        guard scheme == "https" else {
+            throw AppConfigError.httpsRequired
+        }
+        #endif
+    }
+
+    private static func validateComponents(
+        _ components: URLComponents
+    ) throws {
+        if components.user != nil || components.password != nil {
+            throw AppConfigError.unsafeURLComponent("userinfo")
+        }
+        if components.query != nil || components.queryItems?.isEmpty == false {
+            throw AppConfigError.unsafeURLComponent("query parameters")
+        }
+        if components.fragment != nil {
+            throw AppConfigError.unsafeURLComponent("fragment")
+        }
     }
 
     // MARK: - Private Helpers
