@@ -157,6 +157,13 @@ public final class AuthManager {
         ]
         guard let authURL = components.url else { throw AuthError.unknown }
 
+        defer {
+            currentSession = nil
+            #if !os(watchOS)
+            anchorProvider = nil
+            #endif
+        }
+
         let callbackURL: URL = try await withCheckedThrowingContinuation { continuation in
             let session = ASWebAuthenticationSession(
                 url: authURL,
@@ -181,18 +188,8 @@ public final class AuthManager {
             #endif
             currentSession = session
             if !session.start() {
-                currentSession = nil
-                #if !os(watchOS)
-                anchorProvider = nil
-                #endif
                 continuation.resume(throwing: AuthError.presentationFailed)
             }
-        }
-        defer {
-            currentSession = nil
-            #if !os(watchOS)
-            anchorProvider = nil
-            #endif
         }
 
         let callbackComponents = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)
