@@ -61,8 +61,9 @@ then checks whether any returned group matches the configured allow-list
    which `ASWebAuthenticationSession` captures and returns to the app.
 5. `AuthManager` POSTs the code + verifier to
    `${AUTHENTIK_ISSUER}/token`, receives `{access_token, refresh_token,
-   id_token, expires_in}`, validates the ID token signature against the
-   Authentik JWKS, and stores the tokens in the Keychain.
+   id_token, expires_in}`, validates the ID token claims locally (issuer,
+   audience, expiration, nonce — see below), and stores the tokens in the
+   Keychain.
 6. `OperatorClient` injects `Authorization: Bearer <access_token>` on
    every request. Five minutes later, the access token expires;
    `AuthManager` exchanges the refresh token for a new pair before the
@@ -82,6 +83,30 @@ then checks whether any returned group matches the configured allow-list
 - The operator's cookie was designed for the browser — server-side
   state, CSRF middleware, `__Host-` prefix rules — none of which map
   cleanly to a native client.
+
+## ID-token local validation
+
+After token exchange, `AuthManager` validates the ID token's claims locally
+via `IDTokenValidator`. This is a defense-in-depth measure — the backend
+independently validates access tokens on every API call.
+
+**What is validated:**
+- `iss` — must match `oidcIssuerBase` from AppConfig (trailing-slash tolerant)
+- `aud` — must contain our `oidcClientID`
+- `exp` — must not have expired (5-minute clock skew tolerance)
+- `nonce` — must match the nonce sent in the authorization request
+
+**What is NOT validated (and why):**
+- **JWT signature** — Per OIDC Core §3.1.3.7, when the ID token is received
+  directly from the token endpoint over TLS (not via front-channel redirect),
+  signature verification MAY be omitted. This avoids needing JWKS endpoint
+  fetches, RSA/EC crypto, and key-rotation handling on-device. The TLS
+  connection to the token endpoint provides integrity.
+
+**Fail-open behavior:** If the provider returns no `id_token` in the token
+response (valid per spec when `openid` scope is not granted or the provider
+omits it), validation is skipped and a warning is logged. Sign-in proceeds
+because the access token is still validated by the backend on every request.
 
 ## Open questions (to resolve during operator PR 1)
 

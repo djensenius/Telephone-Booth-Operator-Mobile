@@ -141,6 +141,7 @@ public final class AuthManager {
             Data(SHA256.hash(data: Data(verifier.utf8)))
         )
         let stateNonce = Self.generateRandomString()
+        let oidcNonce = Self.generateRandomString()
 
         guard var components = URLComponents(string: authorizeURL.absoluteString) else {
             throw AuthError.unknown
@@ -151,7 +152,7 @@ public final class AuthManager {
             URLQueryItem(name: "redirect_uri", value: config.redirectURI),
             URLQueryItem(name: "scope", value: config.oidcScopes),
             URLQueryItem(name: "state", value: stateNonce),
-            URLQueryItem(name: "nonce", value: Self.generateRandomString()),
+            URLQueryItem(name: "nonce", value: oidcNonce),
             URLQueryItem(name: "code_challenge", value: challenge),
             URLQueryItem(name: "code_challenge_method", value: "S256")
         ]
@@ -204,6 +205,19 @@ public final class AuthManager {
         }
 
         let tokens = try await exchangeCode(code, verifier: verifier)
+
+        // Validate ID-token claims if present (defense-in-depth)
+        if let idToken = tokens.idToken {
+            try IDTokenValidator.validate(
+                idToken: idToken,
+                expectedNonce: oidcNonce,
+                issuer: config.oidcIssuerBase,
+                clientID: config.oidcClientID
+            )
+        } else {
+            logger.warning("Token response missing id_token — skipping local claim validation")
+        }
+
         guard storeTokens(tokens) else {
             throw AuthError.keychainWriteFailed
         }
