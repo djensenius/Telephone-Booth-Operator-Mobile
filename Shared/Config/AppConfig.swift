@@ -157,9 +157,9 @@ public final class AppConfig {
         apiBaseURL = url
 
         if hostChanged {
+            let prev = previousHost ?? "nil"
             logger.warning(
-                "API host changed from \(previousHost ?? "nil", privacy: .public) " +
-                "to \(host, privacy: .public) — clearing auth tokens"
+                "API host changed \(prev, privacy: .public) → \(host, privacy: .public) — clearing tokens"
             )
             AuthManager.shared.signOut()
         }
@@ -171,18 +171,23 @@ public final class AppConfig {
 
     /// Returns `true` if the host is a loopback, private, or link-local address.
     private static func isPrivateOrLoopback(_ host: String) -> Bool {
-        let loopback = ["localhost", "127.0.0.1", "[::1]", "::1"]
-        if loopback.contains(host) { return true }
+        let loopbackNames = ["localhost", "[::1]", "::1"]
+        if loopbackNames.contains(host) { return true }
 
-        // IPv4 private ranges
         let parts = host.split(separator: ".").compactMap { UInt8($0) }
-        if parts.count == 4 {
-            if parts[0] == 10 { return true }                              // 10.0.0.0/8
-            if parts[0] == 172 && (16...31).contains(parts[1]) { return true } // 172.16.0.0/12
-            if parts[0] == 192 && parts[1] == 168 { return true }          // 192.168.0.0/16
-            if parts[0] == 169 && parts[1] == 254 { return true }          // link-local
-        }
+        guard parts.count == 4 else { return false }
 
+        // Full 127.0.0.0/8 loopback range (RFC 1122)
+        if parts[0] == 127 { return true }
+
+        return isPrivateIPv4(parts)
+    }
+
+    private static func isPrivateIPv4(_ parts: [UInt8]) -> Bool {
+        if parts[0] == 10 { return true }                              // 10.0.0.0/8
+        if parts[0] == 172 && (16...31).contains(parts[1]) { return true } // 172.16.0.0/12
+        if parts[0] == 192 && parts[1] == 168 { return true }          // 192.168.0.0/16
+        if parts[0] == 169 && parts[1] == 254 { return true }          // link-local
         return false
     }
 

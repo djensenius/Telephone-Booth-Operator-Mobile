@@ -8,6 +8,7 @@
 import XCTest
 @testable import TBOperatorMobile
 
+@MainActor
 final class AppConfigSecurityTests: XCTestCase {
 
     // MARK: - Valid URLs
@@ -116,13 +117,14 @@ final class AppConfigSecurityTests: XCTestCase {
 
     #if DEBUG
     func testIsPrivateOrLoopbackDetectsLocalhost() throws {
+        let config = AppConfig.shared
+        let original = config.apiBaseURL
+        defer { config.apiBaseURL = original }
+
         // In DEBUG builds we allow these, but the function should still identify them.
         // We test indirectly: in DEBUG, localhost is allowed so setAPIBase succeeds.
-        XCTAssertNoThrow(try AppConfig.shared.setAPIBase("http://127.0.0.1:8080"))
-        XCTAssertNoThrow(try AppConfig.shared.setAPIBase("http://localhost:3000"))
-
-        // Restore
-        try AppConfig.shared.setAPIBase("https://operator.fluxhaus.io")
+        XCTAssertNoThrow(try config.setAPIBase("http://127.0.0.1:8080"))
+        XCTAssertNoThrow(try config.setAPIBase("http://localhost:3000"))
     }
     #endif
 }
