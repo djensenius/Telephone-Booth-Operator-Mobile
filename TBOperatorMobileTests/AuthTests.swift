@@ -106,4 +106,155 @@ final class AuthTests: XCTestCase {
         XCTAssertNotNil(error.errorDescription)
         XCTAssertTrue(error.errorDescription?.contains("credentials") == true)
     }
+
+    // MARK: - Launch validation (validateSessionOnLaunch)
+
+    /// Expired token + transient refresh failure → must sign out, not stay signed in.
+    @MainActor
+    func testValidateSessionExpiredTokenTransientFailureSignsOut() async {
+        let manager = AuthManager.shared
+        // Store an already-expired token
+        let expiredTokens = OIDCTokens(
+            accessToken: "expired-access-\(UUID().uuidString)",
+            refreshToken: "valid-refresh-\(UUID().uuidString)",
+            idToken: nil,
+            expiresIn: -10,
+            tokenType: "Bearer"
+        )
+        manager.storeTokens(expiredTokens)
+        manager.resetStateForTesting()
+
+        // Use a URLSession that simulates a transient network failure
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [TransientFailureURLProtocol.self]
+        manager.urlSession = URLSession(configuration: config)
+
+        await manager.validateSessionOnLaunch()
+
+        XCTAssertEqual(manager.authState, .signedOut,
+                       "Expired token + transient refresh failure must not become .signedIn")
+        // Clean up
+        manager.urlSession = .shared
+        manager.signOut()
+    }
+
+    /// Expired token + successful refresh → should sign in.
+    @MainActor
+    func testValidateSessionExpiredTokenSuccessfulRefreshSignsIn() async {
+        let manager = AuthManager.shared
+        // Store an already-expired token with a refresh token
+        let expiredTokens = OIDCTokens(
+            accessToken: "expired-access-\(UUID().uuidString)",
+            refreshToken: "good-refresh-\(UUID().uuidString)",
+            idToken: nil,
+            expiresIn: -10,
+            tokenType: "Bearer"
+        )
+        manager.storeTokens(expiredTokens)
+        manager.resetStateForTesting()
+
+        // Use a URLSession that returns a successful token response
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [SuccessfulRefreshURLProtocol.self]
+        manager.urlSession = URLSession(configuration: config)
+
+        await manager.validateSessionOnLaunch()
+
+        XCTAssertEqual(manager.authState, .signedIn,
+                       "Expired token + successful refresh should restore .signedIn")
+        // Clean up
+        manager.urlSession = .shared
+        manager.signOut()
+    }
+
+    /// Unexpired token + transient refresh failure → should stay signed in
+    /// (the token is still usable).
+    @MainActor
+    func testValidateSessionUnexpiredTokenTransientFailureStaysSignedIn() async {
+        let manager = AuthManager.shared
+        // Store a token that expires in the future (but within the "soon" window
+        // so refresh is attempted)
+        let soonTokens = OIDCTokens(
+            accessToken: "valid-access-\(UUID().uuidString)",
+            refreshToken: "valid-refresh-\(UUID().uuidString)",
+            idToken: nil,
+            expiresIn: 30,
+            tokenType: "Bearer"
+        )
+        manager.storeTokens(soonTokens)
+        manager.resetStateForTesting()
+
+        // Use a URLSession that simulates a transient network failure
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [TransientFailureURLProtocol.self]
+        manager.urlSession = URLSession(configuration: config)
+
+        await manager.validateSessionOnLaunch()
+
+        XCTAssertEqual(manager.authState, .signedIn,
+                       "Unexpired token + transient refresh failure should stay .signedIn")
+        // Clean up
+        manager.urlSession = .shared
+        manager.signOut()
+    }
+
+    /// No refresh token at all → should sign out.
+    @MainActor
+    func testValidateSessionNoRefreshTokenSignsOut() async {
+        let manager = AuthManager.shared
+        // Store access token only (no refresh token)
+        let tokens = OIDCTokens(
+            accessToken: "orphan-access-\(UUID().uuidString)",
+            refreshToken: nil,
+            idToken: nil,
+            expiresIn: -10,
+            tokenType: "Bearer"
+        )
+        manager.storeTokens(tokens)
+        manager.resetStateForTesting()
+
+        await manager.validateSessionOnLaunch()
+
+        XCTAssertEqual(manager.authState, .signedOut,
+                       "No refresh token must result in .signedOut")
+        manager.signOut()
+    }
+}
+
+// MARK: - URL Protocol mocks for launch tests
+
+/// Simulates a transient network failure (connection error).
+private final class TransientFailureURLProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+    }
+    override func stopLoading() {}
+}
+
+/// Simulates a successful token refresh response from Authentik.
+private final class SuccessfulRefreshURLProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let responseBody = """
+        {
+            "access_token": "fresh-access-\(UUID().uuidString)",
+            "refresh_token": "fresh-refresh-\(UUID().uuidString)",
+            "expires_in": 3600,
+            "token_type": "Bearer"
+        }
+        """.data(using: .utf8)!
+        let response = HTTPURLResponse(
+            url: request.url!,
+            statusCode: 200,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: responseBody)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
 }
