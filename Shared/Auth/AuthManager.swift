@@ -88,6 +88,7 @@ public final class AuthManager {
     var urlSession: URLSession = .shared
 
     private init() {
+        migrateKeychainAccessibility()
         if getAccessToken() != nil {
             if let expiryStr = getKeychainItem(account: "oidc_token_expiry"),
                let interval = TimeInterval(expiryStr),

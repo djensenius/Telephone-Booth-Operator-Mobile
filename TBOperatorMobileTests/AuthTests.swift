@@ -219,6 +219,45 @@ final class AuthTests: XCTestCase {
                        "No refresh token must result in .signedOut")
         manager.signOut()
     }
+
+    // MARK: - Keychain accessibility migration
+
+    @MainActor
+    func testKeychainItemsUseThisDeviceOnlyAccessibility() {
+        let manager = AuthManager.shared
+        let tokens = OIDCTokens(
+            accessToken: "thisdevice-access-\(UUID().uuidString)",
+            refreshToken: "thisdevice-refresh-\(UUID().uuidString)",
+            idToken: nil,
+            expiresIn: 3600,
+            tokenType: "Bearer"
+        )
+        manager.storeTokens(tokens)
+
+        // Read back the accessibility attribute for the access token
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "org.davidjensenius.TelephoneBoothOperatorMobile.oidc",
+            kSecAttrAccount as String: "oidc_access_token",
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecReturnAttributes as String: true
+        ]
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        XCTAssertEqual(status, noErr)
+        guard let attrs = item as? [String: Any] else {
+            XCTFail("Expected dictionary attributes from keychain query")
+            manager.signOut()
+            return
+        }
+        let accessible = attrs[kSecAttrAccessible as String] as? String
+        XCTAssertEqual(
+            accessible,
+            kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String,
+            "Token should use AfterFirstUnlockThisDeviceOnly accessibility"
+        )
+        manager.signOut()
+    }
 }
 
 // MARK: - URL Protocol mocks for launch tests
