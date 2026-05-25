@@ -224,7 +224,7 @@ final class AuthTests: XCTestCase {
 // MARK: - URL Protocol mocks for launch tests
 
 /// Simulates a transient network failure (connection error).
-private final class TransientFailureURLProtocol: URLProtocol {
+private class TransientFailureURLProtocol: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
@@ -234,18 +234,18 @@ private final class TransientFailureURLProtocol: URLProtocol {
 }
 
 /// Simulates a successful token refresh response from Authentik.
-private final class SuccessfulRefreshURLProtocol: URLProtocol {
+private class SuccessfulRefreshURLProtocol: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
-        let responseBody = """
+        let responseBody = Data("""
         {
             "access_token": "fresh-access-\(UUID().uuidString)",
             "refresh_token": "fresh-refresh-\(UUID().uuidString)",
             "expires_in": 3600,
             "token_type": "Bearer"
         }
-        """.data(using: .utf8)!
+        """.utf8)
         let response = HTTPURLResponse(
             url: request.url!,
             statusCode: 200,
