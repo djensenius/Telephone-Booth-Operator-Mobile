@@ -18,7 +18,10 @@ public struct EventsFeedView: View {
     @State private var historyError: String?
     @State private var typeFilter: BoothEventType?
     @State private var isStreaming: Bool = false
+    @State private var isReconnecting: Bool = false
     @State private var streamTask: Task<Void, Never>?
+    @State private var reconnectTask: Task<Void, Never>?
+    @State private var reconnectDelay: TimeInterval = 0
 
     private let client: OperatorClient
     private let stream: EventStream
@@ -79,10 +82,14 @@ public struct EventsFeedView: View {
     private var statusHeader: some View {
         HStack(spacing: Theme.Spacing.medium) {
             Circle()
-                .fill(isStreaming ? Theme.Colors.success : Theme.Colors.textSecondary)
+                .fill(isStreaming ? Theme.Colors.success
+                      : isReconnecting ? Theme.Colors.warning
+                      : Theme.Colors.textSecondary)
                 .frame(width: 8, height: 8)
                 .accessibilityHidden(true)
-            Text(isStreaming ? "Live" : "Disconnected")
+            Text(isStreaming ? "Live"
+                 : isReconnecting ? "Reconnecting…"
+                 : "Disconnected")
                 .font(Theme.Fonts.caption.weight(.semibold))
                 .foregroundStyle(Theme.Colors.textPrimary)
             if let typeFilter {
@@ -157,23 +164,40 @@ public struct EventsFeedView: View {
         }
     }
 
+    private static let maxReconnectDelay: TimeInterval = 30
+    private static let initialReconnectDelay: TimeInterval = 1
+
     private func startStream() {
         guard streamTask == nil else { return }
+        cancelReconnect()
         streamError = nil
         let eventStream = stream
         streamTask = Task { @MainActor in
+            defer {
+                streamTask = nil
+                isStreaming = false
+            }
             do {
                 isStreaming = true
+                var didReceiveEvent = false
                 for try await record in eventStream.subscribe() {
                     if Task.isCancelled { break }
+                    if !didReceiveEvent {
+                        didReceiveEvent = true
+                        reconnectDelay = 0
+                    }
                     appendLive(record)
                 }
-                isStreaming = false
+                if !Task.isCancelled {
+                    scheduleReconnect()
+                }
             } catch is CancellationError {
-                isStreaming = false
+                // Intentional teardown — no reconnect
             } catch {
-                isStreaming = false
                 streamError = (error as? LocalizedError)?.errorDescription ?? "Live stream disconnected."
+                if !Task.isCancelled {
+                    scheduleReconnect()
+                }
             }
         }
     }
@@ -181,7 +205,29 @@ public struct EventsFeedView: View {
     private func stopStream() {
         streamTask?.cancel()
         streamTask = nil
+        cancelReconnect()
         isStreaming = false
+        isReconnecting = false
+    }
+
+    private func scheduleReconnect() {
+        let nextDelay = reconnectDelay == 0
+            ? Self.initialReconnectDelay
+            : min(reconnectDelay * 2, Self.maxReconnectDelay)
+        reconnectDelay = nextDelay
+        isReconnecting = true
+        reconnectTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(nextDelay))
+            guard !Task.isCancelled else { return }
+            isReconnecting = false
+            startStream()
+        }
+    }
+
+    private func cancelReconnect() {
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        isReconnecting = false
     }
 
     private func appendLive(_ record: BoothEventRecord) {
