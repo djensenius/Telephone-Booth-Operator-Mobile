@@ -57,6 +57,7 @@ struct CallInProgressLiveActivity: Widget {
                 Text(context.state.startedAt, style: .timer)
                     .monospacedDigit()
                     .frame(width: 48)
+                    .privacySensitive()
             } minimal: {
                 Image(systemName: "phone.fill")
                     .foregroundStyle(.green)
