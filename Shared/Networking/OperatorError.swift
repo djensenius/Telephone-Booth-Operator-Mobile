@@ -20,6 +20,8 @@ public enum OperatorError: Error, LocalizedError {
     case transport(Error)
     /// Caller invoked the client with an invalid URL.
     case invalidURL
+    /// An SSE event exceeded the maximum allowed size.
+    case eventSizeExceeded(Int)
 
     public var errorDescription: String? {
         switch self {
@@ -37,6 +39,8 @@ public enum OperatorError: Error, LocalizedError {
             return error.localizedDescription
         case .invalidURL:
             return "Invalid request URL."
+        case .eventSizeExceeded(let limit):
+            return "SSE event exceeded maximum size of \(limit) bytes."
         }
     }
 }
