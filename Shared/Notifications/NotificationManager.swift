@@ -133,6 +133,13 @@ public final class NotificationManager {
         logger.error("APNs registration failed: \(error.localizedDescription, privacy: .public)")
     }
 
+    /// Retries server registration using the persisted APNs token.
+    /// Use when the token exists but a previous `registerDevice` call failed.
+    public func retryServerRegistration() async {
+        guard let token = apnsToken else { return }
+        await syncRegistrationWithServer(token: token)
+    }
+
     public func updatePreference(
         _ keyPath: WritableKeyPath<MobileDevicePreferences, Bool>,
         to value: Bool

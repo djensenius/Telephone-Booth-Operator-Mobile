@@ -45,6 +45,14 @@ public struct NotificationSettingsSection: View {
                           systemImage: "hourglass")
                         .foregroundStyle(Theme.Colors.textSecondary)
                         .font(Theme.Fonts.bodySmall)
+                } else {
+                    Button {
+                        Task { await notifications.retryServerRegistration() }
+                    } label: {
+                        Label("Register with server",
+                              systemImage: "arrow.clockwise")
+                    }
+                    .disabled(notifications.isWorking)
                 }
             }
             if let error = notifications.lastError {
