@@ -247,7 +247,18 @@ public final class AuthManager {
         guard getAccessToken() != nil else { return false }
         guard isTokenExpiringSoon() else { return true }
         logger.debug("ensureValidToken: refreshing proactively")
-        return await refreshTokenIfNeeded()
+        let refreshed = await refreshTokenIfNeeded()
+        if !refreshed && getAccessToken() != nil && !isTokenExpired() {
+            // Proactive refresh failed transiently but the token is still usable.
+            logger.warning("ensureValidToken: proactive refresh failed, using still-valid token")
+            return true
+        }
+        return refreshed
+    }
+
+    /// Whether the access token has truly expired (no grace margin).
+    public func isTokenExpired() -> Bool {
+        isTokenExpiringSoon(margin: 0)
     }
 
     private func restoreStateIfNeeded() {
