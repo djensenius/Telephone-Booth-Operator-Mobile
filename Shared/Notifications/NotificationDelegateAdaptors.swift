@@ -43,7 +43,7 @@ public final class TBOperatorAppDelegate: NSObject, UIApplicationDelegate, UNUse
         }
     }
 
-    public func userNotificationCenter(
+    nonisolated public func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
@@ -78,7 +78,7 @@ public final class TBOperatorMacAppDelegate: NSObject, NSApplicationDelegate, UN
         }
     }
 
-    public func userNotificationCenter(
+    nonisolated public func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
@@ -107,7 +107,7 @@ public final class TBOperatorWatchAppDelegate: NSObject, WKApplicationDelegate, 
         }
     }
 
-    public func userNotificationCenter(
+    nonisolated public func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
