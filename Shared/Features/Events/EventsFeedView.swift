@@ -122,7 +122,7 @@ public struct EventsFeedView: View {
                 Label("All events", systemImage: typeFilter == nil ? "checkmark" : "")
             }
             Divider()
-            ForEach(BoothEventType.allCases, id: \.self) { type in
+            ForEach(BoothEventType.knownCases, id: \.self) { type in
                 Button {
                     typeFilter = type
                 } label: {

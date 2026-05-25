@@ -328,7 +328,7 @@ final class TBOperatorMobileTests: XCTestCase {
     }
 
     func testMessageStatusRoundTrip() throws {
-        for status in MessageStatus.allCases {
+        for status in MessageStatus.knownCases {
             let data = try JSONEncoder().encode(status)
             let decoded = try JSONDecoder().decode(MessageStatus.self, from: data)
             XCTAssertEqual(status, decoded)

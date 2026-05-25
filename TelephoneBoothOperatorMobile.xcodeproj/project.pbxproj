@@ -172,6 +172,7 @@
 		873759AEC84154C3CBF9E6AC /* BoothEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E3B1AFE0D881D7419AE137D /* BoothEvent.swift */; };
 		87D49705E0BCB890D26D5290 /* WatchModerationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF023161B82D868C9EAE710C /* WatchModerationView.swift */; };
 		884D83CA01F406FABA0EF9E1 /* NotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435BF82B0A74BD00A4B073F2 /* NotificationTests.swift */; };
+		F2E1D0C9B8A7F6E5D4C3B2A1 /* UnknownEnumTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* UnknownEnumTests.swift */; };
 		8A1B3EEF1A6C718515076857 /* OperatorMe.swift in Sources */ = {isa = PBXBuildFile; fileRef = A57C08F65970EB67A8553EE3 /* OperatorMe.swift */; };
 		8BA4A5D8F9CA168266C7D84F /* AuthAnchorProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66E5C1AA8828852D97BDCA78 /* AuthAnchorProvider.swift */; };
 		8E579ECB0EEF6B83F685E17F /* QuestionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47444A48E2553486547EE81B /* QuestionsView.swift */; };
@@ -399,6 +400,7 @@
 		37087EC6949DE3BAE1DFF056 /* RootContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootContainerView.swift; sourceTree = "<group>"; };
 		40E094F5C508E9EC6FAE377B /* SessionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListView.swift; sourceTree = "<group>"; };
 		435BF82B0A74BD00A4B073F2 /* NotificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* UnknownEnumTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnknownEnumTests.swift; sourceTree = "<group>"; };
 		47444A48E2553486547EE81B /* QuestionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionsView.swift; sourceTree = "<group>"; };
 		523ED08FA179138D88929462 /* StatusDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusDashboardView.swift; sourceTree = "<group>"; };
 		532E67687BBA95CEAA7D1170 /* TBOperatorMobileWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileWatchApp.swift; sourceTree = "<group>"; };
@@ -490,6 +492,7 @@
 				6B25D928BCD494D717474665 /* AuthTests.swift */,
 				435BF82B0A74BD00A4B073F2 /* NotificationTests.swift */,
 				7781B42DE486F0C2D94C10F2 /* TBOperatorMobileTests.swift */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* UnknownEnumTests.swift */,
 			);
 			path = TBOperatorMobileTests;
 			sourceTree = "<group>";
@@ -1464,6 +1467,7 @@
 				D63702C7E0E5F7DD94735617 /* AuthTests.swift in Sources */,
 				884D83CA01F406FABA0EF9E1 /* NotificationTests.swift in Sources */,
 				0500245ABDE4B8CE79C3135F /* TBOperatorMobileTests.swift in Sources */,
+				F2E1D0C9B8A7F6E5D4C3B2A1 /* UnknownEnumTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

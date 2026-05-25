@@ -72,7 +72,7 @@ public struct MessageListView: View {
         Menu {
             Button("All") { statusFilter = nil }
             Divider()
-            ForEach(MessageStatus.allCases, id: \.self) { status in
+            ForEach(MessageStatus.knownCases, id: \.self) { status in
                 Button(status.displayName) { statusFilter = status }
             }
         } label: {
@@ -167,6 +167,7 @@ struct MessageRow: View {
         case .approve: return Theme.Colors.success
         case .review: return Theme.Colors.warning
         case .reject: return Theme.Colors.error
+        case .unknown: return Theme.Colors.textSecondary
         }
     }
 }
@@ -192,6 +193,7 @@ struct MessageStatusBadge: View {
         case .received, .pending: return Theme.Colors.warning
         case .approved: return Theme.Colors.success
         case .rejected: return Theme.Colors.error
+        case .unknown: return Theme.Colors.textSecondary
         }
     }
 }
