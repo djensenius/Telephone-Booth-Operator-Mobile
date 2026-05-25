@@ -18,15 +18,18 @@ private let logger = Logger(
 /// Read-only operator REST client. Expansion happens in PR 3+ as the UI
 /// adds dashboards, sessions, messages, moderation, etc.
 public actor OperatorClient {
-    public static let shared = OperatorClient()
+    @MainActor public static let shared = OperatorClient(
+        config: AppConfig.shared,
+        auth: AuthManager.shared
+    )
 
     private let config: AppConfig
     private let auth: AuthManager
     private let session: URLSession
 
     public init(
-        config: AppConfig = .shared,
-        auth: AuthManager = .shared,
+        config: AppConfig,
+        auth: AuthManager,
         session: URLSession = .shared
     ) {
         self.config = config
@@ -237,7 +240,7 @@ public actor OperatorClient {
     }
 
     private func delete(_ path: String) async throws {
-        let url = config.url(forPath: path)
+        let url = await config.url(forPath: path)
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -275,7 +278,7 @@ public actor OperatorClient {
         body: Body?,
         requireAuth: Bool = true
     ) async throws -> Response {
-        let baseURL = config.url(forPath: path)
+        let baseURL = await config.url(forPath: path)
         let url: URL
         if query.isEmpty {
             url = baseURL
@@ -299,7 +302,8 @@ public actor OperatorClient {
             }
         }
 
-        if requireAuth || auth.getAccessToken() != nil {
+        let hasAccessToken = await auth.getAccessToken() != nil
+        if requireAuth || hasAccessToken {
             guard let header = await auth.authorizationHeader() else {
                 if requireAuth { throw OperatorError.unauthenticated }
                 // Optional auth and no token available — proceed unauthenticated.

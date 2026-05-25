@@ -24,7 +24,8 @@ private let logger = Logger(
 /// (Info.plist) — changing identity providers at runtime would invalidate
 /// stored tokens and is not supported.
 @Observable
-public final class AppConfig: @unchecked Sendable {
+@MainActor
+public final class AppConfig {
     public static let shared = AppConfig()
 
     private static let apiBaseDefaultsKey = "TBOperatorAPIBase"
@@ -72,7 +73,6 @@ public final class AppConfig: @unchecked Sendable {
 
     /// Update the API base URL. Trailing slashes are normalised away so callers
     /// can paste either form. Throws if the input isn't a valid http(s) URL.
-    @MainActor
     public func setAPIBase(_ rawString: String) throws {
         let trimmed = rawString.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty,

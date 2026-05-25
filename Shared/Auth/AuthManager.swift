@@ -55,7 +55,8 @@ private actor RefreshCoordinator {
 /// Keychain and refreshed automatically before expiry. The manager is
 /// observable; views can read `authState` directly.
 @Observable
-public final class AuthManager: @unchecked Sendable {
+@MainActor
+public final class AuthManager {
     public static let shared = AuthManager()
 
     public enum AuthState: Sendable {
@@ -104,7 +105,7 @@ public final class AuthManager: @unchecked Sendable {
     /// Validates the cached session at app launch. On a definitive 4xx
     /// refresh rejection the session is cleared; transient/offline failures
     /// allow the cached token to be used.
-    @MainActor public func validateSessionOnLaunch() async {
+    public func validateSessionOnLaunch() async {
         guard authState == .unknown else { return }
         guard getKeychainItem(account: "oidc_refresh_token") != nil else {
             logger.info("validateSession: no refresh token — signing out")
@@ -131,7 +132,7 @@ public final class AuthManager: @unchecked Sendable {
 
     /// Begins an interactive OIDC sign-in using ASWebAuthenticationSession.
     /// Throws `.unsupportedPlatform` on tvOS.
-    @MainActor public func signInWithOIDC() async throws {
+    public func signInWithOIDC() async throws {
         #if os(tvOS)
         throw AuthError.unsupportedPlatform
         #else
@@ -204,7 +205,7 @@ public final class AuthManager: @unchecked Sendable {
         #endif
     }
 
-    @MainActor public func signOut() {
+    public func signOut() {
         deleteKeychainItem(account: "oidc_access_token")
         deleteKeychainItem(account: "oidc_refresh_token")
         deleteKeychainItem(account: "oidc_token_expiry")
@@ -215,7 +216,7 @@ public final class AuthManager: @unchecked Sendable {
     /// Marks the session as signed-in. Used by other auth flows (e.g.
     /// device authorization grant) that live in extensions but can't
     /// touch the `private(set)` setter directly.
-    @MainActor func markSignedIn() {
+    func markSignedIn() {
         authState = .signedIn
     }
 
@@ -242,7 +243,7 @@ public final class AuthManager: @unchecked Sendable {
         return await refreshTokenIfNeeded()
     }
 
-    @MainActor private func restoreStateIfNeeded() {
+    private func restoreStateIfNeeded() {
         guard authState == .signedOut else { return }
         if getAccessToken() != nil { authState = .signedIn }
     }
@@ -263,7 +264,7 @@ public final class AuthManager: @unchecked Sendable {
         } catch AuthError.refreshTokenInvalid(let reason) {
             logger.error("Refresh token rejected — signing out: \(reason, privacy: .public)")
             await refreshCoordinator.complete(success: false)
-            await MainActor.run { signOut() }
+            signOut()
             return false
         } catch {
             logger.warning("Refresh failed transiently: \(error.localizedDescription, privacy: .public)")

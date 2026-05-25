@@ -33,7 +33,10 @@ public struct EventStreamFilters: Sendable, Equatable {
 }
 
 public actor EventStream {
-    public static let shared = EventStream()
+    @MainActor public static let shared = EventStream(
+        config: AppConfig.shared,
+        auth: AuthManager.shared
+    )
 
     /// Maximum allowed size (in bytes) of a single SSE event's accumulated data
     /// lines before the stream is terminated with an error. Default: 1 MB.
@@ -45,8 +48,8 @@ public actor EventStream {
     private let maxEventSize: Int
 
     public init(
-        config: AppConfig = .shared,
-        auth: AuthManager = .shared,
+        config: AppConfig,
+        auth: AuthManager,
         session: URLSession = .shared,
         maxEventSize: Int = EventStream.defaultMaxEventSize
     ) {
@@ -92,7 +95,7 @@ public actor EventStream {
 
     private func buildRequest(filters: EventStreamFilters) async throws -> URLRequest {
         var components = URLComponents(
-            url: config.url(forPath: "/v1/events/stream"),
+            url: await config.url(forPath: "/v1/events/stream"),
             resolvingAgainstBaseURL: false
         )
         var items: [URLQueryItem] = []
