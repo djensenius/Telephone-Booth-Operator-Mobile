@@ -302,7 +302,8 @@ public actor OperatorClient {
             }
         }
 
-        if requireAuth || await auth.getAccessToken() != nil {
+        let hasAccessToken = await auth.getAccessToken() != nil
+        if requireAuth || hasAccessToken {
             guard let header = await auth.authorizationHeader() else {
                 if requireAuth { throw OperatorError.unauthenticated }
                 // Optional auth and no token available — proceed unauthenticated.
