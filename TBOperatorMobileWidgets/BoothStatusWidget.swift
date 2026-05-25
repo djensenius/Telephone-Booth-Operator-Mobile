@@ -44,6 +44,7 @@ struct BoothStatusWidgetView: View {
                 Image(systemName: snapshot.boothState.widgetSymbol)
                     .foregroundStyle(snapshot.boothState.widgetTint)
                     .font(.title3.weight(.semibold))
+                    .privacySensitive()
                 Text("Booth")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
@@ -55,6 +56,7 @@ struct BoothStatusWidgetView: View {
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
+                .privacySensitive()
             Spacer(minLength: 0)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Updated")
@@ -63,6 +65,7 @@ struct BoothStatusWidgetView: View {
                 Text(snapshot.boothUpdatedAt, style: .relative)
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.primary)
+                    .privacySensitive()
             }
             if family == .systemMedium {
                 Divider()
@@ -101,6 +104,7 @@ struct StatBlock: View {
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.primary)
                 .monospacedDigit()
+                .privacySensitive()
         }
     }
 }

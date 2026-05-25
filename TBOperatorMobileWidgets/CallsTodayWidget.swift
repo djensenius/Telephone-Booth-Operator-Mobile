@@ -51,6 +51,7 @@ struct CallsTodayWidgetView: View {
                         .labelStyle(.iconOnly)
                         .foregroundStyle(.red)
                         .symbolEffect(.pulse)
+                        .privacySensitive()
                 }
             }
             Text("\(snapshot.callsToday)")
@@ -58,12 +59,14 @@ struct CallsTodayWidgetView: View {
                 .foregroundStyle(.primary)
                 .monospacedDigit()
                 .contentTransition(.numericText())
+                .privacySensitive()
             Spacer(minLength: 0)
             HStack(spacing: 8) {
                 if snapshot.callsInProgress > 0 {
                     Text("\(snapshot.callsInProgress) in progress")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.red)
+                        .privacySensitive()
                 } else {
                     Text("None active")
                         .font(.caption)

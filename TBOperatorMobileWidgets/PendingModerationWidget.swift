@@ -53,6 +53,7 @@ struct PendingModerationWidgetView: View {
                 .foregroundStyle(.primary)
                 .monospacedDigit()
                 .contentTransition(.numericText())
+                .privacySensitive()
             Spacer(minLength: 0)
             HStack {
                 Image(systemName: "calendar")
@@ -61,6 +62,7 @@ struct PendingModerationWidgetView: View {
                 Text("\(snapshot.receivedToday) received today")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
+                    .privacySensitive()
             }
             Text(snapshot.generatedAt, style: .relative)
                 .font(.caption2)
