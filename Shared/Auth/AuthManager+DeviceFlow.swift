@@ -41,7 +41,7 @@ extension AuthManager {
     /// Polls the token endpoint at the requested cadence until the user
     /// completes authorization, the code expires, or the task is
     /// cancelled. Sets `authState = .signedIn` on success.
-    @MainActor public func pollForDeviceToken(
+    public func pollForDeviceToken(
         deviceCode: String,
         interval: Int,
         expiresIn: Int

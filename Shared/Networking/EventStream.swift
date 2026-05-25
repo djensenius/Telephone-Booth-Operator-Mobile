@@ -85,7 +85,7 @@ public actor EventStream {
 
     private func buildRequest(filters: EventStreamFilters) async throws -> URLRequest {
         var components = URLComponents(
-            url: config.url(forPath: "/v1/events/stream"),
+            url: await config.url(forPath: "/v1/events/stream"),
             resolvingAgainstBaseURL: false
         )
         var items: [URLQueryItem] = []
