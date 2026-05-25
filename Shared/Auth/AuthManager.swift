@@ -57,7 +57,7 @@ private actor RefreshCoordinator {
 @Observable
 @MainActor
 public final class AuthManager {
-    nonisolated(unsafe) public static let shared = AuthManager()
+    public static let shared = AuthManager()
 
     public enum AuthState: Sendable {
         case unknown

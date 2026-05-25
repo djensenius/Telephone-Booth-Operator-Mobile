@@ -26,7 +26,7 @@ private let logger = Logger(
 @Observable
 @MainActor
 public final class AppConfig {
-    nonisolated(unsafe) public static let shared = AppConfig()
+    public static let shared = AppConfig()
 
     private static let apiBaseDefaultsKey = "TBOperatorAPIBase"
 

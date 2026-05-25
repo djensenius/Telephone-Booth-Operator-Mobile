@@ -18,15 +18,18 @@ private let logger = Logger(
 /// Read-only operator REST client. Expansion happens in PR 3+ as the UI
 /// adds dashboards, sessions, messages, moderation, etc.
 public actor OperatorClient {
-    public static let shared = OperatorClient()
+    @MainActor public static let shared = OperatorClient(
+        config: AppConfig.shared,
+        auth: AuthManager.shared
+    )
 
     private let config: AppConfig
     private let auth: AuthManager
     private let session: URLSession
 
     public init(
-        config: AppConfig = .shared,
-        auth: AuthManager = .shared,
+        config: AppConfig,
+        auth: AuthManager,
         session: URLSession = .shared
     ) {
         self.config = config

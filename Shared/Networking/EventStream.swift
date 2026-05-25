@@ -33,15 +33,18 @@ public struct EventStreamFilters: Sendable, Equatable {
 }
 
 public actor EventStream {
-    public static let shared = EventStream()
+    @MainActor public static let shared = EventStream(
+        config: AppConfig.shared,
+        auth: AuthManager.shared
+    )
 
     private let config: AppConfig
     private let auth: AuthManager
     private let session: URLSession
 
     public init(
-        config: AppConfig = .shared,
-        auth: AuthManager = .shared,
+        config: AppConfig,
+        auth: AuthManager,
         session: URLSession = .shared
     ) {
         self.config = config
