@@ -28,7 +28,7 @@ extension AuthManager {
         }
         guard http.statusCode == 200 else {
             let body = String(data: data, encoding: .utf8) ?? "unknown"
-            authManagerLogger.error("Device authorization failed (\(http.statusCode)): \(body, privacy: .public)")
+            authManagerLogger.error("Device authorization failed (\(http.statusCode)): \(body, privacy: .private)")
             throw AuthError.deviceAuthorizationFailed(body)
         }
         do {
@@ -103,7 +103,7 @@ extension AuthManager {
             case "slow_down": return .slowDown
             case "access_denied": return .denied
             case "expired_token": return .expired
-            default: return .otherError(body)
+            default: return .otherError(error.isEmpty ? "unknown" : error)
             }
         } catch {
             return .otherError(error.localizedDescription)
