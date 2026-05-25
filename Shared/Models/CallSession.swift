@@ -5,16 +5,58 @@
 
 import Foundation
 
-public enum CallOutcome: String, Codable, Sendable, CaseIterable {
-    case hungUpBeforeDial = "hung_up_before_dial"
-    case hungUpDuringPrompt = "hung_up_during_prompt"
-    case hungUpDuringRecording = "hung_up_during_recording"
-    case hungUpDuringUpload = "hung_up_during_upload"
-    case recordingCompleted = "recording_completed"
-    case recordingFailed = "recording_failed"
-    case uploadFailed = "upload_failed"
-    case operatorError = "operator_error"
+public enum CallOutcome: Codable, Sendable, Hashable {
+    case hungUpBeforeDial
+    case hungUpDuringPrompt
+    case hungUpDuringRecording
+    case hungUpDuringUpload
+    case recordingCompleted
+    case recordingFailed
+    case uploadFailed
+    case operatorError
     case aborted
+    case unknown(String)
+
+    public var rawValue: String {
+        switch self {
+        case .hungUpBeforeDial: return "hung_up_before_dial"
+        case .hungUpDuringPrompt: return "hung_up_during_prompt"
+        case .hungUpDuringRecording: return "hung_up_during_recording"
+        case .hungUpDuringUpload: return "hung_up_during_upload"
+        case .recordingCompleted: return "recording_completed"
+        case .recordingFailed: return "recording_failed"
+        case .uploadFailed: return "upload_failed"
+        case .operatorError: return "operator_error"
+        case .aborted: return "aborted"
+        case .unknown(let value): return value
+        }
+    }
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "hung_up_before_dial": self = .hungUpBeforeDial
+        case "hung_up_during_prompt": self = .hungUpDuringPrompt
+        case "hung_up_during_recording": self = .hungUpDuringRecording
+        case "hung_up_during_upload": self = .hungUpDuringUpload
+        case "recording_completed": self = .recordingCompleted
+        case "recording_failed": self = .recordingFailed
+        case "upload_failed": self = .uploadFailed
+        case "operator_error": self = .operatorError
+        case "aborted": self = .aborted
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let value = try container.decode(String.self)
+        self.init(rawValue: value)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 
     public var displayName: String {
         switch self {
@@ -27,6 +69,11 @@ public enum CallOutcome: String, Codable, Sendable, CaseIterable {
         case .uploadFailed: return "Upload failed"
         case .operatorError: return "Operator error"
         case .aborted: return "Aborted"
+        case .unknown(let value):
+            return value
+                .split(separator: "_")
+                .map { $0.capitalized }
+                .joined(separator: " ")
         }
     }
 

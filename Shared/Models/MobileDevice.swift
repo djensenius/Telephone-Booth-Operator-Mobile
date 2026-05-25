@@ -7,13 +7,49 @@
 
 import Foundation
 
-public enum MobileDevicePlatform: String, Codable, Sendable, CaseIterable {
+public enum MobileDevicePlatform: Codable, Sendable, Hashable {
     case ios
     case ipados
     case macos
     case watchos
     case visionos
     case tvos
+    case unknown(String)
+
+    public var rawValue: String {
+        switch self {
+        case .ios: return "ios"
+        case .ipados: return "ipados"
+        case .macos: return "macos"
+        case .watchos: return "watchos"
+        case .visionos: return "visionos"
+        case .tvos: return "tvos"
+        case .unknown(let value): return value
+        }
+    }
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "ios": self = .ios
+        case "ipados": self = .ipados
+        case "macos": self = .macos
+        case "watchos": self = .watchos
+        case "visionos": self = .visionos
+        case "tvos": self = .tvos
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let value = try container.decode(String.self)
+        self.init(rawValue: value)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 
     /// The platform string for the currently-compiled target. Distinguishing
     /// iPhone vs iPad is done at runtime by callers; this returns `ios` on

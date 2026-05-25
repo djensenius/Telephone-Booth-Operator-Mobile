@@ -226,6 +226,7 @@ struct TVMessageCard: View {
         case .rejected: return Theme.Colors.error
         case .pending, .received: return Theme.Colors.warning
         case .uploading: return Theme.Colors.textSecondary
+        case .unknown: return Theme.Colors.textSecondary
         }
     }
 }
@@ -243,6 +244,7 @@ extension BoothState {
         case .playingMessage: return "Playing message"
         case .playingInstructions: return "Instructions"
         case .error: return "Error"
+        case .unknown(let value): return value.capitalized
         }
     }
 
@@ -256,6 +258,7 @@ extension BoothState {
         case .recording: return "record.circle"
         case .uploading: return "icloud.and.arrow.up"
         case .error: return "exclamationmark.triangle.fill"
+        case .unknown: return "questionmark.circle"
         }
     }
 
@@ -267,6 +270,7 @@ extension BoothState {
              .playingQuestion, .playingInstructions, .dialing,
              .beep, .dialTone:
             return Theme.Colors.accent
+        case .unknown: return Theme.Colors.textSecondary
         }
     }
 }
