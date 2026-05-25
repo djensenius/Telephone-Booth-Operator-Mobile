@@ -34,6 +34,10 @@ extension AuthManager {
             let status = SecItemUpdate(query as CFDictionary, update as CFDictionary)
             if status == noErr {
                 logger.info("Migrated keychain accessibility for \(account, privacy: .public)")
+            } else if status != errSecItemNotFound {
+                logger.warning(
+                    "Keychain accessibility migration failed for \(account, privacy: .public): \(status)"
+                )
             }
         }
     }
