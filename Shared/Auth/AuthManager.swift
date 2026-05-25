@@ -241,7 +241,7 @@ public final class AuthManager {
         guard isTokenExpiringSoon() else { return true }
         logger.debug("ensureValidToken: refreshing proactively")
         let refreshed = await refreshTokenIfNeeded()
-        if !refreshed && !isTokenExpired() {
+        if !refreshed && getAccessToken() != nil && !isTokenExpired() {
             // Proactive refresh failed transiently but the token is still usable.
             logger.warning("ensureValidToken: proactive refresh failed, using still-valid token")
             return true
