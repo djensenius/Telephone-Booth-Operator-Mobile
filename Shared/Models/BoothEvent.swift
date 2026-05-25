@@ -55,6 +55,7 @@ public enum BoothEventType: Codable, Sendable, Hashable {
         }
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     public init(rawValue: String) {
         switch rawValue {
         case "call_started": self = .callStarted

@@ -167,6 +167,7 @@ struct MessageRow: View {
         case .approve: return Theme.Colors.success
         case .review: return Theme.Colors.warning
         case .reject: return Theme.Colors.error
+        case .unknown: return Theme.Colors.textSecondary
         }
     }
 }

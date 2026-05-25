@@ -46,6 +46,7 @@ public enum BoothState: Codable, Sendable, Hashable {
         }
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     public init(rawValue: String) {
         switch rawValue {
         case "idle": self = .idle
