@@ -58,6 +58,18 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
 }
 
 public extension WidgetSnapshot {
+    /// Compares only the semantically meaningful fields, ignoring
+    /// `generatedAt` which changes on every server response.
+    func hasSameContent(as other: WidgetSnapshot) -> Bool {
+        boothState == other.boothState
+            && boothUpdatedAt == other.boothUpdatedAt
+            && pendingMessages == other.pendingMessages
+            && receivedToday == other.receivedToday
+            && callsToday == other.callsToday
+            && callsInProgress == other.callsInProgress
+            && wsClients == other.wsClients
+    }
+
     /// Placeholder used by widget previews and the loading state.
     static let placeholder = WidgetSnapshot(
         boothState: .idle,
