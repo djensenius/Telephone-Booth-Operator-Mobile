@@ -112,6 +112,12 @@
 		576E6A30B36B51202ADDB5C1 /* TBOperatorMobileMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74746E8A4D48CE8D37DE85CE /* TBOperatorMobileMacApp.swift */; };
 		58C980B92E9F38DDB6D8A10F /* AudioPlaybackController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D31A28499B831A575E2DC86 /* AudioPlaybackController.swift */; };
 		594F395C3A979E7BCA92DA55 /* AuthError.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABE1D18B093D69BDDB7DAA9C /* AuthError.swift */; };
+		5A1B2C3D4E5F6A7B8C9D0E1F /* IDTokenValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7F1B2E3D4A5C6F8E9B0D1A /* IDTokenValidator.swift */; };
+		5A2B3C4D5E6F7A8B9C0D1E2F /* IDTokenValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7F1B2E3D4A5C6F8E9B0D1A /* IDTokenValidator.swift */; };
+		5A3B4C5D6E7F8A9B0C1D2E3F /* IDTokenValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7F1B2E3D4A5C6F8E9B0D1A /* IDTokenValidator.swift */; };
+		5A4B5C6D7E8F9A0B1C2D3E4F /* IDTokenValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7F1B2E3D4A5C6F8E9B0D1A /* IDTokenValidator.swift */; };
+		5A5B6C7D8E9F0A1B2C3D4E5F /* IDTokenValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC7F1B2E3D4A5C6F8E9B0D1A /* IDTokenValidator.swift */; };
+		5A6B7C8D9E0F1A2B3C4D5E6F /* IDTokenValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD8E2C3F4E5B6D7A9F0C1E2B /* IDTokenValidatorTests.swift */; };
 		5A7D0274A434E0D6F173EC26 /* SessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EED8027F832955EB7C0EFC1C /* SessionDetailView.swift */; };
 		5C813ADF4F2F5AE070F91426 /* MobileDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02C3EC3726958BC4340B3C19 /* MobileDevice.swift */; };
 		5C865551AD029A3D646B0E08 /* BoothEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E3B1AFE0D881D7419AE137D /* BoothEvent.swift */; };
@@ -443,6 +449,8 @@
 		A8B94F36732A0600EF2F0B59 /* BoothStatusWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoothStatusWidget.swift; sourceTree = "<group>"; };
 		A9596BEC9DF2776F880EA70F /* CallSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallSession.swift; sourceTree = "<group>"; };
 		ABE1D18B093D69BDDB7DAA9C /* AuthError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthError.swift; sourceTree = "<group>"; };
+		AC7F1B2E3D4A5C6F8E9B0D1A /* IDTokenValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IDTokenValidator.swift; sourceTree = "<group>"; };
+		AD8E2C3F4E5B6D7A9F0C1E2B /* IDTokenValidatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IDTokenValidatorTests.swift; sourceTree = "<group>"; };
 		B0FEC3DF654FFCDBFDF7B9C5 /* OperatorError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperatorError.swift; sourceTree = "<group>"; };
 		B5E2EA901A8436C600637E7E /* WatchStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchStatusView.swift; sourceTree = "<group>"; };
 		B7FE0FC2FCA5F9C5003918ED /* TVRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVRootView.swift; sourceTree = "<group>"; };
@@ -490,6 +498,7 @@
 			isa = PBXGroup;
 			children = (
 				6B25D928BCD494D717474665 /* AuthTests.swift */,
+				AD8E2C3F4E5B6D7A9F0C1E2B /* IDTokenValidatorTests.swift */,
 				435BF82B0A74BD00A4B073F2 /* NotificationTests.swift */,
 				7781B42DE486F0C2D94C10F2 /* TBOperatorMobileTests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* UnknownEnumTests.swift */,
@@ -514,6 +523,7 @@
 				20C0268A08FEF3BC6FED46E1 /* AuthManager.swift */,
 				E466A495C4F65781EFDFD6CB /* AuthManager+DeviceFlow.swift */,
 				28CAEA03D4C3D9948FA3B6B6 /* DeviceAuthorization.swift */,
+				AC7F1B2E3D4A5C6F8E9B0D1A /* IDTokenValidator.swift */,
 				9BE9BD68121808A0D4098A1E /* OIDCTokens.swift */,
 			);
 			path = Auth;
@@ -1246,6 +1256,7 @@
 				FE2986F05E8584FBAAA20388 /* AudioPlayerView.swift in Sources */,
 				92150885E06BDCD8480DDEC0 /* AuthAnchorProvider.swift in Sources */,
 				BB49EC508A7E803CB686F706 /* AuthError.swift in Sources */,
+				5A1B2C3D4E5F6A7B8C9D0E1F /* IDTokenValidator.swift in Sources */,
 				3500F7DF530ED98AD5068700 /* AuthManager+DeviceFlow.swift in Sources */,
 				DA0FE7371E95DFF04394480D /* AuthManager.swift in Sources */,
 				873759AEC84154C3CBF9E6AC /* BoothEvent.swift in Sources */,
@@ -1304,6 +1315,7 @@
 				B4EFF0B65BA112E450ADE384 /* AudioPlayerView.swift in Sources */,
 				F4ADF9403F073644DA1B9A98 /* AuthAnchorProvider.swift in Sources */,
 				BA56E304026AD86208B40B16 /* AuthError.swift in Sources */,
+				5A2B3C4D5E6F7A8B9C0D1E2F /* IDTokenValidator.swift in Sources */,
 				86F3A83A5A5A1350B9D6900E /* AuthManager+DeviceFlow.swift in Sources */,
 				2755873BA01EC677EECE2631 /* AuthManager.swift in Sources */,
 				E1B9F747F6A70327314BC323 /* BoothEvent.swift in Sources */,
@@ -1411,6 +1423,7 @@
 				AD783E49C39353451CC0FFDA /* AudioPlayerView.swift in Sources */,
 				6FAEB95427F26568A463A8D1 /* AuthAnchorProvider.swift in Sources */,
 				594F395C3A979E7BCA92DA55 /* AuthError.swift in Sources */,
+				5A3B4C5D6E7F8A9B0C1D2E3F /* IDTokenValidator.swift in Sources */,
 				92CC0D3A41FF5200D28BE4E3 /* AuthManager+DeviceFlow.swift in Sources */,
 				F437487F3D9F1E1A6C0E019C /* AuthManager.swift in Sources */,
 				61DE8D06C3205EAC09B4B34E /* BoothEvent.swift in Sources */,
@@ -1465,6 +1478,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D63702C7E0E5F7DD94735617 /* AuthTests.swift in Sources */,
+				5A6B7C8D9E0F1A2B3C4D5E6F /* IDTokenValidatorTests.swift in Sources */,
 				884D83CA01F406FABA0EF9E1 /* NotificationTests.swift in Sources */,
 				0500245ABDE4B8CE79C3135F /* TBOperatorMobileTests.swift in Sources */,
 				F2E1D0C9B8A7F6E5D4C3B2A1 /* UnknownEnumTests.swift in Sources */,
@@ -1480,6 +1494,7 @@
 				A37954EA3CFB53E21CF1EC65 /* AudioPlayerView.swift in Sources */,
 				8BA4A5D8F9CA168266C7D84F /* AuthAnchorProvider.swift in Sources */,
 				DED7621DC58551AAD9BD3096 /* AuthError.swift in Sources */,
+				5A4B5C6D7E8F9A0B1C2D3E4F /* IDTokenValidator.swift in Sources */,
 				64AFBC9E6BBB53417262113D /* AuthManager+DeviceFlow.swift in Sources */,
 				9FD09A5240DF5AE2F38BAA6E /* AuthManager.swift in Sources */,
 				26874127684C285DD34584A1 /* BoothEvent.swift in Sources */,
@@ -1538,6 +1553,7 @@
 				E1161CEF397F941B4E52AA4B /* AudioPlayerView.swift in Sources */,
 				34578BF96DAE127765E42986 /* AuthAnchorProvider.swift in Sources */,
 				FA064BBC748C137B1D933FDF /* AuthError.swift in Sources */,
+				5A5B6C7D8E9F0A1B2C3D4E5F /* IDTokenValidator.swift in Sources */,
 				6F03CCB5C3BCA4E9FF3E2A38 /* AuthManager+DeviceFlow.swift in Sources */,
 				20BDBA68286D9B76F1A34A97 /* AuthManager.swift in Sources */,
 				5C865551AD029A3D646B0E08 /* BoothEvent.swift in Sources */,

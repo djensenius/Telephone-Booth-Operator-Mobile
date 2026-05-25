@@ -29,6 +29,9 @@ public enum AuthError: Error, LocalizedError {
     case presentationFailed
     /// Keychain write failed — tokens could not be persisted.
     case keychainWriteFailed
+    /// The ID token returned by the provider failed local claim validation
+    /// (issuer, audience, expiration, or nonce mismatch).
+    case idTokenValidationFailed(String)
 
     public var errorDescription: String? {
         switch self {
@@ -58,6 +61,8 @@ public enum AuthError: Error, LocalizedError {
             return "Unable to present the sign-in window. Please try again."
         case .keychainWriteFailed:
             return "Failed to save credentials securely. Please try again."
+        case .idTokenValidationFailed(let reason):
+            return "ID token validation failed: \(reason)"
         }
     }
 }
