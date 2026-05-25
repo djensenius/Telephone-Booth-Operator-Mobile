@@ -2,19 +2,16 @@
 //  AuthManager+Keychain.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Keychain helpers for OIDC token persistence. Extracted from AuthManager
-//  to keep file lengths manageable.
+//  Keychain storage helpers for OIDC tokens.
 //
 
 import Foundation
 import os
 
-private let logger = Logger(
-    subsystem: "org.davidjensenius.TelephoneBoothOperatorMobile",
-    category: "AuthManager.Keychain"
-)
+private let logger = authManagerLogger
 
 extension AuthManager {
+
     static let keychainService = "org.davidjensenius.TelephoneBoothOperatorMobile.oidc"
 
     /// Migrates existing Keychain items from `kSecAttrAccessibleAfterFirstUnlock`
@@ -54,7 +51,9 @@ extension AuthManager {
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
-        let updateStatus = SecItemUpdate(query as CFDictionary, updateAttrs as CFDictionary)
+        let updateStatus = SecItemUpdate(
+            query as CFDictionary, updateAttrs as CFDictionary
+        )
         if updateStatus == noErr {
             return true
         }
@@ -66,10 +65,14 @@ extension AuthManager {
             if addStatus == noErr {
                 return true
             }
-            logger.error("Keychain add failed for \(account, privacy: .public): \(addStatus)")
+            logger.error(
+                "Keychain add failed for \(account, privacy: .public): \(addStatus)"
+            )
             return false
         }
-        logger.error("Keychain update failed for \(account, privacy: .public): \(updateStatus)")
+        logger.error(
+            "Keychain update failed for \(account, privacy: .public): \(updateStatus)"
+        )
         return false
     }
 
