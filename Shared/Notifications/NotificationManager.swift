@@ -53,6 +53,13 @@ public final class NotificationManager {
     private let defaults: UserDefaults
     private let client: OperatorClient
 
+    /// Latest preferences waiting to be sent to the server.
+    private var pendingPreferences: MobileDevicePreferences?
+    /// The active debounce-then-send pipeline; ensures only one flight at a time.
+    private var syncTask: Task<Void, Never>?
+    /// Debounce interval for coalescing rapid preference changes.
+    private let debounceInterval: Duration
+
     private enum Keys {
         static let deviceId = "notifications.deviceId"
         static let apnsToken = "notifications.apnsToken"
@@ -61,10 +68,12 @@ public final class NotificationManager {
 
     public init(
         defaults: UserDefaults = .standard,
-        client: OperatorClient = .shared
+        client: OperatorClient = .shared,
+        debounceInterval: Duration = .milliseconds(300)
     ) {
         self.defaults = defaults
         self.client = client
+        self.debounceInterval = debounceInterval
         self.deviceId = defaults.string(forKey: Keys.deviceId)
         self.apnsToken = defaults.string(forKey: Keys.apnsToken)
         if let data = defaults.data(forKey: Keys.preferences),
@@ -134,16 +143,61 @@ public final class NotificationManager {
     }
 
     public func applyPreferences(_ next: MobileDevicePreferences) async {
+        // Optimistic local update so UI reflects intent immediately.
         preferences = next
         persistPreferences(next)
+
+        guard deviceId != nil else { return }
+
+        // Coalesce: store latest desired state and kick off the sync pipeline.
+        pendingPreferences = next
+        scheduleSyncIfNeeded()
+    }
+
+    /// Launches a debounce-then-send loop if one isn't already running.
+    private func scheduleSyncIfNeeded() {
+        guard syncTask == nil else { return }
+        syncTask = Task { [weak self] in
+            guard let self else { return }
+            await self.syncLoop()
+        }
+    }
+
+    /// Waits for the debounce interval, then sends the latest coalesced
+    /// preferences. Loops until no more pending changes arrive during flight.
+    private func syncLoop() async {
+        while !Task.isCancelled {
+            do {
+                try await Task.sleep(for: debounceInterval)
+            } catch {
+                break
+            }
+
+            // Snapshot and clear pending so new changes during the request
+            // will re-trigger a send.
+            guard let snapshot = pendingPreferences else { break }
+            pendingPreferences = nil
+
+            await sendPreferencesToServer(snapshot)
+
+            // If more changes arrived while we were sending, loop again.
+            if pendingPreferences == nil {
+                break
+            }
+        }
+        syncTask = nil
+    }
+
+    private func sendPreferencesToServer(_ prefs: MobileDevicePreferences) async {
         guard let id = deviceId else { return }
         isWorking = true
         defer { isWorking = false }
         do {
             _ = try await client.updateDevice(
                 id: id,
-                body: UpdateMobileDevicePreferencesRequest(preferences: next)
+                body: UpdateMobileDevicePreferencesRequest(preferences: prefs)
             )
+            lastError = nil
         } catch {
             lastError = error.localizedDescription
             logger.error("updateDevice failed: \(error.localizedDescription, privacy: .public)")

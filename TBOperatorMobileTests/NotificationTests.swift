@@ -99,4 +99,34 @@ final class NotificationTests: XCTestCase {
         XCTAssertNil(manager.deviceId)
         XCTAssertNil(manager.apnsToken)
     }
+
+    @MainActor
+    func testRapidPreferenceUpdatesCoalesceToFinalState() async throws {
+        let suiteName = "test-notif-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        // No deviceId → no network calls, but coalescing still applies locally.
+        let manager = NotificationManager(
+            defaults: defaults,
+            debounceInterval: .milliseconds(50)
+        )
+
+        // Simulate rapid toggles on multiple preferences.
+        await manager.updatePreference(\.callStarted, to: false)
+        await manager.updatePreference(\.messageReceived, to: false)
+        await manager.updatePreference(\.callStarted, to: true)
+        await manager.updatePreference(\.moderationQueueHigh, to: true)
+
+        // Final local state must reflect the last value for each key path.
+        XCTAssertTrue(manager.preferences.callStarted)
+        XCTAssertFalse(manager.preferences.messageReceived)
+        XCTAssertTrue(manager.preferences.messageFlagged)
+        XCTAssertTrue(manager.preferences.moderationQueueHigh)
+
+        // Persisted preferences match the final state.
+        let data = try XCTUnwrap(defaults.data(forKey: "notifications.preferences"))
+        let persisted = try JSONDecoder().decode(MobileDevicePreferences.self, from: data)
+        XCTAssertEqual(persisted, manager.preferences)
+    }
 }
