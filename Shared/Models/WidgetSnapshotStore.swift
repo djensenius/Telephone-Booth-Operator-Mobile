@@ -60,8 +60,8 @@ public enum WidgetSnapshotStore {
     public static func write(_ snapshot: WidgetSnapshot) -> Bool {
         guard let url = snapshotURL else { return false }
 
-        // Change detection: skip write entirely if data hasn't changed.
-        if let existing = read(), existing == snapshot {
+        // Change detection: skip write if meaningful content hasn't changed.
+        if let existing = read(), existing.hasSameContent(as: snapshot) {
             return true
         }
 
@@ -101,7 +101,6 @@ public enum WidgetSnapshotStore {
         WidgetCenter.shared.reloadAllTimelines()
         writeLastReloadDate(now)
     }
-    #endif
 
     private static func readLastReloadDate() -> Date? {
         guard let url = reloadTimestampURL,
@@ -118,4 +117,5 @@ public enum WidgetSnapshotStore {
         let string = String(date.timeIntervalSince1970)
         try? string.data(using: .utf8)?.write(to: url, options: [.atomic])
     }
+    #endif
 }
