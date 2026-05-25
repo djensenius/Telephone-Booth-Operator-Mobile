@@ -87,8 +87,15 @@ struct CallInProgressLiveActivity: Widget {
     }
 
     private func approveURL(sessionId: String) -> URL {
-        // swiftlint:disable:next force_unwrapping
-        URL(string: "tboperator://call/\(sessionId)/approve")!
+        let allowedPathCharacters = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: "/"))
+
+        guard let encodedSessionId = sessionId.addingPercentEncoding(withAllowedCharacters: allowedPathCharacters),
+              let url = URL(string: "tboperator://call/\(encodedSessionId)/approve") else {
+            // swiftlint:disable:next force_unwrapping
+            return URL(string: "tboperator://dashboard")!
+        }
+
+        return url
     }
 }
 #endif

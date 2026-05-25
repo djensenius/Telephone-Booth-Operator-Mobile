@@ -51,9 +51,14 @@ public final class LiveActivityManager {
 
         // If an activity for this session already exists, update it.
         if let existing = existingActivity(sessionId: sessionId) {
+            let mergedState = CallInProgressAttributes.ContentState(
+                boothState: boothState,
+                startedAt: startedAt,
+                digitsDialed: digitsDialed ?? existing.content.state.digitsDialed
+            )
             Task {
                 await existing.update(
-                    ActivityContent(state: state, staleDate: nil)
+                    ActivityContent(state: mergedState, staleDate: nil)
                 )
             }
             return

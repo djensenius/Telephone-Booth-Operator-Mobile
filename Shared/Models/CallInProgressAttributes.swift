@@ -39,8 +39,31 @@ public struct CallInProgressAttributes: ActivityAttributes, Sendable {
 
         /// Human-readable label for the current booth state.
         public var stateDisplayName: String {
-            boothState
-                .split(separator: "_")
+            var words: [String] = []
+            var currentWord = ""
+
+            for character in boothState {
+                if character == "_" {
+                    if !currentWord.isEmpty {
+                        words.append(currentWord)
+                        currentWord.removeAll(keepingCapacity: true)
+                    }
+                    continue
+                }
+
+                if character.isUppercase, currentWord.last?.isLowercase == true {
+                    words.append(currentWord)
+                    currentWord.removeAll(keepingCapacity: true)
+                }
+
+                currentWord.append(character)
+            }
+
+            if !currentWord.isEmpty {
+                words.append(currentWord)
+            }
+
+            return words
                 .map { $0.capitalized }
                 .joined(separator: " ")
         }

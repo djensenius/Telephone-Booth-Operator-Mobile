@@ -3,7 +3,7 @@
 //  TelephoneBoothOperatorMobile
 //
 //  Subscribes to the SSE event stream and forwards call lifecycle
-//  events to LiveActivityManager to start/update/end Live Activities.
+//  events to LiveActivityManager to start/end Live Activities.
 //  Attached as a background task to the signed-in root view.
 //
 
@@ -47,6 +47,7 @@ public final class LiveActivityEventObserver {
     public func stop() {
         observeTask?.cancel()
         observeTask = nil
+        manager.endAll()
     }
 
     private func observeLoop() async {
@@ -77,22 +78,26 @@ public final class LiveActivityEventObserver {
     private func handleEvent(_ event: BoothEventRecord) {
         switch event.type {
         case .callStarted:
+            guard let sessionId = event.sessionId else {
+                logger.debug(
+                    "Skipping call_started Live Activity event without sessionId: \(event.id, privacy: .public)"
+                )
+                return
+            }
             manager.callStarted(
-                sessionId: event.sessionId ?? event.id,
+                sessionId: sessionId,
                 boothName: event.boothId,
                 boothState: BoothState.dialing.rawValue,
                 startedAt: event.occurredAt
             )
 
-        case .stateTransition:
-            guard let sessionId = event.sessionId else { return }
-            manager.callUpdated(
-                sessionId: sessionId,
-                boothState: "active"
-            )
-
         case .callEnded:
-            let sessionId = event.sessionId ?? event.id
+            guard let sessionId = event.sessionId else {
+                logger.debug(
+                    "Skipping call_ended Live Activity event without sessionId: \(event.id, privacy: .public)"
+                )
+                return
+            }
             manager.callEnded(sessionId: sessionId)
 
         default:
