@@ -446,4 +446,3 @@ final class TBOperatorMobileTests: XCTestCase {
         XCTAssertEqual(snapshot, decoded)
     }
 }
-
