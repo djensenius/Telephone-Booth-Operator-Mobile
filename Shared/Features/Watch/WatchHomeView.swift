@@ -18,6 +18,7 @@ extension MessageStatus {
         case .rejected: return Theme.Colors.error
         case .pending, .received: return Theme.Colors.warning
         case .uploading: return .secondary
+        case .unknown: return .secondary
         }
     }
 }

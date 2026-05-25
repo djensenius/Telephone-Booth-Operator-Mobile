@@ -52,6 +52,7 @@ extension BoothState {
         case .playingMessage: return "Playing message"
         case .playingInstructions: return "Instructions"
         case .error: return "Error"
+        case .unknown(let value): return value.capitalized
         }
     }
 
@@ -65,6 +66,7 @@ extension BoothState {
         case .recording: return "record.circle"
         case .uploading: return "icloud.and.arrow.up"
         case .error: return "exclamationmark.triangle.fill"
+        case .unknown: return "questionmark.circle"
         }
     }
 
@@ -76,6 +78,7 @@ extension BoothState {
              .playingQuestion, .playingInstructions, .dialing,
              .beep, .dialTone:
             return .accentColor
+        case .unknown: return .secondary
         }
     }
 }

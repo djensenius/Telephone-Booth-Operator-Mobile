@@ -38,18 +38,25 @@ public actor EventStream {
         auth: AuthManager.shared
     )
 
+    /// Maximum allowed size (in bytes) of a single SSE event's accumulated data
+    /// lines before the stream is terminated with an error. Default: 1 MB.
+    public static let defaultMaxEventSize = 1_048_576
+
     private let config: AppConfig
     private let auth: AuthManager
     private let session: URLSession
+    private let maxEventSize: Int
 
     public init(
         config: AppConfig,
         auth: AuthManager,
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        maxEventSize: Int = EventStream.defaultMaxEventSize
     ) {
         self.config = config
         self.auth = auth
         self.session = session
+        self.maxEventSize = maxEventSize
     }
 
     /// Returns an AsyncThrowingStream of booth events. The stream is
@@ -125,9 +132,19 @@ public actor EventStream {
         bytes: URLSession.AsyncBytes,
         continuation: AsyncThrowingStream<BoothEventRecord, Error>.Continuation
     ) async throws {
+        try await consumeLines(bytes.lines, continuation: continuation)
+    }
+
+    /// Parses an async sequence of SSE lines, dispatching complete events.
+    /// Throws `OperatorError.eventSizeExceeded` if accumulated data lines
+    /// exceed `maxEventSize` before a blank-line delimiter arrives.
+    func consumeLines<S: AsyncSequence>(
+        _ lines: S,
+        continuation: AsyncThrowingStream<BoothEventRecord, Error>.Continuation
+    ) async throws where S.Element == String {
         var currentEvent = "message"
         var dataBuffer = ""
-        for try await line in bytes.lines {
+        for try await line in lines {
             if Task.isCancelled { break }
             if line.isEmpty {
                 try dispatch(event: currentEvent, data: dataBuffer, continuation: continuation)
@@ -136,6 +153,10 @@ public actor EventStream {
                 continue
             }
             parse(line: line, currentEvent: &currentEvent, dataBuffer: &dataBuffer)
+            if dataBuffer.utf8.count > maxEventSize {
+                logger.error("SSE event exceeded max size of \(self.maxEventSize) bytes, dropping connection")
+                throw OperatorError.eventSizeExceeded(maxEventSize)
+            }
         }
     }
 
