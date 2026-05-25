@@ -5,31 +5,33 @@
 import XCTest
 @testable import TBOperatorMobile
 
+/// An async sequence that yields lines from an array.
+private struct MockLines: AsyncSequence {
+    typealias Element = String
+    let lines: [String]
+
+    struct AsyncIterator: AsyncIteratorProtocol {
+        var index: Int = 0
+        let lines: [String]
+        mutating func next() async -> String? {
+            guard index < lines.count else { return nil }
+            defer { index += 1 }
+            return lines[index]
+        }
+    }
+
+    func makeAsyncIterator() -> AsyncIterator {
+        AsyncIterator(lines: lines)
+    }
+}
+
 final class EventStreamTests: XCTestCase {
 
     // MARK: - Helpers
 
-    /// An async sequence that yields lines from an array.
-    private struct MockLines: AsyncSequence {
-        typealias Element = String
-        let lines: [String]
-
-        struct AsyncIterator: AsyncIteratorProtocol {
-            var index: Int = 0
-            let lines: [String]
-            mutating func next() async -> String? {
-                guard index < lines.count else { return nil }
-                defer { index += 1 }
-                return lines[index]
-            }
-        }
-
-        func makeAsyncIterator() -> AsyncIterator {
-            AsyncIterator(lines: lines)
-        }
-    }
-
-    private func makeStream(maxEventSize: Int) -> (EventStream, AsyncThrowingStream<BoothEventRecord, Error>.Continuation) {
+    private func makeStream(
+        maxEventSize: Int
+    ) -> (EventStream, AsyncThrowingStream<BoothEventRecord, Error>.Continuation) {
         let stream = EventStream(maxEventSize: maxEventSize)
         var capturedContinuation: AsyncThrowingStream<BoothEventRecord, Error>.Continuation!
         _ = AsyncThrowingStream<BoothEventRecord, Error> { continuation in
