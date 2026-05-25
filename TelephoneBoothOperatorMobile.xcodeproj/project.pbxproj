@@ -187,6 +187,11 @@
 		9213645C7CE4AD106654A2AC /* Question.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD93C2FF68DAC8696AA764E0 /* Question.swift */; };
 		92150885E06BDCD8480DDEC0 /* AuthAnchorProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66E5C1AA8828852D97BDCA78 /* AuthAnchorProvider.swift */; };
 		92CC0D3A41FF5200D28BE4E3 /* AuthManager+DeviceFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E466A495C4F65781EFDFD6CB /* AuthManager+DeviceFlow.swift */; };
+		1D19939B98A0C8A7C6CF27A9 /* AuthManager+Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209C25AA836AFCA890DA2205 /* AuthManager+Keychain.swift */; };
+		82CADCBE867FE569FC2DDACC /* AuthManager+Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209C25AA836AFCA890DA2205 /* AuthManager+Keychain.swift */; };
+		E30C2B4B54A6369D8796891C /* AuthManager+Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209C25AA836AFCA890DA2205 /* AuthManager+Keychain.swift */; };
+		4E3E5F50E51ED0476031B8FC /* AuthManager+Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209C25AA836AFCA890DA2205 /* AuthManager+Keychain.swift */; };
+		D39F0162BE2C386BF18221E4 /* AuthManager+Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 209C25AA836AFCA890DA2205 /* AuthManager+Keychain.swift */; };
 		93777B26A87F047611717CB5 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD213C066A1ED5C88C257364 /* LoginView.swift */; };
 		938858D39F86CAAE3FA5082A /* SystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 630A2D2EA236558C49928840 /* SystemView.swift */; };
 		952924255E5485B82472C2A9 /* StatusDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 523ED08FA179138D88929462 /* StatusDashboardView.swift */; };
@@ -471,6 +476,7 @@
 		E19A806E44E01C3636F33EEE /* MessageDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageDetailView.swift; sourceTree = "<group>"; };
 		E3C34EB268955BCF1FD490F3 /* AudioPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerView.swift; sourceTree = "<group>"; };
 		E466A495C4F65781EFDFD6CB /* AuthManager+DeviceFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AuthManager+DeviceFlow.swift"; sourceTree = "<group>"; };
+		209C25AA836AFCA890DA2205 /* AuthManager+Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AuthManager+Keychain.swift"; sourceTree = "<group>"; };
 		EAE7E5BE122F827582FDF9B7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		EB17F4B9CEC57CBFAC21C2E6 /* TBOperatorMobileTVTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TBOperatorMobileTVTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB74D640D1DAB2E6B23EC3D6 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -522,6 +528,7 @@
 				ABE1D18B093D69BDDB7DAA9C /* AuthError.swift */,
 				20C0268A08FEF3BC6FED46E1 /* AuthManager.swift */,
 				E466A495C4F65781EFDFD6CB /* AuthManager+DeviceFlow.swift */,
+				209C25AA836AFCA890DA2205 /* AuthManager+Keychain.swift */,
 				28CAEA03D4C3D9948FA3B6B6 /* DeviceAuthorization.swift */,
 				AC7F1B2E3D4A5C6F8E9B0D1A /* IDTokenValidator.swift */,
 				9BE9BD68121808A0D4098A1E /* OIDCTokens.swift */,
@@ -1258,6 +1265,7 @@
 				BB49EC508A7E803CB686F706 /* AuthError.swift in Sources */,
 				5A1B2C3D4E5F6A7B8C9D0E1F /* IDTokenValidator.swift in Sources */,
 				3500F7DF530ED98AD5068700 /* AuthManager+DeviceFlow.swift in Sources */,
+				1D19939B98A0C8A7C6CF27A9 /* AuthManager+Keychain.swift in Sources */,
 				DA0FE7371E95DFF04394480D /* AuthManager.swift in Sources */,
 				873759AEC84154C3CBF9E6AC /* BoothEvent.swift in Sources */,
 				CB7292F703E83B044FD9AE59 /* BoothStatus.swift in Sources */,
@@ -1317,6 +1325,7 @@
 				BA56E304026AD86208B40B16 /* AuthError.swift in Sources */,
 				5A2B3C4D5E6F7A8B9C0D1E2F /* IDTokenValidator.swift in Sources */,
 				86F3A83A5A5A1350B9D6900E /* AuthManager+DeviceFlow.swift in Sources */,
+				82CADCBE867FE569FC2DDACC /* AuthManager+Keychain.swift in Sources */,
 				2755873BA01EC677EECE2631 /* AuthManager.swift in Sources */,
 				E1B9F747F6A70327314BC323 /* BoothEvent.swift in Sources */,
 				991144435CAE676AD077137F /* BoothStatus.swift in Sources */,
@@ -1425,6 +1434,7 @@
 				594F395C3A979E7BCA92DA55 /* AuthError.swift in Sources */,
 				5A3B4C5D6E7F8A9B0C1D2E3F /* IDTokenValidator.swift in Sources */,
 				92CC0D3A41FF5200D28BE4E3 /* AuthManager+DeviceFlow.swift in Sources */,
+				E30C2B4B54A6369D8796891C /* AuthManager+Keychain.swift in Sources */,
 				F437487F3D9F1E1A6C0E019C /* AuthManager.swift in Sources */,
 				61DE8D06C3205EAC09B4B34E /* BoothEvent.swift in Sources */,
 				CEA45DA003E2ED174CDBD275 /* BoothStatus.swift in Sources */,
@@ -1496,6 +1506,7 @@
 				DED7621DC58551AAD9BD3096 /* AuthError.swift in Sources */,
 				5A4B5C6D7E8F9A0B1C2D3E4F /* IDTokenValidator.swift in Sources */,
 				64AFBC9E6BBB53417262113D /* AuthManager+DeviceFlow.swift in Sources */,
+				4E3E5F50E51ED0476031B8FC /* AuthManager+Keychain.swift in Sources */,
 				9FD09A5240DF5AE2F38BAA6E /* AuthManager.swift in Sources */,
 				26874127684C285DD34584A1 /* BoothEvent.swift in Sources */,
 				149811E6E5B3C0D7EB3D72EA /* BoothStatus.swift in Sources */,
@@ -1555,6 +1566,7 @@
 				FA064BBC748C137B1D933FDF /* AuthError.swift in Sources */,
 				5A5B6C7D8E9F0A1B2C3D4E5F /* IDTokenValidator.swift in Sources */,
 				6F03CCB5C3BCA4E9FF3E2A38 /* AuthManager+DeviceFlow.swift in Sources */,
+				D39F0162BE2C386BF18221E4 /* AuthManager+Keychain.swift in Sources */,
 				20BDBA68286D9B76F1A34A97 /* AuthManager.swift in Sources */,
 				5C865551AD029A3D646B0E08 /* BoothEvent.swift in Sources */,
 				FE9E4AD9AC2B99CE15F62C8D /* BoothStatus.swift in Sources */,
