@@ -18,7 +18,7 @@ private let logger = Logger(
 )
 
 @MainActor
-public final class LiveActivityManager: Sendable {
+public final class LiveActivityManager {
     public static let shared = LiveActivityManager()
 
     private init() {}
@@ -66,7 +66,9 @@ public final class LiveActivityManager: Sendable {
                 content: content,
                 pushType: nil
             )
-            logger.info("Started Live Activity \(activity.id, privacy: .public) for session \(sessionId, privacy: .public)")
+            logger.info(
+                "Started Live Activity \(activity.id, privacy: .public) for session \(sessionId, privacy: .public)"
+            )
         } catch {
             logger.error("Failed to start Live Activity: \(error.localizedDescription, privacy: .public)")
         }
