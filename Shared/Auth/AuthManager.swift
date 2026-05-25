@@ -243,7 +243,7 @@ public final class AuthManager {
     /// Refreshes proactively if near expiry. Returns true if a usable
     /// access token is in the Keychain after the call.
     public func ensureValidToken() async -> Bool {
-        await restoreStateIfNeeded()
+        restoreStateIfNeeded()
         guard getAccessToken() != nil else { return false }
         guard isTokenExpiringSoon() else { return true }
         logger.debug("ensureValidToken: refreshing proactively")

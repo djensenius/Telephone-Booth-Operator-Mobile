@@ -21,10 +21,12 @@ public struct SignedInRootView: View {
     public var body: some View {
         #if os(watchOS)
         WatchHomeView()
+            .liveActivityObserver()
         #elseif os(tvOS)
         compactShell
         #else
         tabbedShell
+            .liveActivityObserver()
         #endif
     }
 
