@@ -179,9 +179,13 @@ public struct EventsFeedView: View {
             }
             do {
                 isStreaming = true
-                reconnectDelay = 0
+                var didReceiveEvent = false
                 for try await record in eventStream.subscribe() {
                     if Task.isCancelled { break }
+                    if !didReceiveEvent {
+                        didReceiveEvent = true
+                        reconnectDelay = 0
+                    }
                     appendLive(record)
                 }
                 if !Task.isCancelled {
