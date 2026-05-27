@@ -15,6 +15,7 @@ final class BoothSystemSnapshotTests: XCTestCase {
         {
           "boothId": "booth-a",
           "receivedAt": "2026-06-01T12:00:00Z",
+          "version": "0.3.2",
           "snapshot": {
             "boothId": "booth-a",
             "capturedAt": "2026-06-01T11:59:55Z",
@@ -66,6 +67,7 @@ final class BoothSystemSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.audioInputDbfs, -22.5)
         XCTAssertEqual(snapshot.tailscaleHostname, "booth-a.tailnet.ts.net")
         XCTAssertEqual(snapshot.runtimeMode, .real)
+        XCTAssertEqual(envelope.version, "0.3.2")
     }
 
     func testEnvelopeListShape() throws {
