@@ -57,6 +57,9 @@ struct WatchStatusView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            if let mode = stats?.booth.runtimeMode, mode.shouldDisplayBadge {
+                RuntimeModeBadge(mode: mode)
+            }
         }
         .padding(10)
         .background {

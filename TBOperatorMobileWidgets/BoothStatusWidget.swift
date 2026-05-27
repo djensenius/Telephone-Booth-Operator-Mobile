@@ -50,6 +50,9 @@ struct BoothStatusWidgetView: View {
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                 Spacer()
+                if let mode = snapshot.runtimeMode, mode.shouldDisplayBadge {
+                    RuntimeModeBadge(mode: mode)
+                }
             }
             Text(snapshot.boothState.widgetDisplayName)
                 .font(.title2.weight(.semibold))

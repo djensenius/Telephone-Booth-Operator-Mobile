@@ -42,8 +42,8 @@ public actor EventStream {
     /// lines before the stream is terminated with an error. Default: 1 MB.
     public static let defaultMaxEventSize = 1_048_576
 
-    private let config: AppConfig
-    private let auth: AuthManager
+    private let config: AppConfig?
+    private let auth: AuthManager?
     private let session: URLSession
     private let maxEventSize: Int
 
@@ -56,6 +56,16 @@ public actor EventStream {
         self.config = config
         self.auth = auth
         self.session = session
+        self.maxEventSize = maxEventSize
+    }
+
+    /// Test-only initialiser. The returned actor cannot subscribe to a
+    /// real `/v1/events` connection — it exists purely to exercise the
+    /// SSE parser via `consumeLines(_:continuation:)`.
+    internal init(maxEventSize: Int) {
+        self.config = nil
+        self.auth = nil
+        self.session = .shared
         self.maxEventSize = maxEventSize
     }
 
@@ -94,6 +104,9 @@ public actor EventStream {
     }
 
     private func buildRequest(filters: EventStreamFilters) async throws -> URLRequest {
+        guard let config, let auth else {
+            throw OperatorError.invalidURL
+        }
         var components = URLComponents(
             url: await config.url(forPath: "/v1/events/stream"),
             resolvingAgainstBaseURL: false

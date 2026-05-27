@@ -126,4 +126,36 @@ final class UnknownEnumTests: XCTestCase {
         XCTAssertEqual(platform, .unknown("android"))
         XCTAssertEqual(platform.rawValue, "android")
     }
+
+    // MARK: - RuntimeMode
+
+    func testRuntimeModeDecodesKnownValues() throws {
+        let real = try JSONDecoder().decode(RuntimeMode.self, from: Data("\"real\"".utf8))
+        XCTAssertEqual(real, .real)
+        XCTAssertTrue(real.isReal)
+        XCTAssertFalse(real.shouldDisplayBadge)
+
+        let mock = try JSONDecoder().decode(RuntimeMode.self, from: Data("\"mock\"".utf8))
+        XCTAssertEqual(mock, .mock)
+        XCTAssertEqual(mock.shortLabel, "MOCK")
+
+        let sim = try JSONDecoder().decode(RuntimeMode.self, from: Data("\"simulator\"".utf8))
+        XCTAssertEqual(sim, .simulator)
+        XCTAssertEqual(sim.shortLabel, "SIM")
+    }
+
+    func testRuntimeModeDecodesUnknownValue() throws {
+        let mode = try JSONDecoder().decode(RuntimeMode.self, from: Data("\"hardware-rev3\"".utf8))
+        XCTAssertEqual(mode, .unknown("hardware-rev3"))
+        XCTAssertEqual(mode.rawValue, "hardware-rev3")
+        XCTAssertFalse(mode.isReal)
+    }
+
+    func testRuntimeModeRoundTrips() throws {
+        for mode: RuntimeMode in [.real, .mock, .simulator, .unknown("custom")] {
+            let data = try JSONEncoder().encode(mode)
+            let decoded = try JSONDecoder().decode(RuntimeMode.self, from: data)
+            XCTAssertEqual(decoded, mode)
+        }
+    }
 }

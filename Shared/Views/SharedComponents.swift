@@ -98,3 +98,78 @@ public extension View {
         #endif
     }
 }
+
+// MARK: - Booth staleness chip
+
+/// Severity levels matching the operator web `BoothStatusBadge`
+/// thresholds (fresh < 60 s, warning 60 s – 5 min, offline > 5 min).
+public enum BoothStalenessLevel: Sendable {
+    case fresh
+    case warning
+    case offline
+}
+
+public enum BoothStalenessThresholds {
+    public static let warningSeconds: TimeInterval = 60
+    public static let offlineSeconds: TimeInterval = 300
+}
+
+/// Pure function for unit testing — given a `lastStatusAt` and the
+/// current clock, returns the staleness level and a short label
+/// ("Last seen 3m ago" / "Booth offline") or nil when fresh.
+public func boothStaleness(
+    lastStatusAt: Date?,
+    now: Date = Date()
+) -> (level: BoothStalenessLevel, label: String?) {
+    guard let last = lastStatusAt else { return (.fresh, nil) }
+    let elapsed = now.timeIntervalSince(last)
+    if elapsed < BoothStalenessThresholds.warningSeconds {
+        return (.fresh, nil)
+    }
+    if elapsed < BoothStalenessThresholds.offlineSeconds {
+        let mins = max(1, Int((elapsed / 60).rounded()))
+        return (.warning, "Last seen \(mins)m ago")
+    }
+    return (.offline, "Booth offline")
+}
+
+/// Small chip displayed next to the booth state badge when the operator
+/// hasn't seen a status update in over a minute. Auto-ticks every 10 s
+/// while visible (via `TimelineView`).
+public struct BoothStalenessChip: View {
+    public let lastStatusAt: Date?
+
+    public init(lastStatusAt: Date?) {
+        self.lastStatusAt = lastStatusAt
+    }
+
+    public var body: some View {
+        TimelineView(.periodic(from: .now, by: 10)) { context in
+            let staleness = boothStaleness(lastStatusAt: lastStatusAt, now: context.date)
+            if staleness.level != .fresh, let label = staleness.label {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(color(for: staleness.level))
+                        .frame(width: 8, height: 8)
+                    Text(label)
+                        .font(Theme.Fonts.caption.weight(.semibold))
+                        .foregroundStyle(color(for: staleness.level))
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background {
+                    Capsule().fill(color(for: staleness.level).opacity(0.15))
+                }
+                .accessibilityLabel(Text(label))
+            }
+        }
+    }
+
+    private func color(for level: BoothStalenessLevel) -> Color {
+        switch level {
+        case .fresh: return Theme.Colors.success
+        case .warning: return Theme.Colors.warning
+        case .offline: return Theme.Colors.error
+        }
+    }
+}

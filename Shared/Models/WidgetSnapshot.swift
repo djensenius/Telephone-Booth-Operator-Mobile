@@ -22,6 +22,10 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
     public let callsInProgress: Int
     public let wsClients: Int
     public let generatedAt: Date
+    /// Optional for backwards compatibility with snapshots written by
+    /// previous app versions that didn't carry runtime mode. Decoded as
+    /// nil if absent so cached widget data keeps working after upgrade.
+    public let runtimeMode: RuntimeMode?
 
     public init(
         boothState: BoothState,
@@ -31,7 +35,8 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         callsToday: Int,
         callsInProgress: Int,
         wsClients: Int,
-        generatedAt: Date
+        generatedAt: Date,
+        runtimeMode: RuntimeMode? = nil
     ) {
         self.boothState = boothState
         self.boothUpdatedAt = boothUpdatedAt
@@ -41,6 +46,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         self.callsInProgress = callsInProgress
         self.wsClients = wsClients
         self.generatedAt = generatedAt
+        self.runtimeMode = runtimeMode
     }
 
     public init(stats: StatsSummary) {
@@ -52,7 +58,8 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             callsToday: stats.calls.today,
             callsInProgress: stats.calls.inProgress,
             wsClients: stats.realtime.wsClients,
-            generatedAt: stats.generatedAt
+            generatedAt: stats.generatedAt,
+            runtimeMode: stats.booth.runtimeMode
         )
     }
 }
@@ -68,6 +75,7 @@ public extension WidgetSnapshot {
             && callsToday == other.callsToday
             && callsInProgress == other.callsInProgress
             && wsClients == other.wsClients
+            && runtimeMode == other.runtimeMode
     }
 
     /// Placeholder used by widget previews and the loading state.
@@ -79,6 +87,7 @@ public extension WidgetSnapshot {
         callsToday: 4,
         callsInProgress: 0,
         wsClients: 1,
-        generatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        generatedAt: Date(timeIntervalSince1970: 1_700_000_000),
+        runtimeMode: nil
     )
 }
