@@ -60,9 +60,10 @@ public enum RuntimeMode: Codable, Sendable, Hashable {
         return false
     }
 
-    /// Whether this mode should be flagged visually. `real` (or any other
-    /// unrecognised future "production" mode) is silent; everything else
-    /// gets a pill.
+    /// Whether this mode should be flagged visually. Only `real` is silent;
+    /// any other mode (including future server-side additions surfaced as
+    /// `.unknown(...)`) gets a pill so the operator is never quietly looking
+    /// at a non-production booth.
     public var shouldDisplayBadge: Bool { !isReal }
 
     /// Compact pill label, matching the operator web UI.
