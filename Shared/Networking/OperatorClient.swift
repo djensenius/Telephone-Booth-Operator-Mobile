@@ -87,17 +87,43 @@ public actor OperatorClient {
         try await get("/v1/sessions/\(id)")
     }
 
-    /// `GET /v1/system/current` — latest cached system snapshot for one
-    /// booth, or all booths when `boothId` is nil.
+    /// `GET /v1/system/current?boothId=…` — latest cached system snapshot
+    /// for a single booth, unwrapped from its `{boothId, snapshot, receivedAt}`
+    /// envelope. When `boothId` is nil, the operator returns the full list
+    /// of cached snapshots and this helper picks the first one (typical
+    /// single-booth install). Returns `nil` when no snapshot is cached
+    /// (operator responds 404 in that case, or returns an empty list).
     public func fetchCurrentSystem(boothId: String? = nil) async throws -> BoothSystemSnapshot? {
-        let items = boothId.map { [URLQueryItem(name: "boothId", value: $0)] } ?? []
-        // The endpoint returns 404 when no snapshot has ever been pushed;
-        // that's not an error from the UI's perspective, just "no data yet".
-        do {
-            return try await get("/v1/system/current", query: items)
-        } catch let OperatorError.httpError(status, _) where status == 404 {
-            return nil
+        let envelope = try await fetchCurrentSystemEnvelope(boothId: boothId)
+        return envelope?.snapshot
+    }
+
+    /// Same as `fetchCurrentSystem` but preserves the `receivedAt` server
+    /// timestamp from the envelope so the UI can render "Updated 5s ago"
+    /// without inventing its own clock.
+    public func fetchCurrentSystemEnvelope(
+        boothId: String? = nil
+    ) async throws -> BoothSystemSnapshotEnvelope? {
+        if let boothId {
+            let items = [URLQueryItem(name: "boothId", value: boothId)]
+            do {
+                return try await get("/v1/system/current", query: items)
+            } catch let OperatorError.httpError(status, _) where status == 404 {
+                return nil
+            }
         }
+        // No filter → operator returns `{ items: [Envelope] }`. Pick the
+        // first booth for the typical single-booth install.
+        let envelopes = try await fetchAllCurrentSystems()
+        return envelopes.first
+    }
+
+    /// `GET /v1/system/current` (no booth filter) — list of latest cached
+    /// snapshots across every booth that's ever reported in. Each item is
+    /// a `BoothSystemSnapshotEnvelope`.
+    public func fetchAllCurrentSystems() async throws -> [BoothSystemSnapshotEnvelope] {
+        let list: BoothSystemSnapshotList = try await get("/v1/system/current")
+        return list.items
     }
 
     /// `GET /v1/messages` — list (filterable by status, since, limit).

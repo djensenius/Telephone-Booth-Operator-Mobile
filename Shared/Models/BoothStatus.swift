@@ -96,18 +96,25 @@ public struct BoothStatus: Codable, Sendable, Hashable {
     public let currentQuestionId: UUID?
     public let currentMessageId: UUID?
     public let lastError: String?
+    /// Whether the booth is running real Pi hardware, in-memory mocks, or
+    /// the interactive simulator TUI. Nullable + optional for forward and
+    /// backward compatibility with operators that haven't shipped PR #66
+    /// yet.
+    public let runtimeMode: RuntimeMode?
 
     public init(
         state: BoothState,
         updatedAt: Date,
         currentQuestionId: UUID? = nil,
         currentMessageId: UUID? = nil,
-        lastError: String? = nil
+        lastError: String? = nil,
+        runtimeMode: RuntimeMode? = nil
     ) {
         self.state = state
         self.updatedAt = updatedAt
         self.currentQuestionId = currentQuestionId
         self.currentMessageId = currentMessageId
         self.lastError = lastError
+        self.runtimeMode = runtimeMode
     }
 }

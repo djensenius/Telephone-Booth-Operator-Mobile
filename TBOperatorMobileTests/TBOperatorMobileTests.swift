@@ -105,12 +105,14 @@ final class TBOperatorMobileTests: XCTestCase {
 
     // MARK: - AppConfig URL building
 
+    @MainActor
     func testAppConfigBuildsPathURLs() {
         let url = AppConfig.shared.url(forPath: "/v1/stats/summary")
         XCTAssertEqual(url.path, "/v1/stats/summary")
         XCTAssertEqual(url.scheme, AppConfig.shared.apiBaseURL.scheme)
     }
 
+    @MainActor
     func testAppConfigBuildsPathURLsWithoutLeadingSlash() {
         let url = AppConfig.shared.url(forPath: "v1/auth/me")
         XCTAssertEqual(url.path, "/v1/auth/me")

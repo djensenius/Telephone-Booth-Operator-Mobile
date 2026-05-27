@@ -63,6 +63,11 @@ struct TVBoothWallView: View {
                     .foregroundStyle(Theme.Colors.textSecondary)
             }
             Spacer()
+            if let mode = stats?.booth.runtimeMode, mode.shouldDisplayBadge {
+                RuntimeModeBadge(mode: mode)
+                    .scaleEffect(1.6)
+                    .padding(.trailing, 20)
+            }
             if let generatedAt = stats?.generatedAt {
                 VStack(alignment: .trailing) {
                     Text("Updated")

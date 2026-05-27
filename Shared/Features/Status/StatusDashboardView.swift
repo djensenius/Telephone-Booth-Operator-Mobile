@@ -20,6 +20,7 @@ public struct StatusDashboardView: View {
     @State private var historyError: String?
     @State private var errorMessage: String?
     @State private var isRefreshing = false
+    @State private var systemEnvelope: BoothSystemSnapshotEnvelope?
 
     private let client: OperatorClient
 
@@ -35,6 +36,10 @@ public struct StatusDashboardView: View {
                 }
                 operatorCard
                 statsCard
+                SystemVitalsStrip(
+                    snapshot: systemEnvelope?.snapshot,
+                    receivedAt: systemEnvelope?.receivedAt
+                )
                 #if !os(watchOS) && !os(tvOS)
                 if canShowChart {
                     historyChartCard
@@ -61,7 +66,8 @@ public struct StatusDashboardView: View {
         async let meTask: OperatorMe? = (try? await client.fetchMe())
         async let statsTask: StatsSummary? = (try? await client.fetchStatsSummary())
         async let historyTask: StatusHistory? = (try? await client.fetchStatusHistory(limit: 200))
-        let (newMe, newStats, newHistory) = await (meTask, statsTask, historyTask)
+        async let systemTask: BoothSystemSnapshotEnvelope? = (try? await client.fetchCurrentSystemEnvelope())
+        let (newMe, newStats, newHistory, newSystem) = await (meTask, statsTask, historyTask, systemTask)
         profile = newMe ?? profile
         stats = newStats ?? stats
         if let newStats {
@@ -71,6 +77,9 @@ public struct StatusDashboardView: View {
             history = newHistory.items
         } else if history.isEmpty {
             historyError = "Couldn't load recent status history."
+        }
+        if let newSystem {
+            systemEnvelope = newSystem
         }
         if newMe == nil && newStats == nil {
             errorMessage = "Couldn't reach the operator. Check your network or server URL in Settings."
@@ -105,7 +114,12 @@ public struct StatusDashboardView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
             SectionHeader(text: "Booth")
             if let stats {
-                BoothStateBadge(state: stats.booth.state)
+                HStack(spacing: Theme.Spacing.small) {
+                    BoothStateBadge(state: stats.booth.state)
+                    Spacer(minLength: 0)
+                    BoothStalenessChip(lastStatusAt: stats.booth.updatedAt)
+                    RuntimeModeBadge(mode: stats.booth.runtimeMode)
+                }
                 Divider().background(Theme.Colors.textSecondary.opacity(0.2))
                 StatRow(label: "Calls today", value: "\(stats.calls.today)")
                 StatRow(label: "In progress", value: "\(stats.calls.inProgress)")

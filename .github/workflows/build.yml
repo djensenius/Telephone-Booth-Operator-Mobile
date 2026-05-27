@@ -41,9 +41,9 @@ jobs:
       - name: Verify project.yml is in sync with .xcodeproj
         run: |
           xcodegen generate --spec project.yml
-          if ! git diff --quiet -- '*.xcodeproj'; then
+          if ! git diff --quiet -- ':(glob)**/*.xcodeproj/**'; then
             echo "::error::project.yml is out of sync with the checked-in .xcodeproj"
-            git diff --stat -- '*.xcodeproj'
+            git diff --stat -- ':(glob)**/*.xcodeproj/**'
             exit 1
           fi
       - name: Build ${{ matrix.scheme }}
