@@ -90,6 +90,7 @@ public struct CallSession: Codable, Sendable, Equatable, Identifiable {
     public let outcome: CallOutcome?
     public let recordingId: String?
     public let durationMs: Int?
+    public let version: String?
 
     public init(
         id: String,
@@ -100,7 +101,8 @@ public struct CallSession: Codable, Sendable, Equatable, Identifiable {
         digitsDialed: String?,
         outcome: CallOutcome?,
         recordingId: String?,
-        durationMs: Int?
+        durationMs: Int?,
+        version: String? = nil
     ) {
         self.id = id
         self.boothId = boothId
@@ -111,6 +113,7 @@ public struct CallSession: Codable, Sendable, Equatable, Identifiable {
         self.outcome = outcome
         self.recordingId = recordingId
         self.durationMs = durationMs
+        self.version = version
     }
 }
 

@@ -156,11 +156,13 @@ public struct BoothSystemSnapshotEnvelope: Codable, Sendable, Equatable, Identif
     public let boothId: String
     public let snapshot: BoothSystemSnapshot
     public let receivedAt: Date
+    public let version: String?
 
-    public init(boothId: String, snapshot: BoothSystemSnapshot, receivedAt: Date) {
+    public init(boothId: String, snapshot: BoothSystemSnapshot, receivedAt: Date, version: String? = nil) {
         self.boothId = boothId
         self.snapshot = snapshot
         self.receivedAt = receivedAt
+        self.version = version
     }
 
     public var id: String { boothId }

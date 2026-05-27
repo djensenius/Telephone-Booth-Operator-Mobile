@@ -29,7 +29,11 @@ public struct SystemView: View {
                 }
                 if let envelope {
                     SystemVitalsStrip(snapshot: envelope.snapshot, receivedAt: envelope.receivedAt)
-                    SystemHostCard(snapshot: envelope.snapshot, receivedAt: envelope.receivedAt)
+                    SystemHostCard(
+                        snapshot: envelope.snapshot,
+                        receivedAt: envelope.receivedAt,
+                        version: envelope.version
+                    )
                     SystemCPUCard(snapshot: envelope.snapshot)
                     SystemMemoryCard(snapshot: envelope.snapshot)
                     SystemDisksCard(snapshot: envelope.snapshot)
@@ -70,6 +74,7 @@ public struct SystemView: View {
 private struct SystemHostCard: View {
     let snapshot: BoothSystemSnapshot
     let receivedAt: Date
+    let version: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
@@ -77,6 +82,9 @@ private struct SystemHostCard: View {
                 SectionHeader(text: "Booth \(snapshot.boothId)")
                 Spacer(minLength: 0)
                 RuntimeModeBadge(mode: snapshot.runtimeMode)
+            }
+            if let version, !version.isEmpty {
+                StatRow(label: "Client version", value: version)
             }
             if let hostname = snapshot.hostname {
                 StatRow(label: "Hostname", value: hostname)

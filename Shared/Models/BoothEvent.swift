@@ -111,6 +111,7 @@ public struct BoothEventRecord: Codable, Sendable, Equatable, Identifiable {
     public let receivedAt: Date
     public let sessionId: String?
     public let recordingId: String?
+    public let version: String?
 }
 
 public struct EventList: Codable, Sendable, Equatable {
@@ -133,6 +134,7 @@ public struct CallSessionDetail: Codable, Sendable, Equatable, Identifiable {
     public let outcome: CallOutcome?
     public let recordingId: String?
     public let durationMs: Int?
+    public let version: String?
     public let events: [BoothEventRecord]
 
     public var asSession: CallSession {
@@ -145,7 +147,8 @@ public struct CallSessionDetail: Codable, Sendable, Equatable, Identifiable {
             digitsDialed: digitsDialed,
             outcome: outcome,
             recordingId: recordingId,
-            durationMs: durationMs
+            durationMs: durationMs,
+            version: version
         )
     }
 }
