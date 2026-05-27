@@ -14,6 +14,7 @@ import SwiftUI
 
 struct TVBoothWallView: View {
     @State private var stats: StatsSummary?
+    @State private var overview: StatsOverview?
     @State private var recentMessages: [Message] = []
     @State private var errorMessage: String?
 
@@ -37,6 +38,10 @@ struct TVBoothWallView: View {
                 .padding(.horizontal, 80)
                 latestMessagesPanel
                     .padding(.horizontal, 80)
+                if let overview {
+                    overviewStrip(overview: overview)
+                        .padding(.horizontal, 80)
+                }
                 Spacer()
                 if let errorMessage {
                     Text(errorMessage)
@@ -47,6 +52,32 @@ struct TVBoothWallView: View {
             .padding(.vertical, 60)
         }
         .task { await pollLoop() }
+    }
+
+    private func overviewStrip(overview: StatsOverview) -> some View {
+        HStack(spacing: 24) {
+            TVStatBlock(
+                label: "Pickups (7d)",
+                value: "\(overview.pickupsHangups.pickups)"
+            )
+            TVStatBlock(
+                label: "Messages left",
+                value: "\(overview.messages.total)"
+            )
+            TVStatBlock(
+                label: "Playbacks",
+                value: "\(overview.playback.totalPlaybacks)"
+            )
+            TVStatBlock(
+                label: "Completion",
+                value: percentString(overview.completionRate)
+            )
+        }
+    }
+
+    private func percentString(_ value: Double?) -> String {
+        guard let value, value.isFinite else { return "—" }
+        return String(format: "%.0f%%", value * 100)
     }
 
     private var header: some View {
@@ -149,11 +180,15 @@ struct TVBoothWallView: View {
 
     private func refresh() async {
         async let statsTask: StatsSummary? = (try? await client.fetchStatsSummary())
+        async let overviewTask: StatsOverview? = (try? await client.fetchStatsOverview(window: .last7d))
         async let messagesTask: MessageList? = (try? await client.fetchMessages(status: nil, since: nil, limit: 3))
-        let (newStats, newMessages) = await (statsTask, messagesTask)
+        let (newStats, newOverview, newMessages) = await (statsTask, overviewTask, messagesTask)
         if let newStats {
             stats = newStats
             WidgetSnapshotStore.write(WidgetSnapshot(stats: newStats))
+        }
+        if let newOverview {
+            overview = newOverview
         }
         if let newMessages {
             recentMessages = newMessages.items

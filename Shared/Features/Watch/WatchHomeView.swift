@@ -54,6 +54,12 @@ struct WatchHomeView: View {
                     .navigationTitle("Moderation")
             }
             .tabItem { Label("Moderation", systemImage: "checkmark.shield") }
+
+            NavigationStack {
+                WatchStatsView()
+                    .navigationTitle("Stats")
+            }
+            .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
         }
         .tabViewStyle(.verticalPage)
         .sheet(isPresented: $showingSettings) {
