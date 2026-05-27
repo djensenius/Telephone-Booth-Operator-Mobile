@@ -51,6 +51,16 @@ public actor OperatorClient {
         try await get("/v1/stats/summary")
     }
 
+    /// `GET /v1/stats/overview` — historical aggregation (calls, messages,
+    /// playbacks, uploads, top questions, hourly) over the chosen window.
+    /// Operator caches results for 30s per window key.
+    public func fetchStatsOverview(window: StatsWindow = .last7d) async throws -> StatsOverview {
+        try await get(
+            "/v1/stats/overview",
+            query: [URLQueryItem(name: "window", value: window.rawValue)]
+        )
+    }
+
     /// `GET /v1/status` — current booth state (no auth required, but we
     /// still send the bearer if available so the operator can correlate
     /// access in logs).

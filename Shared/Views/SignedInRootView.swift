@@ -41,6 +41,13 @@ public struct SignedInRootView: View {
             .tabItem { Label("Dashboard", systemImage: "gauge.with.dots.needle.bottom.50percent") }
 
             NavigationStack {
+                StatsView()
+                    .navigationTitle("Stats")
+                    .toolbar { settingsToolbar }
+            }
+            .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
+
+            NavigationStack {
                 SessionListView()
                     .navigationTitle("Sessions")
                     .toolbar { settingsToolbar }
