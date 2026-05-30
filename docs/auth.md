@@ -108,6 +108,65 @@ response (valid per spec when `openid` scope is not granted or the provider
 omits it), validation is skipped and a warning is logged. Sign-in proceeds
 because the access token is still validated by the backend on every request.
 
+## Staying signed in robustly
+
+The session is designed to outlive the access-token lifetime (5 min) and
+survive most transient failures. Three layers cooperate:
+
+**1. Persistent storage.** Access + refresh + ID tokens live in the
+Keychain under `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, so they
+survive app relaunches and OS reboots but are scoped to the device (no
+iCloud-Keychain export, no restore to a new phone). See
+`Shared/Auth/AuthManager+Keychain.swift`.
+
+**2. Proactive refresh.** Tokens are refreshed automatically at three
+checkpoints:
+
+- **At launch** — `validateSessionOnLaunch()` runs from
+  `RootContainerView.task` exactly once per process. If the cached access
+  token is within 60 s of expiry (or already expired), it exchanges the
+  refresh token before showing any UI. A 4xx from `/token` signs the user
+  out cleanly; transient failures (no network, 5xx) keep the user signed
+  in as long as the cached access token hasn't truly expired.
+- **On foreground** — `RootContainerView` watches `scenePhase` and calls
+  `ensureValidToken()` whenever the app becomes `.active`. This pre-warms
+  the bearer after the device has been asleep so the first user-driven
+  request doesn't pay the refresh latency.
+- **Before every API call** — `OperatorClient` calls
+  `auth.authorizationHeader()`, which goes through `ensureValidToken()`
+  and refreshes if needed. Concurrent calls coalesce through
+  `RefreshCoordinator` so we only ever issue one `/token` request at a
+  time.
+
+**3. Reactive retry.** Even with proactive refresh, an access token can
+expire between our "is it expiring soon?" check and the actual HTTP
+roundtrip (clock skew, slow uploads, server-side key rotation). To handle
+this:
+
+- `OperatorClient.send(...)` retries any 401 exactly once: it forces a
+  refresh, swaps in the new bearer, and reissues the original request.
+  Only after the retry also fails do we surface `OperatorError.unauthorized`.
+- `EventStream` does the same at SSE connect time. Mid-stream 401s aren't
+  possible (the HTTP connection is established once), but consumers
+  should still reconnect with backoff on any stream end.
+
+Together this means: a signed-in user who hasn't quit the app stays
+signed in for the lifetime of the refresh token (30 days by default).
+The Keychain still holds the refresh token across cold launches, so even
+a force-quit + week-later relaunch typically resumes silently.
+
+**When the user does get bounced to LoginView:**
+
+- Refresh token expired (>30 days idle).
+- Authentik admin revoked the session, deleted the user, or removed them
+  from `OIDC_ALLOWED_GROUPS`.
+- The operator API rotated its issuer / audience and the new server
+  rejects every token we hold.
+
+In all three cases `AuthManager.refreshTokenIfNeeded()` sees a 4xx from
+`/token`, calls `signOut()`, and `RootContainerView` re-renders the login
+screen on the next observation cycle.
+
 ## Open questions (to resolve during operator PR 1)
 
 - Can Authentik issue tokens with both `aud=telephone-booth-operator`

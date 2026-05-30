@@ -285,16 +285,7 @@ public actor OperatorClient {
         }
         request.setValue(header, forHTTPHeaderField: "Authorization")
 
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await session.data(for: request)
-        } catch {
-            throw OperatorError.transport(error)
-        }
-        guard let http = response as? HTTPURLResponse else {
-            throw OperatorError.transport(URLError(.badServerResponse))
-        }
+        let (data, http) = try await send(request, retryOnUnauthorized: true, path: path)
         if http.statusCode == 401 || http.statusCode == 403 {
             logger.warning("\(path, privacy: .public) → \(http.statusCode)")
             throw OperatorError.unauthorized(String(data: data, encoding: .utf8) ?? "")
@@ -338,30 +329,27 @@ public actor OperatorClient {
             }
         }
 
+        var attachedBearer = false
         let hasAccessToken = await auth.getAccessToken() != nil
         if requireAuth || hasAccessToken {
             guard let header = await auth.authorizationHeader() else {
                 if requireAuth { throw OperatorError.unauthenticated }
                 // Optional auth and no token available — proceed unauthenticated.
-                return try await perform(request, path: path)
+                return try await perform(request, retryOnUnauthorized: false, path: path)
             }
             request.setValue(header, forHTTPHeaderField: "Authorization")
+            attachedBearer = true
         }
 
-        return try await perform(request, path: path)
+        return try await perform(request, retryOnUnauthorized: attachedBearer, path: path)
     }
 
-    private func perform<Response: Decodable>(_ request: URLRequest, path: String) async throws -> Response {
-        let data: Data
-        let response: URLResponse
-        do {
-            (data, response) = try await session.data(for: request)
-        } catch {
-            throw OperatorError.transport(error)
-        }
-        guard let http = response as? HTTPURLResponse else {
-            throw OperatorError.transport(URLError(.badServerResponse))
-        }
+    private func perform<Response: Decodable>(
+        _ request: URLRequest,
+        retryOnUnauthorized: Bool,
+        path: String
+    ) async throws -> Response {
+        let (data, http) = try await send(request, retryOnUnauthorized: retryOnUnauthorized, path: path)
 
         if http.statusCode == 401 || http.statusCode == 403 {
             let body = String(data: data, encoding: .utf8) ?? ""
@@ -378,5 +366,47 @@ public actor OperatorClient {
         } catch {
             throw OperatorError.decoding(error)
         }
+    }
+
+    /// Sends `request` over `session`. If the response is 401 and the
+    /// caller attached a bearer (`retryOnUnauthorized == true`), forces a
+    /// token refresh and reissues the request exactly once with the new
+    /// bearer header. This makes the client resilient to access tokens
+    /// that expired between our proactive refresh check and the actual
+    /// HTTP call (clock skew, long-running uploads, or the operator
+    /// rotating signing keys). Refresh-token rejection is handled inside
+    /// `AuthManager.refreshTokenIfNeeded()` — it signs the user out, and
+    /// the retry simply surfaces the original 401.
+    private func send(
+        _ request: URLRequest,
+        retryOnUnauthorized: Bool,
+        path: String
+    ) async throws -> (Data, HTTPURLResponse) {
+        let (data, http) = try await transport(request)
+        guard retryOnUnauthorized, http.statusCode == 401 else {
+            return (data, http)
+        }
+        logger.info("\(path, privacy: .public) → 401, refreshing token and retrying once")
+        let refreshed = await auth.refreshTokenIfNeeded()
+        guard refreshed, let header = await auth.authorizationHeader() else {
+            return (data, http)
+        }
+        var retried = request
+        retried.setValue(header, forHTTPHeaderField: "Authorization")
+        return try await transport(retried)
+    }
+
+    private func transport(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw OperatorError.transport(error)
+        }
+        guard let http = response as? HTTPURLResponse else {
+            throw OperatorError.transport(URLError(.badServerResponse))
+        }
+        return (data, http)
     }
 }
