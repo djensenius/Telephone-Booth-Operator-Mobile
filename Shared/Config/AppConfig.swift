@@ -56,7 +56,7 @@ public final class AppConfig {
 
     private init() {
         let defaultBaseString = Bundle.main.object(forInfoDictionaryKey: "OperatorAPIBase") as? String
-            ?? "https://operator.fluxhaus.io"
+            ?? "https://operator.telephonebooth.io"
         let stored = UserDefaults.standard.string(forKey: Self.apiBaseDefaultsKey)
         let baseString = stored ?? defaultBaseString
         guard let url = URL(string: baseString) else {
@@ -78,7 +78,7 @@ public final class AppConfig {
            !plistValue.isEmpty {
             return Set(plistValue.map { $0.lowercased() })
         }
-        return ["operator.fluxhaus.io"]
+        return ["operator.telephonebooth.io"]
     }()
 
     /// Update the API base URL with strict security validation.

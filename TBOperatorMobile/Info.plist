@@ -42,7 +42,7 @@
 	<key>OIDCIssuerBase</key>
 	<string>https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile</string>
 	<key>OperatorAPIBase</key>
-	<string>https://operator.fluxhaus.io</string>
+	<string>https://operator.telephonebooth.io</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

@@ -58,7 +58,7 @@ targets:
         LSApplicationCategoryType: public.app-category.utilities
         OIDCIssuerBase: https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile
         OIDCClientID: telephone-booth-operator-mobile
-        OperatorAPIBase: https://operator.fluxhaus.io
+        OperatorAPIBase: https://operator.telephonebooth.io
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile
@@ -137,7 +137,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         OIDCIssuerBase: https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile
         OIDCClientID: telephone-booth-operator-mobile
-        OperatorAPIBase: https://operator.fluxhaus.io
+        OperatorAPIBase: https://operator.telephonebooth.io
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.watch
@@ -176,7 +176,7 @@ targets:
               - tboperator
         OIDCIssuerBase: https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile
         OIDCClientID: telephone-booth-operator-mobile
-        OperatorAPIBase: https://operator.fluxhaus.io
+        OperatorAPIBase: https://operator.telephonebooth.io
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile
@@ -221,7 +221,7 @@ targets:
               - tboperator
         OIDCIssuerBase: https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile
         OIDCClientID: telephone-booth-operator-mobile
-        OperatorAPIBase: https://operator.fluxhaus.io
+        OperatorAPIBase: https://operator.telephonebooth.io
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile
@@ -256,7 +256,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         OIDCIssuerBase: https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile
         OIDCClientID: telephone-booth-operator-mobile
-        OperatorAPIBase: https://operator.fluxhaus.io
+        OperatorAPIBase: https://operator.telephonebooth.io
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile
