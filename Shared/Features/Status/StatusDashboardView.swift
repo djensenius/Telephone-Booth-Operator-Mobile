@@ -63,11 +63,17 @@ public struct StatusDashboardView: View {
         errorMessage = nil
         historyError = nil
         defer { isRefreshing = false }
-        async let meTask: OperatorMe? = (try? await client.fetchMe())
-        async let statsTask: StatsSummary? = (try? await client.fetchStatsSummary())
-        async let historyTask: StatusHistory? = (try? await client.fetchStatusHistory(limit: 200))
-        async let systemTask: BoothSystemSnapshotEnvelope? = (try? await client.fetchCurrentSystemEnvelope())
-        let (newMe, newStats, newHistory, newSystem) = await (meTask, statsTask, historyTask, systemTask)
+        async let meResult = capture { try await client.fetchMe() }
+        async let statsResult = capture { try await client.fetchStatsSummary() }
+        async let historyResult = capture { try await client.fetchStatusHistory(limit: 200) }
+        async let systemResult = capture { try await client.fetchCurrentSystemEnvelope() }
+        let (meOutcome, statsOutcome, historyOutcome, systemOutcome) = await (
+            meResult, statsResult, historyResult, systemResult
+        )
+        let newMe = try? meOutcome.get()
+        let newStats = try? statsOutcome.get()
+        let newHistory = try? historyOutcome.get()
+        let newSystem = try? systemOutcome.get()
         profile = newMe ?? profile
         stats = newStats ?? stats
         if let newStats {
@@ -82,7 +88,34 @@ public struct StatusDashboardView: View {
             systemEnvelope = newSystem
         }
         if newMe == nil && newStats == nil {
-            errorMessage = "Couldn't reach the operator. Check your network or server URL in Settings."
+            let reason = describe(error: meOutcome.failureOrNil ?? statsOutcome.failureOrNil)
+            errorMessage = "Couldn't reach the operator: \(reason)"
+        }
+    }
+
+    private func capture<T: Sendable>(
+        _ operation: @Sendable () async throws -> T
+    ) async -> Result<T, Error> {
+        do {
+            return .success(try await operation())
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    private func describe(error: Error?) -> String {
+        guard let error else { return "unknown error" }
+        switch error {
+        case OperatorError.unauthorized(let body):
+            return "401 unauthorized (\(body.prefix(120)))"
+        case OperatorError.httpError(let status, let body):
+            return "HTTP \(status) (\(body.prefix(120)))"
+        case OperatorError.transport(let inner):
+            return "transport — \(inner.localizedDescription)"
+        case OperatorError.unauthenticated:
+            return "not signed in"
+        default:
+            return error.localizedDescription
         }
     }
 
@@ -209,5 +242,12 @@ private struct BoothStateBadge: View {
         case .error: return Theme.Colors.error
         default: return Theme.Colors.accent
         }
+    }
+}
+
+private extension Result {
+    var failureOrNil: Failure? {
+        if case .failure(let error) = self { return error }
+        return nil
     }
 }

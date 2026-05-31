@@ -97,10 +97,27 @@ public actor EventStream {
         filters: EventStreamFilters,
         continuation: AsyncThrowingStream<BoothEventRecord, Error>.Continuation
     ) async throws {
-        let request = try await buildRequest(filters: filters)
-        let (bytes, response) = try await session.bytes(for: request)
-        try validate(response: response)
-        try await consume(bytes: bytes, continuation: continuation)
+        // Connect once; if the server returns 401 the stored access token
+        // is stale — force a refresh and reconnect a single time before
+        // surfacing the error. Stream-end (server closing the connection)
+        // is still the consumer's responsibility to reconnect with backoff.
+        var didRetry = false
+        while true {
+            let request = try await buildRequest(filters: filters)
+            let (bytes, response) = try await session.bytes(for: request)
+            if let http = response as? HTTPURLResponse,
+               http.statusCode == 401,
+               !didRetry,
+               let auth,
+               await auth.refreshTokenIfNeeded() {
+                logger.info("/v1/events/stream → 401, refreshed token and reconnecting once")
+                didRetry = true
+                continue
+            }
+            try validate(response: response)
+            try await consume(bytes: bytes, continuation: continuation)
+            return
+        }
     }
 
     private func buildRequest(filters: EventStreamFilters) async throws -> URLRequest {
@@ -131,14 +148,18 @@ public actor EventStream {
 
     private func validate(response: URLResponse) throws {
         guard let http = response as? HTTPURLResponse else {
+            logger.error("/v1/events/stream non-HTTP response")
             throw OperatorError.transport(URLError(.badServerResponse))
         }
         if http.statusCode == 401 || http.statusCode == 403 {
+            logger.warning("/v1/events/stream → \(http.statusCode)")
             throw OperatorError.unauthorized("")
         }
         guard (200...299).contains(http.statusCode) else {
+            logger.warning("/v1/events/stream → HTTP \(http.statusCode)")
             throw OperatorError.httpError(status: http.statusCode, body: "")
         }
+        logger.debug("/v1/events/stream connected (\(http.statusCode))")
     }
 
     private func consume(

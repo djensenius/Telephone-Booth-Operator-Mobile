@@ -19,7 +19,7 @@ final class IDTokenValidatorTests: XCTestCase {
     }
 
     private let testIssuer = "https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile"
-    private let testClientID = "telephone-booth-operator-mobile"
+    private let testClientID = "x0M0MleMvCSCx8MqIE2jVoYe57nAhGymIG8azTEY"
     private let testNonce = "test-nonce-abc123"
 
     private func validClaims(

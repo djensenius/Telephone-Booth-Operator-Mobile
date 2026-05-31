@@ -11,6 +11,7 @@ import SwiftUI
 
 public struct RootContainerView: View {
     @State private var auth = AuthManager.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     public init() {}
 
@@ -30,6 +31,16 @@ public struct RootContainerView: View {
         }
         .task {
             await AuthManager.shared.validateSessionOnLaunch()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            // Pre-warm the access token whenever the app comes to the
+            // foreground so the first user-driven request after a long
+            // sleep doesn't pay the refresh latency (and so we surface
+            // expired refresh tokens before the user taps anything).
+            guard newPhase == .active else { return }
+            Task { @MainActor in
+                _ = await AuthManager.shared.ensureValidToken()
+            }
         }
     }
 }

@@ -30,6 +30,7 @@ public struct SystemView: View {
                 if let envelope {
                     SystemVitalsStrip(snapshot: envelope.snapshot, receivedAt: envelope.receivedAt)
                     SystemHostCard(
+                        boothId: envelope.boothId,
                         snapshot: envelope.snapshot,
                         receivedAt: envelope.receivedAt,
                         version: envelope.version
@@ -72,6 +73,7 @@ public struct SystemView: View {
 // MARK: - Host card
 
 private struct SystemHostCard: View {
+    let boothId: String
     let snapshot: BoothSystemSnapshot
     let receivedAt: Date
     let version: String?
@@ -79,7 +81,7 @@ private struct SystemHostCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
             HStack {
-                SectionHeader(text: "Booth \(snapshot.boothId)")
+                SectionHeader(text: "Booth \(boothId)")
                 Spacer(minLength: 0)
                 RuntimeModeBadge(mode: snapshot.runtimeMode)
             }
@@ -98,10 +100,6 @@ private struct SystemHostCard: View {
             if let uptime = snapshot.uptimeSeconds {
                 StatRow(label: "Uptime", value: SystemVitals.formatUptime(uptime))
             }
-            StatRow(
-                label: "Captured",
-                value: snapshot.capturedAt.formatted(.dateTime.month(.abbreviated).day().hour().minute().second())
-            )
             StatRow(
                 label: "Received",
                 value: receivedAt.formatted(.dateTime.month(.abbreviated).day().hour().minute().second())

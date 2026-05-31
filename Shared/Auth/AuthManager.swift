@@ -336,7 +336,10 @@ public final class AuthManager {
 
     private func urlByReplacingFinalSegment(_ segment: String) -> URL? {
         guard let base = URL(string: config.oidcIssuerBase) else { return nil }
-        return base.deletingLastPathComponent().appendingPathComponent(segment)
+        // Authentik's global OAuth endpoints (authorize, token, device) live at the
+        // parent path of the per-app issuer and strict-match a trailing slash.
+        return base.deletingLastPathComponent()
+            .appending(component: segment, directoryHint: .isDirectory)
     }
 
     // MARK: - Token network

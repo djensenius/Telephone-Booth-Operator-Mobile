@@ -215,6 +215,7 @@
 		872230E1A03EA6827AC35A67 /* WatchStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E2EA901A8436C600637E7E /* WatchStatusView.swift */; };
 		873759AEC84154C3CBF9E6AC /* BoothEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E3B1AFE0D881D7419AE137D /* BoothEvent.swift */; };
 		87D49705E0BCB890D26D5290 /* WatchModerationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF023161B82D868C9EAE710C /* WatchModerationView.swift */; };
+		87F5FC28B50F4B43BB95AE3D /* OperatorClientRetryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40625CD545E668C2C4B504AF /* OperatorClientRetryTests.swift */; };
 		8844754FF0656493F5C26960 /* WatchStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A21BECE44874DB7894E4438 /* WatchStatsView.swift */; };
 		884D83CA01F406FABA0EF9E1 /* NotificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 435BF82B0A74BD00A4B073F2 /* NotificationTests.swift */; };
 		8A180DF9773BA31F6A237F3C /* WatchStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A21BECE44874DB7894E4438 /* WatchStatsView.swift */; };
@@ -478,6 +479,7 @@
 		349332A6376D9D870DC8B9ED /* CallInProgressAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallInProgressAttributes.swift; sourceTree = "<group>"; };
 		34D73B167F953852612B6C9E /* WatchHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHomeView.swift; sourceTree = "<group>"; };
 		37087EC6949DE3BAE1DFF056 /* RootContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootContainerView.swift; sourceTree = "<group>"; };
+		40625CD545E668C2C4B504AF /* OperatorClientRetryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperatorClientRetryTests.swift; sourceTree = "<group>"; };
 		40E094F5C508E9EC6FAE377B /* SessionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListView.swift; sourceTree = "<group>"; };
 		435BF82B0A74BD00A4B073F2 /* NotificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTests.swift; sourceTree = "<group>"; };
 		44FFDF69DAD6CC776A80C3ED /* CallInProgressLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallInProgressLiveActivity.swift; sourceTree = "<group>"; };
@@ -593,6 +595,7 @@
 				9CD9DDE3D8BCDE0B477C7475 /* EventStreamTests.swift */,
 				D2A3907C3F55C792DA6D5DC3 /* IDTokenValidatorTests.swift */,
 				435BF82B0A74BD00A4B073F2 /* NotificationTests.swift */,
+				40625CD545E668C2C4B504AF /* OperatorClientRetryTests.swift */,
 				A3117DF5D8BB3B6E8ED2B0B4 /* StatsOverviewTests.swift */,
 				7781B42DE486F0C2D94C10F2 /* TBOperatorMobileTests.swift */,
 				F07FFAA4490D7E597DAE2251 /* UnknownEnumTests.swift */,
@@ -1639,6 +1642,7 @@
 				730A9E1DC7AF671AF03E61BB /* EventStreamTests.swift in Sources */,
 				0D22073568FBC9379AD4D926 /* IDTokenValidatorTests.swift in Sources */,
 				884D83CA01F406FABA0EF9E1 /* NotificationTests.swift in Sources */,
+				87F5FC28B50F4B43BB95AE3D /* OperatorClientRetryTests.swift in Sources */,
 				9E40B5AC49C43DF3A1283037 /* StatsOverviewTests.swift in Sources */,
 				0500245ABDE4B8CE79C3135F /* TBOperatorMobileTests.swift in Sources */,
 				4A7C5D44B21557D38592B11A /* UnknownEnumTests.swift in Sources */,
