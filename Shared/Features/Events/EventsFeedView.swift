@@ -56,14 +56,14 @@ public struct EventsFeedView: View {
             } else {
                 ForEach(filteredEvents) { event in
                     BoothEventFeedRow(event: event)
-                        .listRowBackground(Theme.Colors.secondaryBackground)
+                        .operatorListRowBackground()
                 }
             }
         }
-        .listStyle(.plain)
+        .operatorListStyle()
         .background(Theme.Colors.background)
         .toolbar {
-            ToolbarItem(placement: .secondaryAction) {
+            ToolbarItem(placement: operatorFilterPlacement) {
                 filterMenu
             }
         }

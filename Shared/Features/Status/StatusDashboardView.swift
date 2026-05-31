@@ -14,6 +14,8 @@ import Charts
 #endif
 
 public struct StatusDashboardView: View {
+    @State private var auth = AuthManager.shared
+    @State private var config = AppConfig.shared
     @State private var profile: OperatorMe?
     @State private var stats: StatsSummary?
     @State private var history: [BoothStatus] = []
@@ -34,7 +36,6 @@ public struct StatusDashboardView: View {
                 if let errorMessage {
                     BannerView(message: errorMessage, kind: .error)
                 }
-                operatorCard
                 statsCard
                 SystemVitalsStrip(
                     snapshot: systemEnvelope?.snapshot,
@@ -50,6 +51,9 @@ public struct StatusDashboardView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Theme.Colors.background)
+        #if !os(watchOS) && !os(tvOS)
+        .toolbar { accountToolbar }
+        #endif
         .refreshableIfAvailable {
             await refresh()
         }
@@ -119,29 +123,42 @@ public struct StatusDashboardView: View {
         }
     }
 
-    private var operatorCard: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            SectionHeader(text: "Signed in as")
-            if let profile {
-                Text(profile.name)
-                    .font(Theme.Fonts.headerLarge())
-                    .foregroundStyle(Theme.Colors.textPrimary)
-                Text(profile.email)
-                    .font(Theme.Fonts.bodySmall)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-                if !profile.groups.isEmpty {
-                    Text(profile.groups.joined(separator: " · "))
-                        .font(Theme.Fonts.caption)
-                        .foregroundStyle(Theme.Colors.textSecondary)
+    #if !os(watchOS) && !os(tvOS)
+    /// Demoted account affordance: the signed-in identity and a sign-out
+    /// (or exit-demo) action tucked into the toolbar so the booth content
+    /// stays front-and-centre.
+    @ToolbarContentBuilder
+    private var accountToolbar: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Menu {
+                if let profile {
+                    Section(profile.name) {
+                        Text(profile.email)
+                        if !profile.groups.isEmpty {
+                            Text(profile.groups.joined(separator: " · "))
+                        }
+                    }
                 }
-            } else {
-                ProgressView()
+                if config.isDemoMode {
+                    Button {
+                        config.disableDemoMode()
+                    } label: {
+                        Label("Exit Demo Mode", systemImage: "sparkles")
+                    }
+                } else {
+                    Button(role: .destructive) {
+                        auth.signOut()
+                    } label: {
+                        Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+                    }
+                }
+            } label: {
+                Label(profile?.name ?? "Account", systemImage: "person.crop.circle")
             }
+            .accessibilityLabel("Account")
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Theme.Spacing.large)
-        .glassCardBackground()
     }
+    #endif
 
     private var statsCard: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {

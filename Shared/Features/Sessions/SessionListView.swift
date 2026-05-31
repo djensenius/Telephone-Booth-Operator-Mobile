@@ -66,7 +66,7 @@ public struct SessionListView: View {
                 NavigationLink(value: session.id) {
                     SessionRow(session: session)
                 }
-                .listRowBackground(Theme.Colors.secondaryBackground)
+                .operatorListRowBackground()
             }
             if nextCursor != nil {
                 loadMoreFooter
@@ -74,7 +74,7 @@ public struct SessionListView: View {
                     .listRowSeparator(.hidden)
             }
         }
-        .listStyle(.plain)
+        .operatorListStyle()
         .navigationDestination(for: String.self) { sessionId in
             SessionDetailView(sessionId: sessionId, client: client)
         }

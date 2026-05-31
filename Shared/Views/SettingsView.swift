@@ -2,8 +2,11 @@
 //  SettingsView.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Editable server URL + sign-out action. Surfaced from the LoginView
-//  (when no session) and from the dashboard toolbar (when signed in).
+//  Editable server URL + sign-out action. Presented as a sheet from the
+//  LoginView (when no session) and the watch, and as a Settings tab inside
+//  the signed-in shell on iOS / iPadOS / visionOS / tvOS. macOS uses the
+//  native ⌘, window (`MacSettingsView`) which composes the same building
+//  blocks (`ServerURLField`, `OIDCDetailsView`, `NotificationSettingsSection`).
 //
 
 import SwiftUI
@@ -14,13 +17,13 @@ public struct SettingsView: View {
     @State private var config = AppConfig.shared
     @State private var notifications = NotificationManager.shared
 
-    @State private var apiBaseString: String
-    @State private var errorMessage: String?
-    @State private var savedMessage: String?
-    @State private var showHostChangeAlert = false
+    private let isModal: Bool
 
-    public init() {
-        _apiBaseString = State(initialValue: AppConfig.shared.apiBaseURL.absoluteString)
+    /// - Parameter isModal: `true` when shown as a sheet (adds a "Done"
+    ///   button). Pass `false` when embedded as a tab so the chrome stays
+    ///   native to the host shell.
+    public init(isModal: Bool = true) {
+        self.isModal = isModal
     }
 
     public var body: some View {
@@ -40,23 +43,7 @@ public struct SettingsView: View {
                 }
 
                 Section {
-                    TextField("https://operator.example.com", text: $apiBaseString)
-                        #if os(iOS) || os(visionOS)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                        #endif
-                    Button("Save server URL", action: saveAPIBase)
-                        .disabled(apiBaseString == config.apiBaseURL.absoluteString)
-                    if let errorMessage {
-                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                            .foregroundStyle(Theme.Colors.error)
-                            .font(Theme.Fonts.bodySmall)
-                    } else if let savedMessage {
-                        Label(savedMessage, systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(Theme.Colors.success)
-                            .font(Theme.Fonts.bodySmall)
-                    }
+                    ServerURLField()
                 } header: {
                     Text("Operator API")
                 } footer: {
@@ -66,10 +53,10 @@ public struct SettingsView: View {
 
                 Section {
                     #if os(watchOS) || os(tvOS)
-                    oidcDetails
+                    OIDCDetailsView()
                     #else
                     DisclosureGroup {
-                        oidcDetails
+                        OIDCDetailsView()
                     } label: {
                         Label("OIDC details", systemImage: "lock.shield")
                     }
@@ -102,56 +89,64 @@ public struct SettingsView: View {
             #endif
             #if !os(tvOS)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+                if isModal {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") { dismiss() }
+                    }
                 }
             }
             #endif
             .task {
                 await notifications.refreshAuthorizationStatus()
             }
-            .alert("Server Changed", isPresented: $showHostChangeAlert) {
-                Button("OK") { dismiss() }
-            } message: {
-                Text("You have been signed out because the API server changed. " +
-                     "Please sign in again to continue.")
+        }
+    }
+}
+
+/// Editable Operator API base-URL row plus its Save button, inline
+/// validation feedback, and the "server changed" sign-out alert. Embedded
+/// inside a `Form` `Section` by both `SettingsView` and `MacSettingsView`.
+public struct ServerURLField: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var config = AppConfig.shared
+    @State private var apiBaseString: String
+    @State private var errorMessage: String?
+    @State private var savedMessage: String?
+    @State private var showHostChangeAlert = false
+
+    public init() {
+        _apiBaseString = State(initialValue: AppConfig.shared.apiBaseURL.absoluteString)
+    }
+
+    public var body: some View {
+        Group {
+            TextField("https://operator.example.com", text: $apiBaseString)
+                #if os(iOS) || os(visionOS)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+                #endif
+            Button("Save server URL", action: save)
+                .disabled(apiBaseString == config.apiBaseURL.absoluteString)
+            if let errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(Theme.Colors.error)
+                    .font(Theme.Fonts.bodySmall)
+            } else if let savedMessage {
+                Label(savedMessage, systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(Theme.Colors.success)
+                    .font(Theme.Fonts.bodySmall)
             }
+        }
+        .alert("Server Changed", isPresented: $showHostChangeAlert) {
+            Button("OK") { dismiss() }
+        } message: {
+            Text("You have been signed out because the API server changed. " +
+                 "Please sign in again to continue.")
         }
     }
 
-    @ViewBuilder
-    private var oidcDetails: some View {
-        #if os(macOS)
-        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            LabeledContent("OIDC issuer") {
-                Text(config.oidcIssuerBase)
-                    .textSelection(.enabled)
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .font(Theme.Fonts.bodySmall)
-            LabeledContent("Client ID") {
-                Text(config.oidcClientID)
-                    .textSelection(.enabled)
-            }
-            .font(Theme.Fonts.bodySmall)
-            LabeledContent("Redirect") {
-                Text(config.redirectURI)
-                    .textSelection(.enabled)
-            }
-            .font(Theme.Fonts.bodySmall)
-        }
-        #else
-        LabeledContent("OIDC issuer", value: config.oidcIssuerBase)
-            .font(Theme.Fonts.bodySmall)
-        LabeledContent("Client ID", value: config.oidcClientID)
-            .font(Theme.Fonts.bodySmall)
-        LabeledContent("Redirect", value: config.redirectURI)
-            .font(Theme.Fonts.bodySmall)
-        #endif
-    }
-
-    private func saveAPIBase() {
+    private func save() {
         errorMessage = nil
         savedMessage = nil
         do {
@@ -165,6 +160,37 @@ public struct SettingsView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+}
+
+/// Read-only OIDC build settings (issuer, client ID, redirect). Text is
+/// selectable everywhere except tvOS, which has no text-selection support.
+public struct OIDCDetailsView: View {
+    @State private var config = AppConfig.shared
+
+    public init() {}
+
+    public var body: some View {
+        Group {
+            detailRow("OIDC issuer", config.oidcIssuerBase)
+            detailRow("Client ID", config.oidcClientID)
+            detailRow("Redirect", config.redirectURI)
+        }
+        .font(Theme.Fonts.bodySmall)
+    }
+
+    @ViewBuilder
+    private func detailRow(_ label: String, _ value: String) -> some View {
+        #if os(tvOS) || os(watchOS)
+        LabeledContent(label, value: value)
+        #else
+        LabeledContent(label) {
+            Text(value)
+                .textSelection(.enabled)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        #endif
     }
 }
 

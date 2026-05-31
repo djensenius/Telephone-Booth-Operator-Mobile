@@ -36,7 +36,7 @@ public struct MessageListView: View {
         }
         .background(Theme.Colors.background)
         .toolbar {
-            ToolbarItem(placement: .secondaryAction) {
+            ToolbarItem(placement: operatorFilterPlacement) {
                 statusMenu
             }
         }
@@ -59,10 +59,10 @@ public struct MessageListView: View {
                 NavigationLink(value: message.id) {
                     MessageRow(message: message)
                 }
-                .listRowBackground(Theme.Colors.secondaryBackground)
+                .operatorListRowBackground()
             }
         }
-        .listStyle(.plain)
+        .operatorListStyle()
         .navigationDestination(for: String.self) { messageId in
             MessageDetailView(messageId: messageId, client: client)
         }

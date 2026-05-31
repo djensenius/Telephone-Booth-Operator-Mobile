@@ -26,6 +26,7 @@
 		0D22073568FBC9379AD4D926 /* IDTokenValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A3907C3F55C792DA6D5DC3 /* IDTokenValidatorTests.swift */; };
 		0D8548651E79F629703B1348 /* MessageDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E19A806E44E01C3636F33EEE /* MessageDetailView.swift */; };
 		0D8E86111E8277FA3C1D71E7 /* EventsFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BCCBCC7C16BB1678841E822 /* EventsFeedView.swift */; };
+		0E3670141F6827927031F300 /* MacSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC5639CDF544BDD3770DA87 /* MacSettingsView.swift */; };
 		0EC9C76130EAAA082C84B92A /* WatchRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9788C3669150B5B106FC5163 /* WatchRootView.swift */; };
 		0EE61D0761C1815E92C1C799 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00176BFA0F8D8CA9E4F2675 /* Message.swift */; };
 		0F25CAC5E871171B3D4B555A /* SignedInRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A276F507B20E25A0626F5AF6 /* SignedInRootView.swift */; };
@@ -372,6 +373,7 @@
 		FE0B2ED871D81A2293C943C5 /* WatchStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E2EA901A8436C600637E7E /* WatchStatusView.swift */; };
 		FE2986F05E8584FBAAA20388 /* AudioPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3C34EB268955BCF1FD490F3 /* AudioPlayerView.swift */; };
 		FE9E4AD9AC2B99CE15F62C8D /* BoothStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = C484D243EDB738632F38682B /* BoothStatus.swift */; };
+		FFB851BD1D322C88154597BE /* MacStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 859D52D0B60F1893ED0640B0 /* MacStatsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -512,6 +514,7 @@
 		8137409DB2002406C2D59F7A /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		822292093B6E5CAFFBDEB223 /* TBOperatorMobileMacTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileMacTests.swift; sourceTree = "<group>"; };
 		833C61477E6ACD862ACD1BAA /* TBOperatorMobileMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TBOperatorMobileMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		859D52D0B60F1893ED0640B0 /* MacStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacStatsView.swift; sourceTree = "<group>"; };
 		88E5064AF164DFB98529BEA6 /* TBOperatorMobileTVTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileTVTests.swift; sourceTree = "<group>"; };
 		8D31A28499B831A575E2DC86 /* AudioPlaybackController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlaybackController.swift; sourceTree = "<group>"; };
 		900E3F3400BB880E51017F36 /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
@@ -534,6 +537,7 @@
 		A58F0A1D6582D1806CE4E408 /* NotificationSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsSection.swift; sourceTree = "<group>"; };
 		A8B94F36732A0600EF2F0B59 /* BoothStatusWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoothStatusWidget.swift; sourceTree = "<group>"; };
 		A9596BEC9DF2776F880EA70F /* CallSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallSession.swift; sourceTree = "<group>"; };
+		AAC5639CDF544BDD3770DA87 /* MacSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacSettingsView.swift; sourceTree = "<group>"; };
 		ABE1D18B093D69BDDB7DAA9C /* AuthError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthError.swift; sourceTree = "<group>"; };
 		B0FEC3DF654FFCDBFDF7B9C5 /* OperatorError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperatorError.swift; sourceTree = "<group>"; };
 		B221802CE5A93076121AC690 /* RuntimeModeBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeModeBadge.swift; sourceTree = "<group>"; };
@@ -877,6 +881,8 @@
 			isa = PBXGroup;
 			children = (
 				912D180035088D90FBCF1853 /* MacRootView.swift */,
+				AAC5639CDF544BDD3770DA87 /* MacSettingsView.swift */,
+				859D52D0B60F1893ED0640B0 /* MacStatsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -1677,6 +1683,8 @@
 				1211D691B74125D1FBFF48BF /* LiveActivityObserverModifier.swift in Sources */,
 				54006A9006EB57FFD3326D39 /* LoginView.swift in Sources */,
 				A695C3AE96CEA77CE6DF2A1C /* MacRootView.swift in Sources */,
+				0E3670141F6827927031F300 /* MacSettingsView.swift in Sources */,
+				FFB851BD1D322C88154597BE /* MacStatsView.swift in Sources */,
 				0EE61D0761C1815E92C1C799 /* Message.swift in Sources */,
 				0D8548651E79F629703B1348 /* MessageDetailView.swift in Sources */,
 				BDEB4CCEB1C5A0969B078E06 /* MessageListView.swift in Sources */,

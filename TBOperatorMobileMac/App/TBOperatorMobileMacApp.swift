@@ -19,7 +19,7 @@ struct TBOperatorMobileMacApp: App {
         }
 
         Settings {
-            SettingsView()
+            MacSettingsView()
         }
     }
 }
