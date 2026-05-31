@@ -31,8 +31,8 @@ final class AuthAnchorProvider: NSObject, ASWebAuthenticationPresentationContext
         #if os(macOS)
         return NSApp.keyWindow ?? NSWindow()
         #elseif canImport(UIKit)
-        for scene in UIApplication.shared.connectedScenes {
-            guard let windowScene = scene as? UIWindowScene else { continue }
+        let windowScenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for windowScene in windowScenes {
             if let key = windowScene.windows.first(where: { $0.isKeyWindow }) {
                 return key
             }
@@ -40,8 +40,16 @@ final class AuthAnchorProvider: NSObject, ASWebAuthenticationPresentationContext
                 return first
             }
         }
-        logger.warning("No key window found — falling back to a detached UIWindow")
-        return UIWindow()
+        // No existing window: create one bound to an available scene.
+        // `init(windowScene:)` is the only non-deprecated UIWindow initializer
+        // on iOS / visionOS 26, so a window scene is required for the anchor.
+        if let windowScene = windowScenes.first {
+            logger.warning("No key window found — creating a window for the active scene")
+            return UIWindow(windowScene: windowScene)
+        }
+        // The system only requests a presentation anchor while the app is
+        // foregrounded, so at least one window scene is always present here.
+        preconditionFailure("No UIWindowScene available to anchor authentication")
         #else
         return ASPresentationAnchor()
         #endif
