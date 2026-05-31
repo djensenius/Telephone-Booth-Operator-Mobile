@@ -179,36 +179,29 @@ final class TBOperatorMobileTests: XCTestCase {
 
     func testSystemSnapshotComputesMemoryRatio() {
         let snapshot = BoothSystemSnapshot(
-            boothId: "booth-a",
-            capturedAt: Date(),
+            cpu: .init(
+                usageRatio: 0.42,
+                loadAvg1m: 0.5,
+                loadAvg5m: 0.6,
+                loadAvg15m: 0.7
+            ),
+            temperatureCelsius: 47.5,
+            memory: .init(
+                totalBytes: 8_000_000_000,
+                usedBytes: 3_000_000_000
+            ),
             uptimeSeconds: 12_345,
-            cpuTemperatureCelsius: 47.5,
-            cpuUsageRatio: 0.42,
-            loadAverage1m: 0.5,
-            loadAverage5m: 0.6,
-            loadAverage15m: 0.7,
-            memoryUsedBytes: 3_000_000_000,
-            memoryTotalBytes: 8_000_000_000,
-            tailscaleConnected: true,
-            throttlingFlags: nil
+            tailscale: .init(connected: true)
         )
         XCTAssertEqual(snapshot.memoryUsedRatio ?? 0, 0.375, accuracy: 0.0001)
     }
 
     func testSystemSnapshotMemoryRatioGuardsAgainstZeroTotal() {
         let snapshot = BoothSystemSnapshot(
-            boothId: "booth-a",
-            capturedAt: Date(),
-            uptimeSeconds: nil,
-            cpuTemperatureCelsius: nil,
-            cpuUsageRatio: nil,
-            loadAverage1m: nil,
-            loadAverage5m: nil,
-            loadAverage15m: nil,
-            memoryUsedBytes: 1_000,
-            memoryTotalBytes: 0,
-            tailscaleConnected: nil,
-            throttlingFlags: nil
+            memory: .init(
+                totalBytes: 0,
+                usedBytes: 1_000
+            )
         )
         XCTAssertNil(snapshot.memoryUsedRatio)
     }
