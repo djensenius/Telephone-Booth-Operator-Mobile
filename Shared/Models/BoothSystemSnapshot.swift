@@ -142,15 +142,15 @@ public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
     public struct ProcessStats: Codable, Sendable, Equatable {
         public let residentBytes: Double?
         public let virtualBytes: Double?
-        public let openFds: Double?
-        public let threads: Double?
+        public let openFds: Int?
+        public let threads: Int?
         public let uptimeSeconds: Double?
 
         public init(
             residentBytes: Double? = nil,
             virtualBytes: Double? = nil,
-            openFds: Double? = nil,
-            threads: Double? = nil,
+            openFds: Int? = nil,
+            threads: Int? = nil,
             uptimeSeconds: Double? = nil
         ) {
             self.residentBytes = residentBytes
