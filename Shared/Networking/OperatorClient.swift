@@ -30,7 +30,7 @@ public actor OperatorClient {
 
     private let config: AppConfig
     private let auth: AuthManager
-    private let session: URLSession
+    let session: URLSession
     private let demoMode: Bool
 
     public init(
@@ -236,25 +236,6 @@ public actor OperatorClient {
         return try await get("/v1/events", query: items)
     }
 
-    /// `GET /v1/questions` — paged active questions, newest first.
-    public func fetchQuestions(
-        cursor: String? = nil,
-        limit: Int = 50
-    ) async throws -> QuestionList {
-        if await usesDemoData {
-            return QuestionList(items: Array(DemoData.questions.prefix(limit)), nextCursor: nil)
-        }
-        var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
-        if let cursor { items.append(URLQueryItem(name: "cursor", value: cursor)) }
-        return try await get("/v1/questions", query: items)
-    }
-
-    /// `DELETE /v1/questions/{id}` — soft-deletes (retires) a question.
-    public func deleteQuestion(id: String) async throws {
-        if await usesDemoData { return }
-        try await delete("/v1/questions/\(id)")
-    }
-
     // MARK: - Mobile device registry
 
     /// `GET /v1/devices` — the caller's active mobile devices.
@@ -290,14 +271,14 @@ public actor OperatorClient {
 
     // MARK: - Core request helpers
 
-    private var usesDemoData: Bool {
+    var usesDemoData: Bool {
         get async {
             if demoMode { return true }
             return await config.isDemoMode
         }
     }
 
-    private func get<T: Decodable>(
+    func get<T: Decodable>(
         _ path: String,
         query: [URLQueryItem] = [],
         requireAuth: Bool = true
@@ -311,7 +292,7 @@ public actor OperatorClient {
         )
     }
 
-    private func postEmpty<T: Decodable>(_ path: String) async throws -> T {
+    func postEmpty<T: Decodable>(_ path: String) async throws -> T {
         try await request(
             method: "POST",
             path: path,
@@ -320,14 +301,14 @@ public actor OperatorClient {
         )
     }
 
-    private func postJSON<Body: Encodable, Response: Decodable>(
+    func postJSON<Body: Encodable, Response: Decodable>(
         _ path: String,
         body: Body
     ) async throws -> Response {
         try await request(method: "POST", path: path, body: body, requireAuth: true)
     }
 
-    private func delete(_ path: String) async throws {
+    func delete(_ path: String) async throws {
         let url = await config.url(forPath: path)
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
@@ -455,7 +436,7 @@ public actor OperatorClient {
         return try await transport(retried)
     }
 
-    private func transport(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+    func transport(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         let method = request.httpMethod ?? "GET"
         let urlString = request.url?.absoluteString ?? "<nil>"
         let hasAuth = request.value(forHTTPHeaderField: "Authorization") != nil

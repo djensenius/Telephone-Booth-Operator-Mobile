@@ -172,7 +172,8 @@ public enum DemoData {
         question(
             id: "demo-question-2",
             prompt: "Who would you call if this booth could reach the past?",
-            durationMs: 11_000
+            durationMs: 11_000,
+            status: .draft
         ),
         question(
             id: "demo-question-3",
@@ -452,10 +453,16 @@ public enum DemoData {
         )
     }
 
-    private static func question(id: String, prompt: String, durationMs: Int) -> Question {
+    private static func question(
+        id: String,
+        prompt: String,
+        durationMs: Int,
+        status: QuestionStatus = .active
+    ) -> Question {
         Question(
             id: id,
             prompt: prompt,
+            status: status,
             audio: AudioRef(
                 url: URL(string: "https://example.com/demo/\(id).m4a")!,
                 sha256: "demo-\(id)",

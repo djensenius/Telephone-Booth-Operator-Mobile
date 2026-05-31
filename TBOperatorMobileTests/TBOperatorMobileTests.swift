@@ -337,6 +337,7 @@ final class TBOperatorMobileTests: XCTestCase {
         {
           "id": "44444444-4444-4444-4444-444444444444",
           "prompt": "Tell me about your favourite phone call.",
+          "status": "active",
           "audio": {
             "url": "https://example.com/q.flac",
             "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
@@ -349,6 +350,7 @@ final class TBOperatorMobileTests: XCTestCase {
         let question = try OperatorJSON.decoder.decode(Question.self, from: Data(json.utf8))
         XCTAssertEqual(question.id, "44444444-4444-4444-4444-444444444444")
         XCTAssertEqual(question.prompt, "Tell me about your favourite phone call.")
+        XCTAssertEqual(question.status, .active)
         XCTAssertEqual(question.audio.durationMs, 4321)
         XCTAssertNil(question.retiredAt)
     }
@@ -360,6 +362,7 @@ final class TBOperatorMobileTests: XCTestCase {
             {
               "id": "55555555-5555-5555-5555-555555555555",
               "prompt": "What did the dial tone sound like?",
+              "status": "draft",
               "audio": {
                 "url": "https://example.com/q1.flac",
                 "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
@@ -374,6 +377,7 @@ final class TBOperatorMobileTests: XCTestCase {
         """
         let page = try OperatorJSON.decoder.decode(QuestionList.self, from: Data(json.utf8))
         XCTAssertEqual(page.items.count, 1)
+        XCTAssertEqual(page.items.first?.status, .draft)
         XCTAssertEqual(page.nextCursor, "55555555-5555-5555-5555-555555555556")
     }
 
