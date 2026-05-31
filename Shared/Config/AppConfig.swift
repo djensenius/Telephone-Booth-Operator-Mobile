@@ -67,7 +67,7 @@ public final class AppConfig {
         self.oidcIssuerBase = Bundle.main.object(forInfoDictionaryKey: "OIDCIssuerBase") as? String
             ?? "https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile"
         self.oidcClientID = Bundle.main.object(forInfoDictionaryKey: "OIDCClientID") as? String
-            ?? "telephone-booth-operator-mobile"
+            ?? "x0M0MleMvCSCx8MqIE2jVoYe57nAhGymIG8azTEY"
         logger.info("Loaded config — apiBase=\(self.apiBaseURL.absoluteString, privacy: .public)")
     }
 

@@ -23,7 +23,7 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>OIDCClientID</key>
-	<string>telephone-booth-operator-mobile</string>
+	<string>x0M0MleMvCSCx8MqIE2jVoYe57nAhGymIG8azTEY</string>
 	<key>OIDCIssuerBase</key>
 	<string>https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile</string>
 	<key>OperatorAPIBase</key>

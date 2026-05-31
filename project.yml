@@ -57,7 +57,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         LSApplicationCategoryType: public.app-category.utilities
         OIDCIssuerBase: https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile
-        OIDCClientID: telephone-booth-operator-mobile
+        OIDCClientID: x0M0MleMvCSCx8MqIE2jVoYe57nAhGymIG8azTEY
         OperatorAPIBase: https://operator.telephonebooth.io
     settings:
       base:
@@ -136,7 +136,7 @@ targets:
         WKSupportsLiveActivities: true
         ITSAppUsesNonExemptEncryption: false
         OIDCIssuerBase: https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile
-        OIDCClientID: telephone-booth-operator-mobile
+        OIDCClientID: x0M0MleMvCSCx8MqIE2jVoYe57nAhGymIG8azTEY
         OperatorAPIBase: https://operator.telephonebooth.io
     settings:
       base:
@@ -175,7 +175,7 @@ targets:
           - CFBundleURLSchemes:
               - tboperator
         OIDCIssuerBase: https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile
-        OIDCClientID: telephone-booth-operator-mobile
+        OIDCClientID: x0M0MleMvCSCx8MqIE2jVoYe57nAhGymIG8azTEY
         OperatorAPIBase: https://operator.telephonebooth.io
     settings:
       base:
@@ -220,7 +220,7 @@ targets:
           - CFBundleURLSchemes:
               - tboperator
         OIDCIssuerBase: https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile
-        OIDCClientID: telephone-booth-operator-mobile
+        OIDCClientID: x0M0MleMvCSCx8MqIE2jVoYe57nAhGymIG8azTEY
         OperatorAPIBase: https://operator.telephonebooth.io
     settings:
       base:
@@ -255,7 +255,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         ITSAppUsesNonExemptEncryption: false
         OIDCIssuerBase: https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile
-        OIDCClientID: telephone-booth-operator-mobile
+        OIDCClientID: x0M0MleMvCSCx8MqIE2jVoYe57nAhGymIG8azTEY
         OperatorAPIBase: https://operator.telephonebooth.io
     settings:
       base:
