@@ -24,13 +24,15 @@ public struct SignedInRootView: View {
             .liveActivityObserver()
         #elseif os(tvOS)
         compactShell
+        #elseif os(macOS)
+        MacSidebarShell()
         #else
         tabbedShell
             .liveActivityObserver()
         #endif
     }
 
-    #if !os(watchOS) && !os(tvOS)
+    #if !os(watchOS) && !os(tvOS) && !os(macOS)
     private var tabbedShell: some View {
         TabView {
             NavigationStack {
@@ -112,6 +114,82 @@ public struct SignedInRootView: View {
     }
     #endif
 }
+
+#if os(macOS)
+/// The sections shown in the macOS sidebar. Mirrors the iOS tab set.
+private enum OperatorSection: String, CaseIterable, Identifiable, Hashable {
+    case dashboard, stats, sessions, messages, events, questions, system
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .dashboard: return "Dashboard"
+        case .stats:     return "Stats"
+        case .sessions:  return "Sessions"
+        case .messages:  return "Messages"
+        case .events:    return "Events"
+        case .questions: return "Questions"
+        case .system:    return "System"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .dashboard: return "gauge.with.dots.needle.bottom.50percent"
+        case .stats:     return "chart.bar.fill"
+        case .sessions:  return "phone.connection.fill"
+        case .messages:  return "tray.full"
+        case .events:    return "antenna.radiowaves.left.and.right"
+        case .questions: return "questionmark.bubble"
+        case .system:    return "cpu"
+        }
+    }
+}
+
+/// Native macOS shell: a source-list sidebar paired with a detail column.
+/// Settings live in the standard app menu (⌘,) rather than a toolbar sheet.
+private struct MacSidebarShell: View {
+    @State private var selection: OperatorSection? = .dashboard
+
+    var body: some View {
+        NavigationSplitView {
+            List(OperatorSection.allCases, selection: $selection) { section in
+                NavigationLink(value: section) {
+                    Label(section.title, systemImage: section.systemImage)
+                }
+            }
+            .navigationTitle("Operator")
+            .navigationSplitViewColumnWidth(min: 200, ideal: 220)
+        } detail: {
+            NavigationStack {
+                detail(for: selection ?? .dashboard)
+            }
+            .id(selection)
+        }
+    }
+
+    @ViewBuilder
+    private func detail(for section: OperatorSection) -> some View {
+        switch section {
+        case .dashboard:
+            StatusDashboardView().navigationTitle(section.title)
+        case .stats:
+            StatsView().navigationTitle(section.title)
+        case .sessions:
+            SessionListView().navigationTitle(section.title)
+        case .messages:
+            MessageListView().navigationTitle(section.title)
+        case .events:
+            EventsFeedView().navigationTitle(section.title)
+        case .questions:
+            QuestionsView().navigationTitle(section.title)
+        case .system:
+            SystemView().navigationTitle(section.title)
+        }
+    }
+}
+#endif
 
 #Preview {
     SignedInRootView()
