@@ -2,10 +2,10 @@
 //  QuestionsView.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Paged list of active questions on the booth. Operators can preview the
-//  question audio and retire a question with swipe-to-delete. Creating
-//  new questions still happens from the operator console (the audio
-//  upload pipeline lives there).
+//  Full questions management: browse by lifecycle state, preview audio,
+//  activate / deactivate / retire, and create a new question by recording
+//  or importing audio. Audio is transcoded to FLAC and uploaded via the
+//  operator's SAS slot before the question is created.
 //
 
 #if !os(watchOS) && !os(tvOS)
@@ -13,12 +13,41 @@
 import SwiftUI
 
 public struct QuestionsView: View {
+    enum QuestionFilter: String, CaseIterable, Identifiable {
+        case all
+        case draft
+        case active
+        case archived
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .all: return "All"
+            case .draft: return "Draft"
+            case .active: return "Active"
+            case .archived: return "Archived"
+            }
+        }
+
+        var status: QuestionStatus? {
+            switch self {
+            case .all: return nil
+            case .draft: return .draft
+            case .active: return .active
+            case .archived: return .archived
+            }
+        }
+    }
+
     @State private var questions: [Question] = []
     @State private var nextCursor: String?
     @State private var loadState: LoadState = .idle
     @State private var errorMessage: String?
     @State private var actionError: String?
     @State private var expandedId: String?
+    @State private var filter: QuestionFilter = .all
+    @State private var isComposing = false
 
     private let client: OperatorClient
     private let pageSize: Int
@@ -36,23 +65,54 @@ public struct QuestionsView: View {
     }
 
     public var body: some View {
-        Group {
-            if loadState == .loadingInitial && questions.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Theme.Colors.background)
-            } else if questions.isEmpty {
-                emptyState
-            } else {
-                list
+        VStack(spacing: 0) {
+            Picker("Filter", selection: $filter) {
+                ForEach(QuestionFilter.allCases) { option in
+                    Text(option.title).tag(option)
+                }
             }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, Theme.Spacing.medium)
+            .padding(.vertical, Theme.Spacing.small)
+
+            content
         }
         .background(Theme.Colors.background)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    isComposing = true
+                } label: {
+                    Label("New Question", systemImage: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $isComposing) {
+            QuestionComposerView(client: client) { created in
+                handleCreated(created)
+            }
+        }
         .task {
             if questions.isEmpty { await loadFirstPage() }
         }
+        .onChange(of: filter) { _, _ in
+            Task { await loadFirstPage() }
+        }
         .refreshableIfAvailable {
             await loadFirstPage()
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if loadState == .loadingInitial && questions.isEmpty {
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Theme.Colors.background)
+        } else if questions.isEmpty {
+            emptyState
+        } else {
+            list
         }
     }
 
@@ -72,14 +132,34 @@ public struct QuestionsView: View {
                 QuestionRow(
                     question: question,
                     isExpanded: expandedId == question.id,
-                    onToggle: { toggle(question.id) }
+                    onToggle: { toggle(question.id) },
+                    onActivate: { Task { await activate(question) } },
+                    onDeactivate: { Task { await deactivate(question) } },
+                    onDelete: { Task { await retire(question) } }
                 )
                 .operatorListRowBackground()
                 .swipeActions(edge: .trailing) {
-                    Button(role: .destructive) {
-                        Task { await retire(question) }
-                    } label: {
-                        Label("Retire", systemImage: "trash")
+                    if question.status != .archived {
+                        Button(role: .destructive) {
+                            Task { await retire(question) }
+                        } label: {
+                            Label("Retire", systemImage: "trash")
+                        }
+                    }
+                    if question.status == .active {
+                        Button {
+                            Task { await deactivate(question) }
+                        } label: {
+                            Label("Deactivate", systemImage: "pause.circle")
+                        }
+                        .tint(Theme.Colors.warning)
+                    } else {
+                        Button {
+                            Task { await activate(question) }
+                        } label: {
+                            Label("Activate", systemImage: "checkmark.circle")
+                        }
+                        .tint(Theme.Colors.success)
                     }
                 }
             }
@@ -120,7 +200,7 @@ public struct QuestionsView: View {
             Image(systemName: "questionmark.bubble")
                 .font(.system(size: 36))
                 .foregroundStyle(Theme.Colors.textSecondary)
-            Text("No active questions")
+            Text(emptyTitle)
                 .font(Theme.Fonts.bodyLarge)
                 .foregroundStyle(Theme.Colors.textPrimary)
             if let errorMessage {
@@ -134,9 +214,26 @@ public struct QuestionsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    private var emptyTitle: String {
+        switch filter {
+        case .all: return "No questions yet"
+        case .draft: return "No draft questions"
+        case .active: return "No active questions"
+        case .archived: return "No archived questions"
+        }
+    }
+
     private func toggle(_ id: String) {
         withAnimation(.snappy) {
             expandedId = expandedId == id ? nil : id
+        }
+    }
+
+    private func handleCreated(_ created: Question) {
+        actionError = nil
+        // Show the new question if it belongs in the current filter.
+        if filter.status == nil || filter.status == created.status {
+            questions.insert(created, at: 0)
         }
     }
 
@@ -144,7 +241,7 @@ public struct QuestionsView: View {
         loadState = .loadingInitial
         errorMessage = nil
         do {
-            let page = try await client.fetchQuestions(cursor: nil, limit: pageSize)
+            let page = try await client.fetchQuestions(cursor: nil, limit: pageSize, status: filter.status)
             questions = page.items
             nextCursor = page.nextCursor
             loadState = nextCursor == nil ? .done : .idle
@@ -159,7 +256,7 @@ public struct QuestionsView: View {
         loadState = .loadingMore
         errorMessage = nil
         do {
-            let page = try await client.fetchQuestions(cursor: cursor, limit: pageSize)
+            let page = try await client.fetchQuestions(cursor: cursor, limit: pageSize, status: filter.status)
             questions.append(contentsOf: page.items)
             nextCursor = page.nextCursor
             loadState = nextCursor == nil ? .done : .idle
@@ -169,13 +266,49 @@ public struct QuestionsView: View {
         }
     }
 
+    private func activate(_ question: Question) async {
+        actionError = nil
+        do {
+            let updated = try await client.activateQuestion(id: question.id)
+            applyUpdate(updated)
+        } catch {
+            actionError = (error as? LocalizedError)?.errorDescription ?? "Couldn't activate question."
+        }
+    }
+
+    private func deactivate(_ question: Question) async {
+        actionError = nil
+        do {
+            let updated = try await client.deactivateQuestion(id: question.id)
+            applyUpdate(updated)
+        } catch {
+            actionError = (error as? LocalizedError)?.errorDescription ?? "Couldn't deactivate question."
+        }
+    }
+
     private func retire(_ question: Question) async {
         actionError = nil
         do {
             try await client.deleteQuestion(id: question.id)
-            questions.removeAll { $0.id == question.id }
+            if filter == .archived {
+                // The retired question now belongs in this filter — refetch.
+                await loadFirstPage()
+            } else {
+                questions.removeAll { $0.id == question.id }
+            }
         } catch {
             actionError = (error as? LocalizedError)?.errorDescription ?? "Couldn't retire question."
+        }
+    }
+
+    private func applyUpdate(_ updated: Question) {
+        if filter.status != nil && filter.status != updated.status {
+            // No longer matches the active filter — drop it from the list.
+            questions.removeAll { $0.id == updated.id }
+            return
+        }
+        if let index = questions.firstIndex(where: { $0.id == updated.id }) {
+            questions[index] = updated
         }
     }
 }
@@ -184,39 +317,46 @@ struct QuestionRow: View {
     let question: Question
     let isExpanded: Bool
     let onToggle: () -> Void
+    let onActivate: () -> Void
+    let onDeactivate: () -> Void
+    let onDelete: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            Button(action: onToggle) {
-                HStack(alignment: .top, spacing: Theme.Spacing.medium) {
-                    Image(systemName: "quote.opening")
-                        .foregroundStyle(Theme.Colors.accent)
-                        .padding(.top, 2)
-                    VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-                        Text(question.prompt)
-                            .font(Theme.Fonts.bodyMedium)
-                            .foregroundStyle(Theme.Colors.textPrimary)
-                            .multilineTextAlignment(.leading)
-                            .lineLimit(isExpanded ? nil : 2)
-                        HStack(spacing: Theme.Spacing.medium) {
-                            Text(question.createdAt, format: .dateTime.month(.abbreviated).day().year())
-                                .font(Theme.Fonts.caption)
-                                .foregroundStyle(Theme.Colors.textSecondary)
-                            if let duration = DurationFormatter.shortString(milliseconds: question.audio.durationMs) {
-                                Label(duration, systemImage: "clock")
+            HStack(alignment: .top, spacing: Theme.Spacing.medium) {
+                Button(action: onToggle) {
+                    HStack(alignment: .top, spacing: Theme.Spacing.medium) {
+                        Image(systemName: "quote.opening")
+                            .foregroundStyle(Theme.Colors.accent)
+                            .padding(.top, 2)
+                        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+                            Text(question.prompt)
+                                .font(Theme.Fonts.bodyMedium)
+                                .foregroundStyle(Theme.Colors.textPrimary)
+                                .multilineTextAlignment(.leading)
+                                .lineLimit(isExpanded ? nil : 2)
+                            HStack(spacing: Theme.Spacing.medium) {
+                                QuestionStatusBadge(status: question.status)
+                                Text(question.createdAt, format: .dateTime.month(.abbreviated).day().year())
                                     .font(Theme.Fonts.caption)
                                     .foregroundStyle(Theme.Colors.textSecondary)
+                                if let duration = DurationFormatter.shortString(
+                                    milliseconds: question.audio.durationMs
+                                ) {
+                                    Label(duration, systemImage: "clock")
+                                        .font(Theme.Fonts.caption)
+                                        .foregroundStyle(Theme.Colors.textSecondary)
+                                }
                             }
                         }
+                        Spacer(minLength: 0)
                     }
-                    Spacer(minLength: 0)
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .foregroundStyle(Theme.Colors.textSecondary)
-                        .font(.caption2)
                 }
+                .buttonStyle(.plain)
+                .accessibilityHint(isExpanded ? "Hide audio preview" : "Show audio preview")
+
+                actionsMenu
             }
-            .buttonStyle(.plain)
-            .accessibilityHint(isExpanded ? "Hide audio preview" : "Show audio preview")
 
             if isExpanded {
                 AudioPlayerView(audio: question.audio)
@@ -224,6 +364,67 @@ struct QuestionRow: View {
             }
         }
         .padding(.vertical, Theme.Spacing.small)
+        .contextMenu { actionButtons }
+    }
+
+    private var actionsMenu: some View {
+        Menu {
+            actionButtons
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .foregroundStyle(Theme.Colors.textSecondary)
+                .font(.body)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .accessibilityLabel("Question actions")
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        if question.status == .active {
+            Button {
+                onDeactivate()
+            } label: {
+                Label("Deactivate", systemImage: "pause.circle")
+            }
+        } else {
+            Button {
+                onActivate()
+            } label: {
+                Label(question.status == .archived ? "Reactivate" : "Activate", systemImage: "checkmark.circle")
+            }
+        }
+        if question.status != .archived {
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label("Retire", systemImage: "trash")
+            }
+        }
+    }
+}
+
+struct QuestionStatusBadge: View {
+    let status: QuestionStatus
+
+    var body: some View {
+        Text(status.displayName)
+            .font(Theme.Fonts.caption)
+            .fontWeight(.semibold)
+            .foregroundStyle(color)
+            .padding(.horizontal, Theme.Spacing.small)
+            .padding(.vertical, 2)
+            .background(color.opacity(0.15), in: Capsule())
+    }
+
+    private var color: Color {
+        switch status {
+        case .active: return Theme.Colors.success
+        case .draft: return Theme.Colors.warning
+        case .archived: return Theme.Colors.textSecondary
+        case .unknown: return Theme.Colors.textSecondary
+        }
     }
 }
 

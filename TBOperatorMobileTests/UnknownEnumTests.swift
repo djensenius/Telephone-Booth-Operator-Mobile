@@ -158,4 +158,41 @@ final class UnknownEnumTests: XCTestCase {
             XCTAssertEqual(decoded, mode)
         }
     }
+
+    // MARK: - QuestionStatus
+
+    func testQuestionStatusDecodesUnknownValue() throws {
+        let status = try OperatorJSON.decoder.decode(
+            QuestionStatus.self,
+            from: Data("\"sometime-future-state\"".utf8)
+        )
+        XCTAssertEqual(status, .unknown("sometime-future-state"))
+        XCTAssertEqual(status.rawValue, "sometime-future-state")
+    }
+
+    func testQuestionStatusRoundTrips() throws {
+        for status: QuestionStatus in [.draft, .active, .archived, .unknown("custom")] {
+            let data = try JSONEncoder().encode(status)
+            let decoded = try JSONDecoder().decode(QuestionStatus.self, from: data)
+            XCTAssertEqual(decoded, status)
+        }
+    }
+
+    func testQuestionDefaultsToDraftWhenStatusMissing() throws {
+        let json = """
+        {
+          "id": "44444444-4444-4444-4444-444444444444",
+          "prompt": "Legacy question without a status field.",
+          "audio": {
+            "url": "https://example.com/q.flac",
+            "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "durationMs": 4321
+          },
+          "createdAt": "2026-05-23T14:32:11.250Z",
+          "retiredAt": null
+        }
+        """
+        let question = try OperatorJSON.decoder.decode(Question.self, from: Data(json.utf8))
+        XCTAssertEqual(question.status, .draft)
+    }
 }
