@@ -353,17 +353,24 @@ public actor OperatorClient {
 
         if http.statusCode == 401 || http.statusCode == 403 {
             let body = String(data: data, encoding: .utf8) ?? ""
-            logger.warning("\(path, privacy: .public) → \(http.statusCode)")
+            logger.warning("\(path, privacy: .public) → \(http.statusCode) body=\(body, privacy: .public)")
             throw OperatorError.unauthorized(body)
         }
         guard (200...299).contains(http.statusCode) else {
             let body = String(data: data, encoding: .utf8) ?? ""
+            logger.warning("\(path, privacy: .public) → HTTP \(http.statusCode) body=\(body, privacy: .public)")
             throw OperatorError.httpError(status: http.statusCode, body: body)
         }
 
         do {
             return try OperatorJSON.decoder.decode(Response.self, from: data)
         } catch {
+            let preview = String(data: data.prefix(512), encoding: .utf8) ?? "<non-utf8>"
+            logger.error("""
+                \(path, privacy: .public) decode failed: \
+                \(String(describing: error), privacy: .public) \
+                body-preview=\(preview, privacy: .public)
+                """)
             throw OperatorError.decoding(error)
         }
     }
@@ -397,16 +404,43 @@ public actor OperatorClient {
     }
 
     private func transport(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let method = request.httpMethod ?? "GET"
+        let urlString = request.url?.absoluteString ?? "<nil>"
+        let hasAuth = request.value(forHTTPHeaderField: "Authorization") != nil
+        let start = Date()
+        logger.debug("→ \(method, privacy: .public) \(urlString, privacy: .public) auth=\(hasAuth)")
+
         let data: Data
         let response: URLResponse
         do {
             (data, response) = try await session.data(for: request)
         } catch {
+            let elapsedMs = Int(Date().timeIntervalSince(start) * 1000)
+            if let urlError = error as? URLError {
+                logger.error("""
+                    ✗ \(method, privacy: .public) \(urlString, privacy: .public) \
+                    URLError code=\(urlError.code.rawValue) \
+                    (\(urlError.localizedDescription, privacy: .public)) \
+                    after \(elapsedMs)ms
+                    """)
+            } else {
+                logger.error("""
+                    ✗ \(method, privacy: .public) \(urlString, privacy: .public) \
+                    transport error: \(String(describing: error), privacy: .public) \
+                    after \(elapsedMs)ms
+                    """)
+            }
             throw OperatorError.transport(error)
         }
+        let elapsedMs = Int(Date().timeIntervalSince(start) * 1000)
         guard let http = response as? HTTPURLResponse else {
+            logger.error("✗ \(method, privacy: .public) \(urlString, privacy: .public) non-HTTP response")
             throw OperatorError.transport(URLError(.badServerResponse))
         }
+        logger.debug("""
+            ← \(method, privacy: .public) \(urlString, privacy: .public) \
+            \(http.statusCode) \(data.count)B in \(elapsedMs)ms
+            """)
         return (data, http)
     }
 }

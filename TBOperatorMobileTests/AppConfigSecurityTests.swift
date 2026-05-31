@@ -18,7 +18,7 @@ final class AppConfigSecurityTests: XCTestCase {
         let original = config.apiBaseURL
         defer { config.apiBaseURL = original }
 
-        XCTAssertNoThrow(try config.setAPIBase("https://operator.telephonebooth.io"))
+        XCTAssertNoThrow(try config.setAPIBase("https://api.telephonebooth.io"))
     }
 
     #if DEBUG
@@ -36,8 +36,8 @@ final class AppConfigSecurityTests: XCTestCase {
         let original = config.apiBaseURL
         defer { config.apiBaseURL = original }
 
-        try config.setAPIBase("https://operator.telephonebooth.io///")
-        XCTAssertEqual(config.apiBaseURL.absoluteString, "https://operator.telephonebooth.io")
+        try config.setAPIBase("https://api.telephonebooth.io///")
+        XCTAssertEqual(config.apiBaseURL.absoluteString, "https://api.telephonebooth.io")
     }
 
     // MARK: - Rejected URLs
@@ -58,7 +58,7 @@ final class AppConfigSecurityTests: XCTestCase {
     }
 
     func testRejectsURLWithQueryParameters() {
-        XCTAssertThrowsError(try AppConfig.shared.setAPIBase("https://operator.telephonebooth.io?token=abc")) { error in
+        XCTAssertThrowsError(try AppConfig.shared.setAPIBase("https://api.telephonebooth.io?token=abc")) { error in
             guard case .unsafeURLComponent = error as? AppConfigError else {
                 XCTFail("Expected unsafeURLComponent, got \(error)")
                 return
@@ -67,7 +67,7 @@ final class AppConfigSecurityTests: XCTestCase {
     }
 
     func testRejectsURLWithFragment() {
-        XCTAssertThrowsError(try AppConfig.shared.setAPIBase("https://operator.telephonebooth.io#leak")) { error in
+        XCTAssertThrowsError(try AppConfig.shared.setAPIBase("https://api.telephonebooth.io#leak")) { error in
             guard case .unsafeURLComponent = error as? AppConfigError else {
                 XCTFail("Expected unsafeURLComponent, got \(error)")
                 return
@@ -95,7 +95,7 @@ final class AppConfigSecurityTests: XCTestCase {
         defer { config.apiBaseURL = original }
 
         // Set to a known host first
-        try config.setAPIBase("https://operator.telephonebooth.io")
+        try config.setAPIBase("https://api.telephonebooth.io")
         // Change to a different (trusted) host — in DEBUG, allowlist is skipped
         #if DEBUG
         let changed = try config.setAPIBase("https://staging.fluxhaus.io")
@@ -108,8 +108,8 @@ final class AppConfigSecurityTests: XCTestCase {
         let original = config.apiBaseURL
         defer { config.apiBaseURL = original }
 
-        try config.setAPIBase("https://operator.telephonebooth.io")
-        let changed = try config.setAPIBase("https://operator.telephonebooth.io/")
+        try config.setAPIBase("https://api.telephonebooth.io")
+        let changed = try config.setAPIBase("https://api.telephonebooth.io/")
         XCTAssertFalse(changed, "Same host should not flag as changed")
     }
 

@@ -148,14 +148,18 @@ public actor EventStream {
 
     private func validate(response: URLResponse) throws {
         guard let http = response as? HTTPURLResponse else {
+            logger.error("/v1/events/stream non-HTTP response")
             throw OperatorError.transport(URLError(.badServerResponse))
         }
         if http.statusCode == 401 || http.statusCode == 403 {
+            logger.warning("/v1/events/stream → \(http.statusCode)")
             throw OperatorError.unauthorized("")
         }
         guard (200...299).contains(http.statusCode) else {
+            logger.warning("/v1/events/stream → HTTP \(http.statusCode)")
             throw OperatorError.httpError(status: http.statusCode, body: "")
         }
+        logger.debug("/v1/events/stream connected (\(http.statusCode))")
     }
 
     private func consume(

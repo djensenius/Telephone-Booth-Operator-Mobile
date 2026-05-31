@@ -36,6 +36,6 @@
 	<key>OIDCIssuerBase</key>
 	<string>https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile</string>
 	<key>OperatorAPIBase</key>
-	<string>https://operator.telephonebooth.io</string>
+	<string>https://api.telephonebooth.io</string>
 </dict>
 </plist>
