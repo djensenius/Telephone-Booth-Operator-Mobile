@@ -46,6 +46,17 @@ final class AuthTests: XCTestCase {
     // MARK: - Token persistence (storeTokens)
 
     @MainActor
+    func testOIDCEndpointsCarryTrailingSlash() {
+        // Authentik's global OAuth endpoints strict-match on the trailing slash;
+        // `appendingPathComponent` without `isDirectory: true` would 404.
+        let manager = AuthManager.shared
+        XCTAssertTrue(manager.tokenURL.absoluteString.hasSuffix("/token/"),
+                      "tokenURL must carry trailing slash, got \(manager.tokenURL)")
+        XCTAssertTrue(manager.deviceAuthorizationURL.absoluteString.hasSuffix("/device/"),
+                      "deviceAuthorizationURL must carry trailing slash, got \(manager.deviceAuthorizationURL)")
+    }
+
+    @MainActor
     func testStoreTokensSucceedsOnFirstWrite() {
         let manager = AuthManager.shared
         let tokens = OIDCTokens(
