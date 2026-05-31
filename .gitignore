@@ -39,5 +39,13 @@ Thumbs.db
 # Environment / secrets
 .env
 .env.local
+fastlane/.env
+fastlane/.env.*
 fastlane/report.xml
+fastlane/Preview.html
+fastlane/README.md
 fastlane/screenshots/screenshots.html
+fastlane/test_output/
+fastlane/builds/
+# App Store Connect API keys must never live inside the repo
+*.p8

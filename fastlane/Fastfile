@@ -1,0 +1,115 @@
+default_platform(:ios)
+
+API_KEY = {
+  key_id: "XP65R4N5A2",
+  issuer_id: "69a6de7e-a5f5-47e3-e053-5b8c7c11a4d1",
+  key_filepath: File.expand_path("~/.appstoreconnect/AuthKey_XP65R4N5A2.p8")
+}
+
+APP_NAME           = "Telephone Booth Operator"
+APP_SKU            = "tb-operator-mobile"
+PRIMARY_BUNDLE_ID  = "org.davidjensenius.TelephoneBoothOperatorMobile"
+WIDGETS_BUNDLE_ID  = "#{PRIMARY_BUNDLE_ID}.widgets"
+WATCH_BUNDLE_ID    = "#{PRIMARY_BUNDLE_ID}.watch"
+PRIMARY_LANGUAGE   = "en-CA"
+
+platform :ios do
+  before_all do
+    app_store_connect_api_key(**API_KEY)
+  end
+
+  desc "Register the Developer Portal bundle IDs (main app + widgets + watch) using the App Store Connect API key. Idempotent."
+  lane :register_bundle_ids do
+    require "spaceship"
+
+    token = Spaceship::ConnectAPI::Token.create(
+      key_id: API_KEY[:key_id],
+      issuer_id: API_KEY[:issuer_id],
+      filepath: API_KEY[:key_filepath]
+    )
+    Spaceship::ConnectAPI.token = token
+
+    bundle_ids = [
+      [PRIMARY_BUNDLE_ID, APP_NAME],
+      [WIDGETS_BUNDLE_ID, "#{APP_NAME} Widgets"],
+      [WATCH_BUNDLE_ID,   "#{APP_NAME} Watch"]
+    ]
+
+    bundle_ids.each do |identifier, name|
+      existing = Spaceship::ConnectAPI::BundleId.find(identifier)
+      if existing
+        UI.success("Bundle ID already exists on Developer Portal: #{identifier}")
+      else
+        UI.message("Registering bundle ID on Developer Portal: #{identifier}")
+        Spaceship::ConnectAPI::BundleId.create(
+          name: name,
+          identifier: identifier,
+          platform: "UNIVERSAL"
+        )
+        UI.success("Created bundle ID: #{identifier}")
+      end
+    end
+  end
+
+  desc "Create the App Store Connect app record (iOS + macOS). Requires Apple ID + 2FA - the App Store Connect API key cannot create new apps."
+  lane :create_app_record do
+    # Apple does not expose app creation through the App Store Connect API
+    # (the `/apps` endpoint only allows GET/UPDATE, not CREATE), so this lane
+    # falls back to the legacy `produce` action which uses Apple ID + 2FA.
+    # Run this from an interactive shell; you will be prompted for your 2FA code.
+    produce(
+      app_identifier: PRIMARY_BUNDLE_ID,
+      app_name: APP_NAME,
+      sku: APP_SKU,
+      language: PRIMARY_LANGUAGE,
+      platforms: ["ios", "osx"],
+      skip_devcenter: true # bundle IDs are registered by `register_bundle_ids`
+    )
+  end
+
+  desc "End-to-end app registration: bundle IDs (API key) + App Store Connect record (interactive Apple ID)."
+  lane :create_app do
+    register_bundle_ids
+    create_app_record
+  end
+
+  desc "Build and upload the iOS app to TestFlight"
+  lane :beta do
+    increment_build_number(
+      build_number: Time.now.strftime("%Y%m%d%H%M")
+    )
+    build_app(
+      project: "TelephoneBoothOperatorMobile.xcodeproj",
+      scheme: "TBOperatorMobile",
+      export_method: "app-store",
+      xcargs: "-allowProvisioningUpdates"
+    )
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+      app_identifier: PRIMARY_BUNDLE_ID
+    )
+  end
+end
+
+platform :mac do
+  before_all do
+    app_store_connect_api_key(**API_KEY)
+  end
+
+  desc "Build and upload the macOS app to TestFlight"
+  lane :beta do
+    increment_build_number(
+      build_number: Time.now.strftime("%Y%m%d%H%M")
+    )
+    build_app(
+      project: "TelephoneBoothOperatorMobile.xcodeproj",
+      scheme: "TBOperatorMobileMac",
+      export_method: "app-store",
+      xcargs: "-allowProvisioningUpdates"
+    )
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+      app_identifier: PRIMARY_BUNDLE_ID
+    )
+  end
+end
