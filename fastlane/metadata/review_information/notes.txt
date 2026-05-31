@@ -1,0 +1,18 @@
+No sign-in is required to review this app.
+
+Telephone Booth Operator is the operator console for a private, self-hosted
+art-installation server (the Telephone-Booth Operator). In normal use it
+signs in with OAuth + PKCE and connects to the operator's own server, which
+is not publicly accessible.
+
+To let you review the complete interface without any account or server, the
+app ships with a built-in DEMO MODE backed by bundled sample data:
+
+  1. Launch the app.
+  2. On the sign-in screen, tap the "Try Demo Mode" button.
+  3. The full operator console loads with realistic sample data — dashboard,
+     statistics, call sessions, messages, questions, and system views.
+
+Demo mode makes no network requests. There are no in-app purchases, ads, or
+third-party tracking. The app is a niche tool for the developer's own art
+installation and is not intended for general consumer audiences.

@@ -1,0 +1,15 @@
+Telephone Booth Operator is the companion console for the Telephone-Booth art installation — a restored 1980s Bell Canada phone booth with a rotary phone that visitors use to leave messages and answer questions. This app puts the operator console in your pocket, on your wrist, on your desk, on your TV, and in your headset.
+
+Connect to your own Telephone-Booth Operator server and:
+
+• Watch live booth health — recording state, connectivity, CPU, memory, temperature, and uptime — at a glance.
+• See call sessions as they happen, with outcomes, durations, and dialed digits.
+• Review and moderate visitor messages and the questions the booth asks.
+• Track statistics over time: calls per day, pickups and hangups, message status, and busiest hours.
+• Keep an eye on system devices and booth status from anywhere.
+
+The app is built natively for iPhone, iPad, Mac, Apple Watch, Apple TV, and Apple Vision Pro, with widgets and a Live Activity for at-a-glance booth status.
+
+This is a private operator tool. It talks only to the self-hosted Telephone-Booth Operator server you configure, signing in securely with OAuth and PKCE. It has no ads, no analytics, and no third-party tracking.
+
+A built-in demo mode lets you explore the full interface with sample data, no server required.

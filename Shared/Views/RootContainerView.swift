@@ -9,6 +9,32 @@
 
 import SwiftUI
 
+/// Reads ephemeral launch arguments used by the screenshot/UI-automation
+/// tooling. These are only ever passed by `scripts/` during App Store
+/// screenshot capture; in normal launches every value is absent, so
+/// production behaviour is unchanged.
+public enum LaunchEnv {
+    private static let args = ProcessInfo.processInfo.arguments
+
+    /// `-uiTestDemoMode YES` forces the login-free demo experience so App
+    /// Review (and automated capture) can reach the UI without the private
+    /// OIDC login.
+    public static var isScreenshotDemo: Bool {
+        value(for: "-uiTestDemoMode").map { ($0 as NSString).boolValue } ?? false
+    }
+
+    /// `-uiScreenshotTab <id>` selects the initial tab so each screen can be
+    /// captured by relaunching the app.
+    public static var screenshotTab: String? {
+        value(for: "-uiScreenshotTab")
+    }
+
+    private static func value(for flag: String) -> String? {
+        guard let index = args.firstIndex(of: flag), index + 1 < args.count else { return nil }
+        return args[index + 1]
+    }
+}
+
 public struct RootContainerView: View {
     @State private var auth = AuthManager.shared
     @State private var config = AppConfig.shared
@@ -46,7 +72,7 @@ public struct RootContainerView: View {
     }
 
     private var effectiveDemoMode: Bool {
-        demoMode || config.isDemoMode
+        demoMode || config.isDemoMode || LaunchEnv.isScreenshotDemo
     }
 
     @ViewBuilder
