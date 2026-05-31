@@ -119,15 +119,18 @@ public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
         public let interface: String
         public let receiveBytesTotal: Double
         public let transmitBytesTotal: Double
+        public let addresses: [String]?
 
         public init(
             interface: String,
             receiveBytesTotal: Double,
-            transmitBytesTotal: Double
+            transmitBytesTotal: Double,
+            addresses: [String]? = nil
         ) {
             self.interface = interface
             self.receiveBytesTotal = receiveBytesTotal
             self.transmitBytesTotal = transmitBytesTotal
+            self.addresses = addresses
         }
 
         public var id: String { interface }
@@ -137,6 +140,10 @@ public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
         public var receivedBytes: Double { receiveBytesTotal }
         /// Legacy alias for callers that referenced `.transmittedBytes`.
         public var transmittedBytes: Double { transmitBytesTotal }
+        /// IP addresses bound to this interface, omitting empty entries.
+        public var ipAddresses: [String] {
+            (addresses ?? []).filter { !$0.isEmpty }
+        }
     }
 
     public struct ProcessStats: Codable, Sendable, Equatable {

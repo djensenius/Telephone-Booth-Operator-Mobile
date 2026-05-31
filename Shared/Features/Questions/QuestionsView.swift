@@ -74,7 +74,7 @@ public struct QuestionsView: View {
                     isExpanded: expandedId == question.id,
                     onToggle: { toggle(question.id) }
                 )
-                .listRowBackground(Theme.Colors.secondaryBackground)
+                .operatorListRowBackground()
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
                         Task { await retire(question) }
@@ -89,7 +89,7 @@ public struct QuestionsView: View {
                     .listRowSeparator(.hidden)
             }
         }
-        .listStyle(.plain)
+        .operatorListStyle()
     }
 
     @ViewBuilder

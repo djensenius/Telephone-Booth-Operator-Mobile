@@ -32,6 +32,8 @@ final class BoothSystemSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.disks?.first?.filesystem, "ext4")
         XCTAssertEqual(snapshot.networks?.first?.interface, "eth0")
         XCTAssertEqual(snapshot.networks?.first?.receiveBytesTotal, 1024)
+        XCTAssertEqual(snapshot.networks?.first?.addresses, ["192.168.1.5", "fe80::1"])
+        XCTAssertEqual(snapshot.networks?.first?.ipAddresses, ["192.168.1.5", "fe80::1"])
         XCTAssertEqual(snapshot.audio?.inputDevice, "USB Mic")
         XCTAssertEqual(snapshot.audio?.sampleRateHz, 48000)
         XCTAssertEqual(snapshot.tailscale?.hostname, "booth-a.tailnet.ts.net")
@@ -91,7 +93,8 @@ final class BoothSystemSnapshotTests: XCTestCase {
           {"mountPoint": "/", "filesystem": "ext4", "totalBytes": 32000000000, "availableBytes": 24000000000}
         ],
         "networks": [
-          {"interface": "eth0", "receiveBytesTotal": 1024, "transmitBytesTotal": 2048}
+          {"interface": "eth0", "receiveBytesTotal": 1024, "transmitBytesTotal": 2048,
+           "addresses": ["192.168.1.5", "fe80::1"]}
         ],
         "audio": {
           "inputDevice": "USB Mic",

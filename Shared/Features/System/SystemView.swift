@@ -260,6 +260,12 @@ private struct SystemNetworkCard: View {
                         Text(iface.name)
                             .font(Theme.Fonts.bodyMedium.weight(.semibold))
                             .foregroundStyle(Theme.Colors.textPrimary)
+                        if !iface.ipAddresses.isEmpty {
+                            Text(iface.ipAddresses.joined(separator: ", "))
+                                .font(Theme.Fonts.caption.monospaced())
+                                .foregroundStyle(Theme.Colors.textSecondary)
+                                .textSelectionEnabledIfAvailable()
+                        }
                         HStack(spacing: 12) {
                             Label(SystemVitals.formatBytes(iface.receivedBytes), systemImage: "arrow.down")
                             Label(SystemVitals.formatBytes(iface.transmittedBytes), systemImage: "arrow.up")
