@@ -93,7 +93,54 @@ public enum Theme {
         #endif
     }
 
+    #if os(macOS) || os(visionOS)
+    /// Tiers of system background used by the native (non-Catppuccin)
+    /// macOS / visionOS palette.
+    fileprivate enum BackgroundTier {
+        case window
+        case secondary
+        case elevated
+    }
+
+    fileprivate static func systemBackground(_ tier: BackgroundTier) -> Color {
+        #if os(macOS)
+        switch tier {
+        case .window:    return Color(nsColor: .windowBackgroundColor)
+        case .secondary: return Color(nsColor: .underPageBackgroundColor)
+        case .elevated:  return Color(nsColor: .controlBackgroundColor)
+        }
+        #else
+        switch tier {
+        case .window:    return Color(uiColor: .systemBackground)
+        case .secondary: return Color(uiColor: .secondarySystemBackground)
+        case .elevated:  return Color(uiColor: .tertiarySystemBackground)
+        }
+        #endif
+    }
+    #endif
+
+    // macOS and visionOS deliberately use the platform's native light/dark
+    // system palette (no Catppuccin) so the app feels at home on those
+    // platforms. iOS / iPadOS keep the booth-flavoured Catppuccin theme,
+    // and the always-dark platforms (watchOS / tvOS) keep Catppuccin Mocha.
     public enum Colors {
+        #if os(macOS) || os(visionOS)
+        public static let accent = Color.accentColor
+        public static let primary = Color.accentColor
+        public static let secondary = Color.orange
+
+        public static let background = systemBackground(.window)
+        public static let secondaryBackground = systemBackground(.secondary)
+        public static let elevatedBackground = systemBackground(.elevated)
+
+        public static let textPrimary = Color.primary
+        public static let textSecondary = Color.secondary
+
+        public static let error = Color.red
+        public static let warning = Color.orange
+        public static let success = Color.green
+        public static let info = Color.blue
+        #else
         public static let accent = dynamicColor(light: CatppuccinLatte.maroon, dark: CatppuccinMocha.maroon)
         public static let primary = dynamicColor(light: CatppuccinLatte.red, dark: CatppuccinMocha.red)
         public static let secondary = dynamicColor(light: CatppuccinLatte.peach, dark: CatppuccinMocha.peach)
@@ -118,6 +165,7 @@ public enum Theme {
         public static let warning = dynamicColor(light: CatppuccinLatte.yellow, dark: CatppuccinMocha.yellow)
         public static let success = dynamicColor(light: CatppuccinLatte.green, dark: CatppuccinMocha.green)
         public static let info = dynamicColor(light: CatppuccinLatte.blue, dark: CatppuccinMocha.blue)
+        #endif
     }
 
     public enum Fonts {

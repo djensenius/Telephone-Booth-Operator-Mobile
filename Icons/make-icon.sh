@@ -58,7 +58,21 @@ magick "$SOURCE" -resize 1024x1024! "$MASK" \
 
 magick "$BACKGROUND" "$FOREGROUND" -composite -depth 8 "$COMPOSITE"
 
-rm -f "$MASK"
+# Dark- and tinted-appearance composites for the iOS 18+ app icon. The
+# brushstroke foreground is recoloured white so it stays legible on a dark
+# field; the tinted variant is a grayscale mask the system colourises.
+DARK_COMPOSITE="$ICONS/AppIcon-dark.png"
+TINTED_COMPOSITE="$ICONS/AppIcon-tinted.png"
+FG_WHITE="$ICONS/.AppIcon-fg-white.png"
+BG_DARK="$ICONS/.AppIcon-bg-dark.png"
+
+magick "$FOREGROUND" -fill white -colorize 100% -depth 8 "$FG_WHITE"
+magick "$BACKGROUND" -modulate 22 -depth 8 "$BG_DARK"
+magick "$BG_DARK" "$FG_WHITE" -compose over -composite -depth 8 "$DARK_COMPOSITE"
+magick -size 1024x1024 xc:black "$FG_WHITE" -compose over -composite \
+  -colorspace sRGB -depth 8 "$TINTED_COMPOSITE"
+
+rm -f "$MASK" "$FG_WHITE" "$BG_DARK"
 
 render_square() {
   local out="$1" size="$2"
@@ -91,10 +105,22 @@ write_json() {
   printf '%s\n' "$content" > "$file"
 }
 
-# Single-image idioms: iOS / iPadOS / watchOS.
-for set in TBOperatorMobile TBOperatorMobileWatch; do
-  render_square "$ROOT/$set/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png" 1024
-done
+# iOS / iPadOS app icon: light, dark, and tinted appearances (iOS 18+).
+IOS_SET="$ROOT/TBOperatorMobile/Assets.xcassets/AppIcon.appiconset"
+render_square "$IOS_SET/AppIcon-1024.png" 1024
+magick "$DARK_COMPOSITE" -resize 1024x1024! -depth 8 "$IOS_SET/AppIcon-1024-dark.png"
+magick "$TINTED_COMPOSITE" -resize 1024x1024! -depth 8 "$IOS_SET/AppIcon-1024-tinted.png"
+write_json "$IOS_SET/Contents.json" '{
+  "images" : [
+    { "filename" : "AppIcon-1024.png", "idiom" : "universal", "platform" : "ios", "size" : "1024x1024" },
+    { "appearances" : [ { "appearance" : "luminosity", "value" : "dark" } ], "filename" : "AppIcon-1024-dark.png", "idiom" : "universal", "platform" : "ios", "size" : "1024x1024" },
+    { "appearances" : [ { "appearance" : "luminosity", "value" : "tinted" } ], "filename" : "AppIcon-1024-tinted.png", "idiom" : "universal", "platform" : "ios", "size" : "1024x1024" }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}'
+
+# watchOS uses a single flat icon (no dark/tinted appearances).
+render_square "$ROOT/TBOperatorMobileWatch/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png" 1024
 
 # macOS .icns-style appiconset.
 MAC="$ROOT/TBOperatorMobileMac/Assets.xcassets/AppIcon.appiconset"
