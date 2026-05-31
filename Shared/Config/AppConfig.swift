@@ -38,13 +38,13 @@ public final class AppConfig {
             UserDefaults.standard.set(apiBaseURL.absoluteString, forKey: Self.apiBaseDefaultsKey)
             logger.info("apiBaseURL updated to \(self.apiBaseURL.absoluteString, privacy: .public)")
         }
+    }
 
-        /// Enables an offline, login-free demo backed entirely by bundled mock data.
-        public var isDemoMode: Bool {
-            didSet {
-                UserDefaults.standard.set(isDemoMode, forKey: Self.demoModeDefaultsKey)
-                logger.info("demoMode updated to \(self.isDemoMode, privacy: .public)")
-            }
+    /// Enables an offline, login-free demo backed entirely by bundled mock data.
+    public var isDemoMode: Bool {
+        didSet {
+            UserDefaults.standard.set(isDemoMode, forKey: Self.demoModeDefaultsKey)
+            logger.info("demoMode updated to \(self.isDemoMode, privacy: .public)")
         }
     }
 

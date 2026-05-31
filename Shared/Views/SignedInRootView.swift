@@ -158,7 +158,7 @@ private enum OperatorSection: String, CaseIterable, Identifiable, Hashable {
 }
 
 /// Native macOS shell: a source-list sidebar paired with a detail column.
-/// Settings live in the standard app menu (⌘,) rather than a toolbar sheet.
+/// Settings are reachable from both the standard app menu (⌘,) and the sidebar.
 private struct MacSidebarShell: View {
     @State private var selection: OperatorSection? = .dashboard
     let client: OperatorClient

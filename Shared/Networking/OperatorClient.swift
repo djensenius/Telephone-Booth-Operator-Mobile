@@ -51,14 +51,14 @@ public actor OperatorClient {
     /// bearer token claims.
     public func fetchMe() async throws -> OperatorMe {
         if await usesDemoData { return DemoData.operatorProfile }
-        try await get("/v1/auth/me")
+        return try await get("/v1/auth/me")
     }
 
     /// `GET /v1/stats/summary` — booth health + queue counts. Operator
     /// caches this for 5s, so 15-minute widget polling is cheap.
     public func fetchStatsSummary() async throws -> StatsSummary {
         if await usesDemoData { return DemoData.statsSummary }
-        try await get("/v1/stats/summary")
+        return try await get("/v1/stats/summary")
     }
 
     /// `GET /v1/stats/overview` — historical aggregation (calls, messages,
@@ -66,7 +66,7 @@ public actor OperatorClient {
     /// Operator caches results for 30s per window key.
     public func fetchStatsOverview(window: StatsWindow = .last7d) async throws -> StatsOverview {
         if await usesDemoData { return DemoData.statsOverview(window: window) }
-        try await get(
+        return try await get(
             "/v1/stats/overview",
             query: [URLQueryItem(name: "window", value: window.rawValue)]
         )
@@ -77,7 +77,7 @@ public actor OperatorClient {
     /// access in logs).
     public func fetchBoothStatus() async throws -> BoothStatus {
         if await usesDemoData { return DemoData.boothStatus }
-        try await get("/v1/status", requireAuth: false)
+        return try await get("/v1/status", requireAuth: false)
     }
 
     /// `GET /v1/status/history` — recent booth status snapshots used to
@@ -113,7 +113,7 @@ public actor OperatorClient {
     /// `GET /v1/sessions/{id}` — one session with its ordered events.
     public func fetchSession(id: String) async throws -> CallSessionDetail {
         if await usesDemoData { return DemoData.sessionDetail(id: id) }
-        try await get("/v1/sessions/\(id)")
+        return try await get("/v1/sessions/\(id)")
     }
 
     /// `GET /v1/system/current?boothId=…` — latest cached system snapshot
@@ -182,7 +182,7 @@ public actor OperatorClient {
     /// signed audio URL on `audio.url`.
     public func fetchMessage(id: String) async throws -> Message {
         if await usesDemoData { return DemoData.message(id: id) }
-        try await get("/v1/messages/\(id)")
+        return try await get("/v1/messages/\(id)")
     }
 
     /// `GET /v1/messages/{id}/transcriptions` — every transcription
@@ -191,21 +191,21 @@ public actor OperatorClient {
         if await usesDemoData {
             return TranscriptionList(items: DemoData.transcriptions(messageId: messageId))
         }
-        try await get("/v1/messages/\(messageId)/transcriptions")
+        return try await get("/v1/messages/\(messageId)/transcriptions")
     }
 
     /// `POST /v1/messages/{id}/transcribe` — re-runs transcription (and
     /// downstream moderation). Returns the new `Transcription`.
     public func transcribeMessage(id: String) async throws -> Transcription {
         if await usesDemoData { return DemoData.transcriptions(messageId: id).first ?? DemoData.transcription }
-        try await postEmpty("/v1/messages/\(id)/transcribe")
+        return try await postEmpty("/v1/messages/\(id)/transcribe")
     }
 
     /// `POST /v1/messages/{id}/moderate` — re-runs AI moderation against
     /// the latest succeeded transcription. Returns the new `Moderation`.
     public func moderateMessage(id: String) async throws -> Moderation {
         if await usesDemoData { return DemoData.moderation(messageId: id) }
-        try await postEmpty("/v1/messages/\(id)/moderate")
+        return try await postEmpty("/v1/messages/\(id)/moderate")
     }
 
     /// `GET /v1/events` — paged booth event log, newest first. `cursor` is
@@ -260,7 +260,7 @@ public actor OperatorClient {
     /// `GET /v1/devices` — the caller's active mobile devices.
     public func fetchDevices() async throws -> [MobileDevice] {
         if await usesDemoData { return [] }
-        try await get("/v1/devices")
+        return try await get("/v1/devices")
     }
 
     /// `POST /v1/devices` — register or refresh the APNs token. Server
@@ -268,7 +268,7 @@ public actor OperatorClient {
     /// (after permission is granted) is the intended flow.
     public func registerDevice(_ body: RegisterMobileDeviceRequest) async throws -> MobileDevice {
         if await usesDemoData { throw OperatorError.unauthenticated }
-        try await postJSON("/v1/devices", body: body)
+        return try await postJSON("/v1/devices", body: body)
     }
 
     /// `PATCH /v1/devices/{id}` — push a new preference set or device name
@@ -278,7 +278,7 @@ public actor OperatorClient {
         body: UpdateMobileDevicePreferencesRequest
     ) async throws -> MobileDevice {
         if await usesDemoData { throw OperatorError.unauthenticated }
-        try await request(method: "PATCH", path: "/v1/devices/\(id)", body: body, requireAuth: true)
+        return try await request(method: "PATCH", path: "/v1/devices/\(id)", body: body, requireAuth: true)
     }
 
     /// `DELETE /v1/devices/{id}` — revoke a device. The server sets

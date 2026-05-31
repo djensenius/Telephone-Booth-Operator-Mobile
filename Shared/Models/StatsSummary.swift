@@ -60,8 +60,8 @@ public extension StatsSummary {
 }
 
 /// Shared, deterministic sample payloads for SwiftUI previews and App Review demo mode.
-// swiftlint:disable:next type_body_length
 public enum DemoData {
+    // swiftlint:disable:previous type_body_length
     public static let now = Date(timeIntervalSince1970: 1_779_800_000)
     public static let boothId = "booth-main"
     public static let bootId = "demo-boot-2026"
@@ -169,8 +169,16 @@ public enum DemoData {
 
     public static let questions: [Question] = [
         question(id: "demo-question-1", prompt: "What is your favorite telephone memory?", durationMs: 9_000),
-        question(id: "demo-question-2", prompt: "Who would you call if this booth could reach the past?", durationMs: 11_000),
-        question(id: "demo-question-3", prompt: "Leave a sound, story, or greeting for the next visitor.", durationMs: 8_000)
+        question(
+            id: "demo-question-2",
+            prompt: "Who would you call if this booth could reach the past?",
+            durationMs: 11_000
+        ),
+        question(
+            id: "demo-question-3",
+            prompt: "Leave a sound, story, or greeting for the next visitor.",
+            durationMs: 8_000
+        )
     ]
 
     public static let events: [BoothEventRecord] = [
@@ -296,7 +304,12 @@ public enum DemoData {
             uploads: StatsOverview.Uploads(succeeded: 84, failed: 3, failureRate: 0.034),
             topQuestions: questions.map {
                 StatsOverview.TopQuestion(
-                    questionId: UUID(uuidString: $0.id.replacingOccurrences(of: "demo-question-", with: "00000000-0000-0000-0000-00000000000")) ?? UUID(),
+                    questionId: UUID(
+                        uuidString: $0.id.replacingOccurrences(
+                            of: "demo-question-",
+                            with: "00000000-0000-0000-0000-00000000000"
+                        )
+                    ) ?? UUID(),
                     prompt: $0.prompt,
                     messageCount: 18,
                     lastUsedAt: now.addingTimeInterval(-90 * 60),
@@ -379,21 +392,8 @@ public enum DemoData {
         )
     }
 
-    public static func eventStream(filters: EventStreamFilters) -> AsyncThrowingStream<BoothEventRecord, Error> {
-        AsyncThrowingStream { continuation in
-            let task = Task {
-                for event in events where filters.type == nil || event.type == filters.type {
-                    if Task.isCancelled { break }
-                    continuation.yield(event)
-                    try? await Task.sleep(nanoseconds: 2 * 1_000_000_000)
-                }
-                continuation.finish()
-            }
-            continuation.onTermination = { _ in task.cancel() }
-        }
-    }
-
     private static func message(
+        // swiftlint:disable:previous function_parameter_count
         id: String,
         status: MessageStatus,
         text: String,
