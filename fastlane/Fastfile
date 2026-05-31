@@ -12,6 +12,17 @@ PRIMARY_BUNDLE_ID  = "org.davidjensenius.TelephoneBoothOperatorMobile"
 WIDGETS_BUNDLE_ID  = "#{PRIMARY_BUNDLE_ID}.widgets"
 WATCH_BUNDLE_ID    = "#{PRIMARY_BUNDLE_ID}.watch"
 PRIMARY_LANGUAGE   = "en-CA"
+APP_GROUP_ID       = "group.org.davidjensenius.TelephoneBoothOperatorMobile"
+
+# Developer Portal capabilities each bundle ID must have enabled, derived from
+# the targets' .entitlements files. Managed signing (Xcode Cloud) only succeeds
+# when every entitlement maps to an enabled App ID capability; a missing one
+# fails provisioning-profile generation and `-exportArchive` exits 70.
+REQUIRED_CAPABILITIES = {
+  PRIMARY_BUNDLE_ID => %w[PUSH_NOTIFICATIONS APP_GROUPS], # aps-environment + app-groups
+  WIDGETS_BUNDLE_ID => %w[APP_GROUPS],                    # app-groups
+  WATCH_BUNDLE_ID   => %w[PUSH_NOTIFICATIONS APP_GROUPS]  # aps-environment + app-groups
+}.freeze
 
 platform :ios do
   before_all do
@@ -49,6 +60,49 @@ platform :ios do
         UI.success("Created bundle ID: #{identifier}")
       end
     end
+
+    ensure_capabilities
+  end
+
+  desc "Ensure each Developer Portal bundle ID has the App ID capabilities its " \
+       ".entitlements require (Push, App Groups). Idempotent. Note: the App " \
+       "Store Connect API can enable the App Groups capability but cannot " \
+       "associate a specific App Group - assign #{APP_GROUP_ID} to each App ID " \
+       "in the portal (or let Xcode managed signing associate it)."
+  lane :ensure_capabilities do
+    require "spaceship"
+
+    token = Spaceship::ConnectAPI::Token.create(
+      key_id: API_KEY[:key_id],
+      issuer_id: API_KEY[:issuer_id],
+      filepath: API_KEY[:key_filepath]
+    )
+    Spaceship::ConnectAPI.token = token
+
+    REQUIRED_CAPABILITIES.each do |identifier, required|
+      bundle_id = Spaceship::ConnectAPI::BundleId.find(identifier)
+      unless bundle_id
+        UI.error("Bundle ID not registered yet: #{identifier} (run register_bundle_ids)")
+        next
+      end
+
+      present = (bundle_id.get_capabilities || []).map(&:capability_type)
+      required.each do |capability|
+        if present.include?(capability)
+          UI.success("#{identifier}: #{capability} already enabled")
+        else
+          UI.message("#{identifier}: enabling #{capability}")
+          bundle_id.create_capability(capability)
+          UI.success("#{identifier}: enabled #{capability}")
+        end
+      end
+    end
+
+    UI.important("App Groups capability is enabled, but associating #{APP_GROUP_ID} " \
+                 "to each App ID is portal-only (the App Store Connect API does not " \
+                 "expose App Groups). Xcode managed signing associates it automatically " \
+                 "on the next archive/export; otherwise assign it under each App ID in " \
+                 "the Developer Portal.")
   end
 
   desc "Create the App Store Connect app record (iOS + macOS). Requires Apple ID + 2FA - the App Store Connect API key cannot create new apps."
