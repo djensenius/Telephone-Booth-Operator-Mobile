@@ -39,11 +39,17 @@ jobs:
       - name: Install xcodegen
         run: brew install xcodegen
       - name: Verify project.yml is in sync with .xcodeproj
+        # Shared schemes (xcshareddata/xcschemes) are intentionally excluded:
+        # xcodegen writes scheme format version 1.7, while Xcode rewrites the
+        # active scheme to its own canonical 1.3 form whenever the project is
+        # opened. The two never agree, so policing schemes here produces noisy
+        # false-positive drift. The pbxproj (the part that must match the spec)
+        # is still fully verified.
         run: |
           xcodegen generate --spec project.yml
-          if ! git diff --quiet -- ':(glob)**/*.xcodeproj/**'; then
+          if ! git diff --quiet -- ':(glob)**/*.xcodeproj/**' ':(exclude,glob)**/*.xcodeproj/**/xcschemes/*.xcscheme'; then
             echo "::error::project.yml is out of sync with the checked-in .xcodeproj"
-            git diff --stat -- ':(glob)**/*.xcodeproj/**'
+            git diff --stat -- ':(glob)**/*.xcodeproj/**' ':(exclude,glob)**/*.xcodeproj/**/xcschemes/*.xcscheme'
             exit 1
           fi
       - name: Build ${{ matrix.scheme }}
