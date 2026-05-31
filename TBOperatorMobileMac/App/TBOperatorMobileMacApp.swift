@@ -13,6 +13,13 @@ struct TBOperatorMobileMacApp: App {
         WindowGroup {
             MacRootView()
         }
-        .windowResizability(.contentSize)
+        .windowResizability(.contentMinSize)
+        .commands {
+            SidebarCommands()
+        }
+
+        Settings {
+            SettingsView()
+        }
     }
 }
