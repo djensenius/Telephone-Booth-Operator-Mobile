@@ -70,6 +70,7 @@ public final class QuestionAudioRecorder: NSObject, AVAudioRecorderDelegate {
             recorder.delegate = self
             guard recorder.record() else {
                 state = .failed("Couldn't start recording.")
+                deactivateSession()
                 return false
             }
             self.recorder = recorder
@@ -80,6 +81,7 @@ public final class QuestionAudioRecorder: NSObject, AVAudioRecorderDelegate {
             return true
         } catch {
             state = .failed("Couldn't start recording.")
+            deactivateSession()
             return false
         }
     }
@@ -91,9 +93,7 @@ public final class QuestionAudioRecorder: NSObject, AVAudioRecorderDelegate {
         timer = nil
         recorder?.stop()
         recorder = nil
-        #if os(iOS) || os(visionOS)
-        try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
-        #endif
+        deactivateSession()
         if state == .recording { state = .finished }
         return fileURL
     }
@@ -103,10 +103,17 @@ public final class QuestionAudioRecorder: NSObject, AVAudioRecorderDelegate {
         timer = nil
         recorder?.stop()
         recorder = nil
+        deactivateSession()
         if let fileURL { try? FileManager.default.removeItem(at: fileURL) }
         fileURL = nil
         elapsed = 0
         state = .idle
+    }
+
+    private func deactivateSession() {
+        #if os(iOS) || os(visionOS)
+        try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+        #endif
     }
 
     private func startTimer() {
@@ -140,7 +147,12 @@ public final class QuestionAudioRecorder: NSObject, AVAudioRecorderDelegate {
         successfully flag: Bool
     ) {
         Task { @MainActor in
-            if !flag { self.state = .failed("Recording failed.") }
+            guard !flag else { return }
+            self.timer?.invalidate()
+            self.timer = nil
+            self.recorder = nil
+            self.deactivateSession()
+            self.state = .failed("Recording failed.")
         }
     }
 }

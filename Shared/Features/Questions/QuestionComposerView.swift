@@ -222,9 +222,11 @@ struct QuestionComposerView: View {
 
     private func transcode(source: URL, removeSource: Bool) async {
         stage = .processing
+        // Recorded captures live in a temp file we own, so remove them once
+        // we're done transcoding whether or not encoding succeeded.
+        defer { if removeSource { try? FileManager.default.removeItem(at: source) } }
         do {
             let file = try await QuestionAudioEncoder.encodeToFLAC(source: source)
-            if removeSource { try? FileManager.default.removeItem(at: source) }
             stage = .ready(file)
         } catch {
             stage = .failed((error as? LocalizedError)?.errorDescription ?? "Couldn't prepare the audio.")
