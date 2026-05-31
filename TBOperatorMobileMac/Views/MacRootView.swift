@@ -6,12 +6,14 @@
 import SwiftUI
 
 struct MacRootView: View {
+    var demoMode = false
+
     var body: some View {
-        RootContainerView()
+        RootContainerView(demoMode: demoMode)
             .frame(minWidth: 760, minHeight: 480)
     }
 }
 
 #Preview {
-    MacRootView()
+    MacRootView(demoMode: true)
 }

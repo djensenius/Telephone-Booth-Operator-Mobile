@@ -37,6 +37,11 @@ public actor EventStream {
         config: AppConfig.shared,
         auth: AuthManager.shared
     )
+    @MainActor public static let demo = EventStream(
+        config: AppConfig.shared,
+        auth: AuthManager.shared,
+        demoMode: true
+    )
 
     /// Maximum allowed size (in bytes) of a single SSE event's accumulated data
     /// lines before the stream is terminated with an error. Default: 1 MB.
@@ -46,17 +51,20 @@ public actor EventStream {
     private let auth: AuthManager?
     private let session: URLSession
     private let maxEventSize: Int
+    private let demoMode: Bool
 
     public init(
         config: AppConfig,
         auth: AuthManager,
         session: URLSession = .shared,
-        maxEventSize: Int = EventStream.defaultMaxEventSize
+        maxEventSize: Int = EventStream.defaultMaxEventSize,
+        demoMode: Bool = false
     ) {
         self.config = config
         self.auth = auth
         self.session = session
         self.maxEventSize = maxEventSize
+        self.demoMode = demoMode
     }
 
     /// Test-only initialiser. The returned actor cannot subscribe to a
@@ -67,6 +75,7 @@ public actor EventStream {
         self.auth = nil
         self.session = .shared
         self.maxEventSize = maxEventSize
+        self.demoMode = false
     }
 
     /// Returns an AsyncThrowingStream of booth events. The stream is
@@ -75,7 +84,10 @@ public actor EventStream {
     public nonisolated func subscribe(
         filters: EventStreamFilters = EventStreamFilters()
     ) -> AsyncThrowingStream<BoothEventRecord, Error> {
-        AsyncThrowingStream { continuation in
+        if demoMode {
+            return DemoData.eventStream(filters: filters)
+        }
+        return AsyncThrowingStream { continuation in
             let task = Task { [weak self] in
                 guard let self else { return }
                 do {
@@ -228,5 +240,25 @@ public actor EventStream {
         var value = String(line.dropFirst(prefix.count))
         if value.first == " " { value.removeFirst() }
         return value
+    }
+}
+
+extension DemoData {
+    /// Demo-mode replacement for the live SSE stream: replays bundled sample
+    /// events (optionally filtered by type) with a short delay between each.
+    /// Kept here, rather than in the model file, so the widgets target — which
+    /// does not compile the networking layer — never needs `EventStreamFilters`.
+    public static func eventStream(filters: EventStreamFilters) -> AsyncThrowingStream<BoothEventRecord, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                for event in events where filters.type == nil || event.type == filters.type {
+                    if Task.isCancelled { break }
+                    continuation.yield(event)
+                    try? await Task.sleep(nanoseconds: 2 * 1_000_000_000)
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
     }
 }

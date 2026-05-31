@@ -6,11 +6,13 @@
 import SwiftUI
 
 struct TVRootView: View {
+    var demoMode = false
+
     var body: some View {
-        RootContainerView()
+        RootContainerView(demoMode: demoMode)
     }
 }
 
 #Preview {
-    TVRootView()
+    TVRootView(demoMode: true)
 }

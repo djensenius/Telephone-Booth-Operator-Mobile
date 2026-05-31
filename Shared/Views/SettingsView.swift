@@ -26,6 +26,19 @@ public struct SettingsView: View {
     public var body: some View {
         NavigationStack {
             Form {
+                if config.isDemoMode {
+                    Section {
+                        Button {
+                            config.disableDemoMode()
+                            dismiss()
+                        } label: {
+                            Label("Exit Demo Mode", systemImage: "sparkles")
+                        }
+                    } footer: {
+                        Text("Demo mode uses bundled sample data and never contacts the operator API.")
+                    }
+                }
+
                 Section {
                     TextField("https://operator.example.com", text: $apiBaseString)
                         #if os(iOS) || os(visionOS)
@@ -52,33 +65,14 @@ public struct SettingsView: View {
                 }
 
                 Section {
-                    #if os(macOS)
-                    VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-                        LabeledContent("OIDC issuer") {
-                            Text(config.oidcIssuerBase)
-                                .textSelection(.enabled)
-                                .lineLimit(nil)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .font(Theme.Fonts.bodySmall)
-                        LabeledContent("Client ID") {
-                            Text(config.oidcClientID)
-                                .textSelection(.enabled)
-                        }
-                        .font(Theme.Fonts.bodySmall)
-                        LabeledContent("Redirect") {
-                            Text(config.redirectURI)
-                                .textSelection(.enabled)
-                        }
-                        .font(Theme.Fonts.bodySmall)
-                    }
+                    #if os(watchOS) || os(tvOS)
+                    oidcDetails
                     #else
-                    LabeledContent("OIDC issuer", value: config.oidcIssuerBase)
-                        .font(Theme.Fonts.bodySmall)
-                    LabeledContent("Client ID", value: config.oidcClientID)
-                        .font(Theme.Fonts.bodySmall)
-                    LabeledContent("Redirect", value: config.redirectURI)
-                        .font(Theme.Fonts.bodySmall)
+                    DisclosureGroup {
+                        oidcDetails
+                    } label: {
+                        Label("OIDC details", systemImage: "lock.shield")
+                    }
                     #endif
                 } header: {
                     Text("Authentication")
@@ -123,6 +117,38 @@ public struct SettingsView: View {
                      "Please sign in again to continue.")
             }
         }
+    }
+
+    @ViewBuilder
+    private var oidcDetails: some View {
+        #if os(macOS)
+        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+            LabeledContent("OIDC issuer") {
+                Text(config.oidcIssuerBase)
+                    .textSelection(.enabled)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .font(Theme.Fonts.bodySmall)
+            LabeledContent("Client ID") {
+                Text(config.oidcClientID)
+                    .textSelection(.enabled)
+            }
+            .font(Theme.Fonts.bodySmall)
+            LabeledContent("Redirect") {
+                Text(config.redirectURI)
+                    .textSelection(.enabled)
+            }
+            .font(Theme.Fonts.bodySmall)
+        }
+        #else
+        LabeledContent("OIDC issuer", value: config.oidcIssuerBase)
+            .font(Theme.Fonts.bodySmall)
+        LabeledContent("Client ID", value: config.oidcClientID)
+            .font(Theme.Fonts.bodySmall)
+        LabeledContent("Redirect", value: config.redirectURI)
+            .font(Theme.Fonts.bodySmall)
+        #endif
     }
 
     private func saveAPIBase() {

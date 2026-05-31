@@ -29,6 +29,7 @@ public final class AppConfig {
     public static let shared = AppConfig()
 
     private static let apiBaseDefaultsKey = "TBOperatorAPIBase"
+    private static let demoModeDefaultsKey = "TBOperatorDemoMode"
 
     /// The configured operator API base URL (no trailing slash).
     /// Falls back to the Info.plist default if no override is stored.
@@ -36,6 +37,14 @@ public final class AppConfig {
         didSet {
             UserDefaults.standard.set(apiBaseURL.absoluteString, forKey: Self.apiBaseDefaultsKey)
             logger.info("apiBaseURL updated to \(self.apiBaseURL.absoluteString, privacy: .public)")
+        }
+    }
+
+    /// Enables an offline, login-free demo backed entirely by bundled mock data.
+    public var isDemoMode: Bool {
+        didSet {
+            UserDefaults.standard.set(isDemoMode, forKey: Self.demoModeDefaultsKey)
+            logger.info("demoMode updated to \(self.isDemoMode, privacy: .public)")
         }
     }
 
@@ -63,6 +72,7 @@ public final class AppConfig {
             preconditionFailure("AppConfig: invalid API base URL \(baseString)")
         }
         self.apiBaseURL = url
+        self.isDemoMode = UserDefaults.standard.bool(forKey: Self.demoModeDefaultsKey)
 
         self.oidcIssuerBase = Bundle.main.object(forInfoDictionaryKey: "OIDCIssuerBase") as? String
             ?? "https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile"
@@ -207,6 +217,15 @@ public final class AppConfig {
         var trimmed = path
         if !trimmed.hasPrefix("/") { trimmed = "/" + trimmed }
         return apiBaseURL.appendingPathComponent(String(trimmed.dropFirst()))
+    }
+
+    public func enableDemoMode() {
+        AuthManager.shared.signOut()
+        isDemoMode = true
+    }
+
+    public func disableDemoMode() {
+        isDemoMode = false
     }
 }
 

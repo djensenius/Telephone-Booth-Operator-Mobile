@@ -25,10 +25,16 @@ extension MessageStatus {
 
 struct WatchHomeView: View {
     @State private var showingSettings = false
+    let client: OperatorClient
+
+    init(client: OperatorClient = .shared) {
+        self.client = client
+    }
+
     var body: some View {
         TabView {
             NavigationStack {
-                WatchStatusView()
+                WatchStatusView(client: client)
                     .navigationTitle("Status")
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {
@@ -44,19 +50,19 @@ struct WatchHomeView: View {
             .tabItem { Label("Status", systemImage: "gauge.with.dots.needle.bottom.50percent") }
 
             NavigationStack {
-                WatchLatestMessageView()
+                WatchLatestMessageView(client: client)
                     .navigationTitle("Latest")
             }
             .tabItem { Label("Latest", systemImage: "tray.full") }
 
             NavigationStack {
-                WatchModerationView()
+                WatchModerationView(client: client)
                     .navigationTitle("Moderation")
             }
             .tabItem { Label("Moderation", systemImage: "checkmark.shield") }
 
             NavigationStack {
-                WatchStatsView()
+                WatchStatsView(client: client)
                     .navigationTitle("Stats")
             }
             .tabItem { Label("Stats", systemImage: "chart.bar.fill") }

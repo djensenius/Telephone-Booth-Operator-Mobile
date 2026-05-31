@@ -22,19 +22,27 @@ public actor OperatorClient {
         config: AppConfig.shared,
         auth: AuthManager.shared
     )
+    @MainActor public static let demo = OperatorClient(
+        config: AppConfig.shared,
+        auth: AuthManager.shared,
+        demoMode: true
+    )
 
     private let config: AppConfig
     private let auth: AuthManager
     private let session: URLSession
+    private let demoMode: Bool
 
     public init(
         config: AppConfig,
         auth: AuthManager,
-        session: URLSession = .shared
+        session: URLSession = .shared,
+        demoMode: Bool = false
     ) {
         self.config = config
         self.auth = auth
         self.session = session
+        self.demoMode = demoMode
     }
 
     // MARK: - Endpoints
@@ -42,20 +50,23 @@ public actor OperatorClient {
     /// `GET /v1/auth/me` — returns the operator profile derived from the
     /// bearer token claims.
     public func fetchMe() async throws -> OperatorMe {
-        try await get("/v1/auth/me")
+        if await usesDemoData { return DemoData.operatorProfile }
+        return try await get("/v1/auth/me")
     }
 
     /// `GET /v1/stats/summary` — booth health + queue counts. Operator
     /// caches this for 5s, so 15-minute widget polling is cheap.
     public func fetchStatsSummary() async throws -> StatsSummary {
-        try await get("/v1/stats/summary")
+        if await usesDemoData { return DemoData.statsSummary }
+        return try await get("/v1/stats/summary")
     }
 
     /// `GET /v1/stats/overview` — historical aggregation (calls, messages,
     /// playbacks, uploads, top questions, hourly) over the chosen window.
     /// Operator caches results for 30s per window key.
     public func fetchStatsOverview(window: StatsWindow = .last7d) async throws -> StatsOverview {
-        try await get(
+        if await usesDemoData { return DemoData.statsOverview(window: window) }
+        return try await get(
             "/v1/stats/overview",
             query: [URLQueryItem(name: "window", value: window.rawValue)]
         )
@@ -65,13 +76,17 @@ public actor OperatorClient {
     /// still send the bearer if available so the operator can correlate
     /// access in logs).
     public func fetchBoothStatus() async throws -> BoothStatus {
-        try await get("/v1/status", requireAuth: false)
+        if await usesDemoData { return DemoData.boothStatus }
+        return try await get("/v1/status", requireAuth: false)
     }
 
     /// `GET /v1/status/history` — recent booth status snapshots used to
     /// render the uptime chart. `since` is optional; default `limit` is
     /// 100 (server caps at 500).
     public func fetchStatusHistory(since: Date? = nil, limit: Int = 100) async throws -> StatusHistory {
+        if await usesDemoData {
+            return StatusHistory(items: Array(DemoData.statusHistory.prefix(limit)))
+        }
         var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
         if let since {
             items.append(URLQueryItem(name: "since", value: OperatorJSON.iso8601String(from: since)))
@@ -86,6 +101,9 @@ public actor OperatorClient {
         cursor: String? = nil,
         limit: Int = 50
     ) async throws -> SessionListPage {
+        if await usesDemoData {
+            return SessionListPage(items: Array(DemoData.sessions.prefix(limit)), nextCursor: nil)
+        }
         var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
         if let boothId { items.append(URLQueryItem(name: "boothId", value: boothId)) }
         if let cursor { items.append(URLQueryItem(name: "cursor", value: cursor)) }
@@ -94,7 +112,8 @@ public actor OperatorClient {
 
     /// `GET /v1/sessions/{id}` — one session with its ordered events.
     public func fetchSession(id: String) async throws -> CallSessionDetail {
-        try await get("/v1/sessions/\(id)")
+        if await usesDemoData { return DemoData.sessionDetail(id: id) }
+        return try await get("/v1/sessions/\(id)")
     }
 
     /// `GET /v1/system/current?boothId=…` — latest cached system snapshot
@@ -104,6 +123,7 @@ public actor OperatorClient {
     /// single-booth install). Returns `nil` when no snapshot is cached
     /// (operator responds 404 in that case, or returns an empty list).
     public func fetchCurrentSystem(boothId: String? = nil) async throws -> BoothSystemSnapshot? {
+        if await usesDemoData { return DemoData.systemEnvelope.snapshot }
         let envelope = try await fetchCurrentSystemEnvelope(boothId: boothId)
         return envelope?.snapshot
     }
@@ -114,6 +134,7 @@ public actor OperatorClient {
     public func fetchCurrentSystemEnvelope(
         boothId: String? = nil
     ) async throws -> BoothSystemSnapshotEnvelope? {
+        if await usesDemoData { return DemoData.systemEnvelope }
         if let boothId {
             let items = [URLQueryItem(name: "boothId", value: boothId)]
             do {
@@ -132,6 +153,7 @@ public actor OperatorClient {
     /// snapshots across every booth that's ever reported in. Each item is
     /// a `BoothSystemSnapshotEnvelope`.
     public func fetchAllCurrentSystems() async throws -> [BoothSystemSnapshotEnvelope] {
+        if await usesDemoData { return [DemoData.systemEnvelope] }
         let list: BoothSystemSnapshotList = try await get("/v1/system/current")
         return list.items
     }
@@ -142,6 +164,12 @@ public actor OperatorClient {
         since: Date? = nil,
         limit: Int = 50
     ) async throws -> MessageList {
+        if await usesDemoData {
+            let messages = DemoData.messages.filter { message in
+                status == nil || message.status == status
+            }
+            return MessageList(items: Array(messages.prefix(limit)))
+        }
         var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
         if let status { items.append(URLQueryItem(name: "status", value: status.rawValue)) }
         if let since {
@@ -153,25 +181,31 @@ public actor OperatorClient {
     /// `GET /v1/messages/{id}` — single message, including a freshly-
     /// signed audio URL on `audio.url`.
     public func fetchMessage(id: String) async throws -> Message {
-        try await get("/v1/messages/\(id)")
+        if await usesDemoData { return DemoData.message(id: id) }
+        return try await get("/v1/messages/\(id)")
     }
 
     /// `GET /v1/messages/{id}/transcriptions` — every transcription
     /// attempt for the message, newest first.
     public func fetchTranscriptions(messageId: String) async throws -> TranscriptionList {
-        try await get("/v1/messages/\(messageId)/transcriptions")
+        if await usesDemoData {
+            return TranscriptionList(items: DemoData.transcriptions(messageId: messageId))
+        }
+        return try await get("/v1/messages/\(messageId)/transcriptions")
     }
 
     /// `POST /v1/messages/{id}/transcribe` — re-runs transcription (and
     /// downstream moderation). Returns the new `Transcription`.
     public func transcribeMessage(id: String) async throws -> Transcription {
-        try await postEmpty("/v1/messages/\(id)/transcribe")
+        if await usesDemoData { return DemoData.transcriptions(messageId: id).first ?? DemoData.transcription }
+        return try await postEmpty("/v1/messages/\(id)/transcribe")
     }
 
     /// `POST /v1/messages/{id}/moderate` — re-runs AI moderation against
     /// the latest succeeded transcription. Returns the new `Moderation`.
     public func moderateMessage(id: String) async throws -> Moderation {
-        try await postEmpty("/v1/messages/\(id)/moderate")
+        if await usesDemoData { return DemoData.moderation(messageId: id) }
+        return try await postEmpty("/v1/messages/\(id)/moderate")
     }
 
     /// `GET /v1/events` — paged booth event log, newest first. `cursor` is
@@ -185,6 +219,9 @@ public actor OperatorClient {
         cursor: String? = nil,
         limit: Int = 100
     ) async throws -> EventList {
+        if await usesDemoData {
+            return EventList(items: Array(DemoData.events.prefix(limit)), nextCursor: nil)
+        }
         var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
         if let boothId { items.append(URLQueryItem(name: "boothId", value: boothId)) }
         if let type { items.append(URLQueryItem(name: "type", value: type.rawValue)) }
@@ -204,6 +241,9 @@ public actor OperatorClient {
         cursor: String? = nil,
         limit: Int = 50
     ) async throws -> QuestionList {
+        if await usesDemoData {
+            return QuestionList(items: Array(DemoData.questions.prefix(limit)), nextCursor: nil)
+        }
         var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
         if let cursor { items.append(URLQueryItem(name: "cursor", value: cursor)) }
         return try await get("/v1/questions", query: items)
@@ -211,6 +251,7 @@ public actor OperatorClient {
 
     /// `DELETE /v1/questions/{id}` — soft-deletes (retires) a question.
     public func deleteQuestion(id: String) async throws {
+        if await usesDemoData { return }
         try await delete("/v1/questions/\(id)")
     }
 
@@ -218,14 +259,16 @@ public actor OperatorClient {
 
     /// `GET /v1/devices` — the caller's active mobile devices.
     public func fetchDevices() async throws -> [MobileDevice] {
-        try await get("/v1/devices")
+        if await usesDemoData { return [] }
+        return try await get("/v1/devices")
     }
 
     /// `POST /v1/devices` — register or refresh the APNs token. Server
     /// upserts on `(apnsToken, platform)` so calling this on every launch
     /// (after permission is granted) is the intended flow.
     public func registerDevice(_ body: RegisterMobileDeviceRequest) async throws -> MobileDevice {
-        try await postJSON("/v1/devices", body: body)
+        if await usesDemoData { throw OperatorError.unauthenticated }
+        return try await postJSON("/v1/devices", body: body)
     }
 
     /// `PATCH /v1/devices/{id}` — push a new preference set or device name
@@ -234,16 +277,25 @@ public actor OperatorClient {
         id: String,
         body: UpdateMobileDevicePreferencesRequest
     ) async throws -> MobileDevice {
-        try await request(method: "PATCH", path: "/v1/devices/\(id)", body: body, requireAuth: true)
+        if await usesDemoData { throw OperatorError.unauthenticated }
+        return try await request(method: "PATCH", path: "/v1/devices/\(id)", body: body, requireAuth: true)
     }
 
     /// `DELETE /v1/devices/{id}` — revoke a device. The server sets
     /// `revokedAt` so APNs delivery to that token stops immediately.
     public func revokeDevice(id: String) async throws {
+        if await usesDemoData { return }
         try await delete("/v1/devices/\(id)")
     }
 
     // MARK: - Core request helpers
+
+    private var usesDemoData: Bool {
+        get async {
+            if demoMode { return true }
+            return await config.isDemoMode
+        }
+    }
 
     private func get<T: Decodable>(
         _ path: String,

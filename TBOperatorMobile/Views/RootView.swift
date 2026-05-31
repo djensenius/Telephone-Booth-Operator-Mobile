@@ -8,11 +8,13 @@
 import SwiftUI
 
 struct RootView: View {
+    var demoMode = false
+
     var body: some View {
-        RootContainerView()
+        RootContainerView(demoMode: demoMode)
     }
 }
 
 #Preview {
-    RootView()
+    RootView(demoMode: true)
 }

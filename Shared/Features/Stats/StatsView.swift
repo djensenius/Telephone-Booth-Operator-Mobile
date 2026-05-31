@@ -397,5 +397,5 @@ public struct StatsView: View {
 }
 
 #Preview {
-    StatsView(client: .shared)
+    StatsView(client: .demo)
 }
