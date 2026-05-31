@@ -6,11 +6,13 @@
 import SwiftUI
 
 struct WatchRootView: View {
+    var demoMode = false
+
     var body: some View {
-        RootContainerView()
+        RootContainerView(demoMode: demoMode)
     }
 }
 
 #Preview {
-    WatchRootView()
+    WatchRootView(demoMode: true)
 }

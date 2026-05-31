@@ -11,6 +11,7 @@ import SwiftUI
 
 public struct LoginView: View {
     @State private var auth = AuthManager.shared
+    @State private var config = AppConfig.shared
     @State private var isSigningIn = false
     @State private var errorMessage: String?
     @State private var showingSettings = false
@@ -46,20 +47,20 @@ public struct LoginView: View {
                         .padding(.horizontal, Theme.Spacing.large)
                 }
 
+                demoButton
                 signInButton
-
-                Button {
-                    showingSettings = true
-                } label: {
-                    Label("Server settings", systemImage: "gear")
-                        .font(Theme.Fonts.bodySmall)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Theme.Colors.textSecondary)
 
                 Spacer()
             }
             .padding(Theme.Spacing.large)
+        }
+        .safeAreaInset(edge: .top) {
+            HStack {
+                Spacer()
+                settingsButton
+            }
+            .padding(.horizontal, Theme.Spacing.large)
+            .padding(.top, Theme.Spacing.small)
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
@@ -72,6 +73,38 @@ public struct LoginView: View {
             .foregroundStyle(Theme.Colors.accent)
             .padding(Theme.Spacing.large)
             .modifier(LiquidGlassCircle())
+    }
+
+    private var demoButton: some View {
+        Button {
+            config.enableDemoMode()
+        } label: {
+            HStack(spacing: Theme.Spacing.small) {
+                Image(systemName: "sparkles")
+                Text("Try Demo Mode")
+                    .font(Theme.Fonts.bodyMedium.weight(.semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Theme.Spacing.medium)
+        }
+        .tint(Theme.Colors.accent)
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .padding(.horizontal, Theme.Spacing.large)
+        .accessibilityHint("Open the app with sample data and no login")
+    }
+
+    private var settingsButton: some View {
+        Button {
+            showingSettings = true
+        } label: {
+            Image(systemName: "gearshape")
+                .font(Theme.Fonts.bodyMedium)
+                .padding(Theme.Spacing.small)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.Colors.textSecondary)
+        .accessibilityLabel("Settings")
     }
 
     @ViewBuilder

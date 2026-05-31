@@ -6,13 +6,15 @@
 import SwiftUI
 
 struct VisionRootView: View {
+    var demoMode = false
+
     var body: some View {
-        RootContainerView()
+        RootContainerView(demoMode: demoMode)
             .frame(minWidth: 640, minHeight: 480)
             .glassBackgroundEffect()
     }
 }
 
 #Preview {
-    VisionRootView()
+    VisionRootView(demoMode: true)
 }

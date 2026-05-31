@@ -11,40 +11,55 @@ import SwiftUI
 
 public struct RootContainerView: View {
     @State private var auth = AuthManager.shared
+    @State private var config = AppConfig.shared
     @Environment(\.scenePhase) private var scenePhase
+    private let demoMode: Bool
 
-    public init() {}
+    public init(demoMode: Bool = false) {
+        self.demoMode = demoMode
+    }
 
     public var body: some View {
         Group {
-            switch auth.authState {
-            case .unknown:
-                ProgressView("Connecting to the booth…")
-                    .progressViewStyle(.circular)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Theme.Colors.background)
-            case .signedOut:
-                LoginView()
-            case .signedIn:
-                SignedInRootView()
+            if effectiveDemoMode {
+                SignedInRootView(client: .demo, eventStream: .demo)
+            } else {
+                liveRoot
             }
         }
         .task {
+            guard !effectiveDemoMode else { return }
             await AuthManager.shared.validateSessionOnLaunch()
         }
         .onChange(of: scenePhase) { _, newPhase in
-            // Pre-warm the access token whenever the app comes to the
-            // foreground so the first user-driven request after a long
-            // sleep doesn't pay the refresh latency (and so we surface
-            // expired refresh tokens before the user taps anything).
+            guard !effectiveDemoMode else { return }
             guard newPhase == .active else { return }
             Task { @MainActor in
                 _ = await AuthManager.shared.ensureValidToken()
             }
         }
     }
+
+    private var effectiveDemoMode: Bool {
+        demoMode || config.isDemoMode
+    }
+
+    @ViewBuilder
+    private var liveRoot: some View {
+        switch auth.authState {
+        case .unknown:
+            ProgressView("Connecting to the booth…")
+                .progressViewStyle(.circular)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Theme.Colors.background)
+        case .signedOut:
+            LoginView()
+        case .signedIn:
+            SignedInRootView()
+        }
+    }
 }
 
 #Preview {
-    RootContainerView()
+    RootContainerView(demoMode: true)
 }

@@ -15,17 +15,25 @@ import SwiftUI
 
 public struct SignedInRootView: View {
     @State private var showingSettings = false
+    private let client: OperatorClient
+    private let eventStream: EventStream
 
-    public init() {}
+    public init(
+        client: OperatorClient = .shared,
+        eventStream: EventStream = .shared
+    ) {
+        self.client = client
+        self.eventStream = eventStream
+    }
 
     public var body: some View {
         #if os(watchOS)
-        WatchHomeView()
+        WatchHomeView(client: client)
             .liveActivityObserver()
         #elseif os(tvOS)
         compactShell
         #elseif os(macOS)
-        MacSidebarShell()
+        MacSidebarShell(client: client, eventStream: eventStream)
         #else
         tabbedShell
             .liveActivityObserver()
@@ -36,49 +44,49 @@ public struct SignedInRootView: View {
     private var tabbedShell: some View {
         TabView {
             NavigationStack {
-                StatusDashboardView()
+                StatusDashboardView(client: client)
                     .navigationTitle("Operator")
                     .toolbar { settingsToolbar }
             }
             .tabItem { Label("Dashboard", systemImage: "gauge.with.dots.needle.bottom.50percent") }
 
             NavigationStack {
-                StatsView()
+                StatsView(client: client)
                     .navigationTitle("Stats")
                     .toolbar { settingsToolbar }
             }
             .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
 
             NavigationStack {
-                SessionListView()
+                SessionListView(client: client)
                     .navigationTitle("Sessions")
                     .toolbar { settingsToolbar }
             }
             .tabItem { Label("Sessions", systemImage: "phone.connection.fill") }
 
             NavigationStack {
-                MessageListView()
+                MessageListView(client: client)
                     .navigationTitle("Messages")
                     .toolbar { settingsToolbar }
             }
             .tabItem { Label("Messages", systemImage: "tray.full") }
 
             NavigationStack {
-                EventsFeedView()
+                EventsFeedView(client: client, stream: eventStream)
                     .navigationTitle("Events")
                     .toolbar { settingsToolbar }
             }
             .tabItem { Label("Events", systemImage: "antenna.radiowaves.left.and.right") }
 
             NavigationStack {
-                QuestionsView()
+                QuestionsView(client: client)
                     .navigationTitle("Questions")
                     .toolbar { settingsToolbar }
             }
             .tabItem { Label("Questions", systemImage: "questionmark.bubble") }
 
             NavigationStack {
-                SystemView()
+                SystemView(client: client)
                     .navigationTitle("System")
                     .toolbar { settingsToolbar }
             }
@@ -110,7 +118,7 @@ public struct SignedInRootView: View {
 
     #if os(tvOS)
     private var compactShell: some View {
-        TVBoothWallView()
+        TVBoothWallView(client: client)
     }
     #endif
 }
@@ -118,7 +126,7 @@ public struct SignedInRootView: View {
 #if os(macOS)
 /// The sections shown in the macOS sidebar. Mirrors the iOS tab set.
 private enum OperatorSection: String, CaseIterable, Identifiable, Hashable {
-    case dashboard, stats, sessions, messages, events, questions, system
+    case dashboard, stats, sessions, messages, events, questions, system, settings
 
     var id: String { rawValue }
 
@@ -131,6 +139,7 @@ private enum OperatorSection: String, CaseIterable, Identifiable, Hashable {
         case .events:    return "Events"
         case .questions: return "Questions"
         case .system:    return "System"
+        case .settings:  return "Settings"
         }
     }
 
@@ -143,6 +152,7 @@ private enum OperatorSection: String, CaseIterable, Identifiable, Hashable {
         case .events:    return "antenna.radiowaves.left.and.right"
         case .questions: return "questionmark.bubble"
         case .system:    return "cpu"
+        case .settings:  return "gearshape"
         }
     }
 }
@@ -151,6 +161,8 @@ private enum OperatorSection: String, CaseIterable, Identifiable, Hashable {
 /// Settings live in the standard app menu (⌘,) rather than a toolbar sheet.
 private struct MacSidebarShell: View {
     @State private var selection: OperatorSection? = .dashboard
+    let client: OperatorClient
+    let eventStream: EventStream
 
     var body: some View {
         NavigationSplitView {
@@ -173,24 +185,26 @@ private struct MacSidebarShell: View {
     private func detail(for section: OperatorSection) -> some View {
         switch section {
         case .dashboard:
-            StatusDashboardView().navigationTitle(section.title)
+            StatusDashboardView(client: client).navigationTitle(section.title)
         case .stats:
-            StatsView().navigationTitle(section.title)
+            StatsView(client: client).navigationTitle(section.title)
         case .sessions:
-            SessionListView().navigationTitle(section.title)
+            SessionListView(client: client).navigationTitle(section.title)
         case .messages:
-            MessageListView().navigationTitle(section.title)
+            MessageListView(client: client).navigationTitle(section.title)
         case .events:
-            EventsFeedView().navigationTitle(section.title)
+            EventsFeedView(client: client, stream: eventStream).navigationTitle(section.title)
         case .questions:
-            QuestionsView().navigationTitle(section.title)
+            QuestionsView(client: client).navigationTitle(section.title)
         case .system:
-            SystemView().navigationTitle(section.title)
+            SystemView(client: client).navigationTitle(section.title)
+        case .settings:
+            SettingsView().navigationTitle(section.title)
         }
     }
 }
 #endif
 
 #Preview {
-    SignedInRootView()
+    SignedInRootView(client: .demo, eventStream: .demo)
 }

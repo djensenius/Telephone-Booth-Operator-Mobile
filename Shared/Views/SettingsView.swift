@@ -26,6 +26,19 @@ public struct SettingsView: View {
     public var body: some View {
         NavigationStack {
             Form {
+                if config.isDemoMode {
+                    Section {
+                        Button {
+                            config.disableDemoMode()
+                            dismiss()
+                        } label: {
+                            Label("Exit Demo Mode", systemImage: "sparkles")
+                        }
+                    } footer: {
+                        Text("Demo mode uses bundled sample data and never contacts the operator API.")
+                    }
+                }
+
                 Section {
                     TextField("https://operator.example.com", text: $apiBaseString)
                         #if os(iOS) || os(visionOS)
@@ -52,8 +65,9 @@ public struct SettingsView: View {
                 }
 
                 Section {
-                    #if os(macOS)
-                    VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+                    DisclosureGroup {
+                        #if os(macOS)
+                        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
                         LabeledContent("OIDC issuer") {
                             Text(config.oidcIssuerBase)
                                 .textSelection(.enabled)
@@ -71,15 +85,18 @@ public struct SettingsView: View {
                                 .textSelection(.enabled)
                         }
                         .font(Theme.Fonts.bodySmall)
+                        }
+                        #else
+                        LabeledContent("OIDC issuer", value: config.oidcIssuerBase)
+                        .font(Theme.Fonts.bodySmall)
+                        LabeledContent("Client ID", value: config.oidcClientID)
+                        .font(Theme.Fonts.bodySmall)
+                        LabeledContent("Redirect", value: config.redirectURI)
+                        .font(Theme.Fonts.bodySmall)
+                        #endif
+                    } label: {
+                        Label("OIDC details", systemImage: "lock.shield")
                     }
-                    #else
-                    LabeledContent("OIDC issuer", value: config.oidcIssuerBase)
-                        .font(Theme.Fonts.bodySmall)
-                    LabeledContent("Client ID", value: config.oidcClientID)
-                        .font(Theme.Fonts.bodySmall)
-                    LabeledContent("Redirect", value: config.redirectURI)
-                        .font(Theme.Fonts.bodySmall)
-                    #endif
                 } header: {
                     Text("Authentication")
                 } footer: {
