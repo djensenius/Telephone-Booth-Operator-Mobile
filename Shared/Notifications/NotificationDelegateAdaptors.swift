@@ -47,8 +47,18 @@ public final class TBOperatorAppDelegate: NSObject, UIApplicationDelegate, UNUse
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .list, .sound, .badge]
+        Task { await PendingMessagesStore.shared.refresh(using: .shared) }
+        return [.banner, .list, .sound, .badge]
     }
+
+    #if !os(tvOS)
+    nonisolated public func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        await PendingMessagesStore.shared.refresh(using: .shared)
+    }
+    #endif
 }
 #endif
 
@@ -82,7 +92,15 @@ public final class TBOperatorMacAppDelegate: NSObject, NSApplicationDelegate, UN
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .list, .sound, .badge]
+        Task { await PendingMessagesStore.shared.refresh(using: .shared) }
+        return [.banner, .list, .sound, .badge]
+    }
+
+    nonisolated public func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        await PendingMessagesStore.shared.refresh(using: .shared)
     }
 }
 #endif

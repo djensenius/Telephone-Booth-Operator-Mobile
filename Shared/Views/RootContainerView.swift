@@ -36,7 +36,12 @@ public struct RootContainerView: View {
             guard newPhase == .active else { return }
             Task { @MainActor in
                 _ = await AuthManager.shared.ensureValidToken()
+                await PendingMessagesStore.shared.refresh(using: .shared)
             }
+        }
+        .onChange(of: auth.authState) { _, newState in
+            guard newState == .signedOut else { return }
+            PendingMessagesStore.shared.stopPolling()
         }
     }
 

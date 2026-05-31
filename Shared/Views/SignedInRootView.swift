@@ -46,6 +46,7 @@ public struct SignedInRootView: View {
 private struct OperatorShell: View {
     let client: OperatorClient
     let eventStream: EventStream
+    @State private var pending = PendingMessagesStore.shared
 
     var body: some View {
         TabView {
@@ -71,6 +72,7 @@ private struct OperatorShell: View {
                     MessageListView(client: client).navigationTitle("Messages")
                 }
             }
+            .badge(pending.pendingCount)
 
             Tab("Events", systemImage: "antenna.radiowaves.left.and.right") {
                 NavigationStack {
@@ -100,6 +102,7 @@ private struct OperatorShell: View {
         .tabViewStyle(.sidebarAdaptable)
         .tint(Theme.Colors.accent)
         .liveActivityObserver()
+        .task { pending.startPolling(using: client) }
     }
 
     @ViewBuilder
