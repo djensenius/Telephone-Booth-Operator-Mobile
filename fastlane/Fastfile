@@ -14,6 +14,10 @@ WATCH_BUNDLE_ID    = "#{PRIMARY_BUNDLE_ID}.watch"
 PRIMARY_LANGUAGE   = "en-CA"
 APP_GROUP_ID       = "group.org.davidjensenius.TelephoneBoothOperatorMobile"
 
+# App Store keywords are applied per version localization via Spaceship because
+# this repo cannot carry a `keywords.txt` metadata file.
+KEYWORDS = "operator,console,booth,phone,installation,dashboard,monitor,status,calls,messages"
+
 # Developer Portal capabilities each bundle ID must have enabled, derived from
 # the targets' .entitlements files. Managed signing (Xcode Cloud) only succeeds
 # when every entitlement maps to an enabled App ID capability; a missing one
@@ -188,9 +192,7 @@ platform :ios do
 
   # Keywords are set programmatically because the App Store keyword field is
   # uploaded per version localization and this repo cannot carry a
-  # `keywords.txt` metadata file.
-  KEYWORDS = "operator,console,booth,phone,installation,dashboard,monitor,status,calls,messages"
-
+  # `keywords.txt` metadata file (see KEYWORDS at the top of this file).
   desc "Upload metadata + screenshots for every platform to App Store Connect (no binaries)."
   lane :upload_store_metadata do
     deliver_platform("ios", "ios")

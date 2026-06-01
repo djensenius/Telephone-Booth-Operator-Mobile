@@ -139,7 +139,7 @@ for w in list {
   let owner = (w[kCGWindowOwnerName as String] as? String) ?? ""
   let b = w[kCGWindowBounds as String] as? [String: Any] ?? [:]
   let h = (b["Height"] as? Double) ?? 0
-  if owner == "TB Operator" && h > 400 {
+  if owner == "Operator" && h > 400 {
     print((w[kCGWindowNumber as String] as? Int) ?? 0)
     break
   }
