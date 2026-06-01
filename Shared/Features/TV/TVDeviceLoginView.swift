@@ -8,7 +8,9 @@
 
 #if os(tvOS)
 
+import CoreImage.CIFilterBuiltins
 import SwiftUI
+import UIKit
 
 struct TVDeviceLoginView: View {
     @State private var authorization: DeviceAuthorization?
@@ -59,32 +61,63 @@ struct TVDeviceLoginView: View {
     }
 
     private func instructions(_ auth: DeviceAuthorization) -> some View {
-        VStack(spacing: 32) {
-            Text("On your phone or computer, visit:")
-                .font(.title3)
-                .foregroundStyle(Theme.Colors.textSecondary)
-            Text(auth.verificationURI.absoluteString)
-                .font(.title.weight(.semibold))
-                .foregroundStyle(Theme.Colors.textPrimary)
-            Text("and enter the code:")
-                .font(.title3)
-                .foregroundStyle(Theme.Colors.textSecondary)
-            Text(auth.userCode)
-                .font(.system(size: 96, weight: .bold).monospacedDigit())
-                .foregroundStyle(Theme.Colors.accent)
-                .padding(.horizontal, 60)
-                .padding(.vertical, 24)
-                .background {
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(Theme.Colors.accent.opacity(0.18))
+        HStack(alignment: .center, spacing: 64) {
+            if let qrCode = Self.qrImage(for: auth.verificationURIComplete ?? auth.verificationURI) {
+                VStack(spacing: 20) {
+                    qrCode
+                        .interpolation(.none)
+                        .resizable()
+                        .frame(width: 320, height: 320)
+                        .padding(24)
+                        .background {
+                            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                                .fill(.white)
+                        }
+                    Text("Scan to sign in")
+                        .font(.title3)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                 }
-            HStack(spacing: 12) {
-                ProgressView()
-                Text("Waiting for sign-in…")
+            }
+            VStack(spacing: 32) {
+                Text("On your phone or computer, visit:")
                     .font(.title3)
                     .foregroundStyle(Theme.Colors.textSecondary)
+                Text(auth.verificationURI.absoluteString)
+                    .font(.title.weight(.semibold))
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                Text("and enter the code:")
+                    .font(.title3)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                Text(auth.userCode)
+                    .font(.system(size: 96, weight: .bold).monospacedDigit())
+                    .foregroundStyle(Theme.Colors.accent)
+                    .padding(.horizontal, 60)
+                    .padding(.vertical, 24)
+                    .background {
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .fill(Theme.Colors.accent.opacity(0.18))
+                    }
+                HStack(spacing: 12) {
+                    ProgressView()
+                    Text("Waiting for sign-in…")
+                        .font(.title3)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                }
             }
         }
+    }
+
+    /// Renders a URL as a QR code so the user can scan it with a phone
+    /// instead of typing the verification URL and code by hand.
+    private static func qrImage(for url: URL) -> Image? {
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(url.absoluteString.utf8)
+        filter.correctionLevel = "M"
+        guard let output = filter.outputImage else { return nil }
+        let scaled = output.transformed(by: CGAffineTransform(scaleX: 12, y: 12))
+        let context = CIContext()
+        guard let cgImage = context.createCGImage(scaled, from: scaled.extent) else { return nil }
+        return Image(uiImage: UIImage(cgImage: cgImage))
     }
 
     private func start() async {
