@@ -47,5 +47,8 @@ fastlane/README.md
 fastlane/screenshots/screenshots.html
 fastlane/test_output/
 fastlane/builds/
+# App Review contact details are PII — keep them out of the public repo
+fastlane/metadata/review_information/email_address.txt
+fastlane/metadata/review_information/phone_number.txt
 # App Store Connect API keys must never live inside the repo
 *.p8

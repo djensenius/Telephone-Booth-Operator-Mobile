@@ -41,60 +41,74 @@ public struct SignedInRootView: View {
 }
 
 #if !os(watchOS)
+/// Stable identifiers for the signed-in tabs, used to drive selection and to
+/// let screenshot automation open a specific tab via `-uiScreenshotTab`.
+private enum OperatorTab: String, Hashable {
+    case dashboard, stats, sessions, messages, events, questions, system, settings
+}
+
 /// Unified, platform-adaptive signed-in shell. One `TabView` plus
 /// `.sidebarAdaptable` does the right thing on every supported platform.
 private struct OperatorShell: View {
     let client: OperatorClient
     let eventStream: EventStream
     @State private var pending = PendingMessagesStore.shared
+    @State private var selection: OperatorTab
+
+    init(client: OperatorClient, eventStream: EventStream) {
+        self.client = client
+        self.eventStream = eventStream
+        let requested = LaunchEnv.screenshotTab.flatMap(OperatorTab.init(rawValue:))
+        _selection = State(initialValue: requested ?? .dashboard)
+    }
 
     var body: some View {
-        TabView {
-            Tab("Dashboard", systemImage: "gauge.with.dots.needle.bottom.50percent") {
+        TabView(selection: $selection) {
+            Tab("Dashboard", systemImage: "gauge.with.dots.needle.bottom.50percent", value: .dashboard) {
                 dashboardTab
             }
 
-            Tab("Stats", systemImage: "chart.bar.fill") {
+            Tab("Stats", systemImage: "chart.bar.fill", value: .stats) {
                 NavigationStack {
                     statsView.navigationTitle("Stats")
                 }
             }
 
             #if !os(tvOS)
-            Tab("Sessions", systemImage: "phone.connection.fill") {
+            Tab("Sessions", systemImage: "phone.connection.fill", value: .sessions) {
                 NavigationStack {
                     SessionListView(client: client).navigationTitle("Sessions")
                 }
             }
 
-            Tab("Messages", systemImage: "tray.full") {
+            Tab("Messages", systemImage: "tray.full", value: .messages) {
                 NavigationStack {
                     MessageListView(client: client).navigationTitle("Messages")
                 }
             }
             .badge(pending.pendingCount)
 
-            Tab("Events", systemImage: "antenna.radiowaves.left.and.right") {
+            Tab("Events", systemImage: "antenna.radiowaves.left.and.right", value: .events) {
                 NavigationStack {
                     EventsFeedView(client: client, stream: eventStream).navigationTitle("Events")
                 }
             }
 
-            Tab("Questions", systemImage: "questionmark.bubble") {
+            Tab("Questions", systemImage: "questionmark.bubble", value: .questions) {
                 NavigationStack {
                     QuestionsView(client: client).navigationTitle("Questions")
                 }
             }
             #endif
 
-            Tab("System", systemImage: "cpu") {
+            Tab("System", systemImage: "cpu", value: .system) {
                 NavigationStack {
                     SystemView(client: client).navigationTitle("System")
                 }
             }
 
             #if !os(macOS)
-            Tab("Settings", systemImage: "gearshape") {
+            Tab("Settings", systemImage: "gearshape", value: .settings) {
                 SettingsView(isModal: false)
             }
             #endif

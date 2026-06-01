@@ -36,7 +36,7 @@ targets:
     info:
       path: TBOperatorMobile/Info.plist
       properties:
-        CFBundleDisplayName: TB Operator
+        CFBundleDisplayName: Operator
         CFBundleName: TBOperatorMobile
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
@@ -97,7 +97,7 @@ targets:
     info:
       path: TBOperatorMobileWidgets/Info.plist
       properties:
-        CFBundleDisplayName: TB Operator Widgets
+        CFBundleDisplayName: Operator Widgets
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
@@ -127,7 +127,7 @@ targets:
     info:
       path: TBOperatorMobileWatch/Info.plist
       properties:
-        CFBundleDisplayName: TB Operator
+        CFBundleDisplayName: Operator
         CFBundleName: TBOperatorMobileWatch
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
@@ -165,8 +165,8 @@ targets:
     info:
       path: TBOperatorMobileMac/Info.plist
       properties:
-        CFBundleDisplayName: TB Operator
-        CFBundleName: TBOperatorMobileMac
+        CFBundleDisplayName: Operator
+        CFBundleName: Operator
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         ITSAppUsesNonExemptEncryption: false
@@ -211,7 +211,7 @@ targets:
     info:
       path: TBOperatorMobileVision/Info.plist
       properties:
-        CFBundleDisplayName: TB Operator
+        CFBundleDisplayName: Operator
         CFBundleName: TBOperatorMobileVision
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
@@ -249,7 +249,7 @@ targets:
     info:
       path: TBOperatorMobileTV/Info.plist
       properties:
-        CFBundleDisplayName: TB Operator
+        CFBundleDisplayName: Operator
         CFBundleName: TBOperatorMobileTV
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)

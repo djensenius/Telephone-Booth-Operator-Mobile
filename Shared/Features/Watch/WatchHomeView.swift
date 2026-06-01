@@ -25,49 +25,64 @@ extension MessageStatus {
 
 struct WatchHomeView: View {
     @State private var showingSettings = false
+    @State private var selection = WatchPage.status
     let client: OperatorClient
 
     init(client: OperatorClient = .shared) {
         self.client = client
     }
 
-    var body: some View {
-        TabView {
-            NavigationStack {
-                WatchStatusView(client: client)
-                    .navigationTitle("Status")
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button {
-                                showingSettings = true
-                            } label: {
-                                Image(systemName: "gear")
-                            }
-                            .accessibilityLabel("Settings")
-                        }
-                    }
-            }
-            .tabItem { Label("Status", systemImage: "gauge.with.dots.needle.bottom.50percent") }
+    private enum WatchPage: Hashable {
+        case status, latest, moderation, stats
 
-            NavigationStack {
-                WatchLatestMessageView(client: client)
-                    .navigationTitle("Latest")
+        var title: String {
+            switch self {
+            case .status: return "Status"
+            case .latest: return "Latest"
+            case .moderation: return "Moderation"
+            case .stats: return "Stats"
             }
-            .tabItem { Label("Latest", systemImage: "tray.full") }
-
-            NavigationStack {
-                WatchModerationView(client: client)
-                    .navigationTitle("Moderation")
-            }
-            .tabItem { Label("Moderation", systemImage: "checkmark.shield") }
-
-            NavigationStack {
-                WatchStatsView(client: client)
-                    .navigationTitle("Stats")
-            }
-            .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
         }
-        .tabViewStyle(.verticalPage)
+    }
+
+    var body: some View {
+        // A single NavigationStack wraps the vertical-paging TabView. Giving
+        // each page its own NavigationStack crashes watchOS with a nested
+        // "wrapped navigation controllers" exception, so the title is driven
+        // by the current selection instead.
+        NavigationStack {
+            TabView(selection: $selection) {
+                WatchStatusView(client: client)
+                    .tabItem { Label("Status", systemImage: "gauge.with.dots.needle.bottom.50percent") }
+                    .tag(WatchPage.status)
+
+                WatchLatestMessageView(client: client)
+                    .tabItem { Label("Latest", systemImage: "tray.full") }
+                    .tag(WatchPage.latest)
+
+                WatchModerationView(client: client)
+                    .tabItem { Label("Moderation", systemImage: "checkmark.shield") }
+                    .tag(WatchPage.moderation)
+
+                WatchStatsView(client: client)
+                    .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
+                    .tag(WatchPage.stats)
+            }
+            .tabViewStyle(.verticalPage)
+            .navigationTitle(selection.title)
+            .toolbar {
+                if selection == .status {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showingSettings = true
+                        } label: {
+                            Image(systemName: "gear")
+                        }
+                        .accessibilityLabel("Settings")
+                    }
+                }
+            }
+        }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }

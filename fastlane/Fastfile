@@ -14,6 +14,10 @@ WATCH_BUNDLE_ID    = "#{PRIMARY_BUNDLE_ID}.watch"
 PRIMARY_LANGUAGE   = "en-CA"
 APP_GROUP_ID       = "group.org.davidjensenius.TelephoneBoothOperatorMobile"
 
+# App Store keywords are applied per version localization via Spaceship because
+# this repo cannot carry a `keywords.txt` metadata file.
+KEYWORDS = "operator,console,booth,phone,installation,dashboard,monitor,status,calls,messages"
+
 # Developer Portal capabilities each bundle ID must have enabled, derived from
 # the targets' .entitlements files. Managed signing (Xcode Cloud) only succeeds
 # when every entitlement maps to an enabled App ID capability; a missing one
@@ -127,6 +131,48 @@ platform :ios do
     create_app_record
   end
 
+  desc "Print the App Store Connect app record + version states (diagnostic)."
+  lane :asc_status do
+    require "spaceship"
+    token = Spaceship::ConnectAPI::Token.create(
+      key_id: API_KEY[:key_id],
+      issuer_id: API_KEY[:issuer_id],
+      filepath: API_KEY[:key_filepath]
+    )
+    Spaceship::ConnectAPI.token = token
+
+    app = Spaceship::ConnectAPI::App.find(PRIMARY_BUNDLE_ID)
+    if app.nil?
+      UI.important("APP NOT FOUND on App Store Connect for #{PRIMARY_BUNDLE_ID}")
+      next
+    end
+    UI.success("APP FOUND: #{app.name} (id=#{app.id}) sku=#{app.sku}")
+    begin
+      app.get_app_store_versions.each do |v|
+        UI.message("  version #{v.version_string} platform=#{v.platform} state=#{v.app_store_state}")
+        begin
+          locs = v.get_app_store_version_localizations
+          UI.message("    locales: #{locs.map(&:locale).join(', ')}")
+          locs.each do |loc|
+            sets = loc.get_app_screenshot_sets
+            counts = sets.map { |s| "#{s.screenshot_display_type}=#{s.app_screenshots&.size || 0}" }
+            UI.message("    #{loc.locale} screenshots: #{counts.join(', ')}")
+          end
+        rescue StandardError => e
+          UI.error("    localization error: #{e.class}: #{e.message}")
+        end
+        begin
+          build = v.get_build
+          UI.message("    build: #{build ? build.version : 'NONE ATTACHED'}")
+        rescue StandardError => e
+          UI.error("    build error: #{e.class}: #{e.message}")
+        end
+      end
+    rescue StandardError => e
+      UI.error("  versions error: #{e.class}: #{e.message}")
+    end
+  end
+
   desc "Build and upload the iOS app to TestFlight"
   lane :beta do
     increment_build_number(
@@ -142,6 +188,63 @@ platform :ios do
       skip_waiting_for_build_processing: true,
       app_identifier: PRIMARY_BUNDLE_ID
     )
+  end
+
+  # Keywords are set programmatically because the App Store keyword field is
+  # uploaded per version localization and this repo cannot carry a
+  # `keywords.txt` metadata file (see KEYWORDS at the top of this file).
+  desc "Upload metadata + screenshots for every platform to App Store Connect (no binaries)."
+  lane :upload_store_metadata do
+    deliver_platform("ios", "ios")
+    deliver_platform("appletvos", "appletv")
+    deliver_platform("xros", "visionos")
+    deliver_platform("osx", "mac")
+    set_keywords_all(KEYWORDS)
+  end
+end
+
+# Uploads text metadata and the platform's screenshots for one App Store
+# platform without touching the binary. Safe to re-run.
+def deliver_platform(platform, screenshots_subdir)
+  shots = File.expand_path("screenshots/#{screenshots_subdir}", __dir__)
+  unless Dir.exist?(shots)
+    UI.important("No screenshots dir for #{platform} (#{shots}); skipping.")
+    return
+  end
+  deliver(
+    app_identifier: PRIMARY_BUNDLE_ID,
+    platform: platform,
+    metadata_path: File.expand_path("metadata", __dir__),
+    screenshots_path: shots,
+    skip_binary_upload: true,
+    overwrite_screenshots: true,
+    run_precheck_before_submit: false,
+    submit_for_review: false,
+    automatic_release: false,
+    force: true
+  )
+end
+
+# Sets the keyword field on the editable version localization of every
+# platform, working around the missing keywords.txt metadata file.
+def set_keywords_all(keywords)
+  require "spaceship"
+  token = Spaceship::ConnectAPI::Token.create(
+    key_id: API_KEY[:key_id],
+    issuer_id: API_KEY[:issuer_id],
+    filepath: API_KEY[:key_filepath]
+  )
+  Spaceship::ConnectAPI.token = token
+  app = Spaceship::ConnectAPI::App.find(PRIMARY_BUNDLE_ID)
+  return UI.important("App not found; cannot set keywords.") if app.nil?
+
+  app.get_app_store_versions.each do |version|
+    next unless version.app_store_state == "PREPARE_FOR_SUBMISSION"
+
+    version.get_app_store_version_localizations.each do |loc|
+      loc.update(attributes: { keywords: keywords })
+      UI.success("Set keywords for #{version.platform} #{loc.locale}")
+    end
   end
 end
 
