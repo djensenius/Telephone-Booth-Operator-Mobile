@@ -22,7 +22,9 @@ public final class TBOperatorAppDelegate: NSObject, UIApplicationDelegate, UNUse
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        #if os(iOS)
         Task { @MainActor in WatchAuthSync.shared.activate() }
+        #endif
         return true
     }
 
