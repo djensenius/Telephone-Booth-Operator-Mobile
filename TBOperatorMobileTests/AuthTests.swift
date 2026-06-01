@@ -269,6 +269,43 @@ final class AuthTests: XCTestCase {
         )
         manager.signOut()
     }
+
+    // MARK: - Phone-as-broker (watch handoff)
+
+    @MainActor
+    func testBrokerAccessTokenReturnsNilWhenSignedOut() async {
+        let manager = AuthManager.shared
+        manager.signOut()
+        let brokered = await manager.brokerAccessTokenForWatch()
+        XCTAssertNil(brokered, "Broker must not vend a token when signed out")
+    }
+
+    @MainActor
+    func testBrokerAccessTokenVendsCurrentAccessToken() async throws {
+        let manager = AuthManager.shared
+        let token = "broker-access-\(UUID().uuidString)"
+        let stored = manager.storeTokens(OIDCTokens(
+            accessToken: token,
+            refreshToken: "broker-refresh-\(UUID().uuidString)",
+            idToken: nil,
+            expiresIn: 3600,
+            tokenType: "Bearer"
+        ))
+        // Keychain writes need a signed host; skip where it's unavailable
+        // (e.g. unsigned simulator runs return errSecMissingEntitlement).
+        try XCTSkipUnless(stored, "Keychain unavailable in this environment")
+
+        let brokered = await manager.brokerAccessTokenForWatch()
+        XCTAssertEqual(brokered?.accessToken, token,
+                       "Broker should vend the phone's current access token")
+        if let expiry = brokered?.expiry {
+            XCTAssertGreaterThan(expiry, Date().timeIntervalSince1970,
+                                 "Brokered expiry should be in the future")
+        } else {
+            XCTFail("Expected a brokered expiry")
+        }
+        manager.signOut()
+    }
 }
 
 // MARK: - URL Protocol mocks for launch tests

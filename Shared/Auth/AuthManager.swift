@@ -112,6 +112,22 @@ public final class AuthManager {
     /// allow the cached token only when it hasn't expired yet.
     public func validateSessionOnLaunch() async {
         guard authState == .unknown else { return }
+        #if os(watchOS)
+        // Brokered mode: no refresh token of our own. Try the paired phone,
+        // then fall back to a still-valid cached access token if it's offline.
+        if getKeychainItem(account: "oidc_refresh_token") == nil {
+            if await WatchAuthSync.shared.ensureBrokeredToken() {
+                authState = .signedIn
+                logger.info("validateSession: restored via paired-phone broker")
+            } else if getAccessToken() != nil, !isTokenExpired() {
+                authState = .signedIn
+                logger.info("validateSession: phone unreachable, cached token still valid")
+            } else {
+                signOut()
+            }
+            return
+        }
+        #endif
         guard getKeychainItem(account: "oidc_refresh_token") != nil else {
             logger.info("validateSession: no refresh token — signing out")
             signOut()
@@ -269,6 +285,14 @@ public final class AuthManager {
     /// access token is in the Keychain after the call.
     public func ensureValidToken() async -> Bool {
         restoreStateIfNeeded()
+        #if os(watchOS)
+        // Brokered mode (no refresh token of our own): pull a fresh access
+        // token from the paired phone instead of refreshing independently.
+        if getKeychainItem(account: "oidc_refresh_token") == nil {
+            if await WatchAuthSync.shared.ensureBrokeredToken() { return true }
+            return getAccessToken() != nil && !isTokenExpired()
+        }
+        #endif
         guard getAccessToken() != nil else { return false }
         guard isTokenExpiringSoon() else { return true }
         logger.debug("ensureValidToken: refreshing proactively")

@@ -108,6 +108,61 @@ response (valid per spec when `openid` scope is not granted or the provider
 omits it), validation is skipped and a warning is logged. Sign-in proceeds
 because the access token is still validated by the backend on every request.
 
+## Per-platform sign-in
+
+Most targets (iOS, iPadOS, macOS, visionOS, watchOS) run the
+`ASWebAuthenticationSession` PKCE flow above. Two platforms differ:
+
+- **tvOS** uses the OAuth 2.0 Device Authorization Grant (RFC 8628) — no
+  on-device browser. The TV shows a `user_code` plus a scannable QR code
+  (`verification_uri_complete`) and polls `/token` until the user approves
+  on a phone or computer. See `AuthManager+DeviceFlow.swift` and
+  `TVDeviceLoginView.swift`.
+- **watchOS** can reuse the paired iPhone's session via a phone-as-broker
+  handoff (below), falling back to its own `ASWebAuthenticationSession`
+  login when the phone is unreachable.
+
+### watchOS phone-as-broker handoff
+
+The standalone watch app avoids an on-watch browser login by borrowing the
+paired iPhone's session over WatchConnectivity. Crucially, the **watch never
+holds a refresh token**: Authentik rotates refresh tokens (each refresh
+issues a new one and invalidates the old, with reuse detection), so two
+devices refreshing the same lineage would invalidate each other and trigger
+sign-out loops. Instead:
+
+- The watch caches only a short-lived **access token + expiry**. A watch in
+  "brokered mode" is identified by the *absence* of a refresh token in its
+  Keychain (an on-watch OIDC fallback login would leave one).
+- When the cached access token is missing or near expiry,
+  `AuthManager.ensureValidToken()` / `validateSessionOnLaunch()` call
+  `WatchAuthSync.ensureBrokeredToken()`, which `sendMessage`s the phone and
+  awaits a reply. Transport is **pull-only** — the phone never pushes
+  credentials, so a stale token can't arrive after the phone has rotated.
+- The iPhone answers via `WCSessionDelegate.didReceiveMessage(...)`,
+  calling `AuthManager.brokerAccessTokenForWatch()`. It refreshes its own
+  session first if needed and returns `{ access_token, expiry, iss, cid }`.
+  **The refresh token never leaves the phone.** The watch rejects a reply
+  whose issuer/client id don't match its own `AppConfig`.
+- Demo mode is excluded from brokering. If the phone is signed out it replies
+  `{ tbo_ok: false, reason: "signed_out" }`, which signs the watch out too —
+  this is how a phone-side sign-out propagates to the watch (on the watch's
+  next token request).
+- When the phone is unreachable and the cached access token has expired, the
+  watch shows `LoginView` with a "Sign in with iPhone" button (retry the
+  broker) and the on-watch OIDC login as a fallback.
+
+The credential travels over the system-encrypted WatchConnectivity channel
+between the paired devices, and is stored on the watch with the same
+`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` Keychain protection as
+every other target. See `Shared/Auth/WatchAuthSync.swift` and
+`Shared/Auth/AuthManager+WatchBroker.swift`.
+
+> Note: 1Password (or any AutoFill credential provider) only fills the
+> Authentik login form during an `ASWebAuthenticationSession`; it cannot
+> share an OAuth session between devices. The broker handoff is the
+> supported way to avoid a second login on the watch.
+
 ## Staying signed in robustly
 
 The session is designed to outlive the access-token lifetime (5 min) and
