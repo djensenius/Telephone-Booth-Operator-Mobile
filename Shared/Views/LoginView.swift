@@ -111,7 +111,57 @@ public struct LoginView: View {
     private var signInButton: some View {
         #if os(tvOS)
         TVDeviceLoginView()
+        #elseif os(watchOS)
+        VStack(spacing: Theme.Spacing.small) {
+            iPhoneSignInButton
+            oidcSignInButton
+        }
+        .task {
+            // Auto-attempt a handoff from the paired phone on appear.
+            _ = await WatchAuthSync.shared.ensureBrokeredToken()
+        }
         #else
+        oidcSignInButton
+        #endif
+    }
+
+    #if os(watchOS)
+    private var iPhoneSignInButton: some View {
+        Button {
+            Task { await signInFromPhone() }
+        } label: {
+            HStack(spacing: Theme.Spacing.small) {
+                if isSigningIn {
+                    ProgressView()
+                } else {
+                    Image(systemName: "iphone")
+                }
+                Text(isSigningIn ? "Connecting…" : "Sign in with iPhone")
+                    .font(Theme.Fonts.bodyMedium.weight(.semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Theme.Spacing.medium)
+        }
+        .disabled(isSigningIn)
+        .tint(Theme.Colors.accent)
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .padding(.horizontal, Theme.Spacing.large)
+    }
+
+    private func signInFromPhone() async {
+        isSigningIn = true
+        errorMessage = nil
+        defer { isSigningIn = false }
+        if !(await WatchAuthSync.shared.ensureBrokeredToken()) {
+            errorMessage = "Couldn't reach your iPhone. Open the Operator app on your "
+                + "iPhone, or sign in on your watch instead."
+        }
+    }
+    #endif
+
+    @ViewBuilder
+    private var oidcSignInButton: some View {
         Button {
             Task { await signIn() }
         } label: {
@@ -132,7 +182,6 @@ public struct LoginView: View {
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
         .padding(.horizontal, Theme.Spacing.large)
-        #endif
     }
 
     private func signIn() async {

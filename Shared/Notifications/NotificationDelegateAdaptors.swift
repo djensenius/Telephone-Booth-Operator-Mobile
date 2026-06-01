@@ -22,6 +22,7 @@ public final class TBOperatorAppDelegate: NSObject, UIApplicationDelegate, UNUse
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        Task { @MainActor in WatchAuthSync.shared.activate() }
         return true
     }
 
@@ -111,6 +112,7 @@ import WatchKit
 public final class TBOperatorWatchAppDelegate: NSObject, WKApplicationDelegate, UNUserNotificationCenterDelegate {
     public func applicationDidFinishLaunching() {
         UNUserNotificationCenter.current().delegate = self
+        Task { @MainActor in WatchAuthSync.shared.activate() }
     }
 
     public func didRegisterForRemoteNotifications(withDeviceToken deviceToken: Data) {
