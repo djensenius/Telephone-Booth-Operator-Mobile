@@ -2361,6 +2361,7 @@
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile;
+				PRODUCT_NAME = Operator;
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -2509,6 +2510,7 @@
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile;
+				PRODUCT_NAME = Operator;
 				SDKROOT = macosx;
 			};
 			name = Debug;
