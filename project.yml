@@ -180,6 +180,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile
+        PRODUCT_NAME: Operator
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: false
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
