@@ -148,6 +148,8 @@ public enum Theme {
         })
     }
     #else
+    // Non-iOS platforms either keep their native palette (macOS / visionOS)
+    // or use the fixed Catppuccin Mocha palette (watchOS / tvOS).
     fileprivate static func dynamicColor(light: Color, dark: Color) -> Color {
         #if canImport(UIKit)
         #if os(watchOS) || os(tvOS)
@@ -309,94 +311,6 @@ public enum Theme {
                 light: CatppuccinLatte.blue,
                 dark: CatppuccinMocha.blue,
                 system: { _ in .systemBlue }
-            )
-        }
-        #elseif os(iOS)
-        public static var accent: Color {
-            dynamicColor(
-            light: CatppuccinLatte.maroon,
-            dark: CatppuccinMocha.maroon,
-            system: { _ in .systemBlue }
-            )
-        }
-        public static var primary: Color {
-            dynamicColor(
-            light: CatppuccinLatte.red,
-            dark: CatppuccinMocha.red,
-            system: { _ in .systemBlue }
-            )
-        }
-        public static var secondary: Color {
-            dynamicColor(
-            light: CatppuccinLatte.peach,
-            dark: CatppuccinMocha.peach,
-            system: { _ in .systemOrange }
-            )
-        }
-
-        public static var background: Color {
-            dynamicColor(
-            light: CatppuccinLatte.base,
-            dark: CatppuccinMocha.base,
-            system: { _ in .systemBackground }
-            )
-        }
-        public static var secondaryBackground: Color {
-            dynamicColor(
-            light: CatppuccinLatte.mantle,
-            dark: CatppuccinMocha.mantle,
-            system: { _ in .secondarySystemBackground }
-            )
-        }
-        public static var elevatedBackground: Color {
-            dynamicColor(
-            light: CatppuccinLatte.surface0,
-            dark: CatppuccinMocha.surface0,
-            system: { _ in .tertiarySystemBackground }
-            )
-        }
-
-        public static var textPrimary: Color {
-            dynamicColor(
-            light: CatppuccinLatte.text,
-            dark: CatppuccinMocha.text,
-            system: { _ in .label }
-            )
-        }
-        public static var textSecondary: Color {
-            dynamicColor(
-            light: CatppuccinLatte.subtext0,
-            dark: CatppuccinMocha.subtext0,
-            system: { _ in .secondaryLabel }
-            )
-        }
-
-        public static var error: Color {
-            dynamicColor(
-            light: CatppuccinLatte.red,
-            dark: CatppuccinMocha.red,
-            system: { _ in .systemRed }
-            )
-        }
-        public static var warning: Color {
-            dynamicColor(
-            light: CatppuccinLatte.yellow,
-            dark: CatppuccinMocha.yellow,
-            system: { _ in .systemOrange }
-            )
-        }
-        public static var success: Color {
-            dynamicColor(
-            light: CatppuccinLatte.green,
-            dark: CatppuccinMocha.green,
-            system: { _ in .systemGreen }
-            )
-        }
-        public static var info: Color {
-            dynamicColor(
-            light: CatppuccinLatte.blue,
-            dark: CatppuccinMocha.blue,
-            system: { _ in .systemBlue }
             )
         }
         #else
