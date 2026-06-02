@@ -77,21 +77,16 @@ public enum Theme {
         }
 
         private static func readStoredMode() -> IOSThemeMode {
-            guard let stored = UserDefaults.standard.string(forKey: defaultsKey),
-                  let mode = IOSThemeMode(rawValue: stored)
-            else {
-                return defaultMode
-            }
-            return mode
+            UserDefaults.standard.string(forKey: defaultsKey).flatMap(IOSThemeMode.init) ?? defaultMode
         }
 
         fileprivate static var current: IOSThemeMode {
             // Theme.swift is also built into the widget extension, which does
             // not include AppConfig. Reading the shared preference here keeps
             // SwiftUI dynamic colors self-contained across all iOS targets;
-            // this is accessed during trait changes, so storedMode() keeps
-            // standard defaults resolution lightweight and thread-safe after
-            // the initial lookup populates the cache.
+            // this is accessed during trait changes, so storedMode() uses a
+            // lock for thread-safe cache access and avoids repeated defaults
+            // reads after the initial lookup.
             storedMode()
         }
     }
@@ -158,7 +153,7 @@ public enum Theme {
     fileprivate static func dynamicColor(
         light: Color,
         dark: Color,
-        system: @escaping (UIUserInterfaceStyle) -> UIColor
+        system: @escaping () -> UIColor
     ) -> Color {
         Color(UIColor { traitCollection in
             let mode = IOSThemeMode.current
@@ -173,7 +168,7 @@ public enum Theme {
             }
 
             if mode.usesSystemPalette {
-                return system(interfaceStyle)
+                return system()
             }
             return interfaceStyle == .dark ? UIColor(dark) : UIColor(light)
         })
@@ -254,7 +249,7 @@ public enum Theme {
             dynamicColor(
                 light: CatppuccinLatte.maroon,
                 dark: CatppuccinMocha.maroon,
-                system: { _ in .systemBlue }
+                system: { .systemBlue }
             )
         }
 
@@ -262,7 +257,7 @@ public enum Theme {
             dynamicColor(
                 light: CatppuccinLatte.red,
                 dark: CatppuccinMocha.red,
-                system: { _ in .systemBlue }
+                system: { .systemBlue }
             )
         }
 
@@ -270,7 +265,7 @@ public enum Theme {
             dynamicColor(
                 light: CatppuccinLatte.peach,
                 dark: CatppuccinMocha.peach,
-                system: { _ in .systemOrange }
+                system: { .systemOrange }
             )
         }
 
@@ -278,7 +273,7 @@ public enum Theme {
             dynamicColor(
                 light: CatppuccinLatte.base,
                 dark: CatppuccinMocha.base,
-                system: { _ in .systemBackground }
+                system: { .systemBackground }
             )
         }
 
@@ -286,7 +281,7 @@ public enum Theme {
             dynamicColor(
                 light: CatppuccinLatte.mantle,
                 dark: CatppuccinMocha.mantle,
-                system: { _ in .secondarySystemBackground }
+                system: { .secondarySystemBackground }
             )
         }
 
@@ -294,7 +289,7 @@ public enum Theme {
             dynamicColor(
                 light: CatppuccinLatte.surface0,
                 dark: CatppuccinMocha.surface0,
-                system: { _ in .tertiarySystemBackground }
+                system: { .tertiarySystemBackground }
             )
         }
 
@@ -302,7 +297,7 @@ public enum Theme {
             dynamicColor(
                 light: CatppuccinLatte.text,
                 dark: CatppuccinMocha.text,
-                system: { _ in .label }
+                system: { .label }
             )
         }
 
@@ -310,7 +305,7 @@ public enum Theme {
             dynamicColor(
                 light: CatppuccinLatte.subtext0,
                 dark: CatppuccinMocha.subtext0,
-                system: { _ in .secondaryLabel }
+                system: { .secondaryLabel }
             )
         }
 
@@ -318,7 +313,7 @@ public enum Theme {
             dynamicColor(
                 light: CatppuccinLatte.red,
                 dark: CatppuccinMocha.red,
-                system: { _ in .systemRed }
+                system: { .systemRed }
             )
         }
 
@@ -326,7 +321,7 @@ public enum Theme {
             dynamicColor(
                 light: CatppuccinLatte.yellow,
                 dark: CatppuccinMocha.yellow,
-                system: { _ in .systemOrange }
+                system: { .systemOrange }
             )
         }
 
@@ -334,7 +329,7 @@ public enum Theme {
             dynamicColor(
                 light: CatppuccinLatte.green,
                 dark: CatppuccinMocha.green,
-                system: { _ in .systemGreen }
+                system: { .systemGreen }
             )
         }
 
@@ -342,7 +337,7 @@ public enum Theme {
             dynamicColor(
                 light: CatppuccinLatte.blue,
                 dark: CatppuccinMocha.blue,
-                system: { _ in .systemBlue }
+                system: { .systemBlue }
             )
         }
         #else

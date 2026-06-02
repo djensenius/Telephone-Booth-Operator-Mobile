@@ -55,6 +55,7 @@ public struct RootContainerView: View {
         }
         #if os(iOS)
         .preferredColorScheme(config.iosThemeMode.preferredColorScheme)
+        .id(config.iosThemeMode)
         #endif
         .task {
             guard !effectiveDemoMode else { return }

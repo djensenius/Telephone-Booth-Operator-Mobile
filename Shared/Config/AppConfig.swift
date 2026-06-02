@@ -53,7 +53,7 @@ public final class AppConfig {
     public var iosThemeMode: Theme.IOSThemeMode {
         didSet {
             Theme.IOSThemeMode.persist(iosThemeMode)
-            logger.info("iosThemeMode updated to \(self.iosThemeMode.rawValue)")
+            logger.info("iosThemeMode updated to \(self.iosThemeMode.rawValue, privacy: .public)")
         }
     }
     #endif
