@@ -52,7 +52,7 @@ public final class AppConfig {
     /// iOS-only appearance preference for Catppuccin or native system colors.
     public var iosThemeMode: Theme.IOSThemeMode {
         didSet {
-            UserDefaults.standard.set(iosThemeMode.rawValue, forKey: Theme.IOSThemeMode.defaultsKey)
+            Theme.IOSThemeMode.persist(iosThemeMode)
             logger.info("iosThemeMode updated to \(self.iosThemeMode.rawValue, privacy: .public)")
         }
     }

@@ -56,6 +56,17 @@ public enum Theme {
         }
 
         public static func storedMode(in defaults: UserDefaults = .standard) -> IOSThemeMode {
+            modeStore.current(defaults: defaults)
+        }
+
+        public static func persist(_ mode: IOSThemeMode, in defaults: UserDefaults = .standard) {
+            defaults.set(mode.rawValue, forKey: defaultsKey)
+            modeStore.update(mode)
+        }
+
+        private static let modeStore = ModeStore()
+
+        private static func readStoredMode(in defaults: UserDefaults) -> IOSThemeMode {
             guard let stored = defaults.string(forKey: defaultsKey),
                   let mode = IOSThemeMode(rawValue: stored)
             else {
@@ -69,6 +80,28 @@ public enum Theme {
             // not include AppConfig. Reading the shared preference here keeps
             // SwiftUI dynamic colors self-contained across all iOS targets.
             storedMode()
+        }
+
+        private final class ModeStore: @unchecked Sendable {
+            private let lock = NSLock()
+            private var cachedMode: IOSThemeMode?
+
+            func current(defaults: UserDefaults) -> IOSThemeMode {
+                lock.lock()
+                defer { lock.unlock() }
+                if let cachedMode {
+                    return cachedMode
+                }
+                let mode = IOSThemeMode.readStoredMode(in: defaults)
+                cachedMode = mode
+                return mode
+            }
+
+            func update(_ mode: IOSThemeMode) {
+                lock.lock()
+                cachedMode = mode
+                lock.unlock()
+            }
         }
     }
 
@@ -160,6 +193,7 @@ public enum Theme {
     fileprivate static func dynamicColor(light: Color, dark: Color) -> Color {
         #if canImport(UIKit)
         #if os(watchOS) || os(tvOS)
+        // watchOS and tvOS are intentionally dark-only in this app.
         return dark
         #else
         return Color(UIColor { traitCollection in
