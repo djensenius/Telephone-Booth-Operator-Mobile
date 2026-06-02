@@ -28,7 +28,7 @@ public enum Theme {
         public static let defaultsKey = "TBOperatorIOSThemeMode"
         public static let defaultMode: IOSThemeMode = .catppuccinAuto
 
-        private static let cachedMode = OSAllocatedUnfairLock(initialState: Optional<IOSThemeMode>.none)
+        private static let cachedMode = OSAllocatedUnfairLock<IOSThemeMode?>(initialState: nil)
 
         public var id: String { rawValue }
 
@@ -88,7 +88,8 @@ public enum Theme {
         fileprivate static var current: IOSThemeMode {
             // Theme.swift is also built into the widget extension, which does
             // not include AppConfig. Reading the shared preference here keeps
-            // SwiftUI dynamic colors self-contained across all iOS targets.
+            // SwiftUI dynamic colors self-contained across all iOS targets;
+            // storedMode() caches after the first UserDefaults lookup.
             storedMode()
         }
     }
