@@ -53,6 +53,9 @@ public struct RootContainerView: View {
                 liveRoot
             }
         }
+        #if os(iOS)
+        .preferredColorScheme(config.iosThemeMode.preferredColorScheme)
+        #endif
         .task {
             guard !effectiveDemoMode else { return }
             await AuthManager.shared.validateSessionOnLaunch()
