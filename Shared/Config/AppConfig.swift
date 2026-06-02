@@ -84,9 +84,7 @@ public final class AppConfig {
         self.apiBaseURL = url
         self.isDemoMode = UserDefaults.standard.bool(forKey: Self.demoModeDefaultsKey)
         #if os(iOS)
-        let storedTheme = UserDefaults.standard.string(forKey: Theme.IOSThemeMode.defaultsKey)
-        self.iosThemeMode = storedTheme.flatMap(Theme.IOSThemeMode.init(rawValue:))
-            ?? Theme.IOSThemeMode.defaultMode
+        self.iosThemeMode = Theme.IOSThemeMode.storedMode()
         #endif
 
         self.oidcIssuerBase = Bundle.main.object(forInfoDictionaryKey: "OIDCIssuerBase") as? String

@@ -55,13 +55,20 @@ public enum Theme {
             }
         }
 
-        fileprivate static var current: IOSThemeMode {
-            guard let stored = UserDefaults.standard.string(forKey: defaultsKey),
+        public static func storedMode(in defaults: UserDefaults = .standard) -> IOSThemeMode {
+            guard let stored = defaults.string(forKey: defaultsKey),
                   let mode = IOSThemeMode(rawValue: stored)
             else {
                 return defaultMode
             }
             return mode
+        }
+
+        fileprivate static var current: IOSThemeMode {
+            // Theme.swift is also built into the widget extension, which does
+            // not include AppConfig. Reading the shared preference here keeps
+            // SwiftUI dynamic colors self-contained across all iOS targets.
+            storedMode()
         }
     }
 
