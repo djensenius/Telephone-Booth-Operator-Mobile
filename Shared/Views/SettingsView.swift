@@ -50,6 +50,7 @@ public struct SettingsView: View {
                             Text(mode.displayName).tag(mode)
                         }
                     }
+                    .accessibilityLabel("Theme selection")
                 } header: {
                     Text("Appearance")
                 } footer: {
