@@ -59,6 +59,9 @@ public enum Theme {
         }
 
         public static func storedMode(in defaults: UserDefaults = .standard) -> IOSThemeMode {
+            guard defaults === UserDefaults.standard else {
+                return readStoredMode(in: defaults)
+            }
             if let cached = cachedMode.withLock({ $0 }) {
                 return cached
             }
@@ -71,6 +74,9 @@ public enum Theme {
 
         public static func persist(_ mode: IOSThemeMode, in defaults: UserDefaults = .standard) {
             defaults.set(mode.rawValue, forKey: defaultsKey)
+            guard defaults === UserDefaults.standard else {
+                return
+            }
             cachedMode.withLock { cached in
                 cached = mode
             }
@@ -89,7 +95,7 @@ public enum Theme {
             // Theme.swift is also built into the widget extension, which does
             // not include AppConfig. Reading the shared preference here keeps
             // SwiftUI dynamic colors self-contained across all iOS targets;
-            // storedMode() caches after the first UserDefaults lookup.
+            // storedMode() caches standard defaults after the first lookup.
             storedMode()
         }
     }
