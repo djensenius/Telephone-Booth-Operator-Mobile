@@ -59,14 +59,14 @@ public enum Theme {
         }
 
         public static func storedMode(in defaults: UserDefaults = .standard) -> IOSThemeMode {
-            cachedMode.withLock { cached in
-                if let cached {
-                    return cached
-                }
-                let mode = readStoredMode(in: defaults)
-                cached = mode
-                return mode
+            if let cached = cachedMode.withLock({ $0 }) {
+                return cached
             }
+            let mode = readStoredMode(in: defaults)
+            cachedMode.withLock { cached in
+                cached = mode
+            }
+            return mode
         }
 
         public static func persist(_ mode: IOSThemeMode, in defaults: UserDefaults = .standard) {
