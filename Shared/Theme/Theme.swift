@@ -28,7 +28,7 @@ public enum Theme {
         public static let defaultsKey = "TBOperatorIOSThemeMode"
         public static let defaultMode: IOSThemeMode = .catppuccinAuto
 
-        private static let cachedMode = OSAllocatedUnfairLock<IOSThemeMode?>(initialState: nil)
+        private static let cachedModeLock = OSAllocatedUnfairLock<IOSThemeMode?>(initialState: nil)
 
         public var id: String { rawValue }
 
@@ -59,11 +59,11 @@ public enum Theme {
         }
 
         public static func storedMode() -> IOSThemeMode {
-            if let cached = cachedMode.withLock({ $0 }) {
+            if let cached = cachedModeLock.withLock({ $0 }) {
                 return cached
             }
             let mode = readStoredMode()
-            cachedMode.withLock { cached in
+            cachedModeLock.withLock { cached in
                 cached = mode
             }
             return mode
@@ -71,7 +71,7 @@ public enum Theme {
 
         public static func persist(_ mode: IOSThemeMode) {
             UserDefaults.standard.set(mode.rawValue, forKey: defaultsKey)
-            cachedMode.withLock { cached in
+            cachedModeLock.withLock { cached in
                 cached = mode
             }
         }
@@ -90,7 +90,8 @@ public enum Theme {
             // not include AppConfig. Reading the shared preference here keeps
             // SwiftUI dynamic colors self-contained across all iOS targets;
             // this is accessed during trait changes, so storedMode() keeps
-            // standard defaults resolution lightweight and thread-safe.
+            // standard defaults resolution lightweight and thread-safe after
+            // the initial lookup populates the cache.
             storedMode()
         }
     }
