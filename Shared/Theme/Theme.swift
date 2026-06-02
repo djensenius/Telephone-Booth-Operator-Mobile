@@ -58,32 +58,26 @@ public enum Theme {
             }
         }
 
-        public static func storedMode(in defaults: UserDefaults = .standard) -> IOSThemeMode {
-            guard defaults === UserDefaults.standard else {
-                return readStoredMode(in: defaults)
-            }
+        public static func storedMode() -> IOSThemeMode {
             if let cached = cachedMode.withLock({ $0 }) {
                 return cached
             }
-            let mode = readStoredMode(in: defaults)
+            let mode = readStoredMode()
             cachedMode.withLock { cached in
                 cached = mode
             }
             return mode
         }
 
-        public static func persist(_ mode: IOSThemeMode, in defaults: UserDefaults = .standard) {
-            defaults.set(mode.rawValue, forKey: defaultsKey)
-            guard defaults === UserDefaults.standard else {
-                return
-            }
+        public static func persist(_ mode: IOSThemeMode) {
+            UserDefaults.standard.set(mode.rawValue, forKey: defaultsKey)
             cachedMode.withLock { cached in
                 cached = mode
             }
         }
 
-        private static func readStoredMode(in defaults: UserDefaults) -> IOSThemeMode {
-            guard let stored = defaults.string(forKey: defaultsKey),
+        private static func readStoredMode() -> IOSThemeMode {
+            guard let stored = UserDefaults.standard.string(forKey: defaultsKey),
                   let mode = IOSThemeMode(rawValue: stored)
             else {
                 return defaultMode
@@ -95,7 +89,8 @@ public enum Theme {
             // Theme.swift is also built into the widget extension, which does
             // not include AppConfig. Reading the shared preference here keeps
             // SwiftUI dynamic colors self-contained across all iOS targets;
-            // storedMode() caches standard defaults after the first lookup.
+            // this is accessed during trait changes, so storedMode() keeps
+            // standard defaults resolution lightweight and thread-safe.
             storedMode()
         }
     }
