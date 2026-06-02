@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import os
 import SwiftUI
 
 #if canImport(UIKit)
@@ -16,7 +17,7 @@ import AppKit
 #endif
 
 public enum Theme {
-    public enum IOSThemeMode: String, CaseIterable, Hashable, Identifiable {
+    public enum IOSThemeMode: String, CaseIterable, Hashable, Identifiable, Sendable {
         case catppuccinAuto
         case catppuccinLight
         case catppuccinDark
@@ -26,6 +27,8 @@ public enum Theme {
 
         public static let defaultsKey = "TBOperatorIOSThemeMode"
         public static let defaultMode: IOSThemeMode = .catppuccinAuto
+
+        private static let cachedMode = OSAllocatedUnfairLock(initialState: Optional<IOSThemeMode>.none)
 
         public var id: String { rawValue }
 
@@ -56,15 +59,22 @@ public enum Theme {
         }
 
         public static func storedMode(in defaults: UserDefaults = .standard) -> IOSThemeMode {
-            modeStore.current(defaults: defaults)
+            cachedMode.withLock { cached in
+                if let cached {
+                    return cached
+                }
+                let mode = readStoredMode(in: defaults)
+                cached = mode
+                return mode
+            }
         }
 
         public static func persist(_ mode: IOSThemeMode, in defaults: UserDefaults = .standard) {
             defaults.set(mode.rawValue, forKey: defaultsKey)
-            modeStore.update(mode)
+            cachedMode.withLock { cached in
+                cached = mode
+            }
         }
-
-        private static let modeStore = ModeStore()
 
         private static func readStoredMode(in defaults: UserDefaults) -> IOSThemeMode {
             guard let stored = defaults.string(forKey: defaultsKey),
@@ -80,28 +90,6 @@ public enum Theme {
             // not include AppConfig. Reading the shared preference here keeps
             // SwiftUI dynamic colors self-contained across all iOS targets.
             storedMode()
-        }
-
-        private final class ModeStore: @unchecked Sendable {
-            private let lock = NSLock()
-            private var cachedMode: IOSThemeMode?
-
-            func current(defaults: UserDefaults) -> IOSThemeMode {
-                lock.lock()
-                defer { lock.unlock() }
-                if let cachedMode {
-                    return cachedMode
-                }
-                let mode = IOSThemeMode.readStoredMode(in: defaults)
-                cachedMode = mode
-                return mode
-            }
-
-            func update(_ mode: IOSThemeMode) {
-                lock.lock()
-                cachedMode = mode
-                lock.unlock()
-            }
         }
     }
 
