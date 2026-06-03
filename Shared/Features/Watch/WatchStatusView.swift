@@ -54,7 +54,7 @@ struct WatchStatusView: View {
                     .font(.headline)
                 Text(state.isCallActive ? "Call in progress" : "Standby")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
             Spacer()
             if let mode = stats?.booth.runtimeMode, mode.shouldDisplayBadge {
@@ -91,7 +91,7 @@ struct WatchStatusView: View {
         if let generatedAt = stats?.generatedAt {
             Text("Updated \(generatedAt, style: .relative) ago")
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.Colors.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -121,18 +121,18 @@ struct WatchStatRow: View {
         HStack {
             Text(label)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.Colors.textSecondary)
             Spacer()
             Text(value)
                 .font(.body.weight(.semibold))
                 .monospacedDigit()
-                .foregroundStyle(emphasize ? Color.accentColor : .primary)
+                .foregroundStyle(emphasize ? Theme.Colors.accent : Theme.Colors.textPrimary)
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 10)
         .background {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.white.opacity(0.05))
+                .fill(Theme.Colors.elevatedBackground)
         }
     }
 }
@@ -170,13 +170,13 @@ extension BoothState {
 
     var watchTint: Color {
         switch self {
-        case .idle: return .secondary
-        case .error: return .red
+        case .idle: return Theme.Colors.textSecondary
+        case .error: return Theme.Colors.error
         case .recording, .uploading, .playingMessage,
              .playingQuestion, .playingInstructions, .dialing,
              .beep, .dialTone:
-            return .accentColor
-        case .unknown: return .secondary
+            return Theme.Colors.accent
+        case .unknown: return Theme.Colors.textSecondary
         }
     }
 }

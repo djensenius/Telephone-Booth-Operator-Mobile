@@ -40,7 +40,24 @@ public struct SettingsView: View {
                     } footer: {
                         Text("Demo mode uses bundled sample data and never contacts the operator API.")
                     }
+                    .themedSettingsRowBackground()
                 }
+
+                #if os(iOS)
+                Section {
+                    Picker("Theme", selection: $config.iosThemeMode) {
+                        ForEach(Theme.IOSThemeMode.allCases) { mode in
+                            Text(mode.displayName).tag(mode)
+                        }
+                    }
+                    .accessibilityLabel("Theme selection")
+                } header: {
+                    Text("Appearance")
+                } footer: {
+                    Text("Choose Catppuccin or the system palette, with light, dark, or automatic mode.")
+                }
+                .themedSettingsRowBackground()
+                #endif
 
                 Section {
                     ServerURLField()
@@ -50,6 +67,7 @@ public struct SettingsView: View {
                     Text("Point at a staging or self-hosted operator instance. " +
                          "Include the scheme (https://) but no trailing slash.")
                 }
+                .themedSettingsRowBackground()
 
                 Section {
                     #if os(watchOS) || os(tvOS)
@@ -67,10 +85,12 @@ public struct SettingsView: View {
                     Text("OIDC settings come from the build's Info.plist and " +
                          "are not editable at runtime.")
                 }
+                .themedSettingsRowBackground()
 
                 if auth.isSignedIn {
                     #if !os(tvOS)
                     NotificationSettingsSection(notifications: notifications)
+                        .themedSettingsRowBackground()
                     #endif
                     Section {
                         Button(role: .destructive) {
@@ -80,8 +100,10 @@ public struct SettingsView: View {
                             Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
                         }
                     }
+                    .themedSettingsRowBackground()
                 }
             }
+            .themedSettingsFormBackground()
             .navigationTitle("Settings")
             #if os(macOS)
             .formStyle(.grouped)
@@ -196,4 +218,26 @@ public struct OIDCDetailsView: View {
 
 #Preview {
     SettingsView()
+}
+
+private extension View {
+    @ViewBuilder
+    func themedSettingsFormBackground() -> some View {
+        #if os(iOS)
+        self
+            .scrollContentBackground(.hidden)
+            .background(Theme.Colors.background)
+        #else
+        self
+        #endif
+    }
+
+    @ViewBuilder
+    func themedSettingsRowBackground() -> some View {
+        #if os(iOS)
+        self.listRowBackground(Theme.Colors.secondaryBackground)
+        #else
+        self
+        #endif
+    }
 }

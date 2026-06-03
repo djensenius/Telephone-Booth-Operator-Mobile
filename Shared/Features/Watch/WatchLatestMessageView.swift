@@ -56,7 +56,7 @@ struct WatchLatestMessageView: View {
                 Spacer()
                 Text(msg.receivedAt ?? msg.createdAt, style: .relative)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
             if let text = msg.latestTranscription?.text, !text.isEmpty {
                 Text(text)
@@ -65,7 +65,7 @@ struct WatchLatestMessageView: View {
             } else {
                 Text("No transcription yet.")
                     .font(.body)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
             if let reason = msg.latestModeration?.reasonSummary, !reason.isEmpty {
                 Text(reason)
@@ -77,7 +77,7 @@ struct WatchLatestMessageView: View {
         .padding(10)
         .background {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.05))
+                .fill(Theme.Colors.elevatedBackground)
         }
     }
 
@@ -85,10 +85,10 @@ struct WatchLatestMessageView: View {
         VStack(spacing: 8) {
             Image(systemName: "tray")
                 .font(.title3)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.Colors.textSecondary)
             Text("No messages yet.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.Colors.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 24)

@@ -4,7 +4,7 @@
 //
 //  Reusable card surface. macOS and visionOS render a real Liquid Glass
 //  material (`.glassEffect` / `.glassBackgroundEffect`); iOS / iPadOS keep
-//  the Catppuccin elevated surface so the booth theme reads clearly.
+//  the selected Theme elevated surface so the booth theme reads clearly.
 //
 
 import SwiftUI

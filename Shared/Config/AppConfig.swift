@@ -48,6 +48,16 @@ public final class AppConfig {
         }
     }
 
+    #if os(iOS)
+    /// iOS-only appearance preference for Catppuccin or native system colors.
+    public var iosThemeMode: Theme.IOSThemeMode {
+        didSet {
+            Theme.IOSThemeMode.persist(iosThemeMode)
+            logger.info("iosThemeMode updated to \(self.iosThemeMode.rawValue, privacy: .public)")
+        }
+    }
+    #endif
+
     /// The OIDC issuer base URL (e.g. https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile).
     public let oidcIssuerBase: String
 
@@ -73,6 +83,9 @@ public final class AppConfig {
         }
         self.apiBaseURL = url
         self.isDemoMode = UserDefaults.standard.bool(forKey: Self.demoModeDefaultsKey)
+        #if os(iOS)
+        self.iosThemeMode = Theme.IOSThemeMode.storedMode()
+        #endif
 
         self.oidcIssuerBase = Bundle.main.object(forInfoDictionaryKey: "OIDCIssuerBase") as? String
             ?? "https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile"

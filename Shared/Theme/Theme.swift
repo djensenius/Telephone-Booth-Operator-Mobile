@@ -6,6 +6,8 @@
 //  Booth-themed accent: soft-red maroon to echo Bell Canada signage.
 //
 
+import Foundation
+import os
 import SwiftUI
 
 #if canImport(UIKit)
@@ -15,6 +17,80 @@ import AppKit
 #endif
 
 public enum Theme {
+    public enum IOSThemeMode: String, CaseIterable, Hashable, Identifiable, Sendable {
+        case catppuccinAuto
+        case catppuccinLight
+        case catppuccinDark
+        case systemAuto
+        case systemLight
+        case systemDark
+
+        public static let defaultsKey = "TBOperatorIOSThemeMode"
+        public static let defaultMode: IOSThemeMode = .catppuccinAuto
+
+        private static let cachedModeLock = OSAllocatedUnfairLock<IOSThemeMode?>(initialState: nil)
+
+        public var id: String { rawValue }
+
+        public var displayName: String {
+            switch self {
+            case .catppuccinAuto: return "Catppuccin Auto"
+            case .catppuccinLight: return "Catppuccin Light"
+            case .catppuccinDark: return "Catppuccin Dark"
+            case .systemAuto: return "System Default Auto"
+            case .systemLight: return "System Default Light"
+            case .systemDark: return "System Default Dark"
+            }
+        }
+
+        public var preferredColorScheme: ColorScheme? {
+            switch self {
+            case .catppuccinAuto, .systemAuto: return nil
+            case .catppuccinLight, .systemLight: return .light
+            case .catppuccinDark, .systemDark: return .dark
+            }
+        }
+
+        fileprivate var usesSystemPalette: Bool {
+            switch self {
+            case .systemAuto, .systemLight, .systemDark: return true
+            case .catppuccinAuto, .catppuccinLight, .catppuccinDark: return false
+            }
+        }
+
+        public static func storedMode() -> IOSThemeMode {
+            if let cached = cachedModeLock.withLock({ $0 }) {
+                return cached
+            }
+            let mode = readStoredMode()
+            cachedModeLock.withLock { cached in
+                cached = mode
+            }
+            return mode
+        }
+
+        public static func persist(_ mode: IOSThemeMode) {
+            UserDefaults.standard.set(mode.rawValue, forKey: defaultsKey)
+            cachedModeLock.withLock { cached in
+                cached = mode
+            }
+        }
+
+        private static func readStoredMode() -> IOSThemeMode {
+            UserDefaults.standard.string(forKey: defaultsKey).flatMap(IOSThemeMode.init) ?? defaultMode
+        }
+
+        fileprivate static var current: IOSThemeMode {
+            // Theme.swift is also built into the widget extension, which does
+            // not include AppConfig. Reading the shared preference here keeps
+            // SwiftUI dynamic colors self-contained across all iOS targets;
+            // this is accessed during trait changes, so storedMode() uses a
+            // lock for thread-safe cache access and avoids repeated defaults
+            // reads after the initial lookup.
+            storedMode()
+        }
+    }
+
     fileprivate enum CatppuccinLatte {
         static let rosewater = Color(hex: "dc8a78")
         static let flamingo = Color(hex: "dd7878")
@@ -73,11 +149,37 @@ public enum Theme {
         static let crust = Color(hex: "11111b")
     }
 
+    #if os(iOS)
+    fileprivate static func dynamicColor(
+        light: Color,
+        dark: Color,
+        system: @escaping () -> UIColor
+    ) -> Color {
+        Color(UIColor { traitCollection in
+            let mode = IOSThemeMode.current
+            let interfaceStyle: UIUserInterfaceStyle
+            switch mode {
+            case .catppuccinLight, .systemLight:
+                interfaceStyle = .light
+            case .catppuccinDark, .systemDark:
+                interfaceStyle = .dark
+            case .catppuccinAuto, .systemAuto:
+                interfaceStyle = traitCollection.userInterfaceStyle
+            }
+
+            if mode.usesSystemPalette {
+                return system()
+            }
+            return interfaceStyle == .dark ? UIColor(dark) : UIColor(light)
+        })
+    }
+    #else
+    // Non-iOS platforms either keep their native palette (macOS / visionOS)
+    // or use the fixed Catppuccin Mocha palette (watchOS / tvOS).
     fileprivate static func dynamicColor(light: Color, dark: Color) -> Color {
         #if canImport(UIKit)
-        #if os(watchOS)
-        return dark
-        #elseif os(tvOS)
+        #if os(watchOS) || os(tvOS)
+        // watchOS and tvOS are intentionally dark-only in this app.
         return dark
         #else
         return Color(UIColor { traitCollection in
@@ -92,6 +194,7 @@ public enum Theme {
         return light
         #endif
     }
+    #endif
 
     #if os(macOS) || os(visionOS)
     /// Tiers of system background used by the native (non-Catppuccin)
@@ -121,8 +224,9 @@ public enum Theme {
 
     // macOS and visionOS deliberately use the platform's native light/dark
     // system palette (no Catppuccin) so the app feels at home on those
-    // platforms. iOS / iPadOS keep the booth-flavoured Catppuccin theme,
-    // and the always-dark platforms (watchOS / tvOS) keep Catppuccin Mocha.
+    // platforms. iOS / iPadOS can switch between the booth-flavoured
+    // Catppuccin palette and native system colors, and the always-dark
+    // platforms (watchOS / tvOS) keep Catppuccin Mocha.
     public enum Colors {
         #if os(macOS) || os(visionOS)
         public static let accent = Color.accentColor
@@ -140,6 +244,102 @@ public enum Theme {
         public static let warning = Color.orange
         public static let success = Color.green
         public static let info = Color.blue
+        #elseif os(iOS)
+        public static var accent: Color {
+            dynamicColor(
+                light: CatppuccinLatte.maroon,
+                dark: CatppuccinMocha.maroon,
+                system: { .systemBlue }
+            )
+        }
+
+        public static var primary: Color {
+            dynamicColor(
+                light: CatppuccinLatte.red,
+                dark: CatppuccinMocha.red,
+                system: { .systemBlue }
+            )
+        }
+
+        public static var secondary: Color {
+            dynamicColor(
+                light: CatppuccinLatte.peach,
+                dark: CatppuccinMocha.peach,
+                system: { .systemOrange }
+            )
+        }
+
+        public static var background: Color {
+            dynamicColor(
+                light: CatppuccinLatte.base,
+                dark: CatppuccinMocha.base,
+                system: { .systemBackground }
+            )
+        }
+
+        public static var secondaryBackground: Color {
+            dynamicColor(
+                light: CatppuccinLatte.mantle,
+                dark: CatppuccinMocha.mantle,
+                system: { .secondarySystemBackground }
+            )
+        }
+
+        public static var elevatedBackground: Color {
+            dynamicColor(
+                light: CatppuccinLatte.surface0,
+                dark: CatppuccinMocha.surface0,
+                system: { .tertiarySystemBackground }
+            )
+        }
+
+        public static var textPrimary: Color {
+            dynamicColor(
+                light: CatppuccinLatte.text,
+                dark: CatppuccinMocha.text,
+                system: { .label }
+            )
+        }
+
+        public static var textSecondary: Color {
+            dynamicColor(
+                light: CatppuccinLatte.subtext0,
+                dark: CatppuccinMocha.subtext0,
+                system: { .secondaryLabel }
+            )
+        }
+
+        public static var error: Color {
+            dynamicColor(
+                light: CatppuccinLatte.red,
+                dark: CatppuccinMocha.red,
+                system: { .systemRed }
+            )
+        }
+
+        public static var warning: Color {
+            dynamicColor(
+                light: CatppuccinLatte.yellow,
+                dark: CatppuccinMocha.yellow,
+                system: { .systemOrange }
+            )
+        }
+
+        public static var success: Color {
+            dynamicColor(
+                light: CatppuccinLatte.green,
+                dark: CatppuccinMocha.green,
+                system: { .systemGreen }
+            )
+        }
+
+        public static var info: Color {
+            dynamicColor(
+                light: CatppuccinLatte.blue,
+                dark: CatppuccinMocha.blue,
+                system: { .systemBlue }
+            )
+        }
         #else
         public static let accent = dynamicColor(light: CatppuccinLatte.maroon, dark: CatppuccinMocha.maroon)
         public static let primary = dynamicColor(light: CatppuccinLatte.red, dark: CatppuccinMocha.red)

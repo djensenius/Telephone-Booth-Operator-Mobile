@@ -219,7 +219,7 @@ struct TVStatBlock: View {
         .padding(24)
         .background {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.white.opacity(0.05))
+                .fill(Theme.Colors.elevatedBackground)
         }
     }
 }
@@ -256,7 +256,7 @@ struct TVMessageCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.white.opacity(0.05))
+                .fill(Theme.Colors.elevatedBackground)
         }
     }
 

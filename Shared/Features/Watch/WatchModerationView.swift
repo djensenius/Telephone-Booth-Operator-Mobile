@@ -62,7 +62,7 @@ struct WatchModerationView: View {
                 .foregroundStyle(Theme.Colors.success)
             Text("Queue empty.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.Colors.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 8)
@@ -111,7 +111,7 @@ struct WatchModerationRow: View {
                 Spacer()
                 Text(message.receivedAt ?? message.createdAt, style: .relative)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
             if let text = message.latestTranscription?.text, !text.isEmpty {
                 Text(text)
@@ -120,7 +120,7 @@ struct WatchModerationRow: View {
             } else {
                 Text("No transcription")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
         }
     }
@@ -164,7 +164,7 @@ struct WatchModerationDetailView: View {
                 Spacer()
                 Text(msg.receivedAt ?? msg.createdAt, style: .relative)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
             if let text = msg.latestTranscription?.text, !text.isEmpty {
                 Text(text)

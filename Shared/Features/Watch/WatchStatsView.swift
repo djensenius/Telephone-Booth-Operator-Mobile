@@ -37,7 +37,7 @@ struct WatchStatsView: View {
                 } else if !isRefreshing {
                     Text("No data yet.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                 }
             }
             .padding(.horizontal, 4)
@@ -50,17 +50,17 @@ struct WatchStatsView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label.uppercased())
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.Colors.textSecondary)
             Text(value)
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(Theme.Colors.textPrimary)
                 .monospacedDigit()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color.white.opacity(0.05))
+                .fill(Theme.Colors.elevatedBackground)
         )
     }
 
