@@ -13,20 +13,18 @@
 import SwiftUI
 
 struct WatchStatusView: View {
-    @State private var stats: StatsSummary?
-    @State private var errorMessage: String?
     @State private var isRefreshing = false
+    @State private var liveStore: BoothStatusLiveStore
 
-    private let client: OperatorClient
-
-    init(client: OperatorClient = .shared) {
-        self.client = client
+    init(client: OperatorClient = .shared, liveStore: BoothStatusLiveStore = .shared) {
+        _ = client
+        _liveStore = State(initialValue: liveStore)
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                if let errorMessage {
+                if let errorMessage = liveStore.lastError {
                     BannerView(message: errorMessage, kind: .error)
                 }
                 stateBadge
@@ -41,10 +39,11 @@ struct WatchStatusView: View {
         .task {
             await refresh()
         }
+        .boothStatusLive(liveStore)
     }
 
     private var stateBadge: some View {
-        let state = stats?.booth.state ?? .idle
+        let state = liveStore.status?.state ?? liveStore.stats?.booth.state ?? .idle
         return HStack(spacing: 10) {
             Image(systemName: state.watchSymbol)
                 .font(.title2)
@@ -57,7 +56,7 @@ struct WatchStatusView: View {
                     .foregroundStyle(Theme.Colors.textSecondary)
             }
             Spacer()
-            if let mode = stats?.booth.runtimeMode, mode.shouldDisplayBadge {
+            if let mode = liveStore.status?.runtimeMode ?? liveStore.stats?.booth.runtimeMode, mode.shouldDisplayBadge {
                 RuntimeModeBadge(mode: mode)
             }
         }
@@ -70,25 +69,25 @@ struct WatchStatusView: View {
 
     private var statsGrid: some View {
         VStack(spacing: 6) {
-            WatchStatRow(label: "Calls today", value: "\(stats?.calls.today ?? 0)")
+            WatchStatRow(label: "Calls today", value: "\(liveStore.stats?.calls.today ?? 0)")
             WatchStatRow(
                 label: "In progress",
-                value: "\(stats?.calls.inProgress ?? 0)",
-                emphasize: (stats?.calls.inProgress ?? 0) > 0
+                value: "\(liveStore.stats?.calls.inProgress ?? 0)",
+                emphasize: (liveStore.stats?.calls.inProgress ?? 0) > 0
             )
             WatchStatRow(
                 label: "Pending",
-                value: "\(stats?.messages.pending ?? 0)",
-                emphasize: (stats?.messages.pending ?? 0) > 0
+                value: "\(liveStore.stats?.messages.pending ?? 0)",
+                emphasize: (liveStore.stats?.messages.pending ?? 0) > 0
             )
-            WatchStatRow(label: "Received today", value: "\(stats?.messages.receivedToday ?? 0)")
-            WatchStatRow(label: "WS clients", value: "\(stats?.realtime.wsClients ?? 0)")
+            WatchStatRow(label: "Received today", value: "\(liveStore.stats?.messages.receivedToday ?? 0)")
+            WatchStatRow(label: "WS clients", value: "\(liveStore.stats?.realtime.wsClients ?? 0)")
         }
     }
 
     @ViewBuilder
     private var lastUpdatedLine: some View {
-        if let generatedAt = stats?.generatedAt {
+        if let generatedAt = liveStore.stats?.generatedAt {
             Text("Updated \(generatedAt, style: .relative) ago")
                 .font(.caption2)
                 .foregroundStyle(Theme.Colors.textSecondary)
@@ -98,17 +97,8 @@ struct WatchStatusView: View {
 
     func refresh() async {
         isRefreshing = true
-        errorMessage = nil
         defer { isRefreshing = false }
-        do {
-            let newStats = try await client.fetchStatsSummary()
-            stats = newStats
-            WidgetSnapshotStore.write(WidgetSnapshot(stats: newStats))
-        } catch {
-            if stats == nil {
-                errorMessage = "Couldn't reach the operator."
-            }
-        }
+        await liveStore.refreshNow()
     }
 }
 

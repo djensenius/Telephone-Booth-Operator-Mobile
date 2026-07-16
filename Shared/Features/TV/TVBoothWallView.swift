@@ -13,15 +13,16 @@
 import SwiftUI
 
 struct TVBoothWallView: View {
-    @State private var stats: StatsSummary?
     @State private var overview: StatsOverview?
     @State private var recentMessages: [Message] = []
     @State private var errorMessage: String?
+    @State private var liveStore: BoothStatusLiveStore
 
     private let client: OperatorClient
 
-    init(client: OperatorClient = .shared) {
+    init(client: OperatorClient = .shared, liveStore: BoothStatusLiveStore = .shared) {
         self.client = client
+        _liveStore = State(initialValue: liveStore)
     }
 
     var body: some View {
@@ -43,7 +44,7 @@ struct TVBoothWallView: View {
                         .padding(.horizontal, 80)
                 }
                 Spacer()
-                if let errorMessage {
+                if let errorMessage = errorMessage ?? liveStore.lastError {
                     Text(errorMessage)
                         .font(.title3)
                         .foregroundStyle(Theme.Colors.error)
@@ -52,6 +53,7 @@ struct TVBoothWallView: View {
             .padding(.vertical, 60)
         }
         .task { await pollLoop() }
+        .boothStatusLive(liveStore)
     }
 
     private func overviewStrip(overview: StatsOverview) -> some View {
@@ -94,12 +96,12 @@ struct TVBoothWallView: View {
                     .foregroundStyle(Theme.Colors.textSecondary)
             }
             Spacer()
-            if let mode = stats?.booth.runtimeMode, mode.shouldDisplayBadge {
+            if let mode = currentStatus?.runtimeMode, mode.shouldDisplayBadge {
                 RuntimeModeBadge(mode: mode)
                     .scaleEffect(1.6)
                     .padding(.trailing, 20)
             }
-            if let generatedAt = stats?.generatedAt {
+            if let generatedAt = liveStore.stats?.generatedAt {
                 VStack(alignment: .trailing) {
                     Text("Updated")
                         .font(.caption)
@@ -114,7 +116,7 @@ struct TVBoothWallView: View {
     }
 
     private var statusHero: some View {
-        let state = stats?.booth.state ?? .idle
+        let state = currentStatus?.state ?? .idle
         return VStack(spacing: 24) {
             Image(systemName: state.tvSymbol)
                 .font(.system(size: 220, weight: .regular))
@@ -135,19 +137,19 @@ struct TVBoothWallView: View {
 
     private var statsColumn: some View {
         VStack(alignment: .leading, spacing: 24) {
-            TVStatBlock(label: "Calls today", value: "\(stats?.calls.today ?? 0)")
+            TVStatBlock(label: "Calls today", value: "\(liveStore.stats?.calls.today ?? 0)")
             TVStatBlock(
                 label: "In progress",
-                value: "\(stats?.calls.inProgress ?? 0)",
-                emphasize: (stats?.calls.inProgress ?? 0) > 0
+                value: "\(liveStore.stats?.calls.inProgress ?? 0)",
+                emphasize: (liveStore.stats?.calls.inProgress ?? 0) > 0
             )
             TVStatBlock(
                 label: "Pending moderation",
-                value: "\(stats?.messages.pending ?? 0)",
-                emphasize: (stats?.messages.pending ?? 0) > 0
+                value: "\(liveStore.stats?.messages.pending ?? 0)",
+                emphasize: (liveStore.stats?.messages.pending ?? 0) > 0
             )
-            TVStatBlock(label: "Received today", value: "\(stats?.messages.receivedToday ?? 0)")
-            TVStatBlock(label: "WS clients", value: "\(stats?.realtime.wsClients ?? 0)")
+            TVStatBlock(label: "Received today", value: "\(liveStore.stats?.messages.receivedToday ?? 0)")
+            TVStatBlock(label: "WS clients", value: "\(liveStore.stats?.realtime.wsClients ?? 0)")
         }
     }
 
@@ -171,29 +173,28 @@ struct TVBoothWallView: View {
         }
     }
 
+    private var currentStatus: BoothStatus? {
+        liveStore.status ?? liveStore.stats?.booth
+    }
+
     private func pollLoop() async {
         while !Task.isCancelled {
             await refresh()
-            try? await Task.sleep(nanoseconds: 10 * 1_000_000_000)
+            try? await Task.sleep(for: .seconds(10))
         }
     }
 
     private func refresh() async {
-        async let statsTask: StatsSummary? = (try? await client.fetchStatsSummary())
         async let overviewTask: StatsOverview? = (try? await client.fetchStatsOverview(window: .last7d))
         async let messagesTask: MessageList? = (try? await client.fetchMessages(status: nil, since: nil, limit: 3))
-        let (newStats, newOverview, newMessages) = await (statsTask, overviewTask, messagesTask)
-        if let newStats {
-            stats = newStats
-            WidgetSnapshotStore.write(WidgetSnapshot(stats: newStats))
-        }
+        let (newOverview, newMessages) = await (overviewTask, messagesTask)
         if let newOverview {
             overview = newOverview
         }
         if let newMessages {
             recentMessages = newMessages.items
         }
-        if newStats == nil && stats == nil {
+        if newOverview == nil && newMessages == nil && recentMessages.isEmpty {
             errorMessage = "Couldn't reach the operator."
         } else {
             errorMessage = nil

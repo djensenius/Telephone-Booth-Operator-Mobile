@@ -428,6 +428,22 @@
 		FE2986F05E8584FBAAA20388 /* AudioPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3C34EB268955BCF1FD490F3 /* AudioPlayerView.swift */; };
 		FE9E4AD9AC2B99CE15F62C8D /* BoothStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = C484D243EDB738632F38682B /* BoothStatus.swift */; };
 		FFB851BD1D322C88154597BE /* MacStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 859D52D0B60F1893ED0640B0 /* MacStatsView.swift */; };
+		2D9EC3D55A7846B090ACA94F /* StatusSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D82029D7F64B1C9CEB13FE /* StatusSocket.swift */; };
+		4C09A54A6C14413F9023177D /* StatusSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D82029D7F64B1C9CEB13FE /* StatusSocket.swift */; };
+		9F04FF44D32C45699F4ED1B7 /* StatusSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D82029D7F64B1C9CEB13FE /* StatusSocket.swift */; };
+		6C904C37703743B18F4D3EA7 /* StatusSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D82029D7F64B1C9CEB13FE /* StatusSocket.swift */; };
+		12B2878D531241AE81DC9971 /* StatusSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D82029D7F64B1C9CEB13FE /* StatusSocket.swift */; };
+		FF4DC7BDAB2D4AEFB9258B4A /* BoothStatusLiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 181A7279BB2A4BF3A7767D2D /* BoothStatusLiveStore.swift */; };
+		43C8E13E09CC40DA86706D05 /* BoothStatusLiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 181A7279BB2A4BF3A7767D2D /* BoothStatusLiveStore.swift */; };
+		403FDEE1A4E046EF9226EE9C /* BoothStatusLiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 181A7279BB2A4BF3A7767D2D /* BoothStatusLiveStore.swift */; };
+		B7DDC7E79A96409780240847 /* BoothStatusLiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 181A7279BB2A4BF3A7767D2D /* BoothStatusLiveStore.swift */; };
+		2D774D251D5B4994AD8FCA0B /* BoothStatusLiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 181A7279BB2A4BF3A7767D2D /* BoothStatusLiveStore.swift */; };
+		820F24D3AAC04FD8A0865836 /* BoothStatusLiveModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5893FA953C184FEC948256C8 /* BoothStatusLiveModifier.swift */; };
+		853062B308404DFA93F6D542 /* BoothStatusLiveModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5893FA953C184FEC948256C8 /* BoothStatusLiveModifier.swift */; };
+		5DB2FE8AE5D947BB92E3AA9C /* BoothStatusLiveModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5893FA953C184FEC948256C8 /* BoothStatusLiveModifier.swift */; };
+		FD633E91112A4264BC78D863 /* BoothStatusLiveModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5893FA953C184FEC948256C8 /* BoothStatusLiveModifier.swift */; };
+		A218745B92BC4CC4B1632B0D /* BoothStatusLiveModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5893FA953C184FEC948256C8 /* BoothStatusLiveModifier.swift */; };
+		C24FAC685637475BA3CFF5BF /* StatusSocketTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC54D8E01087474E808EFBE6 /* StatusSocketTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -641,6 +657,10 @@
 		F9852B4FE5681C7CA9DB92C7 /* TBOperatorMobileVision.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TBOperatorMobileVision.entitlements; sourceTree = "<group>"; };
 		FCB92963F39EB30DCBE85DA7 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		FE45933F38F71606F7008DC9 /* PendingModerationWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingModerationWidget.swift; sourceTree = "<group>"; };
+		84D82029D7F64B1C9CEB13FE /* StatusSocket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusSocket.swift; sourceTree = "<group>"; };
+		181A7279BB2A4BF3A7767D2D /* BoothStatusLiveStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoothStatusLiveStore.swift; sourceTree = "<group>"; };
+		5893FA953C184FEC948256C8 /* BoothStatusLiveModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoothStatusLiveModifier.swift; sourceTree = "<group>"; };
+		AC54D8E01087474E808EFBE6 /* StatusSocketTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusSocketTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -662,6 +682,7 @@
 				9AA458AEBE2EA5AA56A347D7 /* BoothStalenessTests.swift */,
 				A3927268F17F105948D1EEB6 /* BoothSystemSnapshotTests.swift */,
 				9CD9DDE3D8BCDE0B477C7475 /* EventStreamTests.swift */,
+				AC54D8E01087474E808EFBE6 /* StatusSocketTests.swift */,
 				D2A3907C3F55C792DA6D5DC3 /* IDTokenValidatorTests.swift */,
 				435BF82B0A74BD00A4B073F2 /* NotificationTests.swift */,
 				40625CD545E668C2C4B504AF /* OperatorClientRetryTests.swift */,
@@ -746,6 +767,7 @@
 		3E3284420F8EF6EFEF344398 /* Status */ = {
 			isa = PBXGroup;
 			children = (
+				181A7279BB2A4BF3A7767D2D /* BoothStatusLiveStore.swift */,
 				523ED08FA179138D88929462 /* StatusDashboardView.swift */,
 				C21DE1723F5A47F387D60AD5 /* SystemVitalsStrip.swift */,
 			);
@@ -1048,6 +1070,7 @@
 		DC13A263A50DBA1762AFE294 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				5893FA953C184FEC948256C8 /* BoothStatusLiveModifier.swift */,
 				5F28CC9E236EA19D2522413D /* LiveActivityObserverModifier.swift */,
 				CD213C066A1ED5C88C257364 /* LoginView.swift */,
 				A58F0A1D6582D1806CE4E408 /* NotificationSettingsSection.swift */,
@@ -1063,6 +1086,7 @@
 			isa = PBXGroup;
 			children = (
 				2D1BD55A2C9AE62BE0E78BA0 /* EventStream.swift */,
+				84D82029D7F64B1C9CEB13FE /* StatusSocket.swift */,
 				2E40D39DF19D47CBA7BD523E /* OperatorClient.swift */,
 				3D1F53A3DCA7F785BCD6F748 /* OperatorClient+Questions.swift */,
 				B0FEC3DF654FFCDBFDF7B9C5 /* OperatorError.swift */,
@@ -1468,12 +1492,14 @@
 				D08F9A5E091E98AB2D9DC18F /* DeviceAuthorization.swift in Sources */,
 				867F454020DCB4A636247091 /* DurationFormatting.swift in Sources */,
 				760BE9AE72EA43CAC2EA427E /* EventStream.swift in Sources */,
+				2D9EC3D55A7846B090ACA94F /* StatusSocket.swift in Sources */,
 				7F3106603E00AB9EFBCD043F /* EventsFeedView.swift in Sources */,
 				2127E72D1AAEB7D1F14C5FD1 /* GlassCard.swift in Sources */,
 				E63569D62A65FB7AA238E697 /* IDTokenValidator.swift in Sources */,
 				5485DB154ADC8BAB761F8794 /* LiveActivityEventObserver.swift in Sources */,
 				624BE84E769022070E01E8C1 /* LiveActivityManager.swift in Sources */,
 				E893D14C6165BA3F87A65DEF /* LiveActivityObserverModifier.swift in Sources */,
+				820F24D3AAC04FD8A0865836 /* BoothStatusLiveModifier.swift in Sources */,
 				93777B26A87F047611717CB5 /* LoginView.swift in Sources */,
 				7DAE50AF59580CE32FD81BDE /* Message.swift in Sources */,
 				50ED94E34A663FCE7A3DEEDA /* MessageDetailView.swift in Sources */,
@@ -1489,6 +1515,7 @@
 				1071533AE918899CE56DEA4D /* OperatorJSON.swift in Sources */,
 				3489DE9011CF9C8468947657 /* OperatorMe.swift in Sources */,
 				46DA0A40AEC3231ECC7E4C7F /* PendingMessagesStore.swift in Sources */,
+				FF4DC7BDAB2D4AEFB9258B4A /* BoothStatusLiveStore.swift in Sources */,
 				D633F3E0C41A812A3BF6F9F9 /* Question.swift in Sources */,
 				A69FF778CD9F632EF7712CD2 /* QuestionAudioFile.swift in Sources */,
 				998115EAA23889F37736B237 /* QuestionAudioRecorder.swift in Sources */,
@@ -1549,12 +1576,14 @@
 				229205FC59DEF2526FA8C0EC /* DeviceAuthorization.swift in Sources */,
 				6F4062BC87C52F18932E140C /* DurationFormatting.swift in Sources */,
 				D1D0BE1787938D7FD05317B9 /* EventStream.swift in Sources */,
+				4C09A54A6C14413F9023177D /* StatusSocket.swift in Sources */,
 				0D8E86111E8277FA3C1D71E7 /* EventsFeedView.swift in Sources */,
 				3619E9731E1C3F3E8EE0978C /* GlassCard.swift in Sources */,
 				70D803118BD91808E6999C6A /* IDTokenValidator.swift in Sources */,
 				BEABDCF7B3D742842E791E63 /* LiveActivityEventObserver.swift in Sources */,
 				471066C9FC373C49419AFB8B /* LiveActivityManager.swift in Sources */,
 				2B0EE3C60426AA67243F93F4 /* LiveActivityObserverModifier.swift in Sources */,
+				853062B308404DFA93F6D542 /* BoothStatusLiveModifier.swift in Sources */,
 				D177370581A9B32153A7A68D /* LoginView.swift in Sources */,
 				1325BAF6E60FAC92D2A93F02 /* Message.swift in Sources */,
 				4A80AF1A0FC36F4E56456677 /* MessageDetailView.swift in Sources */,
@@ -1570,6 +1599,7 @@
 				47E9B5CC893EF906A3F69B93 /* OperatorJSON.swift in Sources */,
 				85B433637A9BF77CD9F7709F /* OperatorMe.swift in Sources */,
 				EE0BA3028EE47A08E831B1A5 /* PendingMessagesStore.swift in Sources */,
+				43C8E13E09CC40DA86706D05 /* BoothStatusLiveStore.swift in Sources */,
 				486CB20B91581B7B89EE3617 /* Question.swift in Sources */,
 				44BB8C9F49A727BD9FB45F0A /* QuestionAudioFile.swift in Sources */,
 				A8895BE57AD59415F9B14847 /* QuestionAudioRecorder.swift in Sources */,
@@ -1687,12 +1717,14 @@
 				00E3FE35CE1414DE77708A39 /* DeviceAuthorization.swift in Sources */,
 				864C8F4A0244FAE09DE0DA25 /* DurationFormatting.swift in Sources */,
 				D7668E1C00C9DD779EBBAE78 /* EventStream.swift in Sources */,
+				9F04FF44D32C45699F4ED1B7 /* StatusSocket.swift in Sources */,
 				1F7C542F4E024CD822EE532B /* EventsFeedView.swift in Sources */,
 				A8AEC0FB649F097CDAD45DD9 /* GlassCard.swift in Sources */,
 				E031F4482A2195D23E7A2465 /* IDTokenValidator.swift in Sources */,
 				B2722124A581E528A0AFCBAF /* LiveActivityEventObserver.swift in Sources */,
 				8EED3336D2796C4EE227B162 /* LiveActivityManager.swift in Sources */,
 				4198B73A0AA2ADE9F12ED751 /* LiveActivityObserverModifier.swift in Sources */,
+				5DB2FE8AE5D947BB92E3AA9C /* BoothStatusLiveModifier.swift in Sources */,
 				E4E00E99A417E88D736AA1A5 /* LoginView.swift in Sources */,
 				36A361544FDD84AA5EF1F7F2 /* Message.swift in Sources */,
 				6633E6A9B663F48427F33888 /* MessageDetailView.swift in Sources */,
@@ -1708,6 +1740,7 @@
 				D100B0F3A62D6E69B015B0C9 /* OperatorJSON.swift in Sources */,
 				8A1B3EEF1A6C718515076857 /* OperatorMe.swift in Sources */,
 				8C37B5C5C55DEBF5D88B9B63 /* PendingMessagesStore.swift in Sources */,
+				403FDEE1A4E046EF9226EE9C /* BoothStatusLiveStore.swift in Sources */,
 				9213645C7CE4AD106654A2AC /* Question.swift in Sources */,
 				3A6078552193DAD16E2877BC /* QuestionAudioFile.swift in Sources */,
 				B467A876F974793A659BB580 /* QuestionAudioRecorder.swift in Sources */,
@@ -1755,6 +1788,7 @@
 				0AFB03B83511DD2F53E1A9CD /* BoothStalenessTests.swift in Sources */,
 				4C1407A8E627B4F24A100CDF /* BoothSystemSnapshotTests.swift in Sources */,
 				730A9E1DC7AF671AF03E61BB /* EventStreamTests.swift in Sources */,
+				C24FAC685637475BA3CFF5BF /* StatusSocketTests.swift in Sources */,
 				0D22073568FBC9379AD4D926 /* IDTokenValidatorTests.swift in Sources */,
 				884D83CA01F406FABA0EF9E1 /* NotificationTests.swift in Sources */,
 				87F5FC28B50F4B43BB95AE3D /* OperatorClientRetryTests.swift in Sources */,
@@ -1787,12 +1821,14 @@
 				E1C02D97D1167F7A7B3169BE /* DeviceAuthorization.swift in Sources */,
 				66D0105B66CB61BD6C92F843 /* DurationFormatting.swift in Sources */,
 				5F699761541AA57E06A71BBF /* EventStream.swift in Sources */,
+				6C904C37703743B18F4D3EA7 /* StatusSocket.swift in Sources */,
 				678319FF7C77C5308A2B3DFD /* EventsFeedView.swift in Sources */,
 				27933251BF0325E8E11978E4 /* GlassCard.swift in Sources */,
 				F5B34EAC12A1C825420E6B28 /* IDTokenValidator.swift in Sources */,
 				5C6C99A818857F21FE245CA0 /* LiveActivityEventObserver.swift in Sources */,
 				9A75BE39C5034DEB21B9F747 /* LiveActivityManager.swift in Sources */,
 				1211D691B74125D1FBFF48BF /* LiveActivityObserverModifier.swift in Sources */,
+				FD633E91112A4264BC78D863 /* BoothStatusLiveModifier.swift in Sources */,
 				54006A9006EB57FFD3326D39 /* LoginView.swift in Sources */,
 				A695C3AE96CEA77CE6DF2A1C /* MacRootView.swift in Sources */,
 				0E3670141F6827927031F300 /* MacSettingsView.swift in Sources */,
@@ -1811,6 +1847,7 @@
 				F51D6D521EDA4DDCE72387A7 /* OperatorJSON.swift in Sources */,
 				3D61A2751CD3FE80320AF368 /* OperatorMe.swift in Sources */,
 				A992B243F84A0E2A79FFB2DC /* PendingMessagesStore.swift in Sources */,
+				B7DDC7E79A96409780240847 /* BoothStatusLiveStore.swift in Sources */,
 				B66DA6A0C11FB45B09C717C1 /* Question.swift in Sources */,
 				5FCF845A191A228B4F2D3DCE /* QuestionAudioFile.swift in Sources */,
 				7041ECEF908F81ED3B1C4033 /* QuestionAudioRecorder.swift in Sources */,
@@ -1870,12 +1907,14 @@
 				BF8CE7C40DB0383949F9E907 /* DeviceAuthorization.swift in Sources */,
 				A66548E304CE36F8AC8C410A /* DurationFormatting.swift in Sources */,
 				7BDBAB4FD2AA907A583860FE /* EventStream.swift in Sources */,
+				12B2878D531241AE81DC9971 /* StatusSocket.swift in Sources */,
 				CA4DC7113D1A85362B7184A4 /* EventsFeedView.swift in Sources */,
 				3CE2FB7B4CC21DFA5F7637FA /* GlassCard.swift in Sources */,
 				291478B5894BD01A64BC95CD /* IDTokenValidator.swift in Sources */,
 				5EB1393D1105B3EF45506E1D /* LiveActivityEventObserver.swift in Sources */,
 				166D552BF80A543A34EC51E4 /* LiveActivityManager.swift in Sources */,
 				A3B5708AA3C4E306F124A288 /* LiveActivityObserverModifier.swift in Sources */,
+				A218745B92BC4CC4B1632B0D /* BoothStatusLiveModifier.swift in Sources */,
 				742199D67D654174741A2BF6 /* LoginView.swift in Sources */,
 				5452E8BB938D6EDE6C3B73D3 /* Message.swift in Sources */,
 				41BE40F57449CF91F9E01F5A /* MessageDetailView.swift in Sources */,
@@ -1891,6 +1930,7 @@
 				A8F1F5CD4F0C823C868F0091 /* OperatorJSON.swift in Sources */,
 				C358520A8CD616B8E5C991A7 /* OperatorMe.swift in Sources */,
 				A51E7412E07F36E0C4BDB70F /* PendingMessagesStore.swift in Sources */,
+				2D774D251D5B4994AD8FCA0B /* BoothStatusLiveStore.swift in Sources */,
 				F1BC3C1DA3C25C9247FFBD37 /* Question.swift in Sources */,
 				5BBC80D804D39BBB1068A57D /* QuestionAudioFile.swift in Sources */,
 				C8C8F46D4B9FA4AF3572EBE6 /* QuestionAudioRecorder.swift in Sources */,

@@ -17,29 +17,27 @@ public struct StatusDashboardView: View {
     @State private var auth = AuthManager.shared
     @State private var config = AppConfig.shared
     @State private var profile: OperatorMe?
-    @State private var stats: StatsSummary?
-    @State private var history: [BoothStatus] = []
-    @State private var historyError: String?
     @State private var errorMessage: String?
     @State private var isRefreshing = false
-    @State private var systemEnvelope: BoothSystemSnapshotEnvelope?
+    @State private var liveStore: BoothStatusLiveStore
 
     private let client: OperatorClient
 
-    public init(client: OperatorClient = .shared) {
+    public init(client: OperatorClient = .shared, liveStore: BoothStatusLiveStore = .shared) {
         self.client = client
+        _liveStore = State(initialValue: liveStore)
     }
 
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.large) {
-                if let errorMessage {
-                    BannerView(message: errorMessage, kind: .error)
+                if let displayError {
+                    BannerView(message: displayError, kind: .error)
                 }
                 statsCard
                 SystemVitalsStrip(
-                    snapshot: systemEnvelope?.snapshot,
-                    receivedAt: systemEnvelope?.receivedAt
+                    snapshot: liveStore.systemEnvelope?.snapshot,
+                    receivedAt: liveStore.systemEnvelope?.receivedAt
                 )
                 #if !os(watchOS) && !os(tvOS)
                 if canShowChart {
@@ -60,39 +58,21 @@ public struct StatusDashboardView: View {
         .task {
             await refresh()
         }
+        .boothStatusLive(liveStore)
     }
 
     public func refresh() async {
         isRefreshing = true
         errorMessage = nil
-        historyError = nil
         defer { isRefreshing = false }
         async let meResult = capture { try await client.fetchMe() }
-        async let statsResult = capture { try await client.fetchStatsSummary() }
-        async let historyResult = capture { try await client.fetchStatusHistory(limit: 200) }
-        async let systemResult = capture { try await client.fetchCurrentSystemEnvelope() }
-        let (meOutcome, statsOutcome, historyOutcome, systemOutcome) = await (
-            meResult, statsResult, historyResult, systemResult
-        )
-        let newMe = try? meOutcome.get()
-        let newStats = try? statsOutcome.get()
-        let newHistory = try? historyOutcome.get()
-        let newSystem = try? systemOutcome.get()
-        profile = newMe ?? profile
-        stats = newStats ?? stats
-        if let newStats {
-            WidgetSnapshotStore.write(WidgetSnapshot(stats: newStats))
-        }
-        if let newHistory {
-            history = newHistory.items
-        } else if history.isEmpty {
-            historyError = "Couldn't load recent status history."
-        }
-        if let newSystem {
-            systemEnvelope = newSystem
-        }
-        if newMe == nil && newStats == nil {
-            let reason = describe(error: meOutcome.failureOrNil ?? statsOutcome.failureOrNil)
+        async let storeRefresh: Void = liveStore.refreshNow()
+        let meOutcome = await meResult
+        await storeRefresh
+        if let newMe = try? meOutcome.get() {
+            profile = newMe
+        } else if profile == nil {
+            let reason = describe(error: meOutcome.failureOrNil)
             errorMessage = "Couldn't reach the operator: \(reason)"
         }
     }
@@ -121,6 +101,10 @@ public struct StatusDashboardView: View {
         default:
             return error.localizedDescription
         }
+    }
+
+    private var displayError: String? {
+        errorMessage ?? liveStore.lastError
     }
 
     #if !os(watchOS) && !os(tvOS)
@@ -163,19 +147,25 @@ public struct StatusDashboardView: View {
     private var statsCard: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
             SectionHeader(text: "Booth")
-            if let stats {
+            if let currentStatus {
                 HStack(spacing: Theme.Spacing.small) {
-                    BoothStateBadge(state: stats.booth.state)
+                    BoothStateBadge(state: currentStatus.state)
                     Spacer(minLength: 0)
-                    BoothStalenessChip(lastStatusAt: stats.booth.updatedAt)
-                    RuntimeModeBadge(mode: stats.booth.runtimeMode)
+                    BoothStalenessChip(lastStatusAt: currentStatus.updatedAt)
+                    RuntimeModeBadge(mode: currentStatus.runtimeMode)
                 }
                 Divider().background(Theme.Colors.textSecondary.opacity(0.2))
-                StatRow(label: "Calls today", value: "\(stats.calls.today)")
-                StatRow(label: "In progress", value: "\(stats.calls.inProgress)")
-                StatRow(label: "Messages pending", value: "\(stats.messages.pending)")
-                StatRow(label: "Messages today", value: "\(stats.messages.receivedToday)")
-                StatRow(label: "Live web clients", value: "\(stats.realtime.wsClients)")
+                if let stats = liveStore.stats {
+                    StatRow(label: "Calls today", value: "\(stats.calls.today)")
+                    StatRow(label: "In progress", value: "\(stats.calls.inProgress)")
+                    StatRow(label: "Messages pending", value: "\(stats.messages.pending)")
+                    StatRow(label: "Messages today", value: "\(stats.messages.receivedToday)")
+                    StatRow(label: "Live web clients", value: "\(stats.realtime.wsClients)")
+                } else {
+                    Text("Loading counts…")
+                        .font(Theme.Fonts.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                }
             } else {
                 ProgressView()
             }
@@ -185,21 +175,25 @@ public struct StatusDashboardView: View {
         .glassCardBackground()
     }
 
+    private var currentStatus: BoothStatus? {
+        liveStore.status ?? liveStore.stats?.booth
+    }
+
     #if !os(watchOS) && !os(tvOS)
-    private var canShowChart: Bool { !history.isEmpty || historyError != nil }
+    private var canShowChart: Bool { !liveStore.history.isEmpty || liveStore.lastError != nil }
 
     @ViewBuilder
     private var historyChartCard: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
             SectionHeader(text: "Recent activity")
-            if let historyError {
+            if liveStore.history.isEmpty, let historyError = liveStore.lastError {
                 Text(historyError)
                     .font(Theme.Fonts.caption)
                     .foregroundStyle(Theme.Colors.textSecondary)
-            } else if history.isEmpty {
+            } else if liveStore.history.isEmpty {
                 ProgressView()
             } else {
-                StatusHistoryChart(items: history)
+                StatusHistoryChart(items: liveStore.history)
                     .frame(height: 180)
             }
         }
