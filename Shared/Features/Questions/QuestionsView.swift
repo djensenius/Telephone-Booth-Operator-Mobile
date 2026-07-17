@@ -51,6 +51,7 @@ public struct QuestionsView: View {
 
     private let client: OperatorClient
     private let pageSize: Int
+    private let isAdmin: Bool
 
     enum LoadState: Equatable {
         case idle
@@ -59,8 +60,9 @@ public struct QuestionsView: View {
         case done
     }
 
-    public init(client: OperatorClient = .shared, pageSize: Int = 50) {
+    public init(client: OperatorClient = .shared, isAdmin: Bool = false, pageSize: Int = 50) {
         self.client = client
+        self.isAdmin = isAdmin
         self.pageSize = pageSize
     }
 
@@ -79,11 +81,13 @@ public struct QuestionsView: View {
         }
         .background(Theme.Colors.background)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    isComposing = true
-                } label: {
-                    Label("New Question", systemImage: "plus")
+            if isAdmin {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        isComposing = true
+                    } label: {
+                        Label("New Question", systemImage: "plus")
+                    }
                 }
             }
         }
@@ -132,6 +136,7 @@ public struct QuestionsView: View {
                 QuestionRow(
                     question: question,
                     isExpanded: expandedId == question.id,
+                    canManage: isAdmin,
                     onToggle: { toggle(question.id) },
                     onActivate: { Task { await activate(question) } },
                     onDeactivate: { Task { await deactivate(question) } },
@@ -139,27 +144,29 @@ public struct QuestionsView: View {
                 )
                 .operatorListRowBackground()
                 .swipeActions(edge: .trailing) {
-                    if question.status != .archived {
-                        Button(role: .destructive) {
-                            Task { await retire(question) }
-                        } label: {
-                            Label("Retire", systemImage: "trash")
+                    if isAdmin {
+                        if question.status != .archived {
+                            Button(role: .destructive) {
+                                Task { await retire(question) }
+                            } label: {
+                                Label("Retire", systemImage: "trash")
+                            }
                         }
-                    }
-                    if question.status == .active {
-                        Button {
-                            Task { await deactivate(question) }
-                        } label: {
-                            Label("Deactivate", systemImage: "pause.circle")
+                        if question.status == .active {
+                            Button {
+                                Task { await deactivate(question) }
+                            } label: {
+                                Label("Deactivate", systemImage: "pause.circle")
+                            }
+                            .tint(Theme.Colors.warning)
+                        } else {
+                            Button {
+                                Task { await activate(question) }
+                            } label: {
+                                Label("Activate", systemImage: "checkmark.circle")
+                            }
+                            .tint(Theme.Colors.success)
                         }
-                        .tint(Theme.Colors.warning)
-                    } else {
-                        Button {
-                            Task { await activate(question) }
-                        } label: {
-                            Label("Activate", systemImage: "checkmark.circle")
-                        }
-                        .tint(Theme.Colors.success)
                     }
                 }
             }
@@ -316,6 +323,7 @@ public struct QuestionsView: View {
 struct QuestionRow: View {
     let question: Question
     let isExpanded: Bool
+    let canManage: Bool
     let onToggle: () -> Void
     let onActivate: () -> Void
     let onDeactivate: () -> Void
@@ -355,7 +363,9 @@ struct QuestionRow: View {
                 .buttonStyle(.plain)
                 .accessibilityHint(isExpanded ? "Hide audio preview" : "Show audio preview")
 
-                actionsMenu
+                if canManage {
+                    actionsMenu
+                }
             }
 
             if isExpanded {
@@ -364,7 +374,11 @@ struct QuestionRow: View {
             }
         }
         .padding(.vertical, Theme.Spacing.small)
-        .contextMenu { actionButtons }
+        .contextMenu {
+            if canManage {
+                actionButtons
+            }
+        }
     }
 
     private var actionsMenu: some View {

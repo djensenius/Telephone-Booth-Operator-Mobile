@@ -21,6 +21,7 @@ public enum DemoData {
         name: "Demo Operator",
         email: "operator@example.com",
         groups: ["App Store Review", "Operators"],
+        isAdmin: true,
         providerName: "Demo"
     )
 
