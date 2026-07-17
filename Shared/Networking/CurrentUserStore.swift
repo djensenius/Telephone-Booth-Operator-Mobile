@@ -3,12 +3,16 @@
 //  TelephoneBoothOperatorMobile
 //
 //  Holds the signed-in operator's profile (`/v1/auth/me`) and re-validates it
-//  on a timer. The operator API re-checks the Authentik account (group
-//  membership, existence) on every request, so a periodic `fetchMe()` is our
-//  signal that the account is still valid: if it starts returning 401/403 the
-//  account was disabled or deleted upstream and we sign out immediately. This
-//  closes the gap where a booth-side account removed in Authentik kept working
-//  until the app was relaunched.
+//  on a timer. A periodic `fetchMe()` is our liveness signal: if it starts
+//  returning 401/403 the account was disabled or deleted upstream and we sign
+//  out immediately.
+//
+//  Caveat for bearer clients: the mobile app authenticates with an
+//  Authentik-issued access token, and the operator API's bearer path currently
+//  trusts that token's embedded claims until it expires. So a revoked account
+//  is caught here no later than access-token expiry — not necessarily within
+//  one poll. Tightening this to per-poll liveness needs the operator API to
+//  revalidate bearer principals against the IdP (tracked separately).
 //
 
 import Foundation
@@ -52,12 +56,14 @@ public final class CurrentUserStore {
     public func start() {
         revalidateTask?.cancel()
         revalidateTask = Task { [weak self] in
-            guard let self else { return }
-            await self.refresh()
+            // Keep only a weak reference across sleeps and promote it
+            // transiently for each refresh, so a signed-in shell that never
+            // calls stop() doesn't pin this store (and its loop) alive.
+            await self?.refresh()
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.revalidateInterval)
                 if Task.isCancelled { break }
-                await self.refresh()
+                await self?.refresh()
             }
         }
     }
@@ -70,7 +76,10 @@ public final class CurrentUserStore {
     /// Fetch `/v1/auth/me`. On success updates `profile`; on an
     /// authorization failure the account is no longer valid, so sign out.
     public func refresh() async {
-        guard auth.isSignedIn else { return }
+        // Demo/screenshot clients are never "signed in" via AuthManager but
+        // still serve a canned admin profile, so let them load it too.
+        let demo = await client.usesDemoData
+        guard auth.isSignedIn || demo else { return }
         do {
             profile = try await client.fetchMe()
             lastError = nil

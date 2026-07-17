@@ -17,7 +17,6 @@ import Charts
 #endif
 
 struct MacStatsView: View {
-    @State private var preset: StatsWindow = .last7d
     @State private var selection: StatsRangeSelection = .default
     @State private var customStart: Date = Date().addingTimeInterval(-7 * 24 * 60 * 60)
     @State private var customEnd: Date = Date()
@@ -55,9 +54,9 @@ struct MacStatsView: View {
         .background(Theme.Colors.background)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Picker("Window", selection: $preset) {
+                Picker("Window", selection: presetBinding) {
                     ForEach(StatsWindow.knownCases, id: \.rawValue) { option in
-                        Text(option.shortLabel).tag(option)
+                        Text(option.shortLabel).tag(Optional(option))
                     }
                 }
                 .pickerStyle(.segmented)
@@ -68,9 +67,6 @@ struct MacStatsView: View {
                 rangeMenu
             }
         }
-        .onChange(of: preset) { _, newValue in
-            selection = .window(newValue)
-        }
         .task(id: selection) { await refresh() }
         .task { await loadFilters() }
         .sheet(isPresented: $isPresentingCustom) {
@@ -78,8 +74,22 @@ struct MacStatsView: View {
         }
     }
 
-    private var rangeMenu: some View {
-        Menu {
+    // Drive the segmented picker from `selection` so a preset stays de-selected
+    // while a custom range/filter is active — otherwise the picker would remain
+    // stuck on its last preset and re-tapping it would fire no change.
+    private var presetBinding: Binding<StatsWindow?> {
+        Binding(
+            get: {
+                if case .window(let window) = selection { return window }
+                return nil
+            },
+            set: { newValue in
+                if let newValue { selection = .window(newValue) }
+            }
+        )
+    }
+
+    private var rangeMenu: some View {        Menu {
             Button("Custom range…") { isPresentingCustom = true }
             if !filters.isEmpty {
                 Divider()
@@ -165,9 +175,6 @@ struct MacStatsView: View {
 
     private func apply(filter: MetricFilter) {
         selection = filter.selection
-        if case .window(let window) = filter.selection {
-            preset = window
-        }
         if case .custom(let start, let isNow, let end) = filter.selection {
             if let start { customStart = start }
             endIsNow = isNow
@@ -178,18 +185,27 @@ struct MacStatsView: View {
     private func saveCurrentFilter() async {
         let name = newFilterName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
-        newFilterName = ""
         applyCustomRange()
-        if let created = try? await client.createMetricFilter(
-            MetricFilterInput(name: name, selection: selection)
-        ) {
+        do {
+            let created = try await client.createMetricFilter(
+                MetricFilterInput(name: name, selection: selection)
+            )
             filters.append(created)
+            newFilterName = ""
+            errorMessage = nil
+        } catch {
+            errorMessage = "Couldn't save filter: \(error.localizedDescription)"
         }
     }
 
     private func delete(filter: MetricFilter) async {
-        try? await client.deleteMetricFilter(id: filter.id)
-        filters.removeAll { $0.id == filter.id }
+        do {
+            try await client.deleteMetricFilter(id: filter.id)
+            filters.removeAll { $0.id == filter.id }
+            errorMessage = nil
+        } catch {
+            errorMessage = "Couldn't delete filter: \(error.localizedDescription)"
+        }
     }
 
     // MARK: - Summary metrics
