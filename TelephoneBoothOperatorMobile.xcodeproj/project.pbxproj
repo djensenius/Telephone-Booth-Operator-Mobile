@@ -1454,16 +1454,16 @@
 			projectRoot = "";
 			targets = (
 				FDDE76584B9EC36E383EF62C /* TBOperatorMobile */,
-				C58C6FD56A4AA671700B8ED3 /* TBOperatorMobileWidgets */,
-				E1606AB971FC8E4E16A1375F /* TBOperatorMobileWatch */,
 				4A47F610A11EE2109713BC3B /* TBOperatorMobileMac */,
-				4F8BB5FD8CB50CE70817C083 /* TBOperatorMobileVision */,
-				2E142B191C49D384967A1F74 /* TBOperatorMobileTV */,
-				F42DDA303244D3C3D961A65E /* TBOperatorMobileTests */,
 				3828AA21DAEBFE03873B738C /* TBOperatorMobileMacTests */,
-				EBB4F07764C04815F55A3C9B /* TBOperatorMobileVisionTests */,
+				2E142B191C49D384967A1F74 /* TBOperatorMobileTV */,
 				ED33EE6901AFD85F494096C5 /* TBOperatorMobileTVTests */,
+				F42DDA303244D3C3D961A65E /* TBOperatorMobileTests */,
+				4F8BB5FD8CB50CE70817C083 /* TBOperatorMobileVision */,
+				EBB4F07764C04815F55A3C9B /* TBOperatorMobileVisionTests */,
+				E1606AB971FC8E4E16A1375F /* TBOperatorMobileWatch */,
 				C95F7C89B59F27C631B35CC0 /* TBOperatorMobileWatchTests */,
+				C58C6FD56A4AA671700B8ED3 /* TBOperatorMobileWidgets */,
 			);
 		};
 /* End PBXProject section */
