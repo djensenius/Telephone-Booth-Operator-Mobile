@@ -118,6 +118,9 @@ public struct StatusDashboardView: View {
                 if let profile {
                     Section(profile.name) {
                         Text(profile.email)
+                        if profile.isAdmin {
+                            Label("Admin", systemImage: "checkmark.seal.fill")
+                        }
                         if !profile.groups.isEmpty {
                             Text(profile.groups.joined(separator: " · "))
                         }
