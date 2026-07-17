@@ -23,9 +23,9 @@ public struct StatusDashboardView: View {
 
     private let client: OperatorClient
 
-    public init(client: OperatorClient = .shared, liveStore: BoothStatusLiveStore = .shared) {
+    public init(client: OperatorClient = .shared, liveStore: BoothStatusLiveStore? = nil) {
         self.client = client
-        _liveStore = State(initialValue: liveStore)
+        _liveStore = State(initialValue: liveStore ?? (client.demoMode ? .demo : .shared))
     }
 
     public var body: some View {

@@ -79,7 +79,7 @@ public final class BoothStatusLiveStore {
     }
 
     public func refreshNow() async {
-        await refreshFromREST(force: true)
+        await refreshFromREST()
     }
 
     private func startSocketLoop() {
@@ -131,7 +131,12 @@ public final class BoothStatusLiveStore {
         var isInitialSeed = true
         while !Task.isCancelled {
             if isInitialSeed || connection != .live {
-                await refreshFromREST(force: isInitialSeed)
+                await refreshFromREST()
+            } else {
+                // The live socket owns status/history; keep the summary counts
+                // fresh on the cadence because the socket does not carry a
+                // StatsSummary.
+                await refreshSummary()
             }
             isInitialSeed = false
             do {
@@ -142,34 +147,66 @@ public final class BoothStatusLiveStore {
         }
     }
 
-    private func refreshFromREST(force: Bool) async {
+    private func attempt<Value: Sendable>(_ operation: () async throws -> Value) async -> Value? {
+        do {
+            return try await operation()
+        } catch {
+            logger.debug("Live status request failed: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    private func refreshFromREST() async {
         if demoMode || config.isDemoMode {
             applyDemoData()
             return
         }
-        if !force, connection == .live { return }
-        do {
-            async let statusResult = client.fetchBoothStatus()
-            async let historyResult = client.fetchStatusHistory(limit: 200)
-            async let systemResult = client.fetchCurrentSystemEnvelope()
-            async let statsResult = client.fetchStatsSummary()
-            let (newStatus, newHistory, newSystem, newStats) = try await (
-                statusResult,
-                historyResult,
-                systemResult,
-                statsResult
-            )
-            history = newHistory.items
-            apply(status: newStatus)
+        let client = self.client
+        async let statusResult = attempt { try await client.fetchBoothStatus() }
+        async let historyResult = attempt { try await client.fetchStatusHistory(limit: 200) }
+        async let systemResult = attempt { try await client.fetchCurrentSystemEnvelope() }
+        async let statsResult = attempt { try await client.fetchStatsSummary() }
+
+        let newStatus = await statusResult
+        let newHistory = await historyResult
+        let newSystem = await systemResult
+        let newStats = await statsResult
+
+        // Apply each successful result independently so one failing endpoint
+        // does not discard the others. `apply(status:)` and `mergeHistory`
+        // guard against overwriting fresher data delivered by the socket while
+        // these requests were in flight.
+        if let newHistory { mergeHistory(newHistory.items) }
+        if let newStatus { apply(status: newStatus) }
+        if let newSystem {
             systemEnvelope = newSystem
-            stats = newStats
-            WidgetSnapshotStore.write(WidgetSnapshot(stats: newStats))
+            writeWidgetSnapshotIfPossible()
+        }
+        if let newStats { applyStats(newStats) }
+
+        let anySuccess = newStatus != nil || newHistory != nil
+            || newSystem != nil || newStats != nil
+        if newStatus == nil {
+            // Only a failed *current status* request signals degraded status;
+            // other successful results above are still applied.
+            if status == nil && stats == nil {
+                connection = .offline
+            } else if connection != .live {
+                connection = .polling
+            }
+            lastError = "Couldn't refresh booth status."
+        } else if anySuccess {
             if connection != .live { connection = .polling }
             lastError = nil
-        } catch {
-            logger.debug("Live status REST refresh failed: \(error.localizedDescription, privacy: .public)")
-            if stats == nil && status == nil { connection = .offline }
-            lastError = "Couldn't refresh booth status: \(error.localizedDescription)"
+        }
+    }
+
+    private func refreshSummary() async {
+        if demoMode || config.isDemoMode { return }
+        let client = self.client
+        if let newStats = await attempt({ try await client.fetchStatsSummary() }) {
+            applyStats(newStats)
+            lastError = nil
         }
     }
 
@@ -186,6 +223,11 @@ public final class BoothStatusLiveStore {
     }
 
     private func apply(status newStatus: BoothStatus) {
+        if let current = status, current.updatedAt > newStatus.updatedAt {
+            // A fresher status (e.g. from the live socket) already applied while
+            // a slower REST response was in flight; ignore the stale update.
+            return
+        }
         status = newStatus
         mergeIntoHistory(newStatus)
         if let currentStats = stats {
@@ -201,9 +243,29 @@ public final class BoothStatusLiveStore {
         }
     }
 
+    private func applyStats(_ newStats: StatsSummary) {
+        if status == nil { apply(status: newStats.booth) }
+        let booth = status ?? newStats.booth
+        let merged = StatsSummary(
+            booth: booth,
+            messages: newStats.messages,
+            calls: newStats.calls,
+            realtime: newStats.realtime,
+            generatedAt: newStats.generatedAt
+        )
+        stats = merged
+        WidgetSnapshotStore.write(WidgetSnapshot(stats: merged))
+    }
+
     private func mergeIntoHistory(_ newStatus: BoothStatus) {
-        history.removeAll { $0.updatedAt == newStatus.updatedAt }
-        history.append(newStatus)
+        mergeHistory([newStatus])
+    }
+
+    private func mergeHistory(_ items: [BoothStatus]) {
+        for item in items {
+            history.removeAll { $0.updatedAt == item.updatedAt }
+            history.append(item)
+        }
         history.sort { $0.updatedAt < $1.updatedAt }
         if history.count > 200 {
             history.removeFirst(history.count - 200)

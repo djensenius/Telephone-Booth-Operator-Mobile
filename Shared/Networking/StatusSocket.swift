@@ -67,6 +67,12 @@ public actor StatusSocket {
 
     public static let defaultMaxMessageSize = 1_048_576
 
+    /// A single inbound WebSocket frame, normalized for processing and tests.
+    enum IncomingMessage: Sendable {
+        case data(Data)
+        case text(String)
+    }
+
     private let config: AppConfig?
     private let auth: AuthManager?
     private let session: URLSession
@@ -85,6 +91,16 @@ public actor StatusSocket {
         self.session = session
         self.maxMessageSize = maxMessageSize
         self.demoMode = demoMode
+    }
+
+    /// Test hook that builds a socket without config/auth so message
+    /// processing can be exercised deterministically.
+    init(maxMessageSize: Int) {
+        self.config = nil
+        self.auth = nil
+        self.session = .shared
+        self.maxMessageSize = maxMessageSize
+        self.demoMode = false
     }
 
     public nonisolated func subscribe() -> AsyncThrowingStream<WsStatusEnvelope, Error> {
@@ -177,30 +193,50 @@ public actor StatusSocket {
         continuation: AsyncThrowingStream<WsStatusEnvelope, Error>.Continuation
     ) async throws {
         while !Task.isCancelled {
-            let message = try await task.receive()
-            let data: Data
-            switch message {
+            let incoming: IncomingMessage
+            switch try await task.receive() {
             case .data(let payload):
-                data = payload
+                incoming = .data(payload)
             case .string(let text):
-                data = Data(text.utf8)
+                incoming = .text(text)
             @unknown default:
                 statusSocketLogger.debug("Ignoring unknown WebSocket message type")
                 continue
             }
-            guard data.count <= maxMessageSize else {
-                statusSocketLogger.error(
-                    "Status WebSocket message exceeded max size of \(self.maxMessageSize) bytes"
-                )
-                throw OperatorError.eventSizeExceeded(maxMessageSize)
-            }
-            do {
-                continuation.yield(try OperatorJSON.decoder.decode(WsStatusEnvelope.self, from: data))
-            } catch {
-                statusSocketLogger.error(
-                    "Status WebSocket decode failed: \(error.localizedDescription, privacy: .public)"
-                )
-            }
+            try handle(incoming, task: task, continuation: continuation)
+        }
+    }
+
+    /// Enforces the size limit and decodes a single frame into a
+    /// `WsStatusEnvelope`. Extracted so tests can exercise the size guard and
+    /// decoding without a live transport. On an oversized frame the socket is
+    /// closed with `.messageTooBig` before throwing so the connection does not
+    /// linger.
+    func handle(
+        _ message: IncomingMessage,
+        task: URLSessionWebSocketTask? = nil,
+        continuation: AsyncThrowingStream<WsStatusEnvelope, Error>.Continuation
+    ) throws {
+        let data: Data
+        switch message {
+        case .data(let payload):
+            data = payload
+        case .text(let text):
+            data = Data(text.utf8)
+        }
+        guard data.count <= maxMessageSize else {
+            statusSocketLogger.error(
+                "Status WebSocket message exceeded max size of \(self.maxMessageSize) bytes"
+            )
+            task?.cancel(with: .messageTooBig, reason: nil)
+            throw OperatorError.eventSizeExceeded(maxMessageSize)
+        }
+        do {
+            continuation.yield(try OperatorJSON.decoder.decode(WsStatusEnvelope.self, from: data))
+        } catch {
+            statusSocketLogger.error(
+                "Status WebSocket decode failed: \(error.localizedDescription, privacy: .public)"
+            )
         }
     }
 

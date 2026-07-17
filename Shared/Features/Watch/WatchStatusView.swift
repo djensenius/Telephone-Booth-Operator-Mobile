@@ -16,9 +16,8 @@ struct WatchStatusView: View {
     @State private var isRefreshing = false
     @State private var liveStore: BoothStatusLiveStore
 
-    init(client: OperatorClient = .shared, liveStore: BoothStatusLiveStore = .shared) {
-        _ = client
-        _liveStore = State(initialValue: liveStore)
+    init(client: OperatorClient = .shared, liveStore: BoothStatusLiveStore? = nil) {
+        _liveStore = State(initialValue: liveStore ?? (client.demoMode ? .demo : .shared))
     }
 
     var body: some View {

@@ -20,9 +20,9 @@ struct TVBoothWallView: View {
 
     private let client: OperatorClient
 
-    init(client: OperatorClient = .shared, liveStore: BoothStatusLiveStore = .shared) {
+    init(client: OperatorClient = .shared, liveStore: BoothStatusLiveStore? = nil) {
         self.client = client
-        _liveStore = State(initialValue: liveStore)
+        _liveStore = State(initialValue: liveStore ?? (client.demoMode ? .demo : .shared))
     }
 
     var body: some View {

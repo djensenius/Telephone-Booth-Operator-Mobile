@@ -31,7 +31,9 @@ public actor OperatorClient {
     private let config: AppConfig
     private let auth: AuthManager
     let session: URLSession
-    private let demoMode: Bool
+    /// Whether this client serves demo data. Exposed `nonisolated` so demo
+    /// UI routes can resolve a matching demo live-status store synchronously.
+    nonisolated let demoMode: Bool
 
     public init(
         config: AppConfig,
