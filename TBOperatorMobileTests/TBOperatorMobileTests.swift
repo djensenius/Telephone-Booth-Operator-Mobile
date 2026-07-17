@@ -85,6 +85,22 @@ final class TBOperatorMobileTests: XCTestCase {
         XCTAssertEqual(profile.email, "ada@example.com")
         XCTAssertEqual(profile.picture?.host, "example.com")
         XCTAssertEqual(profile.groups, ["telephone-booth-operators"])
+        XCTAssertFalse(profile.isAdmin, "isAdmin should default to false when absent")
+    }
+
+    func testOperatorMeDecodesIsAdmin() throws {
+        let json = """
+        {
+          "id": "auth0|admin-1",
+          "name": "Admin",
+          "email": "admin@example.com",
+          "groups": ["telephone-booth-admins"],
+          "isAdmin": true,
+          "providerName": "Authentik"
+        }
+        """
+        let profile = try OperatorJSON.decoder.decode(OperatorMe.self, from: Data(json.utf8))
+        XCTAssertTrue(profile.isAdmin)
     }
 
     // MARK: - BoothState helpers

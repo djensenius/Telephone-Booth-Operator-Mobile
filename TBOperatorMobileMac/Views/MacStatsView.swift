@@ -17,10 +17,17 @@ import Charts
 #endif
 
 struct MacStatsView: View {
-    @State private var window: StatsWindow = .last7d
+    @State private var preset: StatsWindow = .last7d
+    @State private var selection: StatsRangeSelection = .default
+    @State private var customStart: Date = Date().addingTimeInterval(-7 * 24 * 60 * 60)
+    @State private var customEnd: Date = Date()
+    @State private var endIsNow: Bool = true
+    @State private var filters: [MetricFilter] = []
     @State private var overview: StatsOverview?
     @State private var errorMessage: String?
     @State private var isRefreshing = false
+    @State private var isPresentingCustom = false
+    @State private var newFilterName = ""
 
     private let client: OperatorClient
 
@@ -48,7 +55,7 @@ struct MacStatsView: View {
         .background(Theme.Colors.background)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Picker("Window", selection: $window) {
+                Picker("Window", selection: $preset) {
                     ForEach(StatsWindow.knownCases, id: \.rawValue) { option in
                         Text(option.shortLabel).tag(option)
                     }
@@ -57,19 +64,132 @@ struct MacStatsView: View {
                 .labelsHidden()
                 .frame(width: 260)
             }
+            ToolbarItem(placement: .automatic) {
+                rangeMenu
+            }
         }
-        .task(id: window) { await refresh() }
+        .onChange(of: preset) { _, newValue in
+            selection = .window(newValue)
+        }
+        .task(id: selection) { await refresh() }
+        .task { await loadFilters() }
+        .sheet(isPresented: $isPresentingCustom) {
+            customRangeSheet
+        }
+    }
+
+    private var rangeMenu: some View {
+        Menu {
+            Button("Custom range…") { isPresentingCustom = true }
+            if !filters.isEmpty {
+                Divider()
+                ForEach(filters) { filter in
+                    Button(filter.name) { apply(filter: filter) }
+                }
+                Divider()
+                Menu("Delete filter") {
+                    ForEach(filters) { filter in
+                        Button(filter.name, role: .destructive) {
+                            Task { await delete(filter: filter) }
+                        }
+                    }
+                }
+            }
+        } label: {
+            Label(selection.displayName, systemImage: "calendar")
+        }
+    }
+
+    private var customRangeSheet: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Custom range")
+                .font(Theme.Fonts.headerLarge())
+            DatePicker(
+                "Start",
+                selection: $customStart,
+                in: ...customEnd,
+                displayedComponents: [.date, .hourAndMinute]
+            )
+            Toggle("End = now", isOn: $endIsNow)
+            if !endIsNow {
+                DatePicker(
+                    "End",
+                    selection: $customEnd,
+                    in: customStart...,
+                    displayedComponents: [.date, .hourAndMinute]
+                )
+            }
+            HStack {
+                TextField("Save as…", text: $newFilterName)
+                    .textFieldStyle(.roundedBorder)
+                Button("Save") { Task { await saveCurrentFilter() } }
+                    .disabled(newFilterName.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { isPresentingCustom = false }
+                Button("Apply") {
+                    applyCustomRange()
+                    isPresentingCustom = false
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.Colors.accent)
+            }
+        }
+        .padding(24)
+        .frame(minWidth: 360)
     }
 
     private func refresh() async {
         isRefreshing = true
         defer { isRefreshing = false }
         do {
-            overview = try await client.fetchStatsOverview(window: window)
+            overview = try await client.fetchStatsOverview(selection: selection)
             errorMessage = nil
         } catch {
             errorMessage = "Couldn't load stats: \(error.localizedDescription)"
         }
+    }
+
+    private func loadFilters() async {
+        filters = (try? await client.fetchMetricFilters()) ?? []
+    }
+
+    private func applyCustomRange() {
+        selection = .custom(
+            start: customStart,
+            endIsNow: endIsNow,
+            end: endIsNow ? nil : customEnd
+        )
+    }
+
+    private func apply(filter: MetricFilter) {
+        selection = filter.selection
+        if case .window(let window) = filter.selection {
+            preset = window
+        }
+        if case .custom(let start, let isNow, let end) = filter.selection {
+            if let start { customStart = start }
+            endIsNow = isNow
+            if let end { customEnd = end }
+        }
+    }
+
+    private func saveCurrentFilter() async {
+        let name = newFilterName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        newFilterName = ""
+        applyCustomRange()
+        if let created = try? await client.createMetricFilter(
+            MetricFilterInput(name: name, selection: selection)
+        ) {
+            filters.append(created)
+        }
+    }
+
+    private func delete(filter: MetricFilter) async {
+        try? await client.deleteMetricFilter(id: filter.id)
+        filters.removeAll { $0.id == filter.id }
     }
 
     // MARK: - Summary metrics

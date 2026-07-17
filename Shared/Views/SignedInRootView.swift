@@ -53,11 +53,13 @@ private struct OperatorShell: View {
     let client: OperatorClient
     let eventStream: EventStream
     @State private var pending = PendingMessagesStore.shared
+    @State private var currentUser: CurrentUserStore
     @State private var selection: OperatorTab
 
     init(client: OperatorClient, eventStream: EventStream) {
         self.client = client
         self.eventStream = eventStream
+        _currentUser = State(initialValue: CurrentUserStore(client: client))
         let requested = LaunchEnv.screenshotTab.flatMap(OperatorTab.init(rawValue:))
         _selection = State(initialValue: requested ?? .dashboard)
     }
@@ -96,7 +98,8 @@ private struct OperatorShell: View {
 
             Tab("Questions", systemImage: "questionmark.bubble", value: .questions) {
                 NavigationStack {
-                    QuestionsView(client: client).navigationTitle("Questions")
+                    QuestionsView(client: client, isAdmin: currentUser.isAdmin)
+                        .navigationTitle("Questions")
                 }
             }
             #endif
@@ -116,7 +119,9 @@ private struct OperatorShell: View {
         .tabViewStyle(.sidebarAdaptable)
         .tint(Theme.Colors.accent)
         .liveActivityObserver()
+        .environment(currentUser)
         .task { pending.startPolling(using: client) }
+        .task { currentUser.start() }
     }
 
     @ViewBuilder

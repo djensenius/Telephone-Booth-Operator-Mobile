@@ -15,9 +15,11 @@ import Charts
 #endif
 
 public struct StatsView: View {
-    @State private var window: StatsWindow = .last7d
+    @State private var selection: StatsRangeSelection = .default
+    @State private var filters: [MetricFilter] = []
     @State private var overview: StatsOverview?
     @State private var errorMessage: String?
+    @State private var controlsError: String?
     @State private var isRefreshing = false
 
     private let client: OperatorClient
@@ -29,7 +31,15 @@ public struct StatsView: View {
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.large) {
-                windowPickerCard
+                StatsRangeControls(
+                    selection: $selection,
+                    filters: filters,
+                    onSave: { name in Task { await saveCurrentFilter(named: name) } },
+                    onDelete: { filter in Task { await delete(filter: filter) } }
+                )
+                if let controlsError {
+                    BannerView(message: controlsError, kind: .error)
+                }
                 if let errorMessage {
                     BannerView(message: errorMessage, kind: .error)
                 }
@@ -52,7 +62,8 @@ public struct StatsView: View {
             .padding(Theme.Spacing.large)
         }
         .background(Theme.Colors.background)
-        .task(id: window) { await refresh() }
+        .task(id: selection) { await refresh() }
+        .task { await loadFilters() }
         .refreshableIfAvailable { await refresh() }
     }
 
@@ -60,37 +71,51 @@ public struct StatsView: View {
         isRefreshing = true
         defer { isRefreshing = false }
         do {
-            overview = try await client.fetchStatsOverview(window: window)
+            overview = try await client.fetchStatsOverview(selection: selection)
             errorMessage = nil
         } catch {
             errorMessage = "Couldn't load stats: \(error.localizedDescription)"
         }
     }
 
-    // MARK: - Window picker
-
-    private var windowPickerCard: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            SectionHeader(text: "Window")
-            Picker("Window", selection: $window) {
-                ForEach(StatsWindow.knownCases, id: \.rawValue) { option in
-                    Text(option.shortLabel).tag(option)
-                }
-            }
-            #if !os(watchOS)
-            .pickerStyle(.segmented)
-            #endif
+    private func loadFilters() async {
+        do {
+            filters = try await client.fetchMetricFilters()
+            controlsError = nil
+        } catch {
+            controlsError = "Couldn't load saved filters: \(error.localizedDescription)"
         }
-        .padding(Theme.Spacing.medium)
-        .frame(maxWidth: .infinity)
-        .glassCardBackground()
+    }
+
+    private func saveCurrentFilter(named name: String) async {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        do {
+            let created = try await client.createMetricFilter(
+                MetricFilterInput(name: trimmed, selection: selection)
+            )
+            filters.append(created)
+            controlsError = nil
+        } catch {
+            controlsError = "Couldn't save filter: \(error.localizedDescription)"
+        }
+    }
+
+    private func delete(filter: MetricFilter) async {
+        do {
+            try await client.deleteMetricFilter(id: filter.id)
+            filters.removeAll { $0.id == filter.id }
+            controlsError = nil
+        } catch {
+            controlsError = "Couldn't delete filter: \(error.localizedDescription)"
+        }
     }
 
     // MARK: - Headline
 
     private func headlineCard(overview: StatsOverview) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            SectionHeader(text: window.displayName)
+            SectionHeader(text: selection.displayName)
             HStack(spacing: Theme.Spacing.small) {
                 StatsSummaryTile(
                     label: "Pickups",

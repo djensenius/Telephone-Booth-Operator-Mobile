@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "4A47F610A11EE2109713BC3B"
-               BuildableName = "TBOperatorMobileMac.app"
+               BuildableName = "Operator.app"
                BlueprintName = "TBOperatorMobileMac"
                ReferencedContainer = "container:TelephoneBoothOperatorMobile.xcodeproj">
             </BuildableReference>
@@ -31,7 +31,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4A47F610A11EE2109713BC3B"
-            BuildableName = "TBOperatorMobileMac.app"
+            BuildableName = "Operator.app"
             BlueprintName = "TBOperatorMobileMac"
             ReferencedContainer = "container:TelephoneBoothOperatorMobile.xcodeproj">
          </BuildableReference>
@@ -65,7 +65,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4A47F610A11EE2109713BC3B"
-            BuildableName = "TBOperatorMobileMac.app"
+            BuildableName = "Operator.app"
             BlueprintName = "TBOperatorMobileMac"
             ReferencedContainer = "container:TelephoneBoothOperatorMobile.xcodeproj">
          </BuildableReference>
@@ -82,7 +82,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "4A47F610A11EE2109713BC3B"
-            BuildableName = "TBOperatorMobileMac.app"
+            BuildableName = "Operator.app"
             BlueprintName = "TBOperatorMobileMac"
             ReferencedContainer = "container:TelephoneBoothOperatorMobile.xcodeproj">
          </BuildableReference>

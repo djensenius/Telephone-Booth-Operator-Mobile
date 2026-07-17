@@ -67,11 +67,7 @@ public actor OperatorClient {
     /// playbacks, uploads, top questions, hourly) over the chosen window.
     /// Operator caches results for 30s per window key.
     public func fetchStatsOverview(window: StatsWindow = .last7d) async throws -> StatsOverview {
-        if await usesDemoData { return DemoData.statsOverview(window: window) }
-        return try await get(
-            "/v1/stats/overview",
-            query: [URLQueryItem(name: "window", value: window.rawValue)]
-        )
+        try await fetchStatsOverview(selection: .window(window))
     }
 
     /// `GET /v1/status` — current booth state (no auth required, but we
@@ -308,6 +304,13 @@ public actor OperatorClient {
         body: Body
     ) async throws -> Response {
         try await request(method: "POST", path: path, body: body, requireAuth: true)
+    }
+
+    func putJSON<Body: Encodable, Response: Decodable>(
+        _ path: String,
+        body: Body
+    ) async throws -> Response {
+        try await request(method: "PUT", path: path, body: body, requireAuth: true)
     }
 
     func delete(_ path: String) async throws {
