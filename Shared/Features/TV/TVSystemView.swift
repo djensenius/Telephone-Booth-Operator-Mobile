@@ -106,7 +106,12 @@ struct TVSystemView: View {
         TVFocusCard {
             VStack(alignment: .leading, spacing: 16) {
                 TVCardHeader(title: "System status unavailable", systemImage: "exclamationmark.triangle.fill")
-                TVBanner(message: message)
+                // Render the message inline rather than via `TVBanner`, whose
+                // own `TVFocusCard` would add a redundant nested focus stop.
+                Text(message)
+                    .font(TVMetrics.Font.body)
+                    .foregroundStyle(Theme.Colors.error)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text("Retrying automatically…")
                     .font(TVMetrics.Font.body)
                     .foregroundStyle(Theme.Colors.textSecondary)

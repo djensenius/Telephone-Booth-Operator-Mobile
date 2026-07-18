@@ -212,12 +212,18 @@ public final class BoothStatusLiveStore {
     private func applySystemResult(_ newSystem: BoothSystemSnapshotEnvelope??) {
         switch newSystem {
         case .some(let envelope?):
-            systemEnvelope = envelope
+            // The REST seed races the live socket; don't let an older REST
+            // envelope replace a fresher snapshot the socket already applied.
+            if let current = systemEnvelope, current.receivedAt >= envelope.receivedAt {
+                // Keep the fresher cached snapshot.
+            } else {
+                systemEnvelope = envelope
+                writeWidgetSnapshotIfPossible()
+            }
             systemUnavailable = false
-            writeWidgetSnapshotIfPossible()
         case .some(.none):
-            // Endpoint reachable, but the booth has no snapshot yet.
-            systemEnvelope = nil
+            // Endpoint reachable but empty; preserve any snapshot we already
+            // hold (e.g. delivered by the socket) rather than erasing it.
             systemUnavailable = false
         case .none:
             // The system request itself failed; only surface an error when we

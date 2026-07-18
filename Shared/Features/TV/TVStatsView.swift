@@ -342,6 +342,7 @@ private struct TVRangeSelector: View {
                         .padding(.vertical, 22)
                 }
                 .buttonStyle(TVSegmentButtonStyle(isSelected: window == option))
+                .accessibilityAddTraits(window == option ? [.isSelected] : [])
             }
         }
     }
