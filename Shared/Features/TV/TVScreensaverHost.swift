@@ -72,6 +72,7 @@ private struct TVScreensaverHostModifier: ViewModifier {
                         .focused($overlayFocused)
                         .onMoveCommand { _ in wake() }
                         .onExitCommand { wake() }
+                        .onPlayPauseCommand { wake() }
                         .onTapGesture { wake() }
                         .onAppear { overlayFocused = true }
                         .onDisappear { overlayFocused = false }
@@ -91,7 +92,12 @@ private struct TVScreensaverHostModifier: ViewModifier {
 
     private func registerInput() {
         lastInput = Date()
-        if showing { wake() }
+        // While the overlay is visible, deliberately do NOT dismiss from this
+        // passive (non-consuming) window monitor: it fires before the focused
+        // overlay can consume the press, so dismissing here would let the same
+        // press also move focus or activate a dashboard control underneath.
+        // The overlay's focused command handlers own dismissal instead and
+        // consume every supported press (arrows, select, menu, play/pause).
     }
 
     private func wake() {
