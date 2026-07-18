@@ -233,9 +233,10 @@ public enum Theme {
 
     // macOS and visionOS deliberately use the platform's native light/dark
     // system palette (no Catppuccin) so the app feels at home on those
-    // platforms. iOS / iPadOS and tvOS can switch between the
-    // booth-flavoured Catppuccin palette and native system colors, in
-    // light, dark, or automatic mode; watchOS keeps Catppuccin Mocha.
+    // platforms. iOS / iPadOS can switch between the booth-flavoured Catppuccin
+    // palette and native system colors, in light, dark, or automatic mode.
+    // tvOS exposes only the Catppuccin palette (light, dark, or automatic — see
+    // `IOSThemeMode.tvSelectableCases`); watchOS keeps Catppuccin Mocha.
     public enum Colors {
         #if os(macOS) || os(visionOS)
         public static let accent = Color.accentColor

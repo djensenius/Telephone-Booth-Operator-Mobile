@@ -49,7 +49,9 @@ public final class AppConfig {
     }
 
     #if os(iOS) || os(tvOS)
-    /// Appearance preference (iOS / tvOS) for Catppuccin or native system colors.
+    /// Appearance preference for the booth (Catppuccin) palette — and on iOS /
+    /// iPadOS also native system colors — in light, dark, or automatic mode.
+    /// tvOS exposes only the Catppuccin modes (see `tvSelectableCases`).
     public var iosThemeMode: Theme.IOSThemeMode {
         didSet {
             Theme.IOSThemeMode.persist(iosThemeMode)

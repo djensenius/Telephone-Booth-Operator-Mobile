@@ -32,6 +32,11 @@ struct TVScreensaverView: View {
     @State private var driftXPhase = false
     @State private var driftYPhase = false
     @State private var driftStarted = false
+    /// Bounded position used only under Reduce Motion: continuous drifting is
+    /// disabled, so each card is instead relocated to a fresh spot while it is
+    /// fully faded out — preserving burn-in protection without any visible
+    /// movement.
+    @State private var staticOffset: CGSize = .zero
     @State private var appeared = false
     /// Set when the booth transitions into (or between) active states so the
     /// rotation can interrupt itself and surface the live status immediately.
@@ -69,8 +74,8 @@ struct TVScreensaverView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .offset(
-            x: reduceMotion ? 0 : (driftXPhase ? driftAmplitudeX : -driftAmplitudeX),
-            y: reduceMotion ? 0 : (driftYPhase ? driftAmplitudeY : -driftAmplitudeY)
+            x: reduceMotion ? staticOffset.width : (driftXPhase ? driftAmplitudeX : -driftAmplitudeX),
+            y: reduceMotion ? staticOffset.height : (driftYPhase ? driftAmplitudeY : -driftAmplitudeY)
         )
         .ignoresSafeArea()
         .background(Color.black.ignoresSafeArea())
@@ -196,6 +201,15 @@ struct TVScreensaverView: View {
     @MainActor
     private func present(_ item: TVSpotlight) async {
         appeared = false
+        if reduceMotion {
+            // Move the (currently invisible) stage to a fresh bounded position
+            // so successive cards don't light the same pixels. No animation, so
+            // it never reads as motion.
+            staticOffset = CGSize(
+                width: .random(in: -driftAmplitudeX...driftAmplitudeX),
+                height: .random(in: -driftAmplitudeY...driftAmplitudeY)
+            )
+        }
         current = item
         let intro: Animation = reduceMotion ? .easeInOut(duration: 0.8) : .easeOut(duration: 1.2)
         withAnimation(intro) { appeared = true }
