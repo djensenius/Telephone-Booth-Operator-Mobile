@@ -241,7 +241,12 @@ enum TVScreensaverPlaylist {
     }
 
     private static func statusDetail(_ state: BoothState) -> String {
-        state.isCallActive ? "Call in progress" : "Booth active"
+        switch state {
+        case .error:
+            return "Needs attention"
+        default:
+            return state.isCallActive ? "Call in progress" : "Booth active"
+        }
     }
 
     private static func metric(

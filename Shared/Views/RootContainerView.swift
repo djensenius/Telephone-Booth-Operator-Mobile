@@ -62,6 +62,13 @@ public struct RootContainerView: View {
         }
         #if os(iOS) || os(tvOS)
         .preferredColorScheme(config.iosThemeMode.preferredColorScheme)
+        #endif
+        #if os(iOS)
+        // Force a full rebuild on theme change so UIKit-backed appearance
+        // refreshes. Not applied on tvOS: there it would recreate the signed-in
+        // shell and eject the user back to the Dashboard tab (and dismiss the
+        // login sheet). tvOS only switches light/dark, which the dynamic theme
+        // colors already pick up via `preferredColorScheme`.
         .id(config.iosThemeMode)
         #endif
         .task {

@@ -97,8 +97,8 @@ public struct SettingsView: View {
                     Text("Screensaver")
                 } footer: {
                     Text("Replaces the tvOS system screensaver with a burn-in-safe wall that " +
-                         "spotlights live booth stats. The system screensaver stays disabled " +
-                         "while the dashboard is on screen.")
+                         "spotlights live booth stats. While it's on, the system screensaver " +
+                         "stays disabled; turning it off restores the system screensaver.")
                 }
                 .themedSettingsRowBackground()
                 #endif

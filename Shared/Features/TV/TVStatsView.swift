@@ -19,11 +19,13 @@ struct TVStatsView: View {
     @State private var overview: StatsOverview?
     @State private var errorMessage: String?
     @State private var isRefreshing = false
+    @State private var liveStore: BoothStatusLiveStore
 
     private let client: OperatorClient
 
-    init(client: OperatorClient = .shared) {
+    init(client: OperatorClient = .shared, liveStore: BoothStatusLiveStore? = nil) {
         self.client = client
+        _liveStore = State(initialValue: liveStore ?? (client.demoMode ? .demo : .shared))
     }
 
     var body: some View {
@@ -63,6 +65,7 @@ struct TVStatsView: View {
                 try? await Task.sleep(for: .seconds(15))
             }
         }
+        .boothStatusLive(liveStore)
     }
 
     @ViewBuilder
@@ -102,8 +105,8 @@ struct TVStatsView: View {
                     )
                     TVStatTile(
                         label: "In progress",
-                        value: number(overview.calls.inProgress),
-                        emphasize: overview.calls.inProgress > 0
+                        value: number(liveInProgress ?? overview.calls.inProgress),
+                        emphasize: (liveInProgress ?? overview.calls.inProgress) > 0
                     )
                 }
             }
@@ -294,6 +297,13 @@ struct TVStatsView: View {
             guard !Task.isCancelled, requested == window else { return }
             errorMessage = "Couldn't load stats: \(error.localizedDescription)"
         }
+    }
+
+    /// Live in-progress count from the WebSocket-backed store (when available),
+    /// so the headline reflects current booth activity between the slower
+    /// historical-overview refreshes.
+    private var liveInProgress: Int? {
+        liveStore.stats?.calls.inProgress
     }
 
     private func number(_ value: Int) -> String {
