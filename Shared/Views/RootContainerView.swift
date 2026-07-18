@@ -29,6 +29,13 @@ public enum LaunchEnv {
         value(for: "-uiScreenshotTab")
     }
 
+    /// `-uiScreensaverPreview YES` forces the tvOS ambient screensaver to show
+    /// immediately (the headless simulator can't inject remote idle), so it can
+    /// be captured during screenshot automation.
+    public static var screensaverPreview: Bool {
+        value(for: "-uiScreensaverPreview").map { ($0 as NSString).boolValue } ?? false
+    }
+
     private static func value(for flag: String) -> String? {
         guard let index = args.firstIndex(of: flag), index + 1 < args.count else { return nil }
         return args[index + 1]
@@ -53,8 +60,15 @@ public struct RootContainerView: View {
                 liveRoot
             }
         }
-        #if os(iOS)
+        #if os(iOS) || os(tvOS)
         .preferredColorScheme(config.iosThemeMode.preferredColorScheme)
+        #endif
+        #if os(iOS)
+        // Force a full rebuild on theme change so UIKit-backed appearance
+        // refreshes. Not applied on tvOS: there it would recreate the signed-in
+        // shell and eject the user back to the Dashboard tab (and dismiss the
+        // login sheet). tvOS only switches light/dark, which the dynamic theme
+        // colors already pick up via `preferredColorScheme`.
         .id(config.iosThemeMode)
         #endif
         .task {

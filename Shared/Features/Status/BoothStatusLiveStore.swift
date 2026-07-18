@@ -30,6 +30,13 @@ public final class BoothStatusLiveStore {
     public private(set) var connection: ConnectionState = .offline
     public private(set) var lastError: String?
 
+    /// True only when the `/v1/system/current` request itself failed while we
+    /// have no cached snapshot to show. Lets the System tab present its
+    /// retry/error state during a system-endpoint outage instead of a
+    /// permanent "no snapshot yet". Distinct from the successful-but-empty
+    /// case (endpoint reachable, booth simply hasn't reported yet).
+    public private(set) var systemUnavailable: Bool = false
+
     private let client: OperatorClient
     private let socket: StatusSocket
     private let config: AppConfig
@@ -137,6 +144,11 @@ public final class BoothStatusLiveStore {
                 // fresh on the cadence because the socket does not carry a
                 // StatsSummary.
                 await refreshSummary()
+                // The socket may not carry system snapshots, so keep polling
+                // `/v1/system/current` on the cadence whenever we have none
+                // cached — whether the seed failed or simply returned empty
+                // before the booth first reported — until one arrives.
+                if systemEnvelope == nil { await refreshSystem() }
             }
             isInitialSeed = false
             do {
@@ -178,10 +190,7 @@ public final class BoothStatusLiveStore {
         // these requests were in flight.
         if let newHistory { mergeHistory(newHistory.items) }
         if let newStatus { apply(status: newStatus) }
-        if let newSystem {
-            systemEnvelope = newSystem
-            writeWidgetSnapshotIfPossible()
-        }
+        applySystemResult(newSystem)
         if let newStats { applyStats(newStats) }
 
         let anySuccess = newStatus != nil || newHistory != nil
@@ -201,6 +210,33 @@ public final class BoothStatusLiveStore {
         }
     }
 
+    /// Applies the outcome of the `/v1/system/current` REST request. The double
+    /// optional distinguishes a thrown error (`.none`) from a successful-but-
+    /// empty response (`.some(.none)`) so a system-endpoint outage surfaces an
+    /// error state while "booth hasn't reported yet" stays an empty state.
+    private func applySystemResult(_ newSystem: BoothSystemSnapshotEnvelope??) {
+        switch newSystem {
+        case .some(let envelope?):
+            // The REST seed races the live socket; don't let an older REST
+            // envelope replace a fresher snapshot the socket already applied.
+            if let current = systemEnvelope, current.receivedAt >= envelope.receivedAt {
+                // Keep the fresher cached snapshot.
+            } else {
+                systemEnvelope = envelope
+                writeWidgetSnapshotIfPossible()
+            }
+            systemUnavailable = false
+        case .some(.none):
+            // Endpoint reachable but empty; preserve any snapshot we already
+            // hold (e.g. delivered by the socket) rather than erasing it.
+            systemUnavailable = false
+        case .none:
+            // The system request itself failed; only surface an error when we
+            // have nothing cached to fall back on.
+            systemUnavailable = systemEnvelope == nil
+        }
+    }
+
     private func refreshSummary() async {
         if demoMode || config.isDemoMode { return }
         let client = self.client
@@ -210,12 +246,23 @@ public final class BoothStatusLiveStore {
         }
     }
 
+    /// Retry only the `/v1/system/current` endpoint (used on the live-socket
+    /// cadence while `systemUnavailable` is set) so the System tab recovers
+    /// after an outage without waiting for a full REST reseed.
+    private func refreshSystem() async {
+        if demoMode || config.isDemoMode { return }
+        let client = self.client
+        let result = await attempt { try await client.fetchCurrentSystemEnvelope() }
+        applySystemResult(result)
+    }
+
     private func apply(_ envelope: WsStatusEnvelope) {
         switch envelope {
         case .status(let status):
             apply(status: status)
         case .system(let envelope):
             systemEnvelope = envelope
+            systemUnavailable = false
             writeWidgetSnapshotIfPossible()
         case .message:
             break
@@ -285,6 +332,7 @@ public final class BoothStatusLiveStore {
         stats = DemoData.statsSummary
         connection = .polling
         lastError = nil
+        systemUnavailable = false
         WidgetSnapshotStore.write(WidgetSnapshot(stats: DemoData.statsSummary))
     }
 }

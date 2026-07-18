@@ -11,6 +11,7 @@
 		00471F78C525D862C8CA6BB0 /* StatsOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65D5B16AC5442C2142EE12E0 /* StatsOverview.swift */; };
 		00E3FE35CE1414DE77708A39 /* DeviceAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28CAEA03D4C3D9948FA3B6B6 /* DeviceAuthorization.swift */; };
 		020A2E1F3F79A9A5BC1FB9AD /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 190F88131D518227F08BD9A3 /* StatsView.swift */; };
+		0430B63DBECFEBB410E5A341 /* TVStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349B96C3446415F54195F0B8 /* TVStatsView.swift */; };
 		047EB8AE8EDAB367CAAC7487 /* QuestionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 496D5F8615580D39DDCC73F4 /* QuestionStatus.swift */; };
 		0500245ABDE4B8CE79C3135F /* TBOperatorMobileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7781B42DE486F0C2D94C10F2 /* TBOperatorMobileTests.swift */; };
 		05139A0F949E9BAF839C53FC /* WatchModerationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF023161B82D868C9EAE710C /* WatchModerationView.swift */; };
@@ -40,6 +41,7 @@
 		0FD058507304040FBD6870CF /* WidgetSnapshotProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C093C0EF524712F91695D60D /* WidgetSnapshotProvider.swift */; };
 		1006CF0CAB7F2E36A9BC5DE2 /* TBOperatorMobileWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 532E67687BBA95CEAA7D1170 /* TBOperatorMobileWatchApp.swift */; };
 		1071533AE918899CE56DEA4D /* OperatorJSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95B29B530069E8A6FA12891 /* OperatorJSON.swift */; };
+		10DE070A3124F27F761ADAF6 /* TVStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349B96C3446415F54195F0B8 /* TVStatsView.swift */; };
 		1183734A3F7E7ECCEDB66C18 /* RuntimeModeBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B221802CE5A93076121AC690 /* RuntimeModeBadge.swift */; };
 		11B697FD6D2878C16656D53D /* NotificationSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A58F0A1D6582D1806CE4E408 /* NotificationSettingsSection.swift */; };
 		1211D691B74125D1FBFF48BF /* LiveActivityObserverModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F28CC9E236EA19D2522413D /* LiveActivityObserverModifier.swift */; };
@@ -61,6 +63,7 @@
 		1DC85E4FB1C455031D43235B /* WidgetSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDE977DEF1FF457144F67D30 /* WidgetSnapshotStore.swift */; };
 		1EF1D6105B0B7B30618D678E /* WatchLatestMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C45B65F6840E37E66F479101 /* WatchLatestMessageView.swift */; };
 		1EF2D95EEBA13C5A44F1C91B /* CallSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9596BEC9DF2776F880EA70F /* CallSession.swift */; };
+		1F13341B3DF4A8B31E2767B9 /* TVStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349B96C3446415F54195F0B8 /* TVStatsView.swift */; };
 		1F3299EFF30938392E41E23F /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00C93B0EC8A4FCE8DC450009 /* NotificationManager.swift */; };
 		1F7C542F4E024CD822EE532B /* EventsFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BCCBCC7C16BB1678841E822 /* EventsFeedView.swift */; };
 		1F91A3F185468116EC1A0641 /* CurrentUserStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D8000FAFC2480127F131736 /* CurrentUserStore.swift */; };
@@ -86,6 +89,8 @@
 		27933251BF0325E8E11978E4 /* GlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2048D35AF0482F228CA9EAB0 /* GlassCard.swift */; };
 		2902C318E9307100FC3BA5F4 /* CallInProgressAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349332A6376D9D870DC8B9ED /* CallInProgressAttributes.swift */; };
 		291478B5894BD01A64BC95CD /* IDTokenValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52A996BE5D42DD1C1952B12 /* IDTokenValidator.swift */; };
+		294D5863108D8991E3CE9204 /* TVScreensaverPlaylistTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70B8990E3EAFA2FF4D74B069 /* TVScreensaverPlaylistTests.swift */; };
+		298AF07DF7756056EEB23D3C /* TVSystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEA45F1EFE8E7E76EA9FA96C /* TVSystemView.swift */; };
 		29B86024B17C3679534AF24B /* CallInProgressLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44FFDF69DAD6CC776A80C3ED /* CallInProgressLiveActivity.swift */; };
 		29DD8A4A85262713D9BB8C64 /* TVDeviceLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DA5E36A8DABB2BEE142E95 /* TVDeviceLoginView.swift */; };
 		2A0E3E19D5326A83B32F0756 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D913F41CF93E2A8EE119A0F0 /* SettingsView.swift */; };
@@ -95,6 +100,7 @@
 		2C75B33381A7745074C7C8C1 /* OIDCTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE9BD68121808A0D4098A1E /* OIDCTokens.swift */; };
 		2D21074DE25F0A3C9AE3D7AB /* NotificationDelegateAdaptors.swift in Sources */ = {isa = PBXBuildFile; fileRef = C973CF25AD1501759F083F55 /* NotificationDelegateAdaptors.swift */; };
 		2E00E097122CF9B9CCF39F83 /* WatchAuthSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62BA58628D22FD39165708EA /* WatchAuthSync.swift */; };
+		2E0F31D2250FE5CFFEB29BA4 /* TVStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349B96C3446415F54195F0B8 /* TVStatsView.swift */; };
 		2E5C2CBADE28DE9FF6F9E972 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00176BFA0F8D8CA9E4F2675 /* Message.swift */; };
 		2F5B530E1CC2F5901BA223CA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7BA7371AA3B2B5A69CB1BE9B /* Assets.xcassets */; };
 		2FFDC9F8997F8C53488E3E69 /* WatchLatestMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C45B65F6840E37E66F479101 /* WatchLatestMessageView.swift */; };
@@ -134,6 +140,7 @@
 		443293DAD1997D720812EB09 /* StatusSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6634FDFD7E3022DE6661687E /* StatusSocket.swift */; };
 		44BB8C9F49A727BD9FB45F0A /* QuestionAudioFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33E4819698B80D178008EB7D /* QuestionAudioFile.swift */; };
 		44F6A271A33356E49A31AA52 /* StatsViewComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B906E614A653009C2E360CDA /* StatsViewComponents.swift */; };
+		4512D9765620A10CC9BEC3B7 /* TVScreensaverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA54852FDBAC5AD6E9BBEE05 /* TVScreensaverView.swift */; };
 		46B3D0D6E382D3CCB4D6D91B /* WatchHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34D73B167F953852612B6C9E /* WatchHomeView.swift */; };
 		46DA0A40AEC3231ECC7E4C7F /* PendingMessagesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF479F57CF75F0452BE6DBE4 /* PendingMessagesStore.swift */; };
 		470EDBE1AAEC94478FB2051A /* RuntimeModeBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B221802CE5A93076121AC690 /* RuntimeModeBadge.swift */; };
@@ -158,6 +165,7 @@
 		4FC6E3A82CDE7489683A2A95 /* StatsViewComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B906E614A653009C2E360CDA /* StatsViewComponents.swift */; };
 		4FD13611C23A7E4642E770C4 /* SystemVitalsStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21DE1723F5A47F387D60AD5 /* SystemVitalsStrip.swift */; };
 		50329A3F192C5E3D4E926589 /* TVDeviceLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DA5E36A8DABB2BEE142E95 /* TVDeviceLoginView.swift */; };
+		5077B3B74731D516773429A6 /* TVScreensaverContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9428B331EAFB0695F8F7AF0B /* TVScreensaverContent.swift */; };
 		50ED94E34A663FCE7A3DEEDA /* MessageDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E19A806E44E01C3636F33EEE /* MessageDetailView.swift */; };
 		5154B553360FDD864450974B /* StatsSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CFC7130E78140C090241C06 /* StatsSummary.swift */; };
 		5162B2D5879006736232C184 /* TBOperatorMobileTVApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A199B7DACB57B19D19CC7D43 /* TBOperatorMobileTVApp.swift */; };
@@ -192,9 +200,11 @@
 		5FCF845A191A228B4F2D3DCE /* QuestionAudioFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33E4819698B80D178008EB7D /* QuestionAudioFile.swift */; };
 		6126ED49A91EF793C377A37D /* OperatorClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E40D39DF19D47CBA7BD523E /* OperatorClient.swift */; };
 		618332761E2F2A5BF0B23B26 /* CallSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9596BEC9DF2776F880EA70F /* CallSession.swift */; };
+		61D6F3A19804BDEC3EC2F5DC /* TVScreensaverHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52F2D18A7953F329D00C2A4 /* TVScreensaverHost.swift */; };
 		61DE8D06C3205EAC09B4B34E /* BoothEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E3B1AFE0D881D7419AE137D /* BoothEvent.swift */; };
 		61FA287DA43E0A290B876702 /* StatsOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65D5B16AC5442C2142EE12E0 /* StatsOverview.swift */; };
 		624BE84E769022070E01E8C1 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900E3F3400BB880E51017F36 /* LiveActivityManager.swift */; };
+		62A7998F64A35A9E9A1DDFC0 /* TVScreensaverHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52F2D18A7953F329D00C2A4 /* TVScreensaverHost.swift */; };
 		638BB2E6721A5EF1EE9BF498 /* CallInProgressAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349332A6376D9D870DC8B9ED /* CallInProgressAttributes.swift */; };
 		64AFBC9E6BBB53417262113D /* AuthManager+DeviceFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E466A495C4F65781EFDFD6CB /* AuthManager+DeviceFlow.swift */; };
 		6594C3DFC8CB500EB0DF7C65 /* OperatorClient+Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0634D63C69EB9486CDBABFB0 /* OperatorClient+Metrics.swift */; };
@@ -231,6 +241,7 @@
 		74C366A4D48F398AF318C8B2 /* StatsRangeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724B6B4233C3DD7269C98F54 /* StatsRangeControls.swift */; };
 		751255045B47E37454534573 /* AuthManager+Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51752040B579CB8D1DF9C9E1 /* AuthManager+Keychain.swift */; };
 		75137E2B1EFA4D001FAA701C /* SystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 630A2D2EA236558C49928840 /* SystemView.swift */; };
+		7543BDFC1019AA688B320808 /* TVDashboardKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2190A55BB9E28D58C44BC9A /* TVDashboardKit.swift */; };
 		75B5648FB0527218ABED57FC /* OperatorClient+Questions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D1F53A3DCA7F785BCD6F748 /* OperatorClient+Questions.swift */; };
 		75BCE6B489AD6001C6618711 /* StatsViewComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B906E614A653009C2E360CDA /* StatsViewComponents.swift */; };
 		760BE9AE72EA43CAC2EA427E /* EventStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1BD55A2C9AE62BE0E78BA0 /* EventStream.swift */; };
@@ -250,6 +261,7 @@
 		7DAE50AF59580CE32FD81BDE /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00176BFA0F8D8CA9E4F2675 /* Message.swift */; };
 		7E316C182ECA1428A14F37D0 /* RootContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37087EC6949DE3BAE1DFF056 /* RootContainerView.swift */; };
 		7EBD0E65E1796904E9A2903D /* StatsRangeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724B6B4233C3DD7269C98F54 /* StatsRangeControls.swift */; };
+		7EDB758F2D5BB1A081439C62 /* TVScreensaverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA54852FDBAC5AD6E9BBEE05 /* TVScreensaverView.swift */; };
 		7F3106603E00AB9EFBCD043F /* EventsFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BCCBCC7C16BB1678841E822 /* EventsFeedView.swift */; };
 		7F498306BCEC9044EFB228A8 /* QuestionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47444A48E2553486547EE81B /* QuestionsView.swift */; };
 		81CC5A16E8AA3D32FC18026A /* SystemVitalsStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21DE1723F5A47F387D60AD5 /* SystemVitalsStrip.swift */; };
@@ -280,6 +292,7 @@
 		8E579ECB0EEF6B83F685E17F /* QuestionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47444A48E2553486547EE81B /* QuestionsView.swift */; };
 		8EED3336D2796C4EE227B162 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900E3F3400BB880E51017F36 /* LiveActivityManager.swift */; };
 		900CF06A0C607FE5ED87302C /* SharedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2044D49D6F909CC1FAFFC3DE /* SharedComponents.swift */; };
+		9012C09B0A9AC1000B6D532A /* TVScreensaverHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52F2D18A7953F329D00C2A4 /* TVScreensaverHost.swift */; };
 		90FF68C20BDE9D740F8E97AD /* StatsSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CFC7130E78140C090241C06 /* StatsSummary.swift */; };
 		91893808EBF1C091C12EF736 /* QuestionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 496D5F8615580D39DDCC73F4 /* QuestionStatus.swift */; };
 		9213645C7CE4AD106654A2AC /* Question.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD93C2FF68DAC8696AA764E0 /* Question.swift */; };
@@ -309,9 +322,11 @@
 		A07D1D112B48E0BD69761C49 /* QuestionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47444A48E2553486547EE81B /* QuestionsView.swift */; };
 		A08A54BBA84C82DCCB900968 /* OIDCTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE9BD68121808A0D4098A1E /* OIDCTokens.swift */; };
 		A1B5EB903A74DB69C75AAF62 /* MetricFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B70F71E93CBF1D3E72752D /* MetricFilter.swift */; };
+		A26E26BEEECD07FF72FC6018 /* TVScreensaverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA54852FDBAC5AD6E9BBEE05 /* TVScreensaverView.swift */; };
 		A2D314B634D2DFDFE2BDA809 /* CallInProgressAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349332A6376D9D870DC8B9ED /* CallInProgressAttributes.swift */; };
 		A37954EA3CFB53E21CF1EC65 /* AudioPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3C34EB268955BCF1FD490F3 /* AudioPlayerView.swift */; };
 		A3B5708AA3C4E306F124A288 /* LiveActivityObserverModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F28CC9E236EA19D2522413D /* LiveActivityObserverModifier.swift */; };
+		A3BE3FEE73B68B3D9593F971 /* TVScreensaverHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52F2D18A7953F329D00C2A4 /* TVScreensaverHost.swift */; };
 		A3FFCFA545192A3E89B08ED9 /* WatchAuthSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62BA58628D22FD39165708EA /* WatchAuthSync.swift */; };
 		A420AF9117866BF6B3BF4E43 /* MobileDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02C3EC3726958BC4340B3C19 /* MobileDevice.swift */; };
 		A48D109A3830A79972A0C09A /* AudioPlaybackController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D31A28499B831A575E2DC86 /* AudioPlaybackController.swift */; };
@@ -338,17 +353,22 @@
 		AD98CC65E20666404D954806 /* Upload.swift in Sources */ = {isa = PBXBuildFile; fileRef = D33A7CC36603D8135036DF1E /* Upload.swift */; };
 		AD9D6BB627B9FCD19486B4AB /* QuestionComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 456407301743B375B8005F67 /* QuestionComposerView.swift */; };
 		AE083E7C6D0A6679D753C188 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40E094F5C508E9EC6FAE377B /* SessionListView.swift */; };
+		AE877AC0AF0FC1A20FDFEFD2 /* TVDashboardKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2190A55BB9E28D58C44BC9A /* TVDashboardKit.swift */; };
+		AE8F8862564187117A8A3AA7 /* TVDashboardKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2190A55BB9E28D58C44BC9A /* TVDashboardKit.swift */; };
 		AFA787869BE9132117F232A8 /* OperatorClient+Questions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D1F53A3DCA7F785BCD6F748 /* OperatorClient+Questions.swift */; };
 		B0851BEBE09C5786AFF633DE /* RuntimeMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 325A50D5F06BC5F485B01C77 /* RuntimeMode.swift */; };
+		B0B158FBD31D3584B45F8AB7 /* TVDashboardKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2190A55BB9E28D58C44BC9A /* TVDashboardKit.swift */; };
 		B0BB5BD4097F17C83D637261 /* RootContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37087EC6949DE3BAE1DFF056 /* RootContainerView.swift */; };
 		B13CAAC8222E793C8F270D3A /* CallSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9596BEC9DF2776F880EA70F /* CallSession.swift */; };
 		B1569780A0D2425153FA746A /* StatusSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6634FDFD7E3022DE6661687E /* StatusSocket.swift */; };
 		B2722124A581E528A0AFCBAF /* LiveActivityEventObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 075EBD41F4DADB4726DA09A8 /* LiveActivityEventObserver.swift */; };
 		B35575E59C1058852E4C166B /* BoothStatusLiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E95B37CFE5471F2A73BEA65 /* BoothStatusLiveStore.swift */; };
+		B3BDF753A9C70023DDA08F88 /* TVScreensaverContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9428B331EAFB0695F8F7AF0B /* TVScreensaverContent.swift */; };
 		B3E04B17361F67193AAEB043 /* GlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2048D35AF0482F228CA9EAB0 /* GlassCard.swift */; };
 		B42FBDAC35F31383B36C0D09 /* BoothSystemSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C353F9CDCC7922E78A322C61 /* BoothSystemSnapshot.swift */; };
 		B467A876F974793A659BB580 /* QuestionAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC582447D1B569304419F14A /* QuestionAudioRecorder.swift */; };
 		B4EFF0B65BA112E450ADE384 /* AudioPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3C34EB268955BCF1FD490F3 /* AudioPlayerView.swift */; };
+		B505BD26075CA3459129D11B /* TVSystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEA45F1EFE8E7E76EA9FA96C /* TVSystemView.swift */; };
 		B55D495A33BAA511C4BC9B3A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D913F41CF93E2A8EE119A0F0 /* SettingsView.swift */; };
 		B66DA6A0C11FB45B09C717C1 /* Question.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD93C2FF68DAC8696AA764E0 /* Question.swift */; };
 		B679168EEB435D84E5BD7019 /* BoothSystemSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C353F9CDCC7922E78A322C61 /* BoothSystemSnapshot.swift */; };
@@ -367,11 +387,13 @@
 		BF8CE7C40DB0383949F9E907 /* DeviceAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28CAEA03D4C3D9948FA3B6B6 /* DeviceAuthorization.swift */; };
 		C05CD76F18CF597F5949B25B /* StatusSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6634FDFD7E3022DE6661687E /* StatusSocket.swift */; };
 		C193C199F9910C0A3EEF8F68 /* MobileDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02C3EC3726958BC4340B3C19 /* MobileDevice.swift */; };
+		C24783E351FF3E88171D4E84 /* TVScreensaverContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9428B331EAFB0695F8F7AF0B /* TVScreensaverContent.swift */; };
 		C358520A8CD616B8E5C991A7 /* OperatorMe.swift in Sources */ = {isa = PBXBuildFile; fileRef = A57C08F65970EB67A8553EE3 /* OperatorMe.swift */; };
 		C3FFF94FD785EAC6079A2D0D /* VisionRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A4B02DFDD846689BA1EE7FD /* VisionRootView.swift */; };
 		C6260F62D1864D6E77BAA814 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40E094F5C508E9EC6FAE377B /* SessionListView.swift */; };
 		C6B2305FB7E52BADA46F5E83 /* DemoData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 025EEA4173BB3957480E4F12 /* DemoData.swift */; };
 		C78E3DAB0E50157146DD6ADA /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00C93B0EC8A4FCE8DC450009 /* NotificationManager.swift */; };
+		C7C4378334E1DC5CC80E183E /* TVScreensaverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA54852FDBAC5AD6E9BBEE05 /* TVScreensaverView.swift */; };
 		C843DFBF761D5A78E5D39A2B /* SystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 630A2D2EA236558C49928840 /* SystemView.swift */; };
 		C8C8F46D4B9FA4AF3572EBE6 /* QuestionAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC582447D1B569304419F14A /* QuestionAudioRecorder.swift */; };
 		C97C8863A1E44E8CD86243C8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0CBAB12EDD9EE92394B8915E /* Assets.xcassets */; };
@@ -380,6 +402,7 @@
 		CB7292F703E83B044FD9AE59 /* BoothStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = C484D243EDB738632F38682B /* BoothStatus.swift */; };
 		CD851950E3AE59E6E47CAF01 /* QuestionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47444A48E2553486547EE81B /* QuestionsView.swift */; };
 		CE29B8C2BA2021002A419AA8 /* WatchModerationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF023161B82D868C9EAE710C /* WatchModerationView.swift */; };
+		CE3A8D9CFC10A89C0FEADA7D /* TVScreensaverContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9428B331EAFB0695F8F7AF0B /* TVScreensaverContent.swift */; };
 		CEA45DA003E2ED174CDBD275 /* BoothStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = C484D243EDB738632F38682B /* BoothStatus.swift */; };
 		CED303ACF9F41F2DD6F4B5A5 /* AuthManager+WatchBroker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 033EB3A12A9F77AE3836B353 /* AuthManager+WatchBroker.swift */; };
 		D004EC570542C8D552BB558F /* SignedInRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A276F507B20E25A0626F5AF6 /* SignedInRootView.swift */; };
@@ -392,7 +415,9 @@
 		D347C34E4778469948166D38 /* BoothStatusLiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E95B37CFE5471F2A73BEA65 /* BoothStatusLiveStore.swift */; };
 		D49801C1F01DB35C9E61E220 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00C93B0EC8A4FCE8DC450009 /* NotificationManager.swift */; };
 		D49BD67B3EF451BA00E8DA4D /* TBOperatorMobileVisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E7A0A3E1C5B6796DC9FC9F5 /* TBOperatorMobileVisionTests.swift */; };
+		D49F01B403933CE75943C940 /* TVScreensaverHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52F2D18A7953F329D00C2A4 /* TVScreensaverHost.swift */; };
 		D4F44CEECF88E996CB700BA4 /* WatchStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E2EA901A8436C600637E7E /* WatchStatusView.swift */; };
+		D4F8D97195D784A70ACBEBCC /* TVScreensaverContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9428B331EAFB0695F8F7AF0B /* TVScreensaverContent.swift */; };
 		D5671A63C90A46078C82BE97 /* QuestionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 496D5F8615580D39DDCC73F4 /* QuestionStatus.swift */; };
 		D5B96CCE5E76EE6F77AEE18C /* OperatorClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E40D39DF19D47CBA7BD523E /* OperatorClient.swift */; };
 		D61FE1DA5906E3274651A652 /* TVBoothWallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69968179E98C2AD601796DB2 /* TVBoothWallView.swift */; };
@@ -416,6 +441,7 @@
 		DF21F0A9473AE3CBDCE10DAB /* CurrentUserStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D8000FAFC2480127F131736 /* CurrentUserStore.swift */; };
 		E031F4482A2195D23E7A2465 /* IDTokenValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52A996BE5D42DD1C1952B12 /* IDTokenValidator.swift */; };
 		E0A937AA2B69AA8886D1F069 /* SessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EED8027F832955EB7C0EFC1C /* SessionDetailView.swift */; };
+		E0DF4664601A1807DCC30BA1 /* TVDashboardKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2190A55BB9E28D58C44BC9A /* TVDashboardKit.swift */; };
 		E1161CEF397F941B4E52AA4B /* AudioPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3C34EB268955BCF1FD490F3 /* AudioPlayerView.swift */; };
 		E131249B22B5B5F20AE1A286 /* AppConfigSecurityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A521B50F733A59080A477857 /* AppConfigSecurityTests.swift */; };
 		E1B9F747F6A70327314BC323 /* BoothEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E3B1AFE0D881D7419AE137D /* BoothEvent.swift */; };
@@ -438,6 +464,7 @@
 		EA790DF149A0F6B0411749D5 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8137409DB2002406C2D59F7A /* WidgetSnapshot.swift */; };
 		EAF5814E9D5D3A90404EE137 /* WatchLatestMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C45B65F6840E37E66F479101 /* WatchLatestMessageView.swift */; };
 		EAF6DE4D2C6178F3FE46A382 /* StatsRangeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724B6B4233C3DD7269C98F54 /* StatsRangeControls.swift */; };
+		EC4F86A37D412D08A0909423 /* TVSystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEA45F1EFE8E7E76EA9FA96C /* TVSystemView.swift */; };
 		EC7C28DCDD5D0FFDC3FFED55 /* CallsTodayWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FD7637A6AA56DF95566F9A5 /* CallsTodayWidget.swift */; };
 		ED1A5469C3F7C20B598FDFD7 /* WatchHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34D73B167F953852612B6C9E /* WatchHomeView.swift */; };
 		ED6087028EAD5E5472433E15 /* StatsOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65D5B16AC5442C2142EE12E0 /* StatsOverview.swift */; };
@@ -460,12 +487,16 @@
 		F5B34EAC12A1C825420E6B28 /* IDTokenValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52A996BE5D42DD1C1952B12 /* IDTokenValidator.swift */; };
 		F7DC377FDD34669170A7F293 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D874D8D8C471FA4C3121C2A /* Theme.swift */; };
 		F7FB63C7BBE03B4A1C714FDE /* StatsRangeSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE66B898CC6A1F9C1ABD431C /* StatsRangeSelection.swift */; };
+		F85FD840D2BEA7DBB9AC246D /* TVScreensaverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA54852FDBAC5AD6E9BBEE05 /* TVScreensaverView.swift */; };
 		F8FBC7634FA4779EE70E9A0C /* CurrentUserStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D8000FAFC2480127F131736 /* CurrentUserStore.swift */; };
 		F973B54C194EF60E059394F4 /* WatchStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E2EA901A8436C600637E7E /* WatchStatusView.swift */; };
 		F99FF9E3256A3712669F055F /* MetricFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B70F71E93CBF1D3E72752D /* MetricFilter.swift */; };
+		F9DF369A31C2556034215E4F /* TVSystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEA45F1EFE8E7E76EA9FA96C /* TVSystemView.swift */; };
 		FA064BBC748C137B1D933FDF /* AuthError.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABE1D18B093D69BDDB7DAA9C /* AuthError.swift */; };
+		FA4028A60C82CBC2A7F595A8 /* TVSystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEA45F1EFE8E7E76EA9FA96C /* TVSystemView.swift */; };
 		FADB123458BE03E62E2B617D /* BoothSystemSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C353F9CDCC7922E78A322C61 /* BoothSystemSnapshot.swift */; };
 		FB0B8C78E7140C24E89C621F /* AuthManager+Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51752040B579CB8D1DF9C9E1 /* AuthManager+Keychain.swift */; };
+		FB560D7B1597089D83FD95C7 /* TVStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349B96C3446415F54195F0B8 /* TVStatsView.swift */; };
 		FC46C580E425073C3AEDC137 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB92963F39EB30DCBE85DA7 /* AppConfig.swift */; };
 		FCC9AB1635D43816299D839C /* SharedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2044D49D6F909CC1FAFFC3DE /* SharedComponents.swift */; };
 		FCCB8889DBD388E1A5FB7D81 /* AuthManager+Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51752040B579CB8D1DF9C9E1 /* AuthManager+Keychain.swift */; };
@@ -584,6 +615,7 @@
 		325A50D5F06BC5F485B01C77 /* RuntimeMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeMode.swift; sourceTree = "<group>"; };
 		33E4819698B80D178008EB7D /* QuestionAudioFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuestionAudioFile.swift; sourceTree = "<group>"; };
 		349332A6376D9D870DC8B9ED /* CallInProgressAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallInProgressAttributes.swift; sourceTree = "<group>"; };
+		349B96C3446415F54195F0B8 /* TVStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVStatsView.swift; sourceTree = "<group>"; };
 		34D73B167F953852612B6C9E /* WatchHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHomeView.swift; sourceTree = "<group>"; };
 		37087EC6949DE3BAE1DFF056 /* RootContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootContainerView.swift; sourceTree = "<group>"; };
 		3D1F53A3DCA7F785BCD6F748 /* OperatorClient+Questions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OperatorClient+Questions.swift"; sourceTree = "<group>"; };
@@ -618,6 +650,7 @@
 		6E3B1AFE0D881D7419AE137D /* BoothEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoothEvent.swift; sourceTree = "<group>"; };
 		6F92B0A84D235F3489BB1542 /* StatusSocketTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusSocketTests.swift; sourceTree = "<group>"; };
 		7037F65F660FA295067270FD /* TBOperatorMobileTV.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TBOperatorMobileTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		70B8990E3EAFA2FF4D74B069 /* TVScreensaverPlaylistTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVScreensaverPlaylistTests.swift; sourceTree = "<group>"; };
 		724B6B4233C3DD7269C98F54 /* StatsRangeControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsRangeControls.swift; sourceTree = "<group>"; };
 		74746E8A4D48CE8D37DE85CE /* TBOperatorMobileMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileMacApp.swift; sourceTree = "<group>"; };
 		7781B42DE486F0C2D94C10F2 /* TBOperatorMobileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileTests.swift; sourceTree = "<group>"; };
@@ -634,6 +667,7 @@
 		8D31A28499B831A575E2DC86 /* AudioPlaybackController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlaybackController.swift; sourceTree = "<group>"; };
 		900E3F3400BB880E51017F36 /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
 		912D180035088D90FBCF1853 /* MacRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacRootView.swift; sourceTree = "<group>"; };
+		9428B331EAFB0695F8F7AF0B /* TVScreensaverContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVScreensaverContent.swift; sourceTree = "<group>"; };
 		94DA5E36A8DABB2BEE142E95 /* TVDeviceLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVDeviceLoginView.swift; sourceTree = "<group>"; };
 		95E11C0E2DD74108268E3F8C /* TBOperatorMobileVisionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileVisionApp.swift; sourceTree = "<group>"; };
 		9788C3669150B5B106FC5163 /* WatchRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchRootView.swift; sourceTree = "<group>"; };
@@ -649,10 +683,12 @@
 		A3117DF5D8BB3B6E8ED2B0B4 /* StatsOverviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsOverviewTests.swift; sourceTree = "<group>"; };
 		A3927268F17F105948D1EEB6 /* BoothSystemSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoothSystemSnapshotTests.swift; sourceTree = "<group>"; };
 		A521B50F733A59080A477857 /* AppConfigSecurityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigSecurityTests.swift; sourceTree = "<group>"; };
+		A52F2D18A7953F329D00C2A4 /* TVScreensaverHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVScreensaverHost.swift; sourceTree = "<group>"; };
 		A57C08F65970EB67A8553EE3 /* OperatorMe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperatorMe.swift; sourceTree = "<group>"; };
 		A58F0A1D6582D1806CE4E408 /* NotificationSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsSection.swift; sourceTree = "<group>"; };
 		A8B94F36732A0600EF2F0B59 /* BoothStatusWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoothStatusWidget.swift; sourceTree = "<group>"; };
 		A9596BEC9DF2776F880EA70F /* CallSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallSession.swift; sourceTree = "<group>"; };
+		AA54852FDBAC5AD6E9BBEE05 /* TVScreensaverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVScreensaverView.swift; sourceTree = "<group>"; };
 		AAC5639CDF544BDD3770DA87 /* MacSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacSettingsView.swift; sourceTree = "<group>"; };
 		ABE1D18B093D69BDDB7DAA9C /* AuthError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthError.swift; sourceTree = "<group>"; };
 		AF479F57CF75F0452BE6DBE4 /* PendingMessagesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingMessagesStore.swift; sourceTree = "<group>"; };
@@ -682,6 +718,7 @@
 		DCFA0AB24888F1432EDD5ABC /* TBOperatorMobileTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TBOperatorMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DDE977DEF1FF457144F67D30 /* WidgetSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshotStore.swift; sourceTree = "<group>"; };
 		E19A806E44E01C3636F33EEE /* MessageDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageDetailView.swift; sourceTree = "<group>"; };
+		E2190A55BB9E28D58C44BC9A /* TVDashboardKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVDashboardKit.swift; sourceTree = "<group>"; };
 		E3C34EB268955BCF1FD490F3 /* AudioPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerView.swift; sourceTree = "<group>"; };
 		E466A495C4F65781EFDFD6CB /* AuthManager+DeviceFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AuthManager+DeviceFlow.swift"; sourceTree = "<group>"; };
 		EAE7E5BE122F827582FDF9B7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -697,6 +734,7 @@
 		F9852B4FE5681C7CA9DB92C7 /* TBOperatorMobileVision.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TBOperatorMobileVision.entitlements; sourceTree = "<group>"; };
 		FCB92963F39EB30DCBE85DA7 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		FE45933F38F71606F7008DC9 /* PendingModerationWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingModerationWidget.swift; sourceTree = "<group>"; };
+		FEA45F1EFE8E7E76EA9FA96C /* TVSystemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVSystemView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -734,7 +772,13 @@
 			isa = PBXGroup;
 			children = (
 				69968179E98C2AD601796DB2 /* TVBoothWallView.swift */,
+				E2190A55BB9E28D58C44BC9A /* TVDashboardKit.swift */,
 				94DA5E36A8DABB2BEE142E95 /* TVDeviceLoginView.swift */,
+				9428B331EAFB0695F8F7AF0B /* TVScreensaverContent.swift */,
+				A52F2D18A7953F329D00C2A4 /* TVScreensaverHost.swift */,
+				AA54852FDBAC5AD6E9BBEE05 /* TVScreensaverView.swift */,
+				349B96C3446415F54195F0B8 /* TVStatsView.swift */,
+				FEA45F1EFE8E7E76EA9FA96C /* TVSystemView.swift */,
 			);
 			path = TV;
 			sourceTree = "<group>";
@@ -1024,6 +1068,7 @@
 			isa = PBXGroup;
 			children = (
 				88E5064AF164DFB98529BEA6 /* TBOperatorMobileTVTests.swift */,
+				70B8990E3EAFA2FF4D74B069 /* TVScreensaverPlaylistTests.swift */,
 			);
 			path = TBOperatorMobileTVTests;
 			sourceTree = "<group>";
@@ -1587,7 +1632,13 @@
 				81CC5A16E8AA3D32FC18026A /* SystemVitalsStrip.swift in Sources */,
 				6C27CBDF2F60C554EE4134B0 /* TBOperatorMobileVisionApp.swift in Sources */,
 				68150E46CE335314DFAE67D9 /* TVBoothWallView.swift in Sources */,
+				B0B158FBD31D3584B45F8AB7 /* TVDashboardKit.swift in Sources */,
 				29DD8A4A85262713D9BB8C64 /* TVDeviceLoginView.swift in Sources */,
+				D4F8D97195D784A70ACBEBCC /* TVScreensaverContent.swift in Sources */,
+				A3BE3FEE73B68B3D9593F971 /* TVScreensaverHost.swift in Sources */,
+				C7C4378334E1DC5CC80E183E /* TVScreensaverView.swift in Sources */,
+				10DE070A3124F27F761ADAF6 /* TVStatsView.swift in Sources */,
+				FA4028A60C82CBC2A7F595A8 /* TVSystemView.swift in Sources */,
 				1861752487C20DBE61756721 /* Theme.swift in Sources */,
 				DAF1D57C3B18FCF5EFC0FC20 /* Upload.swift in Sources */,
 				C3FFF94FD785EAC6079A2D0D /* VisionRootView.swift in Sources */,
@@ -1678,7 +1729,13 @@
 				BC0A69BF9BAE782EF8728104 /* SystemVitalsStrip.swift in Sources */,
 				722643B8D0FB5DCE9BBB07F5 /* TBOperatorMobileApp.swift in Sources */,
 				422D7C05840DB508D7F20346 /* TVBoothWallView.swift in Sources */,
+				AE8F8862564187117A8A3AA7 /* TVDashboardKit.swift in Sources */,
 				50329A3F192C5E3D4E926589 /* TVDeviceLoginView.swift in Sources */,
+				B3BDF753A9C70023DDA08F88 /* TVScreensaverContent.swift in Sources */,
+				61D6F3A19804BDEC3EC2F5DC /* TVScreensaverHost.swift in Sources */,
+				7EDB758F2D5BB1A081439C62 /* TVScreensaverView.swift in Sources */,
+				FB560D7B1597089D83FD95C7 /* TVStatsView.swift in Sources */,
+				EC4F86A37D412D08A0909423 /* TVSystemView.swift in Sources */,
 				9750D0E36108B2331F235B9A /* Theme.swift in Sources */,
 				39F6B19F99821B14633D15B2 /* Upload.swift in Sources */,
 				3ECB9B81AA1399D0A2D08622 /* WatchAuthSync.swift in Sources */,
@@ -1697,6 +1754,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				57656F7E6D3B92028DC82EE9 /* TBOperatorMobileTVTests.swift in Sources */,
+				294D5863108D8991E3CE9204 /* TVScreensaverPlaylistTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1824,7 +1882,13 @@
 				4FD13611C23A7E4642E770C4 /* SystemVitalsStrip.swift in Sources */,
 				1006CF0CAB7F2E36A9BC5DE2 /* TBOperatorMobileWatchApp.swift in Sources */,
 				D61FE1DA5906E3274651A652 /* TVBoothWallView.swift in Sources */,
+				AE877AC0AF0FC1A20FDFEFD2 /* TVDashboardKit.swift in Sources */,
 				D0555E5FA6BF708FC33FB956 /* TVDeviceLoginView.swift in Sources */,
+				CE3A8D9CFC10A89C0FEADA7D /* TVScreensaverContent.swift in Sources */,
+				62A7998F64A35A9E9A1DDFC0 /* TVScreensaverHost.swift in Sources */,
+				F85FD840D2BEA7DBB9AC246D /* TVScreensaverView.swift in Sources */,
+				0430B63DBECFEBB410E5A341 /* TVStatsView.swift in Sources */,
+				298AF07DF7756056EEB23D3C /* TVSystemView.swift in Sources */,
 				12A898B70287BF8321670C82 /* Theme.swift in Sources */,
 				4E6616386E9E03DE5B7C73ED /* Upload.swift in Sources */,
 				2E00E097122CF9B9CCF39F83 /* WatchAuthSync.swift in Sources */,
@@ -1937,7 +2001,13 @@
 				FDEC646F1FB2A09997CB04EB /* SystemVitalsStrip.swift in Sources */,
 				576E6A30B36B51202ADDB5C1 /* TBOperatorMobileMacApp.swift in Sources */,
 				7039534DB25526716C433C23 /* TVBoothWallView.swift in Sources */,
+				7543BDFC1019AA688B320808 /* TVDashboardKit.swift in Sources */,
 				BEA6D75F2A0AF15C40547537 /* TVDeviceLoginView.swift in Sources */,
+				C24783E351FF3E88171D4E84 /* TVScreensaverContent.swift in Sources */,
+				D49F01B403933CE75943C940 /* TVScreensaverHost.swift in Sources */,
+				A26E26BEEECD07FF72FC6018 /* TVScreensaverView.swift in Sources */,
+				1F13341B3DF4A8B31E2767B9 /* TVStatsView.swift in Sources */,
+				B505BD26075CA3459129D11B /* TVSystemView.swift in Sources */,
 				F7DC377FDD34669170A7F293 /* Theme.swift in Sources */,
 				6AA05C9C6A2E8FD93FFF60D2 /* Upload.swift in Sources */,
 				2A281A06EF37C3D061307DA9 /* WatchAuthSync.swift in Sources */,
@@ -2026,8 +2096,14 @@
 				E887831706FACF93A87ABA4D /* SystemVitalsStrip.swift in Sources */,
 				5162B2D5879006736232C184 /* TBOperatorMobileTVApp.swift in Sources */,
 				DDD466DB005FA8BE64A5AB17 /* TVBoothWallView.swift in Sources */,
+				E0DF4664601A1807DCC30BA1 /* TVDashboardKit.swift in Sources */,
 				D69A7597774C656426E3DAB7 /* TVDeviceLoginView.swift in Sources */,
 				F1B3EC533E68C8D0696B60B8 /* TVRootView.swift in Sources */,
+				5077B3B74731D516773429A6 /* TVScreensaverContent.swift in Sources */,
+				9012C09B0A9AC1000B6D532A /* TVScreensaverHost.swift in Sources */,
+				4512D9765620A10CC9BEC3B7 /* TVScreensaverView.swift in Sources */,
+				2E0F31D2250FE5CFFEB29BA4 /* TVStatsView.swift in Sources */,
+				F9DF369A31C2556034215E4F /* TVSystemView.swift in Sources */,
 				6D96A565E582CEFAD3CB37C1 /* Theme.swift in Sources */,
 				38FC3815435F34100440A41C /* Upload.swift in Sources */,
 				A3FFCFA545192A3E89B08ED9 /* WatchAuthSync.swift in Sources */,

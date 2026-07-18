@@ -26,6 +26,30 @@ public struct SettingsView: View {
         self.isModal = isModal
     }
 
+    #if os(iOS) || os(tvOS)
+    private var themeModes: [Theme.IOSThemeMode] {
+        #if os(tvOS)
+        Theme.IOSThemeMode.tvSelectableCases
+        #else
+        Theme.IOSThemeMode.allCases
+        #endif
+    }
+
+    private var themeFooter: String {
+        #if os(tvOS)
+        return "Choose the booth palette in light, dark, or automatic mode."
+        #else
+        return "Choose Catppuccin or the system palette, with light, dark, or automatic mode."
+        #endif
+    }
+    #endif
+
+    #if os(tvOS)
+    private func idleLabel(_ seconds: Int) -> String {
+        seconds % 60 == 0 ? "\(seconds / 60) min" : "\(seconds) sec"
+    }
+    #endif
+
     public var body: some View {
         NavigationStack {
             Form {
@@ -43,10 +67,10 @@ public struct SettingsView: View {
                     .themedSettingsRowBackground()
                 }
 
-                #if os(iOS)
+                #if os(iOS) || os(tvOS)
                 Section {
                     Picker("Theme", selection: $config.iosThemeMode) {
-                        ForEach(Theme.IOSThemeMode.allCases) { mode in
+                        ForEach(themeModes) { mode in
                             Text(mode.displayName).tag(mode)
                         }
                     }
@@ -54,7 +78,27 @@ public struct SettingsView: View {
                 } header: {
                     Text("Appearance")
                 } footer: {
-                    Text("Choose Catppuccin or the system palette, with light, dark, or automatic mode.")
+                    Text(themeFooter)
+                }
+                .themedSettingsRowBackground()
+                #endif
+
+                #if os(tvOS)
+                Section {
+                    Toggle("Ambient screensaver", isOn: $config.tvScreensaverEnabled)
+                    if config.tvScreensaverEnabled {
+                        Picker("Start after", selection: $config.tvScreensaverIdleSeconds) {
+                            ForEach(AppConfig.tvScreensaverIdleOptions, id: \.self) { seconds in
+                                Text(idleLabel(seconds)).tag(seconds)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Screensaver")
+                } footer: {
+                    Text("Replaces the tvOS system screensaver with a burn-in-safe wall that " +
+                         "spotlights live booth stats. While it's on, the system screensaver " +
+                         "stays disabled; turning it off restores the system screensaver.")
                 }
                 .themedSettingsRowBackground()
                 #endif
@@ -227,6 +271,9 @@ private extension View {
         self
             .scrollContentBackground(.hidden)
             .background(Theme.Colors.background)
+        #elseif os(tvOS)
+        self
+            .background(Theme.Colors.background)
         #else
         self
         #endif
@@ -234,7 +281,7 @@ private extension View {
 
     @ViewBuilder
     func themedSettingsRowBackground() -> some View {
-        #if os(iOS)
+        #if os(iOS) || os(tvOS)
         self.listRowBackground(Theme.Colors.secondaryBackground)
         #else
         self
