@@ -57,8 +57,9 @@ struct TVStatsView: View {
             // Refresh immediately when the range changes, then keep a
             // wall-mounted Stats tab live (and retry a failed first load)
             // by re-polling on a slow cadence while the tab is on screen.
+            let requested = window
             while !Task.isCancelled {
-                await refresh()
+                await refresh(window: requested)
                 try? await Task.sleep(for: .seconds(15))
             }
         }
@@ -278,13 +279,19 @@ struct TVStatsView: View {
 
     // MARK: Data
 
-    private func refresh() async {
+    private func refresh(window requested: StatsWindow) async {
         isRefreshing = true
         defer { isRefreshing = false }
         do {
-            overview = try await client.fetchStatsOverview(window: window)
+            let result = try await client.fetchStatsOverview(window: requested)
+            // Ignore results from a range selection that has since changed (the
+            // `.task(id:)` was cancelled) so a late/cancelled completion never
+            // overwrites the newly selected range or flashes a spurious error.
+            guard !Task.isCancelled, requested == window else { return }
+            overview = result
             errorMessage = nil
         } catch {
+            guard !Task.isCancelled, requested == window else { return }
             errorMessage = "Couldn't load stats: \(error.localizedDescription)"
         }
     }

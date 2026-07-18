@@ -90,13 +90,15 @@ private struct TVScreensaverHostModifier: ViewModifier {
     }
 
     private func monitorIdle() async {
-        guard enabled else {
-            showing = false
-            return
-        }
         if LaunchEnv.screensaverPreview {
+            // Screenshot automation forces the overlay on regardless of the
+            // persisted enabled setting, so honour it before the guard.
             try? await Task.sleep(for: .milliseconds(300))
             withAnimation(.easeInOut(duration: 0.6)) { showing = true }
+            return
+        }
+        guard enabled else {
+            showing = false
             return
         }
         while !Task.isCancelled {

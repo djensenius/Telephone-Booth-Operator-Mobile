@@ -186,14 +186,19 @@ struct TVBoothWallView: View {
     // MARK: - Overview strip
 
     private func overviewStrip(overview: StatsOverview) -> some View {
-        LazyVGrid(
-            columns: Array(repeating: GridItem(.flexible(), spacing: 20), count: 4),
-            spacing: 20
-        ) {
-            TVStatTile(label: "Pickups (7d)", value: "\(overview.pickupsHangups.pickups)")
-            TVStatTile(label: "Messages left", value: "\(overview.messages.total)")
-            TVStatTile(label: "Playbacks", value: "\(overview.playback.totalPlaybacks)")
-            TVStatTile(label: "Completion", value: StatsFormat.percentString(overview.completionRate))
+        TVFocusCard {
+            VStack(alignment: .leading, spacing: 24) {
+                TVCardHeader(title: "Last 7 days", systemImage: "calendar")
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 20), count: 4),
+                    spacing: 20
+                ) {
+                    TVStatTile(label: "Pickups (7d)", value: "\(overview.pickupsHangups.pickups)")
+                    TVStatTile(label: "Messages left", value: "\(overview.messages.total)")
+                    TVStatTile(label: "Playbacks", value: "\(overview.playback.totalPlaybacks)")
+                    TVStatTile(label: "Completion", value: StatsFormat.percentString(overview.completionRate))
+                }
+            }
         }
     }
 
