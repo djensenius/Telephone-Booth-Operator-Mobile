@@ -25,8 +25,12 @@ struct TVScreensaverView: View {
     @State private var overview: StatsOverview?
 
     @State private var current: TVSpotlight?
-    @State private var driftX: CGFloat = 0
-    @State private var driftY: CGFloat = 0
+    // Phase toggles for the two float axes. `false` maps to `-amplitude` and
+    // `true` to `+amplitude`, so the auto-reversing animation swings the offset
+    // symmetrically around zero (i.e. around the screen center) rather than
+    // drifting off toward one corner.
+    @State private var driftXPhase = false
+    @State private var driftYPhase = false
     @State private var driftStarted = false
     @State private var appeared = false
     /// Set when the booth transitions into (or between) active states so the
@@ -60,7 +64,10 @@ struct TVScreensaverView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .offset(x: driftX, y: driftY)
+        .offset(
+            x: reduceMotion ? 0 : (driftXPhase ? driftAmplitudeX : -driftAmplitudeX),
+            y: reduceMotion ? 0 : (driftYPhase ? driftAmplitudeY : -driftAmplitudeY)
+        )
         .ignoresSafeArea()
         .background(Color.black.ignoresSafeArea())
         .boothStatusLive(liveStore)
@@ -88,10 +95,10 @@ struct TVScreensaverView: View {
         guard !driftStarted, !reduceMotion else { return }
         driftStarted = true
         withAnimation(.easeInOut(duration: 11).repeatForever(autoreverses: true)) {
-            driftX = driftAmplitudeX
+            driftXPhase = true
         }
         withAnimation(.easeInOut(duration: 7).repeatForever(autoreverses: true)) {
-            driftY = driftAmplitudeY
+            driftYPhase = true
         }
     }
 
