@@ -381,7 +381,10 @@ private struct TVSegmentButtonStyle: ButtonStyle {
         }
 
         private var foreground: Color {
-            if isSelected { return .white }
+            // The accent (Catppuccin maroon) is light, so white washes out on
+            // the selected pill (~2:1 on the Mocha maroon). Black stays legible
+            // on both the Latte and Mocha maroons.
+            if isSelected { return .black }
             return Theme.Colors.textPrimary
         }
 
