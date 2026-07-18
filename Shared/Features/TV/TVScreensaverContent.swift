@@ -18,7 +18,7 @@ import Charts
 /// Fixed light palette for the ambient screensaver. The screensaver always
 /// renders on a pure-black background, so it must not borrow the dashboard
 /// theme's neutral text colors — in a light theme (e.g. Catppuccin Latte)
-/// `TVAmbient.textPrimary` resolves to a dark ink that is nearly invisible
+/// `Theme.Colors.textPrimary` resolves to a dark ink that is nearly invisible
 /// on black. These stay light regardless of the selected theme.
 private enum TVAmbient {
     static let textPrimary = Color.white

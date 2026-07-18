@@ -97,6 +97,13 @@ struct TVScreensaverView: View {
                 deactivationPending = true
             }
         }
+        .onChange(of: reduceMotion) { _, isReduced in
+            // If the user turns Reduce Motion off while the overlay is still
+            // mounted, kick off the drift now — otherwise it never starts and
+            // `present(_:)` also stops relocating cards, so every card would
+            // stay pinned to one spot and burn-in protection would be lost.
+            if !isReduced { startDrift() }
+        }
         .task { await runPlaylist() }
         .task { await pollOverview() }
     }

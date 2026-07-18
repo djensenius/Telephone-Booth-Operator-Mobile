@@ -144,6 +144,10 @@ public final class BoothStatusLiveStore {
                 // fresh on the cadence because the socket does not carry a
                 // StatsSummary.
                 await refreshSummary()
+                // The socket may not carry system snapshots, so a failed
+                // `/v1/system/current` seed would otherwise never recover while
+                // live. Retry it on the cadence until it succeeds.
+                if systemUnavailable { await refreshSystem() }
             }
             isInitialSeed = false
             do {
@@ -239,6 +243,16 @@ public final class BoothStatusLiveStore {
             applyStats(newStats)
             lastError = nil
         }
+    }
+
+    /// Retry only the `/v1/system/current` endpoint (used on the live-socket
+    /// cadence while `systemUnavailable` is set) so the System tab recovers
+    /// after an outage without waiting for a full REST reseed.
+    private func refreshSystem() async {
+        if demoMode || config.isDemoMode { return }
+        let client = self.client
+        let result = await attempt { try await client.fetchCurrentSystemEnvelope() }
+        applySystemResult(result)
     }
 
     private func apply(_ envelope: WsStatusEnvelope) {

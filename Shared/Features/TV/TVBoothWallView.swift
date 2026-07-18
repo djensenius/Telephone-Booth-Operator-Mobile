@@ -5,9 +5,10 @@
 //  Big-screen booth status wall for tvOS. Read-only by design — the
 //  remote doesn't translate well to moderation gestures, and message
 //  content is deliberately never shown here (that lives in the
-//  approve/reject flow). Polls /v1/stats/summary and /v1/messages every
-//  10 seconds to keep the state hero, KPI column, and recent-activity
-//  strip fresh.
+//  approve/reject flow). Live booth status and summary counts come from
+//  the shared `BoothStatusLiveStore` (WebSocket + 5-second REST fallback);
+//  this view additionally polls /v1/stats/overview and /v1/messages every
+//  10 seconds to keep the recent-activity strip and overview fresh.
 //
 //  Laid out with `TVDashboardKit` so everything stays inside the tvOS
 //  title-safe area and the whole wall scrolls (focusable cards) instead
