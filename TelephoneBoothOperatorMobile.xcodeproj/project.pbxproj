@@ -89,6 +89,7 @@
 		27933251BF0325E8E11978E4 /* GlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2048D35AF0482F228CA9EAB0 /* GlassCard.swift */; };
 		2902C318E9307100FC3BA5F4 /* CallInProgressAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349332A6376D9D870DC8B9ED /* CallInProgressAttributes.swift */; };
 		291478B5894BD01A64BC95CD /* IDTokenValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52A996BE5D42DD1C1952B12 /* IDTokenValidator.swift */; };
+		294D5863108D8991E3CE9204 /* TVScreensaverPlaylistTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70B8990E3EAFA2FF4D74B069 /* TVScreensaverPlaylistTests.swift */; };
 		298AF07DF7756056EEB23D3C /* TVSystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEA45F1EFE8E7E76EA9FA96C /* TVSystemView.swift */; };
 		29B86024B17C3679534AF24B /* CallInProgressLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44FFDF69DAD6CC776A80C3ED /* CallInProgressLiveActivity.swift */; };
 		29DD8A4A85262713D9BB8C64 /* TVDeviceLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DA5E36A8DABB2BEE142E95 /* TVDeviceLoginView.swift */; };
@@ -649,6 +650,7 @@
 		6E3B1AFE0D881D7419AE137D /* BoothEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoothEvent.swift; sourceTree = "<group>"; };
 		6F92B0A84D235F3489BB1542 /* StatusSocketTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusSocketTests.swift; sourceTree = "<group>"; };
 		7037F65F660FA295067270FD /* TBOperatorMobileTV.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TBOperatorMobileTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		70B8990E3EAFA2FF4D74B069 /* TVScreensaverPlaylistTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVScreensaverPlaylistTests.swift; sourceTree = "<group>"; };
 		724B6B4233C3DD7269C98F54 /* StatsRangeControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsRangeControls.swift; sourceTree = "<group>"; };
 		74746E8A4D48CE8D37DE85CE /* TBOperatorMobileMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileMacApp.swift; sourceTree = "<group>"; };
 		7781B42DE486F0C2D94C10F2 /* TBOperatorMobileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileTests.swift; sourceTree = "<group>"; };
@@ -1066,6 +1068,7 @@
 			isa = PBXGroup;
 			children = (
 				88E5064AF164DFB98529BEA6 /* TBOperatorMobileTVTests.swift */,
+				70B8990E3EAFA2FF4D74B069 /* TVScreensaverPlaylistTests.swift */,
 			);
 			path = TBOperatorMobileTVTests;
 			sourceTree = "<group>";
@@ -1496,16 +1499,16 @@
 			projectRoot = "";
 			targets = (
 				FDDE76584B9EC36E383EF62C /* TBOperatorMobile */,
-				4A47F610A11EE2109713BC3B /* TBOperatorMobileMac */,
-				3828AA21DAEBFE03873B738C /* TBOperatorMobileMacTests */,
-				2E142B191C49D384967A1F74 /* TBOperatorMobileTV */,
-				ED33EE6901AFD85F494096C5 /* TBOperatorMobileTVTests */,
-				F42DDA303244D3C3D961A65E /* TBOperatorMobileTests */,
-				4F8BB5FD8CB50CE70817C083 /* TBOperatorMobileVision */,
-				EBB4F07764C04815F55A3C9B /* TBOperatorMobileVisionTests */,
-				E1606AB971FC8E4E16A1375F /* TBOperatorMobileWatch */,
-				C95F7C89B59F27C631B35CC0 /* TBOperatorMobileWatchTests */,
 				C58C6FD56A4AA671700B8ED3 /* TBOperatorMobileWidgets */,
+				E1606AB971FC8E4E16A1375F /* TBOperatorMobileWatch */,
+				4A47F610A11EE2109713BC3B /* TBOperatorMobileMac */,
+				4F8BB5FD8CB50CE70817C083 /* TBOperatorMobileVision */,
+				2E142B191C49D384967A1F74 /* TBOperatorMobileTV */,
+				F42DDA303244D3C3D961A65E /* TBOperatorMobileTests */,
+				3828AA21DAEBFE03873B738C /* TBOperatorMobileMacTests */,
+				EBB4F07764C04815F55A3C9B /* TBOperatorMobileVisionTests */,
+				ED33EE6901AFD85F494096C5 /* TBOperatorMobileTVTests */,
+				C95F7C89B59F27C631B35CC0 /* TBOperatorMobileWatchTests */,
 			);
 		};
 /* End PBXProject section */
@@ -1751,6 +1754,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				57656F7E6D3B92028DC82EE9 /* TBOperatorMobileTVTests.swift in Sources */,
+				294D5863108D8991E3CE9204 /* TVScreensaverPlaylistTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
