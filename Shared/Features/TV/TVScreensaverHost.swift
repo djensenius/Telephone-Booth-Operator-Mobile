@@ -114,6 +114,10 @@ private struct TVScreensaverHostModifier: ViewModifier {
         }
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(1))
+            // The sleep swallows cancellation; bail before touching shared view
+            // state so a task replaced by `.task(id:)` can't flip the overlay on
+            // using its now-stale enabled/idleSeconds settings.
+            if Task.isCancelled { return }
             guard enabled, !showing else { continue }
             if Date().timeIntervalSince(lastInput) >= Double(idleSeconds) {
                 withAnimation(.easeInOut(duration: 0.8)) { showing = true }

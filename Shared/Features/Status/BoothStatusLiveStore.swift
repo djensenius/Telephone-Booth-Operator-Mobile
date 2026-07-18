@@ -30,6 +30,13 @@ public final class BoothStatusLiveStore {
     public private(set) var connection: ConnectionState = .offline
     public private(set) var lastError: String?
 
+    /// True only when the `/v1/system/current` request itself failed while we
+    /// have no cached snapshot to show. Lets the System tab present its
+    /// retry/error state during a system-endpoint outage instead of a
+    /// permanent "no snapshot yet". Distinct from the successful-but-empty
+    /// case (endpoint reachable, booth simply hasn't reported yet).
+    public private(set) var systemUnavailable: Bool = false
+
     private let client: OperatorClient
     private let socket: StatusSocket
     private let config: AppConfig
@@ -178,10 +185,7 @@ public final class BoothStatusLiveStore {
         // these requests were in flight.
         if let newHistory { mergeHistory(newHistory.items) }
         if let newStatus { apply(status: newStatus) }
-        if let newSystem {
-            systemEnvelope = newSystem
-            writeWidgetSnapshotIfPossible()
-        }
+        applySystemResult(newSystem)
         if let newStats { applyStats(newStats) }
 
         let anySuccess = newStatus != nil || newHistory != nil
@@ -201,6 +205,27 @@ public final class BoothStatusLiveStore {
         }
     }
 
+    /// Applies the outcome of the `/v1/system/current` REST request. The double
+    /// optional distinguishes a thrown error (`.none`) from a successful-but-
+    /// empty response (`.some(.none)`) so a system-endpoint outage surfaces an
+    /// error state while "booth hasn't reported yet" stays an empty state.
+    private func applySystemResult(_ newSystem: BoothSystemSnapshotEnvelope??) {
+        switch newSystem {
+        case .some(let envelope?):
+            systemEnvelope = envelope
+            systemUnavailable = false
+            writeWidgetSnapshotIfPossible()
+        case .some(.none):
+            // Endpoint reachable, but the booth has no snapshot yet.
+            systemEnvelope = nil
+            systemUnavailable = false
+        case .none:
+            // The system request itself failed; only surface an error when we
+            // have nothing cached to fall back on.
+            systemUnavailable = systemEnvelope == nil
+        }
+    }
+
     private func refreshSummary() async {
         if demoMode || config.isDemoMode { return }
         let client = self.client
@@ -216,6 +241,7 @@ public final class BoothStatusLiveStore {
             apply(status: status)
         case .system(let envelope):
             systemEnvelope = envelope
+            systemUnavailable = false
             writeWidgetSnapshotIfPossible()
         case .message:
             break
@@ -285,6 +311,7 @@ public final class BoothStatusLiveStore {
         stats = DemoData.statsSummary
         connection = .polling
         lastError = nil
+        systemUnavailable = false
         WidgetSnapshotStore.write(WidgetSnapshot(stats: DemoData.statsSummary))
     }
 }

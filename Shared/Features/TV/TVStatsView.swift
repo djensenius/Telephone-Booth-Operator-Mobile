@@ -19,6 +19,7 @@ struct TVStatsView: View {
     @State private var overview: StatsOverview?
     @State private var errorMessage: String?
     @State private var isRefreshing = false
+    @State private var refreshToken = 0
     @State private var liveStore: BoothStatusLiveStore
 
     private let client: OperatorClient
@@ -59,13 +60,16 @@ struct TVStatsView: View {
             // Refresh immediately when the range changes, then keep a
             // wall-mounted Stats tab live (and retry a failed first load)
             // by re-polling on a slow cadence while the tab is on screen.
-            // Clear the previous range's numbers first so they are never shown
-            // relabelled under the newly selected window while the new (or a
-            // failed) request is in flight.
+            // Clear the previous range's numbers *and* any stale error first so
+            // neither is shown relabelled under the newly selected window while
+            // the new (or a failed) request is in flight.
+            refreshToken += 1
+            let token = refreshToken
             overview = nil
+            errorMessage = nil
             let requested = window
             while !Task.isCancelled {
-                await refresh(window: requested)
+                await refresh(window: requested, token: token)
                 try? await Task.sleep(for: .seconds(15))
             }
         }
@@ -286,25 +290,25 @@ struct TVStatsView: View {
 
     // MARK: Data
 
-    private func refresh(window requested: StatsWindow) async {
+    private func refresh(window requested: StatsWindow, token: Int) async {
         isRefreshing = true
         defer {
-            // Only the still-active request clears the shared spinner flag. A
-            // superseded range selection (whose `.task(id:)` was cancelled)
-            // must not switch it off while the newly selected range's request
-            // is still loading, or the new range would render blank.
-            if requested == window { isRefreshing = false }
+            // Only the current active request clears the shared spinner flag.
+            // A monotonically increasing token survives an A → B → A switch
+            // (where `requested == window` would spuriously match), so a
+            // superseded task can never blank the newest range mid-load.
+            if token == refreshToken { isRefreshing = false }
         }
         do {
             let result = try await client.fetchStatsOverview(window: requested)
             // Ignore results from a range selection that has since changed (the
             // `.task(id:)` was cancelled) so a late/cancelled completion never
             // overwrites the newly selected range or flashes a spurious error.
-            guard !Task.isCancelled, requested == window else { return }
+            guard !Task.isCancelled, token == refreshToken else { return }
             overview = result
             errorMessage = nil
         } catch {
-            guard !Task.isCancelled, requested == window else { return }
+            guard !Task.isCancelled, token == refreshToken else { return }
             errorMessage = "Couldn't load stats: \(error.localizedDescription)"
         }
     }

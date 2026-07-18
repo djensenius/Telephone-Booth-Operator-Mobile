@@ -26,6 +26,8 @@ struct TVSystemView: View {
                 content(envelope: envelope)
             } else if let error = liveStore.lastError {
                 errorState(error)
+            } else if liveStore.systemUnavailable {
+                errorState("Couldn't reach the booth's system endpoint.")
             } else if liveStore.connection == .connecting || liveStore.connection == .offline {
                 loadingState
             } else {
