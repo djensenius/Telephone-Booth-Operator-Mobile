@@ -144,10 +144,11 @@ public final class BoothStatusLiveStore {
                 // fresh on the cadence because the socket does not carry a
                 // StatsSummary.
                 await refreshSummary()
-                // The socket may not carry system snapshots, so a failed
-                // `/v1/system/current` seed would otherwise never recover while
-                // live. Retry it on the cadence until it succeeds.
-                if systemUnavailable { await refreshSystem() }
+                // The socket may not carry system snapshots, so keep polling
+                // `/v1/system/current` on the cadence whenever we have none
+                // cached — whether the seed failed or simply returned empty
+                // before the booth first reported — until one arrives.
+                if systemEnvelope == nil { await refreshSystem() }
             }
             isInitialSeed = false
             do {
