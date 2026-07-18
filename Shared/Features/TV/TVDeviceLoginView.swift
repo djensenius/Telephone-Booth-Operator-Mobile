@@ -27,8 +27,9 @@ struct TVDeviceLoginView: View {
         ZStack {
             TVBackground()
 
-            VStack(spacing: 52) {
-                header
+            let isAuthorizing = authorization != nil
+            VStack(spacing: isAuthorizing ? 40 : 52) {
+                header(compact: isAuthorizing)
                 Group {
                     if let authorization {
                         instructions(authorization)
@@ -50,7 +51,7 @@ struct TVDeviceLoginView: View {
             }
             .frame(maxWidth: 1500)
             .padding(.horizontal, 90)
-            .padding(.vertical, 70)
+            .padding(.vertical, isAuthorizing ? 44 : 70)
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
@@ -63,12 +64,15 @@ struct TVDeviceLoginView: View {
 
     // MARK: - Header
 
-    private var header: some View {
-        VStack(spacing: 24) {
+    /// - Parameter compact: shrinks the icon/title and drops the subtitle while
+    ///   the device flow is active so the header + QR card fit inside the tvOS
+    ///   title-safe area (they otherwise overflow ~1080pt on overscanned TVs).
+    private func header(compact: Bool) -> some View {
+        VStack(spacing: compact ? 16 : 24) {
             Image(systemName: "phone.connection")
-                .font(.system(size: 88, weight: .regular))
+                .font(.system(size: compact ? 60 : 88, weight: .regular))
                 .foregroundStyle(Theme.Colors.accent)
-                .frame(width: 176, height: 176)
+                .frame(width: compact ? 120 : 176, height: compact ? 120 : 176)
                 .background {
                     Circle().fill(Theme.Colors.elevatedBackground)
                 }
@@ -76,13 +80,15 @@ struct TVDeviceLoginView: View {
                     Circle().strokeBorder(Theme.Colors.accent.opacity(0.35), lineWidth: 3)
                 }
             Text("Telephone-Booth Operator")
-                .font(.system(size: 60, weight: .bold))
+                .font(.system(size: compact ? 44 : 60, weight: .bold))
                 .foregroundStyle(Theme.Colors.textPrimary)
                 .multilineTextAlignment(.center)
-            Text("Sign in to monitor the booth on the big screen.")
-                .font(.title2)
-                .foregroundStyle(Theme.Colors.textSecondary)
-                .multilineTextAlignment(.center)
+            if !compact {
+                Text("Sign in to monitor the booth on the big screen.")
+                    .font(.title2)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
         }
     }
 
