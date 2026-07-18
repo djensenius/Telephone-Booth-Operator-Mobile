@@ -271,6 +271,9 @@ private extension View {
         self
             .scrollContentBackground(.hidden)
             .background(Theme.Colors.background)
+        #elseif os(tvOS)
+        self
+            .background(Theme.Colors.background)
         #else
         self
         #endif
@@ -278,7 +281,7 @@ private extension View {
 
     @ViewBuilder
     func themedSettingsRowBackground() -> some View {
-        #if os(iOS)
+        #if os(iOS) || os(tvOS)
         self.listRowBackground(Theme.Colors.secondaryBackground)
         #else
         self
