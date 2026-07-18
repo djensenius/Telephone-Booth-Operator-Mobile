@@ -19,6 +19,12 @@ public struct LoginView: View {
     public init() {}
 
     public var body: some View {
+        #if os(tvOS)
+        // tvOS has its own full-screen, focus-driven sign-in experience;
+        // the shared login chrome (badge, marketing copy, full-width demo
+        // button) doesn't translate to a 10-foot screen.
+        TVDeviceLoginView()
+        #else
         ZStack {
             Theme.Colors.background
                 .ignoresSafeArea()
@@ -65,6 +71,7 @@ public struct LoginView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
+        #endif
     }
 
     private var operatorBadge: some View {

@@ -3,9 +3,16 @@
 //  TelephoneBoothOperatorMobile
 //
 //  Big-screen booth status wall for tvOS. Read-only by design — the
-//  remote doesn't translate well to moderation gestures. Polls
-//  /v1/stats/summary and /v1/messages every 10 seconds to keep the
-//  state badge, stat column, and recent-messages strip fresh.
+//  remote doesn't translate well to moderation gestures, and message
+//  content is deliberately never shown here (that lives in the
+//  approve/reject flow). Polls /v1/stats/summary and /v1/messages every
+//  10 seconds to keep the state hero, KPI column, and recent-activity
+//  strip fresh.
+//
+//  Laid out with `TVDashboardKit` so everything stays inside the tvOS
+//  title-safe area and the whole wall scrolls (focusable cards) instead
+//  of running the header off the top and the overview strip off the
+//  bottom.
 //
 
 #if os(tvOS)
@@ -14,7 +21,8 @@ import SwiftUI
 
 struct TVBoothWallView: View {
     @State private var overview: StatsOverview?
-    @State private var recentMessages: [Message] = []
+    @State private var recentCount: Int = 0
+    @State private var latestReceivedAt: Date?
     @State private var errorMessage: String?
     @State private var liveStore: BoothStatusLiveStore
 
@@ -26,152 +34,172 @@ struct TVBoothWallView: View {
     }
 
     var body: some View {
-        ZStack {
-            Theme.Colors.background.ignoresSafeArea()
-            VStack(spacing: 48) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: TVMetrics.sectionSpacing) {
                 header
-                HStack(alignment: .top, spacing: 60) {
+                HStack(alignment: .top, spacing: TVMetrics.cardSpacing) {
                     statusHero
                         .frame(maxWidth: .infinity)
-                    statsColumn
-                        .frame(width: 480)
+                    kpiColumn
+                        .frame(width: 560)
                 }
-                .padding(.horizontal, 80)
-                latestMessagesPanel
-                    .padding(.horizontal, 80)
+                activityStrip
                 if let overview {
                     overviewStrip(overview: overview)
-                        .padding(.horizontal, 80)
                 }
-                Spacer()
                 if let errorMessage = errorMessage ?? liveStore.lastError {
-                    Text(errorMessage)
-                        .font(.title3)
-                        .foregroundStyle(Theme.Colors.error)
+                    TVBanner(message: errorMessage)
                 }
             }
-            .padding(.vertical, 60)
+            .frame(maxWidth: TVMetrics.contentMaxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.horizontal, TVMetrics.screenPaddingH)
+            .padding(.top, TVMetrics.screenPaddingTop)
+            .padding(.bottom, TVMetrics.screenPaddingBottom)
         }
+        .scrollClipDisabled()
+        .background(TVBackground())
         .task { await pollLoop() }
         .boothStatusLive(liveStore)
     }
 
-    private func overviewStrip(overview: StatsOverview) -> some View {
-        HStack(spacing: 24) {
-            TVStatBlock(
-                label: "Pickups (7d)",
-                value: "\(overview.pickupsHangups.pickups)"
-            )
-            TVStatBlock(
-                label: "Messages left",
-                value: "\(overview.messages.total)"
-            )
-            TVStatBlock(
-                label: "Playbacks",
-                value: "\(overview.playback.totalPlaybacks)"
-            )
-            TVStatBlock(
-                label: "Completion",
-                value: percentString(overview.completionRate)
-            )
-        }
-    }
-
-    private func percentString(_ value: Double?) -> String {
-        guard let value, value.isFinite else { return "—" }
-        return String(format: "%.0f%%", value * 100)
-    }
+    // MARK: - Header
 
     private var header: some View {
-        HStack {
-            Image(systemName: "phone.connection")
-                .font(.system(size: 56))
+        HStack(alignment: .center, spacing: 22) {
+            Image(systemName: "phone.connection.fill")
+                .font(.system(size: 48))
                 .foregroundStyle(Theme.Colors.accent)
-            VStack(alignment: .leading) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text("Telephone-Booth Operator")
-                    .font(.system(size: 36, weight: .semibold))
+                    .font(.system(size: 44, weight: .bold))
                     .foregroundStyle(Theme.Colors.textPrimary)
                 Text("Booth wall")
-                    .font(.title3)
+                    .font(TVMetrics.Font.body)
                     .foregroundStyle(Theme.Colors.textSecondary)
             }
-            Spacer()
+            Spacer(minLength: 24)
             if let mode = currentStatus?.runtimeMode, mode.shouldDisplayBadge {
                 RuntimeModeBadge(mode: mode)
-                    .scaleEffect(1.6)
-                    .padding(.trailing, 20)
+                    .scaleEffect(1.5)
+                    .padding(.trailing, 16)
             }
             if let generatedAt = liveStore.stats?.generatedAt {
-                VStack(alignment: .trailing) {
+                VStack(alignment: .trailing, spacing: 2) {
                     Text("Updated")
-                        .font(.caption)
+                        .font(TVMetrics.Font.caption)
                         .foregroundStyle(Theme.Colors.textSecondary)
                     Text(generatedAt, style: .time)
-                        .font(.title2.monospacedDigit())
+                        .font(.system(size: 30, weight: .semibold).monospacedDigit())
                         .foregroundStyle(Theme.Colors.textPrimary)
                 }
             }
         }
-        .padding(.horizontal, 80)
     }
+
+    // MARK: - Hero
 
     private var statusHero: some View {
         let state = currentStatus?.state ?? .idle
-        return VStack(spacing: 24) {
-            Image(systemName: state.tvSymbol)
-                .font(.system(size: 220, weight: .regular))
-                .foregroundStyle(state.tvTint)
-                .padding(40)
-                .background {
-                    Circle()
-                        .fill(state.tvTint.opacity(0.18))
-                }
-            Text(state.tvDisplayName)
-                .font(.system(size: 64, weight: .bold))
-                .foregroundStyle(Theme.Colors.textPrimary)
-            Text(state.isCallActive ? "Call in progress" : "Standby")
-                .font(.title3)
-                .foregroundStyle(Theme.Colors.textSecondary)
+        return TVFocusCard {
+            VStack(spacing: 28) {
+                Image(systemName: state.tvSymbol)
+                    .font(.system(size: 150, weight: .regular))
+                    .foregroundStyle(state.tvTint)
+                    .frame(height: 200)
+                    .padding(36)
+                    .background {
+                        Circle().fill(state.tvTint.opacity(0.18))
+                    }
+                Text(state.tvDisplayName)
+                    .font(.system(size: 58, weight: .bold))
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                Text(state.isCallActive ? "Call in progress" : "Standby")
+                    .font(TVMetrics.Font.body)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 20)
         }
     }
 
-    private var statsColumn: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            TVStatBlock(label: "Calls today", value: "\(liveStore.stats?.calls.today ?? 0)")
-            TVStatBlock(
+    // MARK: - KPI column
+
+    private var kpiColumn: some View {
+        VStack(spacing: 20) {
+            TVBoothStatRow(label: "Calls today", value: "\(liveStore.stats?.calls.today ?? 0)")
+            TVBoothStatRow(
                 label: "In progress",
                 value: "\(liveStore.stats?.calls.inProgress ?? 0)",
                 emphasize: (liveStore.stats?.calls.inProgress ?? 0) > 0
             )
-            TVStatBlock(
+            TVBoothStatRow(
                 label: "Pending moderation",
                 value: "\(liveStore.stats?.messages.pending ?? 0)",
                 emphasize: (liveStore.stats?.messages.pending ?? 0) > 0
             )
-            TVStatBlock(label: "Received today", value: "\(liveStore.stats?.messages.receivedToday ?? 0)")
-            TVStatBlock(label: "WS clients", value: "\(liveStore.stats?.realtime.wsClients ?? 0)")
+            TVBoothStatRow(label: "Received today", value: "\(liveStore.stats?.messages.receivedToday ?? 0)")
+            TVBoothStatRow(label: "WS clients", value: "\(liveStore.stats?.realtime.wsClients ?? 0)")
         }
     }
 
-    private var latestMessagesPanel: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Recent messages")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(Theme.Colors.textPrimary)
-            if recentMessages.isEmpty {
-                Text("No recent messages.")
-                    .font(.title3)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-            } else {
-                HStack(alignment: .top, spacing: 24) {
-                    ForEach(recentMessages.prefix(3)) { message in
-                        TVMessageCard(message: message)
-                            .frame(maxWidth: .infinity)
-                    }
+    // MARK: - Recent activity (no message content by design)
+
+    private var activityStrip: some View {
+        TVFocusCard {
+            HStack(alignment: .center, spacing: 28) {
+                Image(systemName: "tray.full.fill")
+                    .font(.system(size: 40))
+                    .foregroundStyle(Theme.Colors.accent)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Recent messages")
+                        .font(TVMetrics.Font.cardTitle)
+                        .foregroundStyle(Theme.Colors.textPrimary)
+                    Text(activitySubtitle)
+                        .font(TVMetrics.Font.body)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                 }
+                Spacer(minLength: 0)
+                Text("\(liveStore.stats?.messages.pending ?? 0)")
+                    .font(TVMetrics.Font.statValue)
+                    .foregroundStyle(
+                        (liveStore.stats?.messages.pending ?? 0) > 0
+                            ? Theme.Colors.accent : Theme.Colors.textSecondary
+                    )
+                Text("awaiting\nreview")
+                    .font(TVMetrics.Font.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .multilineTextAlignment(.leading)
             }
         }
     }
+
+    private var activitySubtitle: String {
+        if recentCount == 0 {
+            return "No messages recorded yet."
+        }
+        let noun = recentCount == 1 ? "message" : "messages"
+        if let latest = latestReceivedAt {
+            return "\(recentCount) \(noun) · newest \(latest.formatted(.relative(presentation: .named)))"
+        }
+        return "\(recentCount) \(noun) recorded"
+    }
+
+    // MARK: - Overview strip
+
+    private func overviewStrip(overview: StatsOverview) -> some View {
+        LazyVGrid(
+            columns: Array(repeating: GridItem(.flexible(), spacing: 20), count: 4),
+            spacing: 20
+        ) {
+            TVStatTile(label: "Pickups (7d)", value: "\(overview.pickupsHangups.pickups)")
+            TVStatTile(label: "Messages left", value: "\(overview.messages.total)")
+            TVStatTile(label: "Playbacks", value: "\(overview.playback.totalPlaybacks)")
+            TVStatTile(label: "Completion", value: StatsFormat.percentString(overview.completionRate))
+        }
+    }
+
+    // MARK: - Data
 
     private var currentStatus: BoothStatus? {
         liveStore.status ?? liveStore.stats?.booth
@@ -186,15 +214,18 @@ struct TVBoothWallView: View {
 
     private func refresh() async {
         async let overviewTask: StatsOverview? = (try? await client.fetchStatsOverview(window: .last7d))
-        async let messagesTask: MessageList? = (try? await client.fetchMessages(status: nil, since: nil, limit: 3))
+        async let messagesTask: MessageList? = (try? await client.fetchMessages(status: nil, since: nil, limit: 5))
         let (newOverview, newMessages) = await (overviewTask, messagesTask)
         if let newOverview {
             overview = newOverview
         }
         if let newMessages {
-            recentMessages = newMessages.items
+            recentCount = newMessages.items.count
+            latestReceivedAt = newMessages.items
+                .compactMap { $0.receivedAt ?? $0.createdAt }
+                .max()
         }
-        if newOverview == nil && newMessages == nil && recentMessages.isEmpty {
+        if newOverview == nil && newMessages == nil {
             errorMessage = "Couldn't reach the operator."
         } else {
             errorMessage = nil
@@ -202,75 +233,33 @@ struct TVBoothWallView: View {
     }
 }
 
-struct TVStatBlock: View {
+// MARK: - KPI row
+
+private struct TVBoothStatRow: View {
     let label: String
     let value: String
     var emphasize: Bool = false
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
+        HStack(alignment: .firstTextBaseline, spacing: 20) {
             Text(label)
-                .font(.title3)
+                .font(.system(size: 30, weight: .medium))
                 .foregroundStyle(Theme.Colors.textSecondary)
-            Spacer()
+            Spacer(minLength: 16)
             Text(value)
-                .font(.system(size: 56, weight: .bold).monospacedDigit())
+                .font(.system(size: 52, weight: .bold).monospacedDigit())
                 .foregroundStyle(emphasize ? Theme.Colors.accent : Theme.Colors.textPrimary)
         }
-        .padding(24)
-        .background {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Theme.Colors.elevatedBackground)
-        }
+        .padding(.vertical, 22)
+        .padding(.horizontal, 30)
+        .background(
+            RoundedRectangle(cornerRadius: TVMetrics.cardCornerRadius, style: .continuous)
+                .fill(Theme.Colors.elevatedBackground.opacity(0.6))
+        )
     }
 }
 
-struct TVMessageCard: View {
-    let message: Message
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 12, height: 12)
-                Text(message.status.displayName)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(statusColor)
-                Spacer()
-                Text(message.receivedAt ?? message.createdAt, style: .relative)
-                    .font(.body)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-            }
-            if let text = message.latestTranscription?.text, !text.isEmpty {
-                Text(text)
-                    .font(.title3)
-                    .foregroundStyle(Theme.Colors.textPrimary)
-                    .lineLimit(5)
-            } else {
-                Text("No transcription yet.")
-                    .font(.title3)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-            }
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Theme.Colors.elevatedBackground)
-        }
-    }
-
-    private var statusColor: Color {
-        switch message.status {
-        case .approved: return Theme.Colors.success
-        case .rejected: return Theme.Colors.error
-        case .pending, .received: return Theme.Colors.warning
-        case .uploading: return Theme.Colors.textSecondary
-        case .unknown: return Theme.Colors.textSecondary
-        }
-    }
-}
+// MARK: - Booth state presentation
 
 extension BoothState {
     var tvDisplayName: String {
@@ -314,6 +303,10 @@ extension BoothState {
         case .unknown: return Theme.Colors.textSecondary
         }
     }
+}
+
+#Preview {
+    TVBoothWallView(client: .demo, liveStore: .demo)
 }
 
 #endif

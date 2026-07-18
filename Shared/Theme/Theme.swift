@@ -32,6 +32,15 @@ public enum Theme {
 
         public var id: String { rawValue }
 
+        /// Modes offered on tvOS: the booth (Catppuccin) palette in light,
+        /// dark, or automatic mode — mirroring the web operator console's
+        /// dark / light / follow-system options. tvOS has no native
+        /// "system background" palette, so the system-coloured variants are
+        /// intentionally not surfaced there.
+        public static var tvSelectableCases: [IOSThemeMode] {
+            [.catppuccinAuto, .catppuccinLight, .catppuccinDark]
+        }
+
         public var displayName: String {
             switch self {
             case .catppuccinAuto: return "Catppuccin Auto"
@@ -149,7 +158,7 @@ public enum Theme {
         static let crust = Color(hex: "11111b")
     }
 
-    #if os(iOS)
+    #if os(iOS) || os(tvOS)
     fileprivate static func dynamicColor(
         light: Color,
         dark: Color,
@@ -174,12 +183,12 @@ public enum Theme {
         })
     }
     #else
-    // Non-iOS platforms either keep their native palette (macOS / visionOS)
-    // or use the fixed Catppuccin Mocha palette (watchOS / tvOS).
+    // Non-iOS/tvOS platforms either keep their native palette (macOS /
+    // visionOS) or use the fixed Catppuccin Mocha palette (watchOS).
     fileprivate static func dynamicColor(light: Color, dark: Color) -> Color {
         #if canImport(UIKit)
-        #if os(watchOS) || os(tvOS)
-        // watchOS and tvOS are intentionally dark-only in this app.
+        #if os(watchOS)
+        // watchOS is intentionally dark-only in this app.
         return dark
         #else
         return Color(UIColor { traitCollection in
@@ -224,9 +233,9 @@ public enum Theme {
 
     // macOS and visionOS deliberately use the platform's native light/dark
     // system palette (no Catppuccin) so the app feels at home on those
-    // platforms. iOS / iPadOS can switch between the booth-flavoured
-    // Catppuccin palette and native system colors, and the always-dark
-    // platforms (watchOS / tvOS) keep Catppuccin Mocha.
+    // platforms. iOS / iPadOS and tvOS can switch between the
+    // booth-flavoured Catppuccin palette and native system colors, in
+    // light, dark, or automatic mode; watchOS keeps Catppuccin Mocha.
     public enum Colors {
         #if os(macOS) || os(visionOS)
         public static let accent = Color.accentColor
@@ -244,7 +253,7 @@ public enum Theme {
         public static let warning = Color.orange
         public static let success = Color.green
         public static let info = Color.blue
-        #elseif os(iOS)
+        #elseif os(iOS) || os(tvOS)
         public static var accent: Color {
             dynamicColor(
                 light: CatppuccinLatte.maroon,
@@ -273,7 +282,13 @@ public enum Theme {
             dynamicColor(
                 light: CatppuccinLatte.base,
                 dark: CatppuccinMocha.base,
-                system: { .systemBackground }
+                system: {
+                    #if os(tvOS)
+                    UIColor(CatppuccinMocha.base)
+                    #else
+                    .systemBackground
+                    #endif
+                }
             )
         }
 
@@ -281,7 +296,13 @@ public enum Theme {
             dynamicColor(
                 light: CatppuccinLatte.mantle,
                 dark: CatppuccinMocha.mantle,
-                system: { .secondarySystemBackground }
+                system: {
+                    #if os(tvOS)
+                    UIColor(CatppuccinMocha.mantle)
+                    #else
+                    .secondarySystemBackground
+                    #endif
+                }
             )
         }
 
@@ -289,7 +310,13 @@ public enum Theme {
             dynamicColor(
                 light: CatppuccinLatte.surface0,
                 dark: CatppuccinMocha.surface0,
-                system: { .tertiarySystemBackground }
+                system: {
+                    #if os(tvOS)
+                    UIColor(CatppuccinMocha.surface0)
+                    #else
+                    .tertiarySystemBackground
+                    #endif
+                }
             )
         }
 

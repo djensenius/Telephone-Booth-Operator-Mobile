@@ -48,12 +48,38 @@ public final class AppConfig {
         }
     }
 
-    #if os(iOS)
-    /// iOS-only appearance preference for Catppuccin or native system colors.
+    #if os(iOS) || os(tvOS)
+    /// Appearance preference (iOS / tvOS) for Catppuccin or native system colors.
     public var iosThemeMode: Theme.IOSThemeMode {
         didSet {
             Theme.IOSThemeMode.persist(iosThemeMode)
             logger.info("iosThemeMode updated to \(self.iosThemeMode.rawValue, privacy: .public)")
+        }
+    }
+    #endif
+
+    #if os(tvOS)
+    private static let tvScreensaverEnabledKey = "TBOperatorTVScreensaverEnabled"
+    private static let tvScreensaverIdleKey = "TBOperatorTVScreensaverIdleSeconds"
+
+    /// Idle-timeout options (seconds) offered for the tvOS ambient screensaver.
+    public static let tvScreensaverIdleOptions: [Int] = [120, 300, 600, 900, 1800]
+
+    /// Whether the custom ambient (burn-in-safe) screensaver takes over the
+    /// tvOS dashboard after `tvScreensaverIdleSeconds` of no remote input.
+    /// While a screen is showing this we also disable the system screensaver.
+    public var tvScreensaverEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(tvScreensaverEnabled, forKey: Self.tvScreensaverEnabledKey)
+            logger.info("tvScreensaverEnabled updated to \(self.tvScreensaverEnabled, privacy: .public)")
+        }
+    }
+
+    /// Seconds of remote inactivity before the ambient screensaver appears.
+    public var tvScreensaverIdleSeconds: Int {
+        didSet {
+            UserDefaults.standard.set(tvScreensaverIdleSeconds, forKey: Self.tvScreensaverIdleKey)
+            logger.info("tvScreensaverIdleSeconds updated to \(self.tvScreensaverIdleSeconds, privacy: .public)")
         }
     }
     #endif
@@ -83,8 +109,14 @@ public final class AppConfig {
         }
         self.apiBaseURL = url
         self.isDemoMode = UserDefaults.standard.bool(forKey: Self.demoModeDefaultsKey)
-        #if os(iOS)
+        #if os(iOS) || os(tvOS)
         self.iosThemeMode = Theme.IOSThemeMode.storedMode()
+        #endif
+        #if os(tvOS)
+        let defaults = UserDefaults.standard
+        self.tvScreensaverEnabled = defaults.object(forKey: Self.tvScreensaverEnabledKey) as? Bool ?? true
+        let storedIdle = defaults.object(forKey: Self.tvScreensaverIdleKey) as? Int
+        self.tvScreensaverIdleSeconds = storedIdle ?? 300
         #endif
 
         self.oidcIssuerBase = Bundle.main.object(forInfoDictionaryKey: "OIDCIssuerBase") as? String

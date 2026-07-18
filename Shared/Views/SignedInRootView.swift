@@ -55,6 +55,9 @@ private struct OperatorShell: View {
     @State private var pending = PendingMessagesStore.shared
     @State private var currentUser: CurrentUserStore
     @State private var selection: OperatorTab
+    #if os(tvOS)
+    @State private var config = AppConfig.shared
+    #endif
 
     init(client: OperatorClient, eventStream: EventStream) {
         self.client = client
@@ -71,9 +74,13 @@ private struct OperatorShell: View {
             }
 
             Tab("Stats", systemImage: "chart.bar.fill", value: .stats) {
+                #if os(tvOS)
+                TVStatsView(client: client)
+                #else
                 NavigationStack {
                     statsView.navigationTitle("Stats")
                 }
+                #endif
             }
 
             #if !os(tvOS)
@@ -105,9 +112,13 @@ private struct OperatorShell: View {
             #endif
 
             Tab("System", systemImage: "cpu", value: .system) {
+                #if os(tvOS)
+                TVSystemView(client: client)
+                #else
                 NavigationStack {
                     SystemView(client: client).navigationTitle("System")
                 }
+                #endif
             }
 
             #if !os(macOS)
@@ -122,6 +133,13 @@ private struct OperatorShell: View {
         .environment(currentUser)
         .task { pending.startPolling(using: client) }
         .task { currentUser.start() }
+        #if os(tvOS)
+        .tvScreensaver(
+            enabled: config.tvScreensaverEnabled,
+            idleSeconds: config.tvScreensaverIdleSeconds,
+            client: client
+        )
+        #endif
     }
 
     @ViewBuilder
