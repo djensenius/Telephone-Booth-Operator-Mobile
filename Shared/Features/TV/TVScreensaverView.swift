@@ -133,7 +133,10 @@ struct TVScreensaverView: View {
                 overview: overview
             )
             guard !items.isEmpty else {
-                try? await Task.sleep(for: .seconds(2))
+                // Nothing to show yet: wait, but stay interrupt-aware so booth
+                // activity that begins now surfaces on the next 150 ms check
+                // instead of being hidden for the full two seconds.
+                _ = await hold(.seconds(2))
                 continue
             }
             for item in items.shuffled() {

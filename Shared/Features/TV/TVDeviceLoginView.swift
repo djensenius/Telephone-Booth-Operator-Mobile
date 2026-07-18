@@ -79,7 +79,7 @@ struct TVDeviceLoginView: View {
                 .font(.system(size: 60, weight: .bold))
                 .foregroundStyle(Theme.Colors.textPrimary)
                 .multilineTextAlignment(.center)
-            Text("Sign in to monitor and moderate the booth on the big screen.")
+            Text("Sign in to monitor the booth on the big screen.")
                 .font(.title2)
                 .foregroundStyle(Theme.Colors.textSecondary)
                 .multilineTextAlignment(.center)
