@@ -288,7 +288,13 @@ struct TVStatsView: View {
 
     private func refresh(window requested: StatsWindow) async {
         isRefreshing = true
-        defer { isRefreshing = false }
+        defer {
+            // Only the still-active request clears the shared spinner flag. A
+            // superseded range selection (whose `.task(id:)` was cancelled)
+            // must not switch it off while the newly selected range's request
+            // is still loading, or the new range would render blank.
+            if requested == window { isRefreshing = false }
+        }
         do {
             let result = try await client.fetchStatsOverview(window: requested)
             // Ignore results from a range selection that has since changed (the
