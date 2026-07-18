@@ -59,6 +59,10 @@ struct TVStatsView: View {
             // Refresh immediately when the range changes, then keep a
             // wall-mounted Stats tab live (and retry a failed first load)
             // by re-polling on a slow cadence while the tab is on screen.
+            // Clear the previous range's numbers first so they are never shown
+            // relabelled under the newly selected window while the new (or a
+            // failed) request is in flight.
+            overview = nil
             let requested = window
             while !Task.isCancelled {
                 await refresh(window: requested)

@@ -50,6 +50,7 @@ private struct TVScreensaverHostModifier: ViewModifier {
 
     @State private var lastInput = Date()
     @State private var showing = false
+    @FocusState private var overlayFocused: Bool
 
     func body(content: Content) -> some View {
         content
@@ -62,8 +63,18 @@ private struct TVScreensaverHostModifier: ViewModifier {
                     TVScreensaverView(client: client, liveStore: liveStore)
                         .transition(.opacity)
                         .zIndex(1000)
+                        // While the overlay is up it takes focus and swallows
+                        // the dismissing press (arrows/select/menu) so waking
+                        // never also moves focus or activates a control in the
+                        // dashboard underneath.
+                        .focusable()
+                        .focusEffectDisabled()
+                        .focused($overlayFocused)
+                        .onMoveCommand { _ in wake() }
                         .onExitCommand { wake() }
                         .onTapGesture { wake() }
+                        .onAppear { overlayFocused = true }
+                        .onDisappear { overlayFocused = false }
                 }
             }
             .onAppear { applyIdleTimer() }

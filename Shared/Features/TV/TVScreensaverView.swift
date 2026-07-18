@@ -137,6 +137,13 @@ struct TVScreensaverView: View {
                     await presentActivityInterrupt()
                     break
                 }
+                // The playlist is a snapshot: if the booth went idle after it
+                // was built, drop a now-stale status card rather than surfacing
+                // activity that has ended (status is only ever shown live).
+                if item.id == "status",
+                   !TVScreensaverPlaylist.isHappening(liveStore.status?.state ?? .idle) {
+                    continue
+                }
                 await present(item)
                 if Task.isCancelled { return }
                 let interrupted = await hold(dwell)
