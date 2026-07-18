@@ -15,6 +15,17 @@ import SwiftUI
 import Charts
 #endif
 
+/// Fixed light palette for the ambient screensaver. The screensaver always
+/// renders on a pure-black background, so it must not borrow the dashboard
+/// theme's neutral text colors — in a light theme (e.g. Catppuccin Latte)
+/// `TVAmbient.textPrimary` resolves to a dark ink that is nearly invisible
+/// on black. These stay light regardless of the selected theme.
+private enum TVAmbient {
+    static let textPrimary = Color.white
+    static let textSecondary = Color.white.opacity(0.62)
+    static let grid = Color.white.opacity(0.12)
+}
+
 /// One item in the screensaver playlist. Built fresh from live data every
 /// cycle so the wall always reflects the current booth.
 struct TVSpotlight: Identifiable {
@@ -61,10 +72,10 @@ struct TVSpotlightCard: View {
             VStack(spacing: 14) {
                 Text(state.tvDisplayName)
                     .font(.system(size: 96, weight: .bold))
-                    .foregroundStyle(Theme.Colors.textPrimary)
+                    .foregroundStyle(TVAmbient.textPrimary)
                 Text(detail)
                     .font(.system(size: 40, weight: .medium))
-                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .foregroundStyle(TVAmbient.textSecondary)
             }
         }
         .multilineTextAlignment(.center)
@@ -76,16 +87,16 @@ struct TVSpotlightCard: View {
         VStack(spacing: 30) {
             Image(systemName: systemImage)
                 .font(.system(size: 92, weight: .regular))
-                .foregroundStyle(emphasized ? Theme.Colors.accent : Theme.Colors.textSecondary)
+                .foregroundStyle(emphasized ? Theme.Colors.accent : TVAmbient.textSecondary)
             Text(value)
                 .font(.system(size: 210, weight: .bold).monospacedDigit())
-                .foregroundStyle(emphasized ? Theme.Colors.accent : Theme.Colors.textPrimary)
+                .foregroundStyle(emphasized ? Theme.Colors.accent : TVAmbient.textPrimary)
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
             Text(label.uppercased())
                 .font(.system(size: 38, weight: .semibold))
                 .tracking(3)
-                .foregroundStyle(Theme.Colors.textSecondary)
+                .foregroundStyle(TVAmbient.textSecondary)
         }
         .multilineTextAlignment(.center)
     }
@@ -97,7 +108,7 @@ struct TVSpotlightCard: View {
             Text("CALLS · LAST 7 DAYS")
                 .font(.system(size: 34, weight: .semibold))
                 .tracking(3)
-                .foregroundStyle(Theme.Colors.textSecondary)
+                .foregroundStyle(TVAmbient.textSecondary)
             chart(days: days)
                 .frame(width: 900, height: 420)
         }
@@ -118,15 +129,15 @@ struct TVSpotlightCard: View {
             AxisMarks { _ in
                 AxisValueLabel()
                     .font(.system(size: 26, weight: .medium))
-                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .foregroundStyle(TVAmbient.textSecondary)
             }
         }
         .chartYAxis {
             AxisMarks { _ in
-                AxisGridLine().foregroundStyle(Theme.Colors.textSecondary.opacity(0.15))
+                AxisGridLine().foregroundStyle(TVAmbient.grid)
                 AxisValueLabel()
                     .font(.system(size: 24, weight: .regular))
-                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .foregroundStyle(TVAmbient.textSecondary)
             }
         }
         #else
@@ -139,7 +150,7 @@ struct TVSpotlightCard: View {
                         .frame(height: CGFloat(day.total) / CGFloat(peak) * 340 + 6)
                     Text(StatsFormat.shortDateLabel(day.date))
                         .font(.system(size: 24))
-                        .foregroundStyle(Theme.Colors.textSecondary)
+                        .foregroundStyle(TVAmbient.textSecondary)
                 }
             }
         }

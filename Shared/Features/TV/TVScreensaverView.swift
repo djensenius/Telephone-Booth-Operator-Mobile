@@ -36,6 +36,10 @@ struct TVScreensaverView: View {
     /// Set when the booth transitions into (or between) active states so the
     /// rotation can interrupt itself and surface the live status immediately.
     @State private var activationPending = false
+    /// Set when activity ends while the live status card is on screen, so the
+    /// stale "active" spotlight is pulled instead of lingering for its full
+    /// dwell (status is only ever shown while something is actually happening).
+    @State private var deactivationPending = false
 
     private let dwell: Duration = .seconds(9)
     private let fadeOut: Duration = .milliseconds(1100)
@@ -79,8 +83,14 @@ struct TVScreensaverView: View {
             }
         }
         .onChange(of: liveStore.status?.state) { _, newState in
-            guard let newState, TVScreensaverPlaylist.isHappening(newState) else { return }
-            activationPending = true
+            guard let newState else { return }
+            if TVScreensaverPlaylist.isHappening(newState) {
+                activationPending = true
+            } else if current?.id == "status" {
+                // Activity ended while the status card is showing — retire it
+                // now rather than letting the stale card ride out its dwell.
+                deactivationPending = true
+            }
         }
         .task { await runPlaylist() }
         .task { await pollOverview() }
@@ -131,7 +141,10 @@ struct TVScreensaverView: View {
                 if Task.isCancelled { return }
                 let interrupted = await hold(dwell)
                 await dismissCurrent()
-                if interrupted { break }
+                if interrupted {
+                    deactivationPending = false
+                    break
+                }
                 try? await Task.sleep(for: gap)
             }
         }
@@ -146,18 +159,20 @@ struct TVScreensaverView: View {
         if current != nil { await dismissCurrent() }
         await present(item)
         _ = await hold(dwell)
+        deactivationPending = false
         await dismissCurrent()
         try? await Task.sleep(for: gap)
     }
 
     /// Hold for `duration`, but bail out early (returning `true`) the moment a
-    /// new activation is requested so status changes surface without waiting.
+    /// new activation *or* a deactivation is requested so status changes surface
+    /// (or the stale status card is retired) without waiting out the dwell.
     private func hold(_ duration: Duration) async -> Bool {
         let slice: Duration = .milliseconds(150)
         var elapsed: Duration = .zero
         while elapsed < duration {
             if Task.isCancelled { return false }
-            if activationPending { return true }
+            if activationPending || deactivationPending { return true }
             try? await Task.sleep(for: slice)
             elapsed += slice
         }

@@ -53,7 +53,15 @@ struct TVStatsView: View {
                 }
             }
         })
-        .task(id: window) { await refresh() }
+        .task(id: window) {
+            // Refresh immediately when the range changes, then keep a
+            // wall-mounted Stats tab live (and retry a failed first load)
+            // by re-polling on a slow cadence while the tab is on screen.
+            while !Task.isCancelled {
+                await refresh()
+                try? await Task.sleep(for: .seconds(15))
+            }
+        }
     }
 
     @ViewBuilder

@@ -14,32 +14,30 @@
 import SwiftUI
 
 struct TVSystemView: View {
-    @State private var envelope: BoothSystemSnapshotEnvelope?
-    @State private var loading = false
-    @State private var errorMessage: String?
+    @State private var liveStore: BoothStatusLiveStore
 
-    private let client: OperatorClient
-
-    init(client: OperatorClient = .shared) {
-        self.client = client
+    init(client: OperatorClient = .shared, liveStore: BoothStatusLiveStore? = nil) {
+        _liveStore = State(initialValue: liveStore ?? (client.demoMode ? .demo : .shared))
     }
 
     var body: some View {
         TVScreen(title: "System", systemImage: "cpu", accessory: { accessory }, content: {
-            if let envelope {
+            if let envelope = liveStore.systemEnvelope {
                 content(envelope: envelope)
-            } else if loading {
+            } else if let error = liveStore.lastError {
+                errorState(error)
+            } else if liveStore.connection == .connecting || liveStore.connection == .offline {
                 loadingState
             } else {
                 emptyState
             }
         })
-        .task { await pollLoop() }
+        .boothStatusLive(liveStore)
     }
 
     @ViewBuilder
     private var accessory: some View {
-        if let envelope {
+        if let envelope = liveStore.systemEnvelope {
             HStack(spacing: 18) {
                 RuntimeModeBadge(mode: envelope.snapshot.runtimeMode)
                     .scaleEffect(1.4)
@@ -59,8 +57,8 @@ struct TVSystemView: View {
     private func content(envelope: BoothSystemSnapshotEnvelope) -> some View {
         let snapshot = envelope.snapshot
 
-        if let errorMessage {
-            TVBanner(message: errorMessage)
+        if let error = liveStore.lastError {
+            TVBanner(message: error)
         }
 
         TVSystemVitals(snapshot: snapshot)
@@ -102,21 +100,15 @@ struct TVSystemView: View {
         }
     }
 
-    private func pollLoop() async {
-        while !Task.isCancelled {
-            await refresh()
-            try? await Task.sleep(for: .seconds(10))
-        }
-    }
-
-    private func refresh() async {
-        if envelope == nil { loading = true }
-        defer { loading = false }
-        do {
-            envelope = try await client.fetchCurrentSystemEnvelope()
-            errorMessage = nil
-        } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't load system status."
+    private func errorState(_ message: String) -> some View {
+        TVFocusCard {
+            VStack(alignment: .leading, spacing: 16) {
+                TVCardHeader(title: "System status unavailable", systemImage: "exclamationmark.triangle.fill")
+                TVBanner(message: message)
+                Text("Retrying automatically…")
+                    .font(TVMetrics.Font.body)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+            }
         }
     }
 }

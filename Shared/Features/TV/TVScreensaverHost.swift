@@ -37,6 +37,11 @@ extension View {
     }
 }
 
+private struct MonitorKey: Equatable {
+    let enabled: Bool
+    let idleSeconds: Int
+}
+
 private struct TVScreensaverHostModifier: ViewModifier {
     let enabled: Bool
     let idleSeconds: Int
@@ -64,7 +69,7 @@ private struct TVScreensaverHostModifier: ViewModifier {
             .onAppear { applyIdleTimer() }
             .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
             .onChange(of: enabled) { _, _ in applyIdleTimer() }
-            .task(id: enabled) { await monitorIdle() }
+            .task(id: MonitorKey(enabled: enabled, idleSeconds: idleSeconds)) { await monitorIdle() }
     }
 
     private func applyIdleTimer() {
@@ -125,6 +130,10 @@ private struct IdleInputMonitor: UIViewRepresentable {
         (uiView as? MonitorView)?.coordinator = context.coordinator
     }
 
+    static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
+        (uiView as? MonitorView)?.detachRecognizer()
+    }
+
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         let onInput: () -> Void
 
@@ -156,12 +165,23 @@ private struct IdleInputMonitor: UIViewRepresentable {
 
     private final class MonitorView: UIView {
         weak var coordinator: Coordinator?
-        private var installed = false
+        private weak var installedWindow: UIWindow?
+        private var recognizer: UIGestureRecognizer?
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
-            guard let window, !installed, let coordinator else { return }
-            installed = true
+            if window == nil {
+                // Left the hierarchy (logout, theme rebuild, shell recreation):
+                // tear the recognizer down so window-level recognizers don't
+                // pile up over the app's lifetime.
+                detachRecognizer()
+            } else {
+                attachRecognizer()
+            }
+        }
+
+        private func attachRecognizer() {
+            guard recognizer == nil, let window, let coordinator else { return }
             let recognizer = UITapGestureRecognizer(target: nil, action: nil)
             recognizer.delegate = coordinator
             recognizer.cancelsTouchesInView = false
@@ -179,6 +199,16 @@ private struct IdleInputMonitor: UIViewRepresentable {
                 NSNumber(value: UITouch.TouchType.direct.rawValue)
             ]
             window.addGestureRecognizer(recognizer)
+            self.recognizer = recognizer
+            installedWindow = window
+        }
+
+        func detachRecognizer() {
+            if let recognizer, let installedWindow {
+                installedWindow.removeGestureRecognizer(recognizer)
+            }
+            recognizer = nil
+            installedWindow = nil
         }
     }
 }

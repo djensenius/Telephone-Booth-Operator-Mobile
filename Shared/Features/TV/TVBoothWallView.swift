@@ -175,14 +175,12 @@ struct TVBoothWallView: View {
     }
 
     private var activitySubtitle: String {
-        if recentCount == 0 {
-            return "No messages recorded yet."
+        guard let latest = latestReceivedAt else {
+            return recentCount > 0 ? "Recently recorded." : "No messages recorded yet."
         }
-        let noun = recentCount == 1 ? "message" : "messages"
-        if let latest = latestReceivedAt {
-            return "\(recentCount) \(noun) · newest \(latest.formatted(.relative(presentation: .named)))"
-        }
-        return "\(recentCount) \(noun) recorded"
+        // `recentCount` is only a capped sample page (limit 5), not a true
+        // total, so surface newest-message recency instead of a message count.
+        return "Newest \(latest.formatted(.relative(presentation: .named)))"
     }
 
     // MARK: - Overview strip
