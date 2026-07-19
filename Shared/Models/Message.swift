@@ -246,3 +246,41 @@ public struct MessageList: Codable, Sendable, Equatable {
         self.items = items
     }
 }
+
+/// A human moderation decision. The AI moderation result is only ever an
+/// advisory suggestion — approving or rejecting a message is always an explicit
+/// operator action recorded server-side against the acting operator.
+public enum MessageDecision: String, Codable, Sendable, Hashable {
+    case approve
+    case reject
+}
+
+/// Request body for `POST /v1/messages/{id}/decision`.
+public struct MessageDecisionRequest: Codable, Sendable, Equatable {
+    public let decision: MessageDecision
+    public let notes: String?
+
+    public init(decision: MessageDecision, notes: String? = nil) {
+        self.decision = decision
+        let trimmed = notes?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.notes = (trimmed?.isEmpty ?? true) ? nil : trimmed
+    }
+}
+
+extension Message {
+    /// Returns a copy of the message reflecting a human approve/reject
+    /// decision. Used to model the server response in demo mode.
+    public func applyingDecision(_ decision: MessageDecision, notes: String?) -> Message {
+        Message(
+            id: id,
+            status: decision == .approve ? .approved : .rejected,
+            questionId: questionId,
+            notes: notes ?? self.notes,
+            createdAt: createdAt,
+            receivedAt: receivedAt,
+            audio: audio,
+            latestTranscription: latestTranscription,
+            latestModeration: latestModeration
+        )
+    }
+}

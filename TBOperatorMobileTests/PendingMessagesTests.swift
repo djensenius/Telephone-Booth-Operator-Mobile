@@ -69,4 +69,36 @@ final class PendingMessagesTests: XCTestCase {
         try? await Task.sleep(for: .milliseconds(50))
         XCTAssertEqual(store.pendingCount, 0)
     }
+
+    // MARK: - Human moderation decision
+
+    func testDecisionRequestEncodesRawValue() throws {
+        let body = MessageDecisionRequest(decision: .approve, notes: "looks good")
+        let json = try JSONEncoder().encode(body)
+        let object = try JSONSerialization.jsonObject(with: json) as? [String: Any]
+        XCTAssertEqual(object?["decision"] as? String, "approve")
+        XCTAssertEqual(object?["notes"] as? String, "looks good")
+    }
+
+    func testDecisionRequestTrimsAndDropsEmptyNotes() {
+        XCTAssertNil(MessageDecisionRequest(decision: .reject, notes: "   ").notes)
+        XCTAssertNil(MessageDecisionRequest(decision: .reject, notes: nil).notes)
+        XCTAssertEqual(MessageDecisionRequest(decision: .reject, notes: "  hi ").notes, "hi")
+    }
+
+    func testApplyingDecisionSetsStatus() {
+        let base = DemoData.message(id: "msg-1")
+        XCTAssertEqual(base.applyingDecision(.approve, notes: nil).status, .approved)
+        let rejected = base.applyingDecision(.reject, notes: "no")
+        XCTAssertEqual(rejected.status, .rejected)
+        XCTAssertEqual(rejected.notes, "no")
+    }
+
+    func testDemoDecideMessageReturnsDecidedStatus() async throws {
+        let client = OperatorClient(config: .shared, auth: .shared, demoMode: true)
+        let approved = try await client.decideMessage(id: "msg-1", decision: .approve)
+        XCTAssertEqual(approved.status, .approved)
+        let rejected = try await client.decideMessage(id: "msg-1", decision: .reject, notes: "spam")
+        XCTAssertEqual(rejected.status, .rejected)
+    }
 }

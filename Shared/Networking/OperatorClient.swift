@@ -206,6 +206,21 @@ public actor OperatorClient {
         return try await postEmpty("/v1/messages/\(id)/moderate")
     }
 
+    /// `POST /v1/messages/{id}/decision` — records a human operator's
+    /// approve/reject decision. AI moderation is only advisory: the decision
+    /// here is the authoritative, human-made one. Returns the updated `Message`.
+    public func decideMessage(
+        id: String,
+        decision: MessageDecision,
+        notes: String? = nil
+    ) async throws -> Message {
+        let body = MessageDecisionRequest(decision: decision, notes: notes)
+        if await usesDemoData {
+            return DemoData.message(id: id).applyingDecision(decision, notes: body.notes)
+        }
+        return try await postJSON("/v1/messages/\(id)/decision", body: body)
+    }
+
     /// `GET /v1/events` — paged booth event log, newest first. `cursor` is
     /// the opaque token returned in the previous page's `nextCursor`.
     public func fetchEvents(
