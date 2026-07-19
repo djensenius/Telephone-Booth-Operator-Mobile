@@ -19,6 +19,8 @@ public struct MessageDetailView: View {
     @State private var loading = false
     @State private var transcribing = false
     @State private var moderating = false
+    @State private var deciding = false
+    @State private var decisionNotes = ""
     @State private var errorMessage: String?
     @State private var statusMessage: String?
     @State private var showAllTranscripts = false
@@ -43,6 +45,7 @@ public struct MessageDetailView: View {
                     audioCard(message)
                     transcriptCard(message)
                     moderationCard(message)
+                    decisionCard(message)
                     metadataCard(message)
                 } else if loading {
                     ProgressView().padding(Theme.Spacing.extraLarge)
@@ -170,6 +173,69 @@ public struct MessageDetailView: View {
         .glassCardBackground()
     }
 
+    @ViewBuilder
+    private func decisionCard(_ message: Message) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
+            SectionHeader(text: "Decision")
+
+            if let rec = message.latestModeration?.recommendation {
+                HStack(spacing: Theme.Spacing.small) {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(Theme.Colors.accent)
+                    Text("AI suggestion: \(rec.displayName) (advisory only)")
+                        .font(Theme.Fonts.bodySmall)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                }
+            }
+
+            switch message.status {
+            case .approved, .rejected:
+                StatRow(label: "Decided", value: message.status.displayName)
+            case .uploading, .received:
+                Text("A decision can be made once transcription and moderation have run.")
+                    .font(Theme.Fonts.bodySmall)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+            case .pending:
+                TextField("Notes (optional)", text: $decisionNotes, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(1...4)
+                    .font(Theme.Fonts.bodySmall)
+                    .disabled(deciding)
+                HStack(spacing: Theme.Spacing.medium) {
+                    Button {
+                        Task { await decide(.approve) }
+                    } label: {
+                        Label("Approve", systemImage: "checkmark.circle.fill")
+                            .font(Theme.Fonts.bodySmall.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.Colors.success)
+                    .disabled(deciding)
+
+                    Button {
+                        Task { await decide(.reject) }
+                    } label: {
+                        Label("Reject", systemImage: "xmark.circle.fill")
+                            .font(Theme.Fonts.bodySmall.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.Colors.error)
+                    .disabled(deciding)
+                }
+                if deciding {
+                    ProgressView()
+                }
+            case .unknown:
+                EmptyView()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Spacing.large)
+        .glassCardBackground()
+    }
+
     private func metadataCard(_ message: Message) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
             SectionHeader(text: "Metadata")
@@ -246,6 +312,26 @@ public struct MessageDetailView: View {
             await load()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't re-run moderation."
+        }
+    }
+
+    private func decide(_ decision: MessageDecision) async {
+        deciding = true
+        errorMessage = nil
+        statusMessage = nil
+        defer { deciding = false }
+        do {
+            let updated = try await client.decideMessage(
+                id: messageId,
+                decision: decision,
+                notes: decisionNotes
+            )
+            statusMessage = "Message \(updated.status.displayName.lowercased())."
+            message = updated
+            decisionNotes = ""
+        } catch {
+            let verb = decision == .approve ? "approve" : "reject"
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't \(verb) this message."
         }
     }
 }

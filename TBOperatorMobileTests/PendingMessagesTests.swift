@@ -69,4 +69,52 @@ final class PendingMessagesTests: XCTestCase {
         try? await Task.sleep(for: .milliseconds(50))
         XCTAssertEqual(store.pendingCount, 0)
     }
+
+    // MARK: - Human moderation decision
+
+    func testDecisionRequestEncodesRawValue() throws {
+        let body = MessageDecisionRequest(decision: .approve, notes: "looks good")
+        let json = try JSONEncoder().encode(body)
+        let object = try JSONSerialization.jsonObject(with: json) as? [String: Any]
+        XCTAssertEqual(object?["decision"] as? String, "approve")
+        XCTAssertEqual(object?["notes"] as? String, "looks good")
+    }
+
+    func testDecisionRequestTrimsAndDropsEmptyNotes() {
+        XCTAssertNil(MessageDecisionRequest(decision: .reject, notes: "   ").notes)
+        XCTAssertNil(MessageDecisionRequest(decision: .reject, notes: nil).notes)
+        XCTAssertEqual(MessageDecisionRequest(decision: .reject, notes: "  hi ").notes, "hi")
+    }
+
+    func testApplyingDecisionSetsStatus() {
+        let base = DemoData.message(id: "msg-1")
+        XCTAssertEqual(base.applyingDecision(.approve, notes: nil).status, .approved)
+        let rejected = base.applyingDecision(.reject, notes: "no")
+        XCTAssertEqual(rejected.status, .rejected)
+        XCTAssertEqual(rejected.notes, "no")
+    }
+
+    func testDemoDecideMessageReturnsDecidedStatus() async throws {
+        let client = OperatorClient(config: .shared, auth: .shared, demoMode: true)
+        let approved = try await client.decideMessage(id: "demo-message-3", decision: .approve)
+        XCTAssertEqual(approved.status, .approved)
+        let rejected = try await client.decideMessage(id: "demo-message-3", decision: .reject, notes: "spam")
+        XCTAssertEqual(rejected.status, .rejected)
+    }
+
+    func testDemoDecisionPersistsForFetchMessage() async throws {
+        let client = OperatorClient(config: .shared, auth: .shared, demoMode: true)
+        let decided = try await client.decideMessage(id: "demo-message-3", decision: .approve)
+        let fetched = try await client.fetchMessage(id: decided.id)
+        XCTAssertEqual(fetched.status, .approved)
+    }
+
+    func testDemoDecisionPersistsForMessageListFilters() async throws {
+        let client = OperatorClient(config: .shared, auth: .shared, demoMode: true)
+        _ = try await client.decideMessage(id: "demo-message-3", decision: .reject)
+        let pending = try await client.fetchMessages(status: .pending)
+        let rejected = try await client.fetchMessages(status: .rejected)
+        XCTAssertFalse(pending.items.contains { $0.id == "demo-message-3" })
+        XCTAssertTrue(rejected.items.contains { $0.id == "demo-message-3" })
+    }
 }
