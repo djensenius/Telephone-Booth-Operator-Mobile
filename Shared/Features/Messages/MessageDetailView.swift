@@ -195,7 +195,7 @@ public struct MessageDetailView: View {
                 Text("A decision can be made once transcription and moderation have run.")
                     .font(Theme.Fonts.bodySmall)
                     .foregroundStyle(Theme.Colors.textSecondary)
-            default:
+            case .pending:
                 TextField("Notes (optional)", text: $decisionNotes, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...4)
@@ -227,6 +227,8 @@ public struct MessageDetailView: View {
                 if deciding {
                     ProgressView()
                 }
+            case .unknown:
+                EmptyView()
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -325,8 +327,8 @@ public struct MessageDetailView: View {
                 notes: decisionNotes
             )
             statusMessage = "Message \(updated.status.displayName.lowercased())."
+            message = updated
             decisionNotes = ""
-            await load()
         } catch {
             let verb = decision == .approve ? "approve" : "reject"
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't \(verb) this message."

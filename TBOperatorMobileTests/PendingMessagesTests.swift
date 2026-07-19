@@ -96,9 +96,25 @@ final class PendingMessagesTests: XCTestCase {
 
     func testDemoDecideMessageReturnsDecidedStatus() async throws {
         let client = OperatorClient(config: .shared, auth: .shared, demoMode: true)
-        let approved = try await client.decideMessage(id: "msg-1", decision: .approve)
+        let approved = try await client.decideMessage(id: "demo-message-3", decision: .approve)
         XCTAssertEqual(approved.status, .approved)
-        let rejected = try await client.decideMessage(id: "msg-1", decision: .reject, notes: "spam")
+        let rejected = try await client.decideMessage(id: "demo-message-3", decision: .reject, notes: "spam")
         XCTAssertEqual(rejected.status, .rejected)
+    }
+
+    func testDemoDecisionPersistsForFetchMessage() async throws {
+        let client = OperatorClient(config: .shared, auth: .shared, demoMode: true)
+        let decided = try await client.decideMessage(id: "demo-message-3", decision: .approve)
+        let fetched = try await client.fetchMessage(id: decided.id)
+        XCTAssertEqual(fetched.status, .approved)
+    }
+
+    func testDemoDecisionPersistsForMessageListFilters() async throws {
+        let client = OperatorClient(config: .shared, auth: .shared, demoMode: true)
+        _ = try await client.decideMessage(id: "demo-message-3", decision: .reject)
+        let pending = try await client.fetchMessages(status: .pending)
+        let rejected = try await client.fetchMessages(status: .rejected)
+        XCTAssertFalse(pending.items.contains { $0.id == "demo-message-3" })
+        XCTAssertTrue(rejected.items.contains { $0.id == "demo-message-3" })
     }
 }
