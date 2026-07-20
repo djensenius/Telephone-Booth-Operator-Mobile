@@ -228,7 +228,7 @@ enum TVScreensaverPlaylist {
         case .idle, .unknown:
             return false
         case .dialTone, .dialing, .playingQuestion, .beep, .recording,
-             .uploading, .playingMessage, .playingInstructions, .error:
+             .uploading, .playingMessage, .playingInstructions, .callUnavailable, .error:
             return true
         }
     }

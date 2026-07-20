@@ -108,7 +108,7 @@ final class TBOperatorMobileTests: XCTestCase {
     func testBoothStateCallActiveFlags() {
         let active: [BoothState] = [
             .dialing, .playingQuestion, .beep, .recording, .uploading,
-            .playingMessage, .playingInstructions
+            .playingMessage, .playingInstructions, .callUnavailable
         ]
         let inactive: [BoothState] = [.idle, .dialTone, .error]
         for state in active {

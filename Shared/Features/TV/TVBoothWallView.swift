@@ -277,6 +277,7 @@ extension BoothState {
         case .uploading: return "Uploading"
         case .playingMessage: return "Playing message"
         case .playingInstructions: return "Instructions"
+        case .callUnavailable: return "Call unavailable"
         case .error: return "Error"
         case .unknown(let value): return value.capitalized
         }
@@ -288,6 +289,7 @@ extension BoothState {
         case .dialTone, .dialing: return "phone.arrow.up.right"
         case .playingQuestion, .playingMessage, .playingInstructions:
             return "speaker.wave.2.fill"
+        case .callUnavailable: return "phone.down.fill"
         case .beep: return "circle.fill"
         case .recording: return "record.circle"
         case .uploading: return "icloud.and.arrow.up"
@@ -302,7 +304,7 @@ extension BoothState {
         case .error: return Theme.Colors.error
         case .recording, .uploading, .playingMessage,
              .playingQuestion, .playingInstructions, .dialing,
-             .beep, .dialTone:
+             .beep, .dialTone, .callUnavailable:
             return Theme.Colors.accent
         case .unknown: return Theme.Colors.textSecondary
         }
