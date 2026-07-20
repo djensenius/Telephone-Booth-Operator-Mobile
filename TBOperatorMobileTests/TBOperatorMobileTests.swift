@@ -119,6 +119,19 @@ final class TBOperatorMobileTests: XCTestCase {
         }
     }
 
+    // MARK: - BoothState wire round-trip
+
+    func testBoothStateCallUnavailableWireRoundTrip() throws {
+        // Decoding the wire value must produce the known case, not `.unknown`;
+        // a casing typo would otherwise silently degrade to `.unknown`.
+        XCTAssertEqual(BoothState(rawValue: "callUnavailable"), .callUnavailable)
+
+        let data = try JSONEncoder().encode([BoothState.callUnavailable])
+        XCTAssertEqual(String(data: data, encoding: .utf8), "[\"callUnavailable\"]")
+        let decoded = try JSONDecoder().decode([BoothState].self, from: data)
+        XCTAssertEqual(decoded, [.callUnavailable])
+    }
+
     // MARK: - AppConfig URL building
 
     @MainActor
