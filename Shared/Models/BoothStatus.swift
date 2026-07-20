@@ -18,6 +18,7 @@ public enum BoothState: Codable, Sendable, Hashable {
     case uploading
     case playingMessage
     case playingInstructions
+    case callUnavailable
     case error
     case unknown(String)
 
@@ -25,7 +26,7 @@ public enum BoothState: Codable, Sendable, Hashable {
 
     public static let knownCases: [BoothState] = [
         .idle, .dialTone, .dialing, .playingQuestion, .beep,
-        .recording, .uploading, .playingMessage, .playingInstructions, .error
+        .recording, .uploading, .playingMessage, .playingInstructions, .callUnavailable, .error
     ]
 
     // MARK: - Raw value mapping
@@ -41,6 +42,7 @@ public enum BoothState: Codable, Sendable, Hashable {
         case .uploading: return "uploading"
         case .playingMessage: return "playingMessage"
         case .playingInstructions: return "playingInstructions"
+        case .callUnavailable: return "callUnavailable"
         case .error: return "error"
         case .unknown(let value): return value
         }
@@ -58,6 +60,7 @@ public enum BoothState: Codable, Sendable, Hashable {
         case "uploading": self = .uploading
         case "playingMessage": self = .playingMessage
         case "playingInstructions": self = .playingInstructions
+        case "callUnavailable": self = .callUnavailable
         case "error": self = .error
         default: self = .unknown(rawValue)
         }
@@ -82,7 +85,7 @@ public enum BoothState: Codable, Sendable, Hashable {
     public var isCallActive: Bool {
         switch self {
         case .dialing, .playingQuestion, .beep, .recording, .uploading,
-             .playingMessage, .playingInstructions:
+             .playingMessage, .playingInstructions, .callUnavailable:
             return true
         case .idle, .dialTone, .error, .unknown:
             return false

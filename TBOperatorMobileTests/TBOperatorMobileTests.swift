@@ -108,7 +108,7 @@ final class TBOperatorMobileTests: XCTestCase {
     func testBoothStateCallActiveFlags() {
         let active: [BoothState] = [
             .dialing, .playingQuestion, .beep, .recording, .uploading,
-            .playingMessage, .playingInstructions
+            .playingMessage, .playingInstructions, .callUnavailable
         ]
         let inactive: [BoothState] = [.idle, .dialTone, .error]
         for state in active {
@@ -459,5 +459,18 @@ final class TBOperatorMobileTests: XCTestCase {
         let data = try encoder.encode(snapshot)
         let decoded = try decoder.decode(WidgetSnapshot.self, from: data)
         XCTAssertEqual(snapshot, decoded)
+    }
+}
+
+final class BoothStateWireTests: XCTestCase {
+    func testBoothStateCallUnavailableWireRoundTrip() throws {
+        // Decoding the wire value must produce the known case, not `.unknown`;
+        // a casing typo would otherwise silently degrade to `.unknown`.
+        XCTAssertEqual(BoothState(rawValue: "callUnavailable"), .callUnavailable)
+
+        let data = try JSONEncoder().encode([BoothState.callUnavailable])
+        XCTAssertEqual(String(data: data, encoding: .utf8), "[\"callUnavailable\"]")
+        let decoded = try JSONDecoder().decode([BoothState].self, from: data)
+        XCTAssertEqual(decoded, [.callUnavailable])
     }
 }
