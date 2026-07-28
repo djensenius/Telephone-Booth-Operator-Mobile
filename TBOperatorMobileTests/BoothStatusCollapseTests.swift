@@ -214,4 +214,34 @@ final class BoothStatusCollapseTests: XCTestCase {
         XCTAssertEqual(history.count, 2)
         XCTAssertEqual(Set(history.map(\.state)), [.idle, .recording])
     }
+    func testRunsTouchingAtATransitionTimestampStaySeparate() {
+        let start = now
+        let boundary = start.addingTimeInterval(30)
+        let firstIdle = run(firstSeenAt: start, updatedAt: boundary, repeatCount: 3)
+        let recording = run(
+            state: .recording,
+            firstSeenAt: boundary,
+            updatedAt: boundary,
+            repeatCount: 1
+        )
+        let secondIdle = run(
+            firstSeenAt: boundary,
+            updatedAt: boundary.addingTimeInterval(30),
+            repeatCount: 2
+        )
+
+        let history = BoothStatusLiveStore.merging([firstIdle, recording, secondIdle], into: [])
+
+        XCTAssertEqual(history.count, 3)
+        XCTAssertEqual(history.map(\.state), [.idle, .recording, .idle])
+    }
+
+    func testLegacyReportsNeverMatchACollapsedRun() {
+        let collapsed = run(firstSeenAt: now, updatedAt: now.addingTimeInterval(60), repeatCount: 5)
+        let legacy = BoothStatus(state: .idle, updatedAt: now.addingTimeInterval(30))
+
+        XCTAssertFalse(collapsed.isSameRun(as: legacy))
+        XCTAssertFalse(legacy.isSameRun(as: collapsed))
+        XCTAssertEqual(BoothStatusLiveStore.merging([legacy], into: [collapsed]).count, 2)
+    }
 }

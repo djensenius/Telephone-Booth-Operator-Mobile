@@ -142,26 +142,26 @@ public struct BoothStatus: Codable, Sendable, Hashable {
     /// than joining it in the history. `updatedAt` can't tell them apart, and
     /// neither can `firstSeenAt` alone: a repeat that reaches the operator out
     /// of order widens the window backwards, so the same row can arrive with
-    /// an earlier `firstSeenAt` than the copy already held. Identical statuses
-    /// whose reported windows overlap are the same run.
+    /// an earlier `firstSeenAt` than the copy already held. A run's window only
+    /// ever grows, so two views of one run are identical statuses where one
+    /// window contains the other.
+    ///
+    /// Containment rather than plain overlap matters when transitions share a
+    /// timestamp: `idle [a, t]`, `recording [t, t]`, `idle [t, b]` leaves two
+    /// idle windows touching at `t`, and they are separate runs.
     ///
     /// An operator that predates collapsing sends no window at all, and its
     /// rows really are distinct reports, so they never match here.
     public func isSameRun(as other: BoothStatus) -> Bool {
-        guard firstSeenAt != nil || other.firstSeenAt != nil else { return false }
+        guard let start = firstSeenAt, let otherStart = other.firstSeenAt else { return false }
         guard state == other.state,
               currentQuestionId == other.currentQuestionId,
               currentMessageId == other.currentMessageId,
               lastError == other.lastError,
               runtimeMode == other.runtimeMode
         else { return false }
-        // Two reports that each cover a single instant are two reports, even
-        // when that instant is the same: a booth can transition away and back
-        // inside one millisecond, and merging those would drop a transition.
-        // A genuine re-broadcast of such a run arrives as an equal value and is
-        // de-duplicated by equality instead.
-        if heldSince == updatedAt && other.heldSince == other.updatedAt { return false }
-        return heldSince <= other.updatedAt && other.heldSince <= updatedAt
+        return (start <= otherStart && updatedAt >= other.updatedAt)
+            || (otherStart <= start && other.updatedAt >= updatedAt)
     }
 
     public init(
