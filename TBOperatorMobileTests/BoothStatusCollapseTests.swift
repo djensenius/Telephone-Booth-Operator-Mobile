@@ -151,4 +151,31 @@ final class BoothStatusCollapseTests: XCTestCase {
             DemoData.boothStatus.updatedAt.timeIntervalSince(DemoData.boothStatus.heldSince)
         )
     }
+    func testStaleRestReportDoesNotRewindAFresherRun() {
+        let start = now
+        let fresh = run(firstSeenAt: start, updatedAt: start.addingTimeInterval(60), repeatCount: 5)
+        let stale = run(firstSeenAt: start, updatedAt: start.addingTimeInterval(30), repeatCount: 3)
+
+        let history = BoothStatusLiveStore.merging([stale], into: [fresh])
+
+        XCTAssertEqual(history.count, 1)
+        XCTAssertEqual(history.last?.repeatCount, 5)
+        XCTAssertEqual(history.last?.updatedAt, start.addingTimeInterval(60))
+    }
+
+    func testDelayedRepeatWideningTheWindowReplacesTheRun() {
+        let start = now
+        let held = run(
+            firstSeenAt: start.addingTimeInterval(30),
+            updatedAt: start.addingTimeInterval(30),
+            repeatCount: 1
+        )
+        let widened = run(firstSeenAt: start, updatedAt: start.addingTimeInterval(30), repeatCount: 2)
+
+        let history = BoothStatusLiveStore.merging([widened], into: [held])
+
+        XCTAssertEqual(history.count, 1)
+        XCTAssertEqual(history.last?.repeatCount, 2)
+        XCTAssertEqual(history.last?.heldSince, start)
+    }
 }

@@ -139,17 +139,23 @@ public struct BoothStatus: Codable, Sendable, Hashable {
     ///
     /// The operator re-broadcasts a run's row on every booth heartbeat with a
     /// newer `updatedAt`, so a later frame supersedes an earlier one rather
-    /// than joining it in the history. `updatedAt` can't tell them apart;
-    /// `firstSeenAt` plus the status fields can. An operator that predates
-    /// collapsing sends no `firstSeenAt`, and its rows really are distinct
-    /// reports, so they never match here.
+    /// than joining it in the history. `updatedAt` can't tell them apart, and
+    /// neither can `firstSeenAt` alone: a repeat that reaches the operator out
+    /// of order widens the window backwards, so the same row can arrive with
+    /// an earlier `firstSeenAt` than the copy already held. Identical statuses
+    /// whose reported windows overlap are the same run.
+    ///
+    /// An operator that predates collapsing sends no window at all, and its
+    /// rows really are distinct reports, so they never match here.
     public func isSameRun(as other: BoothStatus) -> Bool {
-        guard let firstSeenAt, firstSeenAt == other.firstSeenAt else { return false }
-        return state == other.state
-            && currentQuestionId == other.currentQuestionId
-            && currentMessageId == other.currentMessageId
-            && lastError == other.lastError
-            && runtimeMode == other.runtimeMode
+        guard firstSeenAt != nil || other.firstSeenAt != nil else { return false }
+        guard state == other.state,
+              currentQuestionId == other.currentQuestionId,
+              currentMessageId == other.currentMessageId,
+              lastError == other.lastError,
+              runtimeMode == other.runtimeMode
+        else { return false }
+        return heldSince <= other.updatedAt && other.heldSince <= updatedAt
     }
 
     public init(

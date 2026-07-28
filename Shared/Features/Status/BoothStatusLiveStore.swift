@@ -318,8 +318,11 @@ public final class BoothStatusLiveStore {
     /// it: the operator re-broadcasts the run's row on every booth heartbeat
     /// with a newer `updatedAt` and an incremented repeat count, so keeping
     /// both would rebuild the wall of identical entries the collapsing was
-    /// meant to remove. Genuine transitions, and reports from an operator that
-    /// doesn't collapse, are appended.
+    /// meant to remove. A report that is *older* than the version already held
+    /// is dropped instead — a REST refresh can land after a socket frame for
+    /// the same run, and replacing would rewind the window and the count.
+    /// Genuine transitions, and reports from an operator that doesn't
+    /// collapse, are appended.
     nonisolated static func merging(
         _ items: [BoothStatus],
         into history: [BoothStatus],
@@ -327,6 +330,9 @@ public final class BoothStatusLiveStore {
     ) -> [BoothStatus] {
         var history = history
         for item in items {
+            if history.contains(where: { $0.isSameRun(as: item) && $0.updatedAt > item.updatedAt }) {
+                continue
+            }
             history.removeAll { $0.updatedAt == item.updatedAt || $0.isSameRun(as: item) }
             history.append(item)
         }
