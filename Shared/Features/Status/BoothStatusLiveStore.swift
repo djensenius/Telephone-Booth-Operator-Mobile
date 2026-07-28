@@ -347,28 +347,64 @@ public final class BoothStatusLiveStore {
         limit: Int = 200
     ) -> [BoothStatus] {
         var history = history.sorted { $0.updatedAt < $1.updatedAt }
-        for item in items {
-            if history.contains(where: { $0.isSameRun(as: item) && supersedes($0, item) }) {
-                continue
-            }
-            let insertion = history.firstIndex { $0.updatedAt > item.updatedAt } ?? history.count
-            history.insert(item, at: insertion)
-            // Collapse only the entries sitting next to the inserted one. A run
-            // can be held several times over (a socket frame plus a REST
-            // refresh), but anything separated by a differing status is a
-            // distinct row: the booth supplies `updatedAt`, so a short run can
-            // share a millisecond with the identical runs around it, and
-            // removing those by value would erase a genuine transition.
-            var lower = insertion
-            while lower > 0, isDuplicate(history[lower - 1], of: item) { lower -= 1 }
-            var upper = insertion
-            while upper + 1 < history.count, isDuplicate(history[upper + 1], of: item) { upper += 1 }
-            if upper > insertion { history.removeSubrange((insertion + 1)...upper) }
-            if lower < insertion { history.removeSubrange(lower..<insertion) }
+        if items.count > 1 {
+            history = replacing(history, withPage: items)
+        } else if let item = items.first {
+            history = inserting(item, into: history)
         }
         if history.count > limit {
             history.removeFirst(history.count - limit)
         }
+        return history
+    }
+
+    /// Splice a REST history page into the cache.
+    ///
+    /// The page is the operator's own ordered history, so it is authoritative
+    /// for the span it covers — merging it entry by entry would append the
+    /// whole page again whenever runs share a booth timestamp, since nothing on
+    /// the wire tells two identical runs apart. Entries outside the span are
+    /// kept, and a run the socket has already delivered in a fresher form keeps
+    /// that fresher view.
+    private nonisolated static func replacing(
+        _ history: [BoothStatus],
+        withPage page: [BoothStatus]
+    ) -> [BoothStatus] {
+        let page = page.sorted { $0.updatedAt < $1.updatedAt }
+        guard let oldest = page.first?.updatedAt, let newest = page.last?.updatedAt else {
+            return history
+        }
+        let freshest = page.map { item in
+            history.first { $0.isSameRun(as: item) && supersedes($0, item) } ?? item
+        }
+        return history.filter { $0.updatedAt < oldest }
+            + freshest
+            + history.filter { $0.updatedAt > newest }
+    }
+
+    /// Fold a single report (a socket frame) into the cache.
+    private nonisolated static func inserting(
+        _ item: BoothStatus,
+        into history: [BoothStatus]
+    ) -> [BoothStatus] {
+        var history = history
+        if history.contains(where: { $0.isSameRun(as: item) && supersedes($0, item) }) {
+            return history
+        }
+        let insertion = history.firstIndex { $0.updatedAt > item.updatedAt } ?? history.count
+        history.insert(item, at: insertion)
+        // Collapse only the entries sitting next to the inserted one. A run can
+        // be held several times over (a socket frame plus a REST refresh), but
+        // anything separated by a differing status is a distinct row: the booth
+        // supplies `updatedAt`, so a short run can share a millisecond with the
+        // identical runs around it, and removing those by value would erase a
+        // genuine transition.
+        var lower = insertion
+        while lower > 0, isDuplicate(history[lower - 1], of: item) { lower -= 1 }
+        var upper = insertion
+        while upper + 1 < history.count, isDuplicate(history[upper + 1], of: item) { upper += 1 }
+        if upper > insertion { history.removeSubrange((insertion + 1)...upper) }
+        if lower < insertion { history.removeSubrange(lower..<insertion) }
         return history
     }
 

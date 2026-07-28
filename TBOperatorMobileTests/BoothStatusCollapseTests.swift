@@ -243,9 +243,43 @@ final class BoothStatusCollapseTests: XCTestCase {
         let idle = run(firstSeenAt: now, updatedAt: now, repeatCount: 1)
         let recording = run(state: .recording, firstSeenAt: now, updatedAt: now, repeatCount: 1)
 
-        let history = BoothStatusLiveStore.merging([idle, recording, idle], into: [])
+        // Delivered one socket frame at a time, so the incremental path is what
+        // has to keep them apart.
+        var history: [BoothStatus] = []
+        for frame in [idle, recording, idle] {
+            history = BoothStatusLiveStore.merging([frame], into: history)
+        }
 
         XCTAssertEqual(history.map(\.state), [.idle, .recording, .idle])
+    }
+
+    func testRefetchingTheSameHistoryPageIsIdempotent() {
+        let at = now
+        let idle = run(firstSeenAt: at, updatedAt: at, repeatCount: 1)
+        let recording = run(state: .recording, firstSeenAt: at, updatedAt: at, repeatCount: 1)
+        let page = [idle, recording, idle]
+
+        let once = BoothStatusLiveStore.merging(page, into: [])
+        let twice = BoothStatusLiveStore.merging(page, into: once)
+
+        XCTAssertEqual(twice.map(\.state), [.idle, .recording, .idle])
+        XCTAssertEqual(once, twice)
+    }
+
+    func testAHistoryPageKeepsAFresherSocketViewOfARun() {
+        let held = run(firstSeenAt: now, updatedAt: now.addingTimeInterval(60), repeatCount: 9)
+        let stale = run(firstSeenAt: now, updatedAt: now.addingTimeInterval(30), repeatCount: 4)
+        let recording = run(
+            state: .recording,
+            firstSeenAt: now.addingTimeInterval(90),
+            updatedAt: now.addingTimeInterval(90),
+            repeatCount: 1
+        )
+
+        let history = BoothStatusLiveStore.merging([stale, recording], into: [held])
+
+        XCTAssertEqual(history.count, 2)
+        XCTAssertEqual(history[0].repeatCount, 9)
     }
 
     func testLegacyReportsNeverMatchACollapsedRun() {
