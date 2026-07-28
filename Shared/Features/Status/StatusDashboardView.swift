@@ -158,6 +158,10 @@ public struct StatusDashboardView: View {
                     RuntimeModeBadge(mode: currentStatus.runtimeMode)
                 }
                 Divider().background(Theme.Colors.textSecondary.opacity(0.2))
+                // The operator collapses repeated heartbeat reports, so this
+                // is how long the booth has actually held the state — not just
+                // when the last beat landed.
+                StatRow(label: "In this state for", value: currentStatus.heldForLabel())
                 if let stats = liveStore.stats {
                     StatRow(label: "Calls today", value: "\(stats.calls.today)")
                     StatRow(label: "In progress", value: "\(stats.calls.inProgress)")

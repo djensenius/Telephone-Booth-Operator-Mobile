@@ -29,7 +29,9 @@ public enum DemoData {
         state: .recording,
         updatedAt: now.addingTimeInterval(-42),
         currentQuestionId: UUID(uuidString: "11111111-1111-1111-1111-111111111111"),
-        runtimeMode: .simulator
+        runtimeMode: .simulator,
+        firstSeenAt: now.addingTimeInterval(-64),
+        repeatCount: 3
     )
 
     public static let statsSummary = StatsSummary(
@@ -46,10 +48,15 @@ public enum DemoData {
     )
 
     public static let statusHistory: [BoothStatus] = (0..<24).map { index in
-        BoothStatus(
+        // Demo history mirrors the collapsed shape the operator serves: each
+        // snapshot spans the 15-minute window it was reported over.
+        let updatedAt = now.addingTimeInterval(TimeInterval(index - 24) * 900)
+        return BoothStatus(
             state: index.isMultiple(of: 5) ? .recording : .idle,
-            updatedAt: now.addingTimeInterval(TimeInterval(index - 24) * 900),
-            runtimeMode: .simulator
+            updatedAt: updatedAt,
+            runtimeMode: .simulator,
+            firstSeenAt: updatedAt.addingTimeInterval(-880),
+            repeatCount: index.isMultiple(of: 5) ? 2 : 29
         )
     }
 

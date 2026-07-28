@@ -104,6 +104,36 @@ public struct BoothStatus: Codable, Sendable, Hashable {
     /// backward compatibility with operators that haven't shipped PR #66
     /// yet.
     public let runtimeMode: RuntimeMode?
+    /// When the booth first reported this status. The booth repeats its
+    /// status on a heartbeat and the operator collapses identical reports
+    /// into one snapshot spanning `firstSeenAt`...`updatedAt`. Optional for
+    /// compatibility with operators that predate the collapsing behaviour.
+    public let firstSeenAt: Date?
+    /// How many identical booth reports were collapsed into this snapshot.
+    public let repeatCount: Int?
+
+    /// When the booth entered this status, falling back to the report time
+    /// against an operator that doesn't collapse repeats.
+    public var heldSince: Date { firstSeenAt ?? updatedAt }
+
+    /// Short "how long has the booth been like this" label, e.g. `12m` or
+    /// `1h 04m · 142 reports`. The report count is only appended when the
+    /// operator actually collapsed repeats, so it stays out of the way for a
+    /// status that was reported exactly once.
+    public func heldForLabel(now: Date = Date()) -> String {
+        let seconds = max(0, Int(now.timeIntervalSince(heldSince)))
+        let duration: String
+        switch seconds {
+        case ..<60:
+            duration = "\(seconds)s"
+        case ..<3600:
+            duration = "\(seconds / 60)m"
+        default:
+            duration = String(format: "%dh %02dm", seconds / 3600, (seconds % 3600) / 60)
+        }
+        guard let repeatCount, repeatCount > 1 else { return duration }
+        return "\(duration) · \(repeatCount) reports"
+    }
 
     public init(
         state: BoothState,
@@ -111,7 +141,9 @@ public struct BoothStatus: Codable, Sendable, Hashable {
         currentQuestionId: UUID? = nil,
         currentMessageId: UUID? = nil,
         lastError: String? = nil,
-        runtimeMode: RuntimeMode? = nil
+        runtimeMode: RuntimeMode? = nil,
+        firstSeenAt: Date? = nil,
+        repeatCount: Int? = nil
     ) {
         self.state = state
         self.updatedAt = updatedAt
@@ -119,5 +151,7 @@ public struct BoothStatus: Codable, Sendable, Hashable {
         self.currentMessageId = currentMessageId
         self.lastError = lastError
         self.runtimeMode = runtimeMode
+        self.firstSeenAt = firstSeenAt
+        self.repeatCount = repeatCount
     }
 }
