@@ -345,7 +345,11 @@ public final class BoothStatusLiveStore {
             if history.contains(where: { $0.isSameRun(as: item) && supersedes($0, item) }) {
                 continue
             }
-            history.removeAll { $0.updatedAt == item.updatedAt || $0.isSameRun(as: item) }
+            // Only an identical snapshot or another view of the same run is a
+            // duplicate. `updatedAt` alone isn't enough to tell entries apart:
+            // the booth supplies it, so two genuine transitions can share a
+            // millisecond and dropping one would lose it from the chart.
+            history.removeAll { $0 == item || $0.isSameRun(as: item) }
             history.append(item)
         }
         history.sort { $0.updatedAt < $1.updatedAt }

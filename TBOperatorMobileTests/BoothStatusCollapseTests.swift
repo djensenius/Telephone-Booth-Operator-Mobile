@@ -200,4 +200,18 @@ final class BoothStatusCollapseTests: XCTestCase {
             XCTAssertFalse(earlier.state == later.state, "adjacent \(earlier.state) entries")
         }
     }
+    func testTransitionsSharingATimestampAreBothKept() {
+        let idle = run(firstSeenAt: now.addingTimeInterval(-30), updatedAt: now, repeatCount: 3)
+        let recording = run(
+            state: .recording,
+            firstSeenAt: now,
+            updatedAt: now,
+            repeatCount: 1
+        )
+
+        let history = BoothStatusLiveStore.merging([idle, recording], into: [])
+
+        XCTAssertEqual(history.count, 2)
+        XCTAssertEqual(Set(history.map(\.state)), [.idle, .recording])
+    }
 }
