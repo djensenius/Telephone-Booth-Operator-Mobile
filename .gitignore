@@ -52,3 +52,6 @@ fastlane/metadata/review_information/email_address.txt
 fastlane/metadata/review_information/phone_number.txt
 # App Store Connect API keys must never live inside the repo
 *.p8
+
+# Scratch icon artwork — source art, not a build input
+Alternate Icons/

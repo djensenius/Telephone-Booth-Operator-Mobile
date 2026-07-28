@@ -66,12 +66,12 @@ public actor OperatorClient {
         try await fetchStatsOverview(selection: .window(window))
     }
 
-    /// `GET /v1/status` — current booth state (no auth required, but we
-    /// still send the bearer if available so the operator can correlate
-    /// access in logs).
+    /// `GET /v1/status` — current booth state. Requires an operator
+    /// session cookie, an operator bearer, or a phone API token; the
+    /// operator returns `401` to unauthenticated callers.
     public func fetchBoothStatus() async throws -> BoothStatus {
         if await usesDemoData { return DemoData.boothStatus }
-        return try await get("/v1/status", requireAuth: false)
+        return try await get("/v1/status", requireAuth: true)
     }
 
     /// `GET /v1/status/history` — recent booth status snapshots used to
