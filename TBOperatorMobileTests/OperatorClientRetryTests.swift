@@ -92,6 +92,42 @@ final class OperatorClientRetryTests: XCTestCase {
         auth.urlSession = .shared
         auth.signOut()
     }
+
+    /// `/v1/status` became an authenticated endpoint, so a signed-out call
+    /// must fail fast with `.unauthenticated` rather than spending a round
+    /// trip to collect a generic 401.
+    @MainActor
+    func testFetchBoothStatusFailsFastWhenSignedOut() async throws {
+        let config = AppConfig.shared
+        let previousDemoMode = config.isDemoMode
+        config.isDemoMode = false
+        defer { config.isDemoMode = previousDemoMode }
+
+        let auth = AuthManager.shared
+        auth.signOut()
+        XCTAssertNil(auth.getAccessToken(), "Precondition: no bearer may be stored")
+
+        UnreachableURLProtocol.reset()
+        let sessionConfig = URLSessionConfiguration.ephemeral
+        sessionConfig.protocolClasses = [UnreachableURLProtocol.self]
+        let client = OperatorClient(
+            config: config,
+            auth: auth,
+            session: URLSession(configuration: sessionConfig)
+        )
+
+        do {
+            _ = try await client.fetchBoothStatus()
+            XCTFail("Expected fetchBoothStatus() to throw while signed out")
+        } catch OperatorError.unauthenticated {
+            // Expected.
+        } catch {
+            XCTFail("Expected OperatorError.unauthenticated, got \(error)")
+        }
+
+        XCTAssertEqual(UnreachableURLProtocol.requestCount, 0,
+                       "A signed-out status fetch must not reach the network")
+    }
 }
 
 // MARK: - URL protocol mocks
@@ -172,6 +208,27 @@ private final class RetryFlowURLProtocol: URLProtocol {
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: body)
         client?.urlProtocolDidFinishLoading(self)
+    }
+}
+
+/// Fails any request that reaches it, so tests can assert that a code path
+/// short-circuits before touching the network.
+private final class UnreachableURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var requestCount = 0
+    private static let lock = NSLock()
+
+    static func reset() {
+        lock.lock(); defer { lock.unlock() }
+        requestCount = 0
+    }
+
+    override static func canInit(with request: URLRequest) -> Bool { true }
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func stopLoading() {}
+
+    override func startLoading() {
+        Self.lock.lock(); Self.requestCount += 1; Self.lock.unlock()
+        client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
     }
 }
 
