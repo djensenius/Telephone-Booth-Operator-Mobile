@@ -161,7 +161,12 @@ public struct StatusDashboardView: View {
                 // The operator collapses repeated heartbeat reports, so this
                 // is how long the booth has actually held the state — not just
                 // when the last beat landed.
-                StatRow(label: "In this state for", value: currentStatus.heldForLabel())
+                TimelineView(.periodic(from: .now, by: 10)) { context in
+                    StatRow(
+                        label: "In this state for",
+                        value: currentStatus.heldForLabel(now: context.date)
+                    )
+                }
                 if let stats = liveStore.stats {
                     StatRow(label: "Calls today", value: "\(stats.calls.today)")
                     StatRow(label: "In progress", value: "\(stats.calls.inProgress)")
@@ -216,7 +221,9 @@ private struct StatusHistoryChart: View {
     let items: [BoothStatus]
 
     var body: some View {
-        Chart(items, id: \.updatedAt) { item in
+        // Identify a bar by the whole snapshot: the booth supplies `updatedAt`,
+        // so two transitions can share one and SwiftUI needs unique ids.
+        Chart(items, id: \.self) { item in
             BarMark(
                 x: .value("Time", item.updatedAt),
                 y: .value("Active", item.state.isCallActive ? 1 : 0)

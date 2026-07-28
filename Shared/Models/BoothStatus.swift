@@ -155,6 +155,12 @@ public struct BoothStatus: Codable, Sendable, Hashable {
               lastError == other.lastError,
               runtimeMode == other.runtimeMode
         else { return false }
+        // Two reports that each cover a single instant are two reports, even
+        // when that instant is the same: a booth can transition away and back
+        // inside one millisecond, and merging those would drop a transition.
+        // A genuine re-broadcast of such a run arrives as an equal value and is
+        // de-duplicated by equality instead.
+        if heldSince == updatedAt && other.heldSince == other.updatedAt { return false }
         return heldSince <= other.updatedAt && other.heldSince <= updatedAt
     }
 
