@@ -254,9 +254,14 @@ final class BoothStatusCollapseTests: XCTestCase {
     }
 
     func testRefetchingTheSameHistoryPageIsIdempotent() {
-        let at = now
-        let idle = run(firstSeenAt: at, updatedAt: at, repeatCount: 1)
-        let recording = run(state: .recording, firstSeenAt: at, updatedAt: at, repeatCount: 1)
+        let instant = now
+        let idle = run(firstSeenAt: instant, updatedAt: instant, repeatCount: 1)
+        let recording = run(
+            state: .recording,
+            firstSeenAt: instant,
+            updatedAt: instant,
+            repeatCount: 1
+        )
         let page = [idle, recording, idle]
 
         let once = BoothStatusLiveStore.merging(page, into: [])
