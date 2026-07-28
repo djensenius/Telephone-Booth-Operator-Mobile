@@ -236,6 +236,18 @@ final class BoothStatusCollapseTests: XCTestCase {
         XCTAssertEqual(history.map(\.state), [.idle, .recording, .idle])
     }
 
+    func testAShortRunBracketedByIdenticalRunsSurvives() {
+        // Everything happens inside one booth millisecond: idle, a blip of
+        // recording, idle again. The two idle entries are indistinguishable by
+        // value, so only their position keeps them apart.
+        let idle = run(firstSeenAt: now, updatedAt: now, repeatCount: 1)
+        let recording = run(state: .recording, firstSeenAt: now, updatedAt: now, repeatCount: 1)
+
+        let history = BoothStatusLiveStore.merging([idle, recording, idle], into: [])
+
+        XCTAssertEqual(history.map(\.state), [.idle, .recording, .idle])
+    }
+
     func testLegacyReportsNeverMatchACollapsedRun() {
         let collapsed = run(firstSeenAt: now, updatedAt: now.addingTimeInterval(60), repeatCount: 5)
         let legacy = BoothStatus(state: .idle, updatedAt: now.addingTimeInterval(30))

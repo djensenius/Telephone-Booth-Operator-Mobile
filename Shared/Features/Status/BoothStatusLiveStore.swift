@@ -335,24 +335,37 @@ public final class BoothStatusLiveStore {
         return (held.repeatCount ?? 1) > (incoming.repeatCount ?? 1)
     }
 
+    /// Whether `held` is the same stored row as `item` rather than a separate
+    /// booth state that happens to look alike.
+    nonisolated static func isDuplicate(_ held: BoothStatus, of item: BoothStatus) -> Bool {
+        held == item || held.isSameRun(as: item)
+    }
+
     nonisolated static func merging(
         _ items: [BoothStatus],
         into history: [BoothStatus],
         limit: Int = 200
     ) -> [BoothStatus] {
-        var history = history
+        var history = history.sorted { $0.updatedAt < $1.updatedAt }
         for item in items {
             if history.contains(where: { $0.isSameRun(as: item) && supersedes($0, item) }) {
                 continue
             }
-            // Only an identical snapshot or another view of the same run is a
-            // duplicate. `updatedAt` alone isn't enough to tell entries apart:
-            // the booth supplies it, so two genuine transitions can share a
-            // millisecond and dropping one would lose it from the chart.
-            history.removeAll { $0 == item || $0.isSameRun(as: item) }
-            history.append(item)
+            let insertion = history.firstIndex { $0.updatedAt > item.updatedAt } ?? history.count
+            history.insert(item, at: insertion)
+            // Collapse only the entries sitting next to the inserted one. A run
+            // can be held several times over (a socket frame plus a REST
+            // refresh), but anything separated by a differing status is a
+            // distinct row: the booth supplies `updatedAt`, so a short run can
+            // share a millisecond with the identical runs around it, and
+            // removing those by value would erase a genuine transition.
+            var lower = insertion
+            while lower > 0, isDuplicate(history[lower - 1], of: item) { lower -= 1 }
+            var upper = insertion
+            while upper + 1 < history.count, isDuplicate(history[upper + 1], of: item) { upper += 1 }
+            if upper > insertion { history.removeSubrange((insertion + 1)...upper) }
+            if lower < insertion { history.removeSubrange(lower..<insertion) }
         }
-        history.sort { $0.updatedAt < $1.updatedAt }
         if history.count > limit {
             history.removeFirst(history.count - limit)
         }
