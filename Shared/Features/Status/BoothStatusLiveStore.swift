@@ -270,7 +270,7 @@ public final class BoothStatusLiveStore {
     }
 
     private func apply(status newStatus: BoothStatus) {
-        if let current = status, current.updatedAt > newStatus.updatedAt {
+        if let current = status, Self.supersedes(current, newStatus) {
             // A fresher status (e.g. from the live socket) already applied while
             // a slower REST response was in flight; ignore the stale update.
             return
@@ -323,6 +323,18 @@ public final class BoothStatusLiveStore {
     /// the same run, and replacing would rewind the window and the count.
     /// Genuine transitions, and reports from an operator that doesn't
     /// collapse, are appended.
+    /// Whether `held` is a newer view of the same run than `incoming`.
+    ///
+    /// `updatedAt` decides, except that the operator deliberately leaves it
+    /// alone when a delayed report only widens `firstSeenAt` — then the repeat
+    /// count is what moved, and a lower count means the report is the older of
+    /// the two.
+    nonisolated static func supersedes(_ held: BoothStatus, _ incoming: BoothStatus) -> Bool {
+        if held.updatedAt != incoming.updatedAt { return held.updatedAt > incoming.updatedAt }
+        guard held.isSameRun(as: incoming) else { return false }
+        return (held.repeatCount ?? 1) > (incoming.repeatCount ?? 1)
+    }
+
     nonisolated static func merging(
         _ items: [BoothStatus],
         into history: [BoothStatus],
@@ -330,7 +342,7 @@ public final class BoothStatusLiveStore {
     ) -> [BoothStatus] {
         var history = history
         for item in items {
-            if history.contains(where: { $0.isSameRun(as: item) && $0.updatedAt > item.updatedAt }) {
+            if history.contains(where: { $0.isSameRun(as: item) && supersedes($0, item) }) {
                 continue
             }
             history.removeAll { $0.updatedAt == item.updatedAt || $0.isSameRun(as: item) }

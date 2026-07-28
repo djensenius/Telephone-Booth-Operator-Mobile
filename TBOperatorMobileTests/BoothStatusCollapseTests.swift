@@ -178,4 +178,26 @@ final class BoothStatusCollapseTests: XCTestCase {
         XCTAssertEqual(history.last?.repeatCount, 2)
         XCTAssertEqual(history.last?.heldSince, start)
     }
+    func testEqualTimestampWithLowerRepeatCountIsTreatedAsStale() {
+        let start = now
+        let widened = run(firstSeenAt: start, updatedAt: start.addingTimeInterval(30), repeatCount: 4)
+        let older = run(
+            firstSeenAt: start.addingTimeInterval(10),
+            updatedAt: start.addingTimeInterval(30),
+            repeatCount: 2
+        )
+
+        let history = BoothStatusLiveStore.merging([older], into: [widened])
+
+        XCTAssertEqual(history.count, 1)
+        XCTAssertEqual(history.last?.repeatCount, 4)
+        XCTAssertEqual(history.last?.heldSince, start)
+    }
+
+    func testDemoHistoryHasNoCollapsibleNeighbours() {
+        let history = DemoData.statusHistory
+        for (earlier, later) in zip(history, history.dropFirst()) {
+            XCTAssertFalse(earlier.state == later.state, "adjacent \(earlier.state) entries")
+        }
+    }
 }
