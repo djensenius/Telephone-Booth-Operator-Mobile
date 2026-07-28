@@ -309,14 +309,32 @@ public final class BoothStatusLiveStore {
     }
 
     private func mergeHistory(_ items: [BoothStatus]) {
+        history = Self.merging(items, into: history)
+    }
+
+    /// Fold status reports into a newest-last history.
+    ///
+    /// A report that repeats a collapsed run already in the history replaces
+    /// it: the operator re-broadcasts the run's row on every booth heartbeat
+    /// with a newer `updatedAt` and an incremented repeat count, so keeping
+    /// both would rebuild the wall of identical entries the collapsing was
+    /// meant to remove. Genuine transitions, and reports from an operator that
+    /// doesn't collapse, are appended.
+    nonisolated static func merging(
+        _ items: [BoothStatus],
+        into history: [BoothStatus],
+        limit: Int = 200
+    ) -> [BoothStatus] {
+        var history = history
         for item in items {
-            history.removeAll { $0.updatedAt == item.updatedAt }
+            history.removeAll { $0.updatedAt == item.updatedAt || $0.isSameRun(as: item) }
             history.append(item)
         }
         history.sort { $0.updatedAt < $1.updatedAt }
-        if history.count > 200 {
-            history.removeFirst(history.count - 200)
+        if history.count > limit {
+            history.removeFirst(history.count - limit)
         }
+        return history
     }
 
     private func writeWidgetSnapshotIfPossible() {
@@ -326,8 +344,9 @@ public final class BoothStatusLiveStore {
     }
 
     private func applyDemoData() {
-        status = DemoData.boothStatus
-        history = DemoData.statusHistory
+        let demoNow = Date()
+        status = DemoData.rebased(DemoData.boothStatus, to: demoNow)
+        history = DemoData.statusHistory.map { DemoData.rebased($0, to: demoNow) }
         systemEnvelope = DemoData.systemEnvelope
         stats = DemoData.statsSummary
         connection = .polling

@@ -80,4 +80,75 @@ final class BoothStatusCollapseTests: XCTestCase {
         let skewed = BoothStatus(state: .idle, updatedAt: now, firstSeenAt: now.addingTimeInterval(120))
         XCTAssertEqual(skewed.heldForLabel(now: now), "0s")
     }
+    // MARK: - Live history merging
+
+    private func run(
+        state: BoothState = .idle,
+        firstSeenAt: Date,
+        updatedAt: Date,
+        repeatCount: Int
+    ) -> BoothStatus {
+        BoothStatus(
+            state: state,
+            updatedAt: updatedAt,
+            firstSeenAt: firstSeenAt,
+            repeatCount: repeatCount
+        )
+    }
+
+    func testRepeatedHeartbeatsReplaceTheCollapsedRunInHistory() {
+        let start = now
+        var history: [BoothStatus] = []
+        for beat in 1...5 {
+            let beatAt = start.addingTimeInterval(TimeInterval(beat) * 15)
+            history = BoothStatusLiveStore.merging(
+                [run(firstSeenAt: start, updatedAt: beatAt, repeatCount: beat)],
+                into: history
+            )
+        }
+
+        XCTAssertEqual(history.count, 1)
+        XCTAssertEqual(history.last?.repeatCount, 5)
+        XCTAssertEqual(history.last?.updatedAt, start.addingTimeInterval(75))
+    }
+
+    func testTransitionsAndLaterRunsStayInHistory() {
+        let start = now
+        let idle = run(firstSeenAt: start, updatedAt: start.addingTimeInterval(30), repeatCount: 2)
+        let recording = run(
+            state: .recording,
+            firstSeenAt: start.addingTimeInterval(60),
+            updatedAt: start.addingTimeInterval(60),
+            repeatCount: 1
+        )
+        let idleAgain = run(
+            firstSeenAt: start.addingTimeInterval(90),
+            updatedAt: start.addingTimeInterval(90),
+            repeatCount: 1
+        )
+
+        let history = BoothStatusLiveStore.merging([idle, recording, idleAgain], into: [])
+
+        XCTAssertEqual(history.map(\.state), [.idle, .recording, .idle])
+    }
+
+    func testReportsWithoutCollapseMetadataAreKeptSeparately() {
+        let first = BoothStatus(state: .idle, updatedAt: now)
+        let second = BoothStatus(state: .idle, updatedAt: now.addingTimeInterval(15))
+
+        let history = BoothStatusLiveStore.merging([first, second], into: [])
+
+        XCTAssertEqual(history.count, 2)
+    }
+
+    func testDemoStatusIsRebasedOntoTheCallersClock() {
+        let reference = Date(timeIntervalSince1970: 2_000_000_000)
+        let rebased = DemoData.rebased(DemoData.boothStatus, to: reference)
+
+        XCTAssertEqual(rebased.heldForLabel(now: reference), "1m · 3 reports")
+        XCTAssertEqual(
+            rebased.updatedAt.timeIntervalSince(rebased.heldSince),
+            DemoData.boothStatus.updatedAt.timeIntervalSince(DemoData.boothStatus.heldSince)
+        )
+    }
 }

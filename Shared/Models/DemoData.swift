@@ -47,6 +47,27 @@ public enum DemoData {
         generatedAt: now
     )
 
+    /// `boothStatus` and `statusHistory` rebased onto the caller's clock.
+    ///
+    /// The fixtures are anchored to a fixed `now` so payloads stay
+    /// deterministic, but the status dashboard renders how long the booth has
+    /// held its state as a live duration. Served against the fixed anchor that
+    /// would grow without bound, so shift the collapse window onto the current
+    /// clock when the demo payload is handed out.
+    public static func rebased(_ status: BoothStatus, to reference: Date = Date()) -> BoothStatus {
+        let offset = reference.timeIntervalSince(now)
+        return BoothStatus(
+            state: status.state,
+            updatedAt: status.updatedAt.addingTimeInterval(offset),
+            currentQuestionId: status.currentQuestionId,
+            currentMessageId: status.currentMessageId,
+            lastError: status.lastError,
+            runtimeMode: status.runtimeMode,
+            firstSeenAt: status.firstSeenAt?.addingTimeInterval(offset),
+            repeatCount: status.repeatCount
+        )
+    }
+
     public static let statusHistory: [BoothStatus] = (0..<24).map { index in
         // Demo history mirrors the collapsed shape the operator serves: each
         // snapshot spans the 15-minute window it was reported over.
