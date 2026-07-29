@@ -314,10 +314,9 @@ public final class BoothStatusLiveStore {
 
     /// Whether `held` is a newer view of the same run than `incoming`.
     ///
-    /// `updatedAt` decides, except that the operator deliberately leaves it
-    /// alone when a delayed report only widens `firstSeenAt` — then the repeat
-    /// count is what moved, and a lower count means the report is the older of
-    /// the two.
+    /// `updatedAt` decides, except that the operator leaves it alone when a
+    /// delayed report only widens `firstSeenAt` — then the repeat count is what
+    /// moved, and a lower count means the report is the older of the two.
     nonisolated static func supersedes(_ held: BoothStatus, _ incoming: BoothStatus) -> Bool {
         // The booth timestamp decides. An id records when the operator
         // processed a report, not when the booth produced it, so it only
@@ -331,7 +330,7 @@ public final class BoothStatusLiveStore {
     }
 
     /// Whether `held` is the same stored row as `item` rather than a separate
-    /// booth state that happens to look alike.
+    /// state that looks alike.
     nonisolated static func isDuplicate(_ held: BoothStatus, of item: BoothStatus) -> Bool {
         held == item || held.isSameRun(as: item)
     }
@@ -363,13 +362,11 @@ public final class BoothStatusLiveStore {
         return (lhs.id ?? Int.min) < (rhs.id ?? Int.min)
     }
 
-    /// Splice a REST history page into the cache.
-    ///
-    /// The page is the operator's own ordered history, so it is authoritative
+    /// Splice a REST history page into the cache. It is the operator's own
+    /// ordered history, so it is authoritative
     /// for the span it covers — merging it entry by entry would append the
     /// whole page again whenever runs share a booth timestamp. Entries outside
-    /// the span are kept, and a run the socket has already delivered in a
-    /// fresher form keeps that fresher view.
+    /// the span are kept, and a run the socket already has fresher stays so.
     private nonisolated static func replacing(
         _ history: [BoothStatus],
         withPage page: [BoothStatus]
@@ -377,7 +374,7 @@ public final class BoothStatusLiveStore {
         let page = stableOrdered(oldestFirst(page))
         guard let oldest = page.first, let newest = page.last else { return history }
         // A run the socket has already advanced keeps that fresher view, and
-        // the cached row it came from is then dropped from what is kept — a
+        // the cached row it came from is dropped from what is kept — a
         // heartbeat can push it past the page's newest report, where it would
         // otherwise be held twice.
         var reused: Set<Int> = []
@@ -409,12 +406,15 @@ public final class BoothStatusLiveStore {
         return ordered(freshest, unclaimed)
     }
 
-    /// The operator serves history newest first, so flip a descending page
-    /// before ordering it: legacy rows that tie on their timestamp and carry no
-    /// id fall back to position, which would otherwise land them reversed.
+    /// The operator serves history newest first, so flip the page unless it is
+    /// demonstrably ascending: legacy rows that tie on their timestamp and
+    /// carry no id fall back to position, and a page of nothing but ties — a
+    /// burst of same-instant transitions — carries no evidence either way.
     private nonisolated static func oldestFirst(_ page: [BoothStatus]) -> [BoothStatus] {
-        guard let first = page.first, let last = page.last, precedes(last, first) else { return page }
-        return page.reversed()
+        guard let first = page.first, let last = page.last, precedes(first, last) else {
+            return page.reversed()
+        }
+        return page
     }
 
     /// Order a cache without disturbing rows the comparator cannot separate;
@@ -429,8 +429,8 @@ public final class BoothStatusLiveStore {
             .map(\.element)
     }
 
-    /// Merge two already-ordered caches, keeping that order rather than
-    /// re-sorting: position is the only thing separating identical legacy rows.
+    /// Merge two ordered caches without re-sorting: position is the only thing
+    /// separating identical legacy rows.
     private nonisolated static func ordered(
         _ lhs: [BoothStatus],
         _ rhs: [BoothStatus]

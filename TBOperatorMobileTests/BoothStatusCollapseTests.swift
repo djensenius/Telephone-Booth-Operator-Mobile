@@ -1,9 +1,8 @@
 //
 //  BoothStatusCollapseTests.swift
 //
-//  The operator collapses identical booth heartbeat reports into one snapshot
-//  spanning firstSeenAt..updatedAt with a repeat count. These cover decoding
-//  that shape and the "in this state for" label built from it.
+//  The operator collapses identical heartbeat reports into one snapshot
+//  spanning firstSeenAt..updatedAt with a repeat count.
 //
 
 import XCTest
@@ -14,8 +13,7 @@ final class BoothStatusCollapseTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
 
     private func decode(_ json: String) throws -> BoothStatus {
-        // Use the app's own decoder so the test exercises the same
-        // fractional-seconds date handling as live traffic.
+        // The app's own decoder, for its fractional-seconds date handling.
         try OperatorJSON.decoder.decode(BoothStatus.self, from: Data(json.utf8))
     }
 
@@ -170,8 +168,7 @@ final class BoothStatusCollapseTests: XCTestCase {
     }
 
     func testNewestFirstPageOfLegacyRowsIsStoredInChronologicalOrder() {
-        // An operator that predates collapsing sends no window and no id, so
-        // only the page's own order tells two reports of one instant apart.
+        // No window and no id: only page order separates one instant's rows.
         let page = [
             BoothStatus(state: .uploading, updatedAt: now),
             BoothStatus(state: .recording, updatedAt: now),
@@ -181,6 +178,19 @@ final class BoothStatusCollapseTests: XCTestCase {
         let history = BoothStatusLiveStore.merging(page, into: [])
 
         XCTAssertEqual(history.map(\.state), [.idle, .recording, .uploading])
+    }
+
+    func testAllTiedLegacyPageIsStoredInChronologicalOrder() {
+        // All tied and unidentified: the endpoint serves them newest first.
+        let page = [
+            BoothStatus(state: .uploading, updatedAt: now),
+            BoothStatus(state: .recording, updatedAt: now),
+            BoothStatus(state: .beep, updatedAt: now)
+        ]
+
+        let history = BoothStatusLiveStore.merging(page, into: [])
+
+        XCTAssertEqual(history.map(\.state), [.beep, .recording, .uploading])
     }
 
     func testStaleRestReportDoesNotRewindAFresherRun() {
@@ -269,9 +279,8 @@ final class BoothStatusCollapseTests: XCTestCase {
     }
 
     func testAShortRunBracketedByIdenticalRunsSurvives() {
-        // Everything happens inside one booth millisecond: idle, a blip of
-        // recording, idle again. The two idle entries are indistinguishable by
-        // value, so only their position keeps them apart.
+        // One booth millisecond: idle, a blip of recording, idle again. Only
+        // position keeps the two identical idle entries apart.
         let idle = run(firstSeenAt: now, updatedAt: now, repeatCount: 1)
         let recording = run(state: .recording, firstSeenAt: now, updatedAt: now, repeatCount: 1)
 
@@ -337,8 +346,7 @@ final class BoothStatusCollapseTests: XCTestCase {
         )
 
         XCTAssertFalse(first.isSameRun(as: current))
-        // A delayed frame for the earlier row must not take over the display,
-        // however many reports it collapsed.
+        // A delayed frame for the earlier row must not take over the display.
         XCTAssertTrue(BoothStatusLiveStore.supersedes(current, first))
         XCTAssertFalse(BoothStatusLiveStore.supersedes(first, current))
     }
@@ -376,7 +384,6 @@ final class BoothStatusCollapseTests: XCTestCase {
                 repeatCount: 1
             )
         }
-        // The REST endpoint returns newest first, ties broken by descending id.
         let page = [row(3, .idle), row(2, .recording), row(1, .idle)]
 
         let history = BoothStatusLiveStore.merging(page, into: [])
@@ -412,7 +419,6 @@ final class BoothStatusCollapseTests: XCTestCase {
             firstSeenAt: start,
             repeatCount: 6
         )
-        // The page was generated before that heartbeat reached the socket.
         let stale = BoothStatus(
             id: 1,
             state: .idle,
@@ -458,8 +464,7 @@ final class BoothStatusCollapseTests: XCTestCase {
             updatedAt: start.addingTimeInterval(60),
             firstSeenAt: start.addingTimeInterval(60)
         )
-        // Broadcast while the page request was in flight: reported between the
-        // page's entries, but recorded after the page was generated.
+        // In flight with the page: reported between its entries, recorded after.
         let delayed = BoothStatus(
             id: 3,
             state: .recording,
