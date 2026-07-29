@@ -57,6 +57,7 @@ public enum DemoData {
     public static func rebased(_ status: BoothStatus, to reference: Date = Date()) -> BoothStatus {
         let offset = reference.timeIntervalSince(now)
         return BoothStatus(
+            id: status.id,
             state: status.state,
             updatedAt: status.updatedAt.addingTimeInterval(offset),
             currentQuestionId: status.currentQuestionId,
@@ -65,6 +66,19 @@ public enum DemoData {
             runtimeMode: status.runtimeMode,
             firstSeenAt: status.firstSeenAt?.addingTimeInterval(offset),
             repeatCount: status.repeatCount
+        )
+    }
+
+    /// `statsSummary` rebased onto the caller's clock, so the booth timestamp
+    /// it carries — which reaches the widget snapshot — ages like the rest of
+    /// the demo fixtures rather than staying pinned to the fixed anchor.
+    public static func rebasedStats(to reference: Date = Date()) -> StatsSummary {
+        StatsSummary(
+            booth: rebased(statsSummary.booth, to: reference),
+            messages: statsSummary.messages,
+            calls: statsSummary.calls,
+            realtime: statsSummary.realtime,
+            generatedAt: reference
         )
     }
 

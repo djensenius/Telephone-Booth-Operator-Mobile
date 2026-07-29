@@ -55,7 +55,7 @@ public actor OperatorClient {
     /// `GET /v1/stats/summary` — booth health + queue counts. Operator
     /// caches this for 5s, so 15-minute widget polling is cheap.
     public func fetchStatsSummary() async throws -> StatsSummary {
-        if await usesDemoData { return DemoData.statsSummary }
+        if await usesDemoData { return DemoData.rebasedStats() }
         return try await get("/v1/stats/summary")
     }
 

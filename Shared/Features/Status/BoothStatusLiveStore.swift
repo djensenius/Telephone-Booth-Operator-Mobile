@@ -435,10 +435,11 @@ public final class BoothStatusLiveStore {
         status = DemoData.rebased(DemoData.boothStatus, to: demoNow)
         history = DemoData.statusHistory.map { DemoData.rebased($0, to: demoNow) }
         systemEnvelope = DemoData.systemEnvelope
-        stats = DemoData.statsSummary
+        let demoStats = DemoData.rebasedStats(to: demoNow)
+        stats = demoStats
         connection = .polling
         lastError = nil
         systemUnavailable = false
-        WidgetSnapshotStore.write(WidgetSnapshot(stats: DemoData.statsSummary))
+        WidgetSnapshotStore.write(WidgetSnapshot(stats: demoStats))
     }
 }
