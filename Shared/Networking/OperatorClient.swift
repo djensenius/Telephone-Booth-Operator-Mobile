@@ -70,7 +70,7 @@ public actor OperatorClient {
     /// session cookie, an operator bearer, or a phone API token; the
     /// operator returns `401` to unauthenticated callers.
     public func fetchBoothStatus() async throws -> BoothStatus {
-        if await usesDemoData { return DemoData.rebased(DemoData.boothStatus) }
+        if await usesDemoData { return DemoData.liveStatus() }
         return try await get("/v1/status", requireAuth: true)
     }
 
@@ -79,7 +79,7 @@ public actor OperatorClient {
     /// 100 (server caps at 500).
     public func fetchStatusHistory(since: Date? = nil, limit: Int = 100) async throws -> StatusHistory {
         if await usesDemoData {
-            return StatusHistory(items: DemoData.statusHistory.prefix(limit).map { DemoData.rebased($0) })
+            return StatusHistory(items: DemoData.rebasedHistory(limit: limit))
         }
         var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
         if let since {

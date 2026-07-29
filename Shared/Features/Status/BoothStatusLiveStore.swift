@@ -486,8 +486,8 @@ public final class BoothStatusLiveStore {
 
     private func applyDemoData() {
         let demoNow = Date()
-        status = DemoData.rebased(DemoData.boothStatus, to: demoNow)
-        history = DemoData.statusHistory.map { DemoData.rebased($0, to: demoNow) }
+        status = DemoData.liveStatus(now: demoNow)
+        history = DemoData.rebasedHistory()
         systemEnvelope = DemoData.systemEnvelope
         let demoStats = DemoData.rebasedStats(to: demoNow)
         stats = demoStats

@@ -151,6 +151,22 @@ final class BoothStatusCollapseTests: XCTestCase {
             DemoData.boothStatus.updatedAt.timeIntervalSince(DemoData.boothStatus.heldSince)
         )
     }
+
+    func testDemoStatusAgesAcrossRefreshes() {
+        let anchor = DemoData.sessionAnchor
+        let first = DemoData.liveStatus(now: anchor)
+        let later = DemoData.liveStatus(now: anchor.addingTimeInterval(600))
+
+        XCTAssertEqual(first.heldSince, later.heldSince)
+        XCTAssertGreaterThan(
+            later.updatedAt.timeIntervalSince(later.heldSince),
+            first.updatedAt.timeIntervalSince(first.heldSince)
+        )
+        XCTAssertGreaterThan(later.repeatCount ?? 0, first.repeatCount ?? 0)
+        XCTAssertEqual(later.repeatCount, 131)
+        XCTAssertEqual(later.heldForLabel(now: later.updatedAt), "11m · 131 reports")
+    }
+
     func testStaleRestReportDoesNotRewindAFresherRun() {
         let start = now
         let fresh = run(firstSeenAt: start, updatedAt: start.addingTimeInterval(60), repeatCount: 5)

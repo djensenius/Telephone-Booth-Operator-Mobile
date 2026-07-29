@@ -2,10 +2,6 @@
 //  DemoData.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Shared, deterministic sample payloads for SwiftUI previews and App
-//  Store review demo mode. Extracted from StatsSummary.swift to keep
-//  each file within the project line-length budget.
-//
 
 import Foundation
 
@@ -13,6 +9,12 @@ import Foundation
 public enum DemoData {
     // swiftlint:disable:previous type_body_length
     public static let now = Date(timeIntervalSince1970: 1_779_800_000)
+
+    /// When the demo session started, resolved once on first use. Fixtures are
+    /// rebased onto this rather than onto each call's `Date()`, so a held-for
+    /// window grows with the session instead of sliding along with the clock.
+    public static let sessionAnchor = Date()
+
     public static let boothId = "booth-main"
     public static let bootId = "demo-boot-2026"
 
@@ -47,13 +49,7 @@ public enum DemoData {
         generatedAt: now
     )
 
-    /// `boothStatus` and `statusHistory` rebased onto the caller's clock.
-    ///
-    /// The fixtures are anchored to a fixed `now` so payloads stay
-    /// deterministic, but the status dashboard renders how long the booth has
-    /// held its state as a live duration, which measured against that fixed
-    /// anchor grows without bound. Shift the window onto the caller's clock
-    /// when the fixture is handed out instead.
+    /// A fixture shifted from the fixed `now` anchor onto `reference`.
     public static func rebased(_ status: BoothStatus, to reference: Date = Date()) -> BoothStatus {
         let offset = reference.timeIntervalSince(now)
         return BoothStatus(
@@ -69,12 +65,10 @@ public enum DemoData {
         )
     }
 
-    /// `statsSummary` rebased onto the caller's clock, so the booth timestamp
-    /// it carries — which reaches the widget snapshot — ages like the rest of
-    /// the demo fixtures rather than staying pinned to the fixed anchor.
+    /// `statsSummary` on the demo session's clock; its booth timestamp ages too.
     public static func rebasedStats(to reference: Date = Date()) -> StatsSummary {
         StatsSummary(
-            booth: rebased(statsSummary.booth, to: reference),
+            booth: liveStatus(now: reference),
             messages: statsSummary.messages,
             calls: statsSummary.calls,
             realtime: statsSummary.realtime,
@@ -82,11 +76,26 @@ public enum DemoData {
         )
     }
 
+    /// The demo booth status as a live collapsed run: the window opens at the
+    /// session anchor and keeps being reported, as a real heartbeat does.
+    public static func liveStatus(now reference: Date = Date()) -> BoothStatus {
+        let base = rebased(boothStatus, to: sessionAnchor)
+        let beats = Int(max(0, reference.timeIntervalSince(base.updatedAt)) / demoHeartbeat)
+        return base.reported(
+            at: base.updatedAt.addingTimeInterval(Double(beats) * demoHeartbeat),
+            repeatCount: (base.repeatCount ?? 1) + beats
+        )
+    }
+
+    /// `statusHistory` on the demo session's clock.
+    public static func rebasedHistory(limit: Int = .max) -> [BoothStatus] {
+        statusHistory.prefix(limit).map { rebased($0, to: sessionAnchor) }
+    }
+
+    private static let demoHeartbeat: TimeInterval = 5
+
     public static let statusHistory: [BoothStatus] = (0..<24).map { index in
-        // Demo history mirrors the collapsed shape the operator serves: one
-        // snapshot per booth status, each spanning the window it was reported
-        // over, with the repeat count behind it. Adjacent entries are genuine
-        // transitions — identical neighbours would have been collapsed.
+        // Mirrors the collapsed shape: one snapshot per booth status.
         let updatedAt = now.addingTimeInterval(TimeInterval(index - 24) * 900)
         let recording = index.isMultiple(of: 2)
         return BoothStatus(

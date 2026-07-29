@@ -171,6 +171,21 @@ public struct BoothStatus: Codable, Sendable, Hashable {
             || (otherStart <= start && other.updatedAt >= updatedAt)
     }
 
+    /// The same run, reported again at `time` with `count` reports behind it.
+    public func reported(at time: Date, repeatCount count: Int?) -> BoothStatus {
+        BoothStatus(
+            id: id,
+            state: state,
+            updatedAt: time,
+            currentQuestionId: currentQuestionId,
+            currentMessageId: currentMessageId,
+            lastError: lastError,
+            runtimeMode: runtimeMode,
+            firstSeenAt: firstSeenAt,
+            repeatCount: count
+        )
+    }
+
     public init(
         id: Int? = nil,
         state: BoothState,
