@@ -287,6 +287,52 @@ final class BoothStatusCollapseTests: XCTestCase {
         XCTAssertEqual(history[0].repeatCount, 9)
     }
 
+    func testRowIdsTellApartRunsSharingATimestamp() {
+        let instant = now
+        let first = BoothStatus(
+            id: 1,
+            state: .idle,
+            updatedAt: instant,
+            firstSeenAt: instant,
+            repeatCount: 9
+        )
+        let current = BoothStatus(
+            id: 3,
+            state: .idle,
+            updatedAt: instant,
+            firstSeenAt: instant,
+            repeatCount: 1
+        )
+
+        XCTAssertFalse(first.isSameRun(as: current))
+        // A delayed frame for the earlier row must not take over the display,
+        // however many reports it collapsed.
+        XCTAssertTrue(BoothStatusLiveStore.supersedes(current, first))
+        XCTAssertFalse(BoothStatusLiveStore.supersedes(first, current))
+    }
+
+    func testAFrameMatchesItsCachedRowById() {
+        let held = BoothStatus(
+            id: 7,
+            state: .idle,
+            updatedAt: now,
+            firstSeenAt: now,
+            repeatCount: 2
+        )
+        let refreshed = BoothStatus(
+            id: 7,
+            state: .idle,
+            updatedAt: now.addingTimeInterval(10),
+            firstSeenAt: now,
+            repeatCount: 3
+        )
+
+        let history = BoothStatusLiveStore.merging([refreshed], into: [held])
+
+        XCTAssertEqual(history.count, 1)
+        XCTAssertEqual(history[0].repeatCount, 3)
+    }
+
     func testLegacyReportsNeverMatchACollapsedRun() {
         let collapsed = run(firstSeenAt: now, updatedAt: now.addingTimeInterval(60), repeatCount: 5)
         let legacy = BoothStatus(state: .idle, updatedAt: now.addingTimeInterval(30))

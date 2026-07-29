@@ -94,6 +94,11 @@ public enum BoothState: Codable, Sendable, Hashable {
 }
 
 public struct BoothStatus: Codable, Sendable, Hashable {
+    /// The operator's snapshot row id. Two runs of the same status can share a
+    /// booth timestamp, so this is the only thing that reliably tells one row
+    /// from another. Optional for operators that predate it; ids increase with
+    /// insertion order, which is also how the operator breaks those ties.
+    public let id: Int?
     public let state: BoothState
     public let updatedAt: Date
     public let currentQuestionId: UUID?
@@ -153,6 +158,8 @@ public struct BoothStatus: Codable, Sendable, Hashable {
     /// An operator that predates collapsing sends no window at all, and its
     /// rows really are distinct reports, so they never match here.
     public func isSameRun(as other: BoothStatus) -> Bool {
+        // Ids are exact: two views of one row, or two rows that look alike.
+        if let id, let otherId = other.id { return id == otherId }
         guard let start = firstSeenAt, let otherStart = other.firstSeenAt else { return false }
         guard state == other.state,
               currentQuestionId == other.currentQuestionId,
@@ -165,6 +172,7 @@ public struct BoothStatus: Codable, Sendable, Hashable {
     }
 
     public init(
+        id: Int? = nil,
         state: BoothState,
         updatedAt: Date,
         currentQuestionId: UUID? = nil,
@@ -174,6 +182,7 @@ public struct BoothStatus: Codable, Sendable, Hashable {
         firstSeenAt: Date? = nil,
         repeatCount: Int? = nil
     ) {
+        self.id = id
         self.state = state
         self.updatedAt = updatedAt
         self.currentQuestionId = currentQuestionId

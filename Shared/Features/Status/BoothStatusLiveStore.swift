@@ -330,6 +330,11 @@ public final class BoothStatusLiveStore {
     /// count is what moved, and a lower count means the report is the older of
     /// the two.
     nonisolated static func supersedes(_ held: BoothStatus, _ incoming: BoothStatus) -> Bool {
+        // Row ids increase with insertion order, which is how the operator
+        // orders reports that share a booth timestamp.
+        if let heldId = held.id, let incomingId = incoming.id, heldId != incomingId {
+            return heldId > incomingId
+        }
         if held.updatedAt != incoming.updatedAt { return held.updatedAt > incoming.updatedAt }
         guard held.isSameRun(as: incoming) else { return false }
         return (held.repeatCount ?? 1) > (incoming.repeatCount ?? 1)
