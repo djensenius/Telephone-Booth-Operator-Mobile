@@ -330,12 +330,13 @@ public final class BoothStatusLiveStore {
     /// count is what moved, and a lower count means the report is the older of
     /// the two.
     nonisolated static func supersedes(_ held: BoothStatus, _ incoming: BoothStatus) -> Bool {
-        // Row ids increase with insertion order, which is how the operator
-        // orders reports that share a booth timestamp.
+        // The booth timestamp decides. An id records when the operator
+        // processed a report, not when the booth produced it, so it only
+        // breaks ties between reports of the same instant.
+        if held.updatedAt != incoming.updatedAt { return held.updatedAt > incoming.updatedAt }
         if let heldId = held.id, let incomingId = incoming.id, heldId != incomingId {
             return heldId > incomingId
         }
-        if held.updatedAt != incoming.updatedAt { return held.updatedAt > incoming.updatedAt }
         guard held.isSameRun(as: incoming) else { return false }
         return (held.repeatCount ?? 1) > (incoming.repeatCount ?? 1)
     }
@@ -351,7 +352,7 @@ public final class BoothStatusLiveStore {
         into history: [BoothStatus],
         limit: Int = 200
     ) -> [BoothStatus] {
-        var history = history.sorted { $0.updatedAt < $1.updatedAt }
+        var history = history.sorted(by: precedes)
         if items.count > 1 {
             history = replacing(history, withPage: items)
         } else if let item = items.first {
@@ -361,6 +362,15 @@ public final class BoothStatusLiveStore {
             history.removeFirst(history.count - limit)
         }
         return history
+    }
+
+    /// Cache order: oldest first, by booth timestamp, then by the operator's
+    /// insertion order for reports of the same instant — the same order the
+    /// operator uses, so a REST page keeps the shape it arrived in.
+    private nonisolated static func precedes(_ lhs: BoothStatus, _ rhs: BoothStatus) -> Bool {
+        if lhs.updatedAt != rhs.updatedAt { return lhs.updatedAt < rhs.updatedAt }
+        guard let lhsId = lhs.id, let rhsId = rhs.id else { return false }
+        return lhsId < rhsId
     }
 
     /// Splice a REST history page into the cache.
@@ -375,16 +385,17 @@ public final class BoothStatusLiveStore {
         _ history: [BoothStatus],
         withPage page: [BoothStatus]
     ) -> [BoothStatus] {
-        let page = page.sorted { $0.updatedAt < $1.updatedAt }
-        guard let oldest = page.first?.updatedAt, let newest = page.last?.updatedAt else {
-            return history
-        }
+        let page = page.sorted(by: precedes)
+        guard let oldest = page.first, let newest = page.last else { return history }
         let freshest = page.map { item in
             history.first { $0.isSameRun(as: item) && supersedes($0, item) } ?? item
         }
-        return history.filter { $0.updatedAt < oldest }
+        // Boundaries compare on `(updatedAt, id)` too, so a row the socket
+        // delivered while the page was in flight survives even when it shares
+        // the page's newest timestamp.
+        return history.filter { precedes($0, oldest) }
             + freshest
-            + history.filter { $0.updatedAt > newest }
+            + history.filter { precedes(newest, $0) }
     }
 
     /// Fold a single report (a socket frame) into the cache.
@@ -396,7 +407,7 @@ public final class BoothStatusLiveStore {
         if history.contains(where: { $0.isSameRun(as: item) && supersedes($0, item) }) {
             return history
         }
-        let insertion = history.firstIndex { $0.updatedAt > item.updatedAt } ?? history.count
+        let insertion = history.firstIndex { precedes(item, $0) } ?? history.count
         history.insert(item, at: insertion)
         // Collapse only the entries sitting next to the inserted one. A run can
         // be held several times over (a socket frame plus a REST refresh), but

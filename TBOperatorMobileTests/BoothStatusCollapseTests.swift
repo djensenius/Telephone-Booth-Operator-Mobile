@@ -333,6 +333,44 @@ final class BoothStatusCollapseTests: XCTestCase {
         XCTAssertEqual(history[0].repeatCount, 3)
     }
 
+    func testAHistoryPageSharingATimestampIsOrderedByRowId() {
+        let instant = now
+        let row = { (id: Int, state: BoothState) in
+            BoothStatus(
+                id: id,
+                state: state,
+                updatedAt: instant,
+                firstSeenAt: instant,
+                repeatCount: 1
+            )
+        }
+        // The REST endpoint returns newest first, ties broken by descending id.
+        let page = [row(3, .idle), row(2, .recording), row(1, .idle)]
+
+        let history = BoothStatusLiveStore.merging(page, into: [])
+
+        XCTAssertEqual(history.map(\.id), [1, 2, 3])
+    }
+
+    func testAPageKeepsASocketRowSharingItsNewestTimestamp() {
+        let instant = now
+        let page = [
+            BoothStatus(id: 1, state: .idle, updatedAt: instant, firstSeenAt: instant),
+            BoothStatus(
+                id: 2,
+                state: .recording,
+                updatedAt: instant.addingTimeInterval(-10),
+                firstSeenAt: instant.addingTimeInterval(-10)
+            )
+        ]
+        // Delivered by the socket while the page was in flight.
+        let live = BoothStatus(id: 3, state: .beep, updatedAt: instant, firstSeenAt: instant)
+
+        let history = BoothStatusLiveStore.merging(page, into: [live])
+
+        XCTAssertEqual(history.map(\.id), [2, 1, 3])
+    }
+
     func testLegacyReportsNeverMatchACollapsedRun() {
         let collapsed = run(firstSeenAt: now, updatedAt: now.addingTimeInterval(60), repeatCount: 5)
         let legacy = BoothStatus(state: .idle, updatedAt: now.addingTimeInterval(30))
