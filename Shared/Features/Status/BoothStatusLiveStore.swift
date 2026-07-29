@@ -316,17 +316,6 @@ public final class BoothStatusLiveStore {
         history = Self.merging(items, into: history)
     }
 
-    /// Fold status reports into a newest-last history.
-    ///
-    /// A report that repeats a collapsed run already in the history replaces
-    /// it: the operator re-broadcasts the run's row on every booth heartbeat
-    /// with a newer `updatedAt` and an incremented repeat count, so keeping
-    /// both would rebuild the wall of identical entries the collapsing was
-    /// meant to remove. A report that is *older* than the version already held
-    /// is dropped instead — a REST refresh can land after a socket frame for
-    /// the same run, and replacing would rewind the window and the count.
-    /// Genuine transitions, and reports from an operator that doesn't
-    /// collapse, are appended.
     /// Whether `held` is a newer view of the same run than `incoming`.
     ///
     /// `updatedAt` decides, except that the operator deliberately leaves it
@@ -356,7 +345,7 @@ public final class BoothStatusLiveStore {
         into history: [BoothStatus],
         limit: Int = 200
     ) -> [BoothStatus] {
-        var history = history.sorted(by: precedes)
+        var history = stableOrdered(history)
         if items.count > 1 {
             history = replacing(history, withPage: items)
         } else if let item = items.first {
@@ -391,7 +380,7 @@ public final class BoothStatusLiveStore {
         _ history: [BoothStatus],
         withPage page: [BoothStatus]
     ) -> [BoothStatus] {
-        let page = page.sorted(by: precedes)
+        let page = stableOrdered(page)
         guard let oldest = page.first, let newest = page.last else { return history }
         // A run the socket has already advanced keeps that fresher view, and
         // the cached row it came from is then dropped from what is kept — a
@@ -414,16 +403,33 @@ public final class BoothStatusLiveStore {
         let unclaimed = history.enumerated()
             .filter { offset, row in
                 guard !reused.contains(offset) else { return false }
-                return precedes(row, oldest) || precedes(newest, row)
-                    || (row.id ?? Int.min) > newestPageId
+                if precedes(row, oldest) || precedes(newest, row) { return true }
+                guard let id = row.id else {
+                    // A pre-collapse operator numbers nothing, so the only test
+                    // left is whether the page holds the row at all.
+                    return !page.contains { $0 == row || $0.isSameRun(as: row) }
+                }
+                return id > newestPageId
             }
             .map(\.element)
         return ordered(freshest, unclaimed)
     }
 
-    /// Merge two caches that are each already in order, keeping that order
-    /// rather than re-sorting — rows sharing a timestamp with no id to separate
-    /// them can only be told apart by the position they already hold.
+    /// Order a cache without disturbing rows the comparator cannot separate:
+    /// two legacy rows can share a timestamp and carry no id, leaving position
+    /// as the only thing telling them apart. `sorted(by:)` is not stable.
+    private nonisolated static func stableOrdered(_ rows: [BoothStatus]) -> [BoothStatus] {
+        rows.enumerated()
+            .sorted { lhs, rhs in
+                if precedes(lhs.element, rhs.element) { return true }
+                if precedes(rhs.element, lhs.element) { return false }
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
+    }
+
+    /// Merge two already-ordered caches, keeping that order rather than
+    /// re-sorting: position is the only thing separating identical legacy rows.
     private nonisolated static func ordered(
         _ lhs: [BoothStatus],
         _ rhs: [BoothStatus]

@@ -440,6 +440,18 @@ final class BoothStatusCollapseTests: XCTestCase {
         XCTAssertEqual(history.map(\.id), [1, 3, 2])
     }
 
+    func testALegacyPageKeepsASocketRowItDoesNotContain() {
+        let start = now
+        // A pre-collapse operator: no window, no row id.
+        let older = BoothStatus(state: .idle, updatedAt: start)
+        let newer = BoothStatus(state: .idle, updatedAt: start.addingTimeInterval(60))
+        let delayed = BoothStatus(state: .recording, updatedAt: start.addingTimeInterval(30))
+
+        let history = BoothStatusLiveStore.merging([newer, older], into: [delayed])
+
+        XCTAssertEqual(history.map(\.state), [.idle, .recording, .idle])
+    }
+
     func testLegacyReportsNeverMatchACollapsedRun() {
         let collapsed = run(firstSeenAt: now, updatedAt: now.addingTimeInterval(60), repeatCount: 5)
         let legacy = BoothStatus(state: .idle, updatedAt: now.addingTimeInterval(30))
