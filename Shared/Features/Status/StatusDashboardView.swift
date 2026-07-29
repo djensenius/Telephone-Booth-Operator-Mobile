@@ -221,9 +221,11 @@ private struct StatusHistoryChart: View {
     let items: [BoothStatus]
 
     var body: some View {
-        // Identify a bar by the whole snapshot: the booth supplies `updatedAt`,
-        // so two transitions can share one and SwiftUI needs unique ids.
-        Chart(items, id: \.self) { item in
+        // Identify a bar by its position. The booth supplies `updatedAt`, so
+        // two entries can share one — and against an operator that sends no
+        // row id they can be identical values — while SwiftUI needs each mark
+        // to have its own identity.
+        Chart(Array(items.enumerated()), id: \.offset) { _, item in
             BarMark(
                 x: .value("Time", item.updatedAt),
                 y: .value("Active", item.state.isCallActive ? 1 : 0)
