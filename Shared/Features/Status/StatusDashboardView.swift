@@ -158,6 +158,15 @@ public struct StatusDashboardView: View {
                     RuntimeModeBadge(mode: currentStatus.runtimeMode)
                 }
                 Divider().background(Theme.Colors.textSecondary.opacity(0.2))
+                // The operator collapses repeated heartbeat reports, so this
+                // is how long the booth has actually held the state — not just
+                // when the last beat landed.
+                TimelineView(.periodic(from: .now, by: 10)) { context in
+                    StatRow(
+                        label: "In this state for",
+                        value: currentStatus.heldForLabel(now: context.date)
+                    )
+                }
                 if let stats = liveStore.stats {
                     StatRow(label: "Calls today", value: "\(stats.calls.today)")
                     StatRow(label: "In progress", value: "\(stats.calls.inProgress)")
@@ -196,7 +205,7 @@ public struct StatusDashboardView: View {
             } else if liveStore.history.isEmpty {
                 ProgressView()
             } else {
-                StatusHistoryChart(items: liveStore.history)
+                StatusHistoryChart(items: liveStore.history.collapsingRepeats())
                     .frame(height: 180)
             }
         }
@@ -212,7 +221,11 @@ private struct StatusHistoryChart: View {
     let items: [BoothStatus]
 
     var body: some View {
-        Chart(items, id: \.updatedAt) { item in
+        // Identify a bar by its position. The booth supplies `updatedAt`, so
+        // two entries can share one — and against an operator that sends no
+        // row id they can be identical values — while SwiftUI needs each mark
+        // to have its own identity.
+        Chart(Array(items.enumerated()), id: \.offset) { _, item in
             BarMark(
                 x: .value("Time", item.updatedAt),
                 y: .value("Active", item.state.isCallActive ? 1 : 0)

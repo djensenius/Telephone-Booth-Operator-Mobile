@@ -26,6 +26,7 @@
 		0AFB03B83511DD2F53E1A9CD /* BoothStalenessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AA458AEBE2EA5AA56A347D7 /* BoothStalenessTests.swift */; };
 		0B036FB0F7787EA09BA5E75D /* WatchLatestMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C45B65F6840E37E66F479101 /* WatchLatestMessageView.swift */; };
 		0B67E5AFD6EB89768514B619 /* TBOperatorMobileWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ED6F561ED8EE0E60389F8E2 /* TBOperatorMobileWidgetsBundle.swift */; };
+		0C20D78854CC166738C674CB /* BoothStatusCollapseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72C8088DF35F1B68529CB6E5 /* BoothStatusCollapseTests.swift */; };
 		0CC5226DF5E15E2031E1BFB8 /* StatsOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65D5B16AC5442C2142EE12E0 /* StatsOverview.swift */; };
 		0CF3C6858DD82D3AC8DC6AC5 /* MobileDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02C3EC3726958BC4340B3C19 /* MobileDevice.swift */; };
 		0D063BD28595D63971AE06EF /* StatsViewComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B906E614A653009C2E360CDA /* StatsViewComponents.swift */; };
@@ -127,6 +128,7 @@
 		3C52CC41C73F30B8EF30BB7C /* StatsOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65D5B16AC5442C2142EE12E0 /* StatsOverview.swift */; };
 		3CE2FB7B4CC21DFA5F7637FA /* GlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2048D35AF0482F228CA9EAB0 /* GlassCard.swift */; };
 		3D61A2751CD3FE80320AF368 /* OperatorMe.swift in Sources */ = {isa = PBXBuildFile; fileRef = A57C08F65970EB67A8553EE3 /* OperatorMe.swift */; };
+		3D6E429085CA2C71849631DA /* BoothStatusLiveStore+Order.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4DEF3C86F4C3A28612BB10 /* BoothStatusLiveStore+Order.swift */; };
 		3DC7F72A92A7E89186721181 /* OIDCTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE9BD68121808A0D4098A1E /* OIDCTokens.swift */; };
 		3E99F83CF866DC1B01DC0A1A /* StatusDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 523ED08FA179138D88929462 /* StatusDashboardView.swift */; };
 		3ECB9B81AA1399D0A2D08622 /* WatchAuthSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62BA58628D22FD39165708EA /* WatchAuthSync.swift */; };
@@ -220,6 +222,7 @@
 		6D50A8A180F04AD155AE4EF5 /* MetricFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13B70F71E93CBF1D3E72752D /* MetricFilter.swift */; };
 		6D96A565E582CEFAD3CB37C1 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D874D8D8C471FA4C3121C2A /* Theme.swift */; };
 		6DBBB9C317F2F341F9825190 /* WidgetSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDE977DEF1FF457144F67D30 /* WidgetSnapshotStore.swift */; };
+		6EE2168260E0517F14DACCD6 /* BoothStatusLiveStore+Order.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4DEF3C86F4C3A28612BB10 /* BoothStatusLiveStore+Order.swift */; };
 		6F03CCB5C3BCA4E9FF3E2A38 /* AuthManager+DeviceFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E466A495C4F65781EFDFD6CB /* AuthManager+DeviceFlow.swift */; };
 		6F4062BC87C52F18932E140C /* DurationFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30E60DA151DE03C0B13EF8C0 /* DurationFormatting.swift */; };
 		6FAEB95427F26568A463A8D1 /* AuthAnchorProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66E5C1AA8828852D97BDCA78 /* AuthAnchorProvider.swift */; };
@@ -237,6 +240,7 @@
 		724F45C3DFCED0AD4029CC06 /* WatchModerationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF023161B82D868C9EAE710C /* WatchModerationView.swift */; };
 		728E6DDA2AA86EC0C24A855B /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40E094F5C508E9EC6FAE377B /* SessionListView.swift */; };
 		730A9E1DC7AF671AF03E61BB /* EventStreamTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CD9DDE3D8BCDE0B477C7475 /* EventStreamTests.swift */; };
+		73625323D3FF76DD2CF70226 /* BoothStatusLiveStore+Order.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4DEF3C86F4C3A28612BB10 /* BoothStatusLiveStore+Order.swift */; };
 		742199D67D654174741A2BF6 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD213C066A1ED5C88C257364 /* LoginView.swift */; };
 		74C366A4D48F398AF318C8B2 /* StatsRangeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724B6B4233C3DD7269C98F54 /* StatsRangeControls.swift */; };
 		751255045B47E37454534573 /* AuthManager+Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51752040B579CB8D1DF9C9E1 /* AuthManager+Keychain.swift */; };
@@ -448,6 +452,7 @@
 		E1C02D97D1167F7A7B3169BE /* DeviceAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28CAEA03D4C3D9948FA3B6B6 /* DeviceAuthorization.swift */; };
 		E1C8E358242314E3A0394D5B /* AuthManager+Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51752040B579CB8D1DF9C9E1 /* AuthManager+Keychain.swift */; };
 		E24555EDF4A197D491001E06 /* OperatorError.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0FEC3DF654FFCDBFDF7B9C5 /* OperatorError.swift */; };
+		E2818152EA9D4F01E48B1ED3 /* BoothStatusDisplayCollapseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9E3531E5FC7ABA81A2539A /* BoothStatusDisplayCollapseTests.swift */; };
 		E36469F443DB7006AE010C6A /* BoothSystemSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C353F9CDCC7922E78A322C61 /* BoothSystemSnapshot.swift */; };
 		E3B2956266C08FC383F61996 /* NotificationSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A58F0A1D6582D1806CE4E408 /* NotificationSettingsSection.swift */; };
 		E3EEE1016E14C5751EB93801 /* SystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 630A2D2EA236558C49928840 /* SystemView.swift */; };
@@ -472,6 +477,7 @@
 		EDFDAF6A807A251465A91B5D /* DemoData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 025EEA4173BB3957480E4F12 /* DemoData.swift */; };
 		EE0BA3028EE47A08E831B1A5 /* PendingMessagesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF479F57CF75F0452BE6DBE4 /* PendingMessagesStore.swift */; };
 		EE256C964D06FA3D2D4565C0 /* OperatorClient+Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0634D63C69EB9486CDBABFB0 /* OperatorClient+Metrics.swift */; };
+		EFCCC1EE5EF3A848B9499DA9 /* BoothStatusLiveStore+Order.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4DEF3C86F4C3A28612BB10 /* BoothStatusLiveStore+Order.swift */; };
 		F07F82B2FE0987E855A0639F /* BoothStatusLiveModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A9A806BA6194AC5EDBAB0A /* BoothStatusLiveModifier.swift */; };
 		F1B3EC533E68C8D0696B60B8 /* TVRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7FE0FC2FCA5F9C5003918ED /* TVRootView.swift */; };
 		F1BC3C1DA3C25C9247FFBD37 /* Question.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD93C2FF68DAC8696AA764E0 /* Question.swift */; };
@@ -480,6 +486,7 @@
 		F384D29F20474CF93E9DA178 /* BoothStatusWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8B94F36732A0600EF2F0B59 /* BoothStatusWidget.swift */; };
 		F428C95D24A323931C148528 /* RuntimeMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 325A50D5F06BC5F485B01C77 /* RuntimeMode.swift */; };
 		F437487F3D9F1E1A6C0E019C /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20C0268A08FEF3BC6FED46E1 /* AuthManager.swift */; };
+		F4A61483AF83FB3ECBCB8234 /* BoothStatusLiveStore+Order.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4DEF3C86F4C3A28612BB10 /* BoothStatusLiveStore+Order.swift */; };
 		F4ADF9403F073644DA1B9A98 /* AuthAnchorProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66E5C1AA8828852D97BDCA78 /* AuthAnchorProvider.swift */; };
 		F4D5894C954DE9C5827490F4 /* RuntimeMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 325A50D5F06BC5F485B01C77 /* RuntimeMode.swift */; };
 		F51D6D521EDA4DDCE72387A7 /* OperatorJSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = D95B29B530069E8A6FA12891 /* OperatorJSON.swift */; };
@@ -595,6 +602,7 @@
 		08B3EAE1F65AA6CB51D9E86D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		0CBAB12EDD9EE92394B8915E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0CFC7130E78140C090241C06 /* StatsSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsSummary.swift; sourceTree = "<group>"; };
+		0D4DEF3C86F4C3A28612BB10 /* BoothStatusLiveStore+Order.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BoothStatusLiveStore+Order.swift"; sourceTree = "<group>"; };
 		0D874D8D8C471FA4C3121C2A /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		0F90FB3E819E53B3BC4B0D40 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		0FD7637A6AA56DF95566F9A5 /* CallsTodayWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallsTodayWidget.swift; sourceTree = "<group>"; };
@@ -633,6 +641,7 @@
 		532E67687BBA95CEAA7D1170 /* TBOperatorMobileWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileWatchApp.swift; sourceTree = "<group>"; };
 		54B95B5CB82C1EA4566FB125 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		578BA1CD4D827BD660DEDC35 /* DemoData+Metrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DemoData+Metrics.swift"; sourceTree = "<group>"; };
+		5A9E3531E5FC7ABA81A2539A /* BoothStatusDisplayCollapseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoothStatusDisplayCollapseTests.swift; sourceTree = "<group>"; };
 		5D8000FAFC2480127F131736 /* CurrentUserStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentUserStore.swift; sourceTree = "<group>"; };
 		5F28CC9E236EA19D2522413D /* LiveActivityObserverModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityObserverModifier.swift; sourceTree = "<group>"; };
 		5FCD4A95FE28379BBB7EB287 /* TBOperatorMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileApp.swift; sourceTree = "<group>"; };
@@ -652,6 +661,7 @@
 		7037F65F660FA295067270FD /* TBOperatorMobileTV.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TBOperatorMobileTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		70B8990E3EAFA2FF4D74B069 /* TVScreensaverPlaylistTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVScreensaverPlaylistTests.swift; sourceTree = "<group>"; };
 		724B6B4233C3DD7269C98F54 /* StatsRangeControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsRangeControls.swift; sourceTree = "<group>"; };
+		72C8088DF35F1B68529CB6E5 /* BoothStatusCollapseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoothStatusCollapseTests.swift; sourceTree = "<group>"; };
 		74746E8A4D48CE8D37DE85CE /* TBOperatorMobileMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileMacApp.swift; sourceTree = "<group>"; };
 		7781B42DE486F0C2D94C10F2 /* TBOperatorMobileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileTests.swift; sourceTree = "<group>"; };
 		780C407DD460CD29AB231FC4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -754,6 +764,8 @@
 				A521B50F733A59080A477857 /* AppConfigSecurityTests.swift */,
 				6B25D928BCD494D717474665 /* AuthTests.swift */,
 				9AA458AEBE2EA5AA56A347D7 /* BoothStalenessTests.swift */,
+				72C8088DF35F1B68529CB6E5 /* BoothStatusCollapseTests.swift */,
+				5A9E3531E5FC7ABA81A2539A /* BoothStatusDisplayCollapseTests.swift */,
 				A3927268F17F105948D1EEB6 /* BoothSystemSnapshotTests.swift */,
 				9CD9DDE3D8BCDE0B477C7475 /* EventStreamTests.swift */,
 				D2A3907C3F55C792DA6D5DC3 /* IDTokenValidatorTests.swift */,
@@ -848,6 +860,7 @@
 			isa = PBXGroup;
 			children = (
 				9E95B37CFE5471F2A73BEA65 /* BoothStatusLiveStore.swift */,
+				0D4DEF3C86F4C3A28612BB10 /* BoothStatusLiveStore+Order.swift */,
 				523ED08FA179138D88929462 /* StatusDashboardView.swift */,
 				C21DE1723F5A47F387D60AD5 /* SystemVitalsStrip.swift */,
 			);
@@ -1573,6 +1586,7 @@
 				873759AEC84154C3CBF9E6AC /* BoothEvent.swift in Sources */,
 				CB7292F703E83B044FD9AE59 /* BoothStatus.swift in Sources */,
 				A4CDC64788F830E0DC5B8956 /* BoothStatusLiveModifier.swift in Sources */,
+				73625323D3FF76DD2CF70226 /* BoothStatusLiveStore+Order.swift in Sources */,
 				1C8B9052B023502F34EAC927 /* BoothStatusLiveStore.swift in Sources */,
 				55E50F8B2DA02EFE764F565F /* BoothSystemSnapshot.swift in Sources */,
 				9C3664B02841724AE51B65D1 /* CallInProgressAttributes.swift in Sources */,
@@ -1669,6 +1683,7 @@
 				E1B9F747F6A70327314BC323 /* BoothEvent.swift in Sources */,
 				991144435CAE676AD077137F /* BoothStatus.swift in Sources */,
 				07EC3CC1BCE336BD99E26085 /* BoothStatusLiveModifier.swift in Sources */,
+				EFCCC1EE5EF3A848B9499DA9 /* BoothStatusLiveStore+Order.swift in Sources */,
 				20C3B6C1FD6CF0FDA0D85B8B /* BoothStatusLiveStore.swift in Sources */,
 				B679168EEB435D84E5BD7019 /* BoothSystemSnapshot.swift in Sources */,
 				2902C318E9307100FC3BA5F4 /* CallInProgressAttributes.swift in Sources */,
@@ -1823,6 +1838,7 @@
 				61DE8D06C3205EAC09B4B34E /* BoothEvent.swift in Sources */,
 				CEA45DA003E2ED174CDBD275 /* BoothStatus.swift in Sources */,
 				A6DEB92EA49E7C9B9BBDD009 /* BoothStatusLiveModifier.swift in Sources */,
+				F4A61483AF83FB3ECBCB8234 /* BoothStatusLiveStore+Order.swift in Sources */,
 				D347C34E4778469948166D38 /* BoothStatusLiveStore.swift in Sources */,
 				E36469F443DB7006AE010C6A /* BoothSystemSnapshot.swift in Sources */,
 				E667CB593F50E4A9A5654B47 /* CallInProgressAttributes.swift in Sources */,
@@ -1910,6 +1926,8 @@
 				E131249B22B5B5F20AE1A286 /* AppConfigSecurityTests.swift in Sources */,
 				D63702C7E0E5F7DD94735617 /* AuthTests.swift in Sources */,
 				0AFB03B83511DD2F53E1A9CD /* BoothStalenessTests.swift in Sources */,
+				0C20D78854CC166738C674CB /* BoothStatusCollapseTests.swift in Sources */,
+				E2818152EA9D4F01E48B1ED3 /* BoothStatusDisplayCollapseTests.swift in Sources */,
 				4C1407A8E627B4F24A100CDF /* BoothSystemSnapshotTests.swift in Sources */,
 				730A9E1DC7AF671AF03E61BB /* EventStreamTests.swift in Sources */,
 				0D22073568FBC9379AD4D926 /* IDTokenValidatorTests.swift in Sources */,
@@ -1939,6 +1957,7 @@
 				26874127684C285DD34584A1 /* BoothEvent.swift in Sources */,
 				149811E6E5B3C0D7EB3D72EA /* BoothStatus.swift in Sources */,
 				06DBFDD623D4BDF805F7DE41 /* BoothStatusLiveModifier.swift in Sources */,
+				3D6E429085CA2C71849631DA /* BoothStatusLiveStore+Order.swift in Sources */,
 				B35575E59C1058852E4C166B /* BoothStatusLiveStore.swift in Sources */,
 				FADB123458BE03E62E2B617D /* BoothSystemSnapshot.swift in Sources */,
 				A2D314B634D2DFDFE2BDA809 /* CallInProgressAttributes.swift in Sources */,
@@ -2037,6 +2056,7 @@
 				5C865551AD029A3D646B0E08 /* BoothEvent.swift in Sources */,
 				FE9E4AD9AC2B99CE15F62C8D /* BoothStatus.swift in Sources */,
 				F07F82B2FE0987E855A0639F /* BoothStatusLiveModifier.swift in Sources */,
+				6EE2168260E0517F14DACCD6 /* BoothStatusLiveStore+Order.swift in Sources */,
 				151EF4000CE11222A91456D9 /* BoothStatusLiveStore.swift in Sources */,
 				F59679391DCFD3311EDE46A5 /* BoothSystemSnapshot.swift in Sources */,
 				D95912B5414B9519106802DA /* CallInProgressAttributes.swift in Sources */,
