@@ -35,4 +35,35 @@ final class BoothStatusDisplayCollapseTests: XCTestCase {
 
         XCTAssertEqual(rows.collapsingRepeats().map(\.id), [1, 2, 3])
     }
+
+    func testIdLessRunReturningAfterATransitionIsKept() {
+        // A collapsed operator that sends no row id: idle, a blip of recording,
+        // idle again, all inside one booth millisecond.
+        let instant = now
+        let first = BoothStatus(
+            state: .idle, updatedAt: instant,
+            firstSeenAt: instant.addingTimeInterval(-30), repeatCount: 3
+        )
+        let blip = BoothStatus(state: .recording, updatedAt: instant, firstSeenAt: instant)
+        let second = BoothStatus(state: .idle, updatedAt: instant, firstSeenAt: instant)
+
+        let history = BoothStatusLiveStore.merging([second], into: [first, blip])
+
+        XCTAssertEqual(history.map(\.state), [.idle, .recording, .idle])
+    }
+
+    func testPageDoesNotClaimAnIdLessRunItNeverSaw() {
+        let instant = now
+        let earlier = BoothStatus(
+            state: .idle, updatedAt: instant,
+            firstSeenAt: instant.addingTimeInterval(-30), repeatCount: 3
+        )
+        let blip = BoothStatus(state: .recording, updatedAt: instant, firstSeenAt: instant)
+        // Delivered by the socket while the page was in flight.
+        let latest = BoothStatus(state: .idle, updatedAt: instant, firstSeenAt: instant)
+
+        let history = BoothStatusLiveStore.merging([blip, earlier], into: [earlier, blip, latest])
+
+        XCTAssertEqual(history.map(\.state), [.idle, .recording, .idle])
+    }
 }

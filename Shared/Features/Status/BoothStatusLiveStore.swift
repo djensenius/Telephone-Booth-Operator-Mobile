@@ -352,16 +352,6 @@ public final class BoothStatusLiveStore {
         return history
     }
 
-    /// Cache order: oldest first, by booth timestamp, then by the operator's
-    /// insertion order for reports of the same instant.
-    private nonisolated static func precedes(_ lhs: BoothStatus, _ rhs: BoothStatus) -> Bool {
-        if lhs.updatedAt != rhs.updatedAt { return lhs.updatedAt < rhs.updatedAt }
-        // A row without an id predates them all: only an operator that predates
-        // the collapse omits it, and its rows are older than anything a newer
-        // operator has served.
-        return (lhs.id ?? Int.min) < (rhs.id ?? Int.min)
-    }
-
     /// Splice a REST history page into the cache. It is the operator's own
     /// ordered history, so it is authoritative
     /// for the span it covers — merging it entry by entry would append the
@@ -396,61 +386,16 @@ public final class BoothStatusLiveStore {
                 guard !reused.contains(offset) else { return false }
                 if precedes(row, oldest) || precedes(newest, row) { return true }
                 guard let id = row.id else {
-                    // A pre-collapse operator numbers nothing, so the only test
-                    // left is whether the page holds the row at all.
-                    return !page.contains { $0 == row || $0.isSameRun(as: row) }
+                    // A pre-collapse operator numbers nothing: the row is the
+                    // page's own only if the page holds it outright, or holds a
+                    // matching run where the row itself would sort.
+                    if page.contains(where: { $0 == row }) { return false }
+                    return !neighbours(of: row, in: page).contains { $0.isSameRun(as: row) }
                 }
                 return id > newestPageId
             }
             .map(\.element)
         return ordered(freshest, unclaimed)
-    }
-
-    /// The operator serves history newest first, so flip the page unless it is
-    /// demonstrably ascending: legacy rows that tie on their timestamp and
-    /// carry no id fall back to position, and a page of nothing but ties — a
-    /// burst of same-instant transitions — carries no evidence either way.
-    private nonisolated static func oldestFirst(_ page: [BoothStatus]) -> [BoothStatus] {
-        guard let first = page.first, let last = page.last, precedes(first, last) else {
-            return page.reversed()
-        }
-        return page
-    }
-
-    /// Order a cache without disturbing rows the comparator cannot separate;
-    /// `sorted(by:)` is not stable.
-    private nonisolated static func stableOrdered(_ rows: [BoothStatus]) -> [BoothStatus] {
-        rows.enumerated()
-            .sorted { lhs, rhs in
-                if precedes(lhs.element, rhs.element) { return true }
-                if precedes(rhs.element, lhs.element) { return false }
-                return lhs.offset < rhs.offset
-            }
-            .map(\.element)
-    }
-
-    /// Merge two ordered caches without re-sorting: position is the only thing
-    /// separating identical legacy rows.
-    private nonisolated static func ordered(
-        _ lhs: [BoothStatus],
-        _ rhs: [BoothStatus]
-    ) -> [BoothStatus] {
-        var merged: [BoothStatus] = []
-        merged.reserveCapacity(lhs.count + rhs.count)
-        var lhsIndex = lhs.startIndex
-        var rhsIndex = rhs.startIndex
-        while lhsIndex < lhs.endIndex, rhsIndex < rhs.endIndex {
-            if precedes(rhs[rhsIndex], lhs[lhsIndex]) {
-                merged.append(rhs[rhsIndex])
-                rhsIndex += 1
-            } else {
-                merged.append(lhs[lhsIndex])
-                lhsIndex += 1
-            }
-        }
-        merged.append(contentsOf: lhs[lhsIndex...])
-        merged.append(contentsOf: rhs[rhsIndex...])
-        return merged
     }
 
     /// Fold a single report (a socket frame) into the cache.
@@ -459,10 +404,14 @@ public final class BoothStatusLiveStore {
         into history: [BoothStatus]
     ) -> [BoothStatus] {
         var history = history
-        if history.contains(where: { $0.isSameRun(as: item) && supersedes($0, item) }) {
+        // An identified row is the same run wherever it sits, but matching an
+        // id-less one by its window has to stay local: a short run can share a
+        // millisecond with the identical runs either side of it.
+        let insertion = history.firstIndex { precedes(item, $0) } ?? history.count
+        let held = item.id == nil ? neighbours(of: item, in: history) : history
+        if held.contains(where: { $0.isSameRun(as: item) && supersedes($0, item) }) {
             return history
         }
-        let insertion = history.firstIndex { precedes(item, $0) } ?? history.count
         history.insert(item, at: insertion)
         // Collapse only the entries sitting next to the inserted one. A run can
         // be held several times over (a socket frame plus a REST refresh), but
