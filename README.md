@@ -94,6 +94,7 @@ webview, no cookie session. Refresh tokens live in the Keychain. See
 | [`docs/architecture.md`](docs/architecture.md) | How the pieces fit together              |
 | [`docs/auth.md`](docs/auth.md)               | OIDC PKCE flow + Authentik native client  |
 | [`docs/widgets.md`](docs/widgets.md)         | Widgets + Live Activity design            |
+| [`docs/audit-log.md`](docs/audit-log.md)     | The admin-only Audit tab                  |
 
 ## Related repositories
 
