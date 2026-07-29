@@ -205,7 +205,7 @@ public struct StatusDashboardView: View {
             } else if liveStore.history.isEmpty {
                 ProgressView()
             } else {
-                StatusHistoryChart(items: liveStore.history)
+                StatusHistoryChart(items: liveStore.history.collapsingRepeats())
                     .frame(height: 180)
             }
         }

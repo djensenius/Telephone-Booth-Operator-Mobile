@@ -171,6 +171,15 @@ public struct BoothStatus: Codable, Sendable, Hashable {
             || (otherStart <= start && other.updatedAt >= updatedAt)
     }
 
+    /// Whether both report the same booth status, ignoring when they landed.
+    public func isRepeat(of other: BoothStatus) -> Bool {
+        state == other.state
+            && currentQuestionId == other.currentQuestionId
+            && currentMessageId == other.currentMessageId
+            && lastError == other.lastError
+            && runtimeMode == other.runtimeMode
+    }
+
     /// The same run, reported again at `time` with `count` reports behind it.
     public func reported(at time: Date, repeatCount count: Int?) -> BoothStatus {
         BoothStatus(
@@ -206,5 +215,33 @@ public struct BoothStatus: Codable, Sendable, Hashable {
         self.runtimeMode = runtimeMode
         self.firstSeenAt = firstSeenAt
         self.repeatCount = repeatCount
+    }
+}
+
+public extension Array where Element == BoothStatus {
+    /// Fold adjacent reports of one status into a single run for display.
+    ///
+    /// The operator collapses on write, but rows recorded before it did are
+    /// one per heartbeat, so an old idle stretch still arrives as hundreds of
+    /// identical entries. Folding them here keeps the chart and the history
+    /// reading one entry per status whatever the rows behind it look like.
+    func collapsingRepeats() -> [BoothStatus] {
+        reduce(into: [BoothStatus]()) { runs, item in
+            guard let last = runs.last, last.isRepeat(of: item) else {
+                runs.append(item)
+                return
+            }
+            runs[runs.count - 1] = BoothStatus(
+                id: last.id ?? item.id,
+                state: last.state,
+                updatedAt: Swift.max(last.updatedAt, item.updatedAt),
+                currentQuestionId: last.currentQuestionId,
+                currentMessageId: last.currentMessageId,
+                lastError: last.lastError,
+                runtimeMode: last.runtimeMode,
+                firstSeenAt: Swift.min(last.heldSince, item.heldSince),
+                repeatCount: (last.repeatCount ?? 1) + (item.repeatCount ?? 1)
+            )
+        }
     }
 }
