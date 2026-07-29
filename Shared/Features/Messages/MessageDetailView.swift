@@ -3,8 +3,8 @@
 //  TelephoneBoothOperatorMobile
 //
 //  Single-message screen: status badge, FLAC audio playback, the
-//  latest transcript (and full history collapsed below), and a button
-//  to re-run the transcription/moderation pipeline.
+//  latest transcript (and full history collapsed below), the moderation
+//  summary, and the human approve/reject decision.
 //
 
 #if !os(watchOS) && !os(tvOS)
@@ -17,8 +17,6 @@ public struct MessageDetailView: View {
     @State private var message: Message?
     @State private var transcriptions: [Transcription] = []
     @State private var loading = false
-    @State private var transcribing = false
-    @State private var moderating = false
     @State private var deciding = false
     @State private var decisionNotes = ""
     @State private var errorMessage: String?
@@ -80,23 +78,7 @@ public struct MessageDetailView: View {
     @ViewBuilder
     private func transcriptCard(_ message: Message) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-            HStack {
-                SectionHeader(text: "Transcript")
-                Spacer()
-                Button {
-                    Task { await transcribe() }
-                } label: {
-                    if transcribing {
-                        ProgressView()
-                    } else {
-                        Label("Re-transcribe", systemImage: "arrow.clockwise")
-                            .font(Theme.Fonts.bodySmall.weight(.semibold))
-                    }
-                }
-                .buttonStyle(.bordered)
-                .tint(Theme.Colors.accent)
-                .disabled(transcribing)
-            }
+            SectionHeader(text: "Transcript")
             if let latest = message.latestTranscription {
                 TranscriptionRow(transcription: latest, emphasized: true)
             } else {
@@ -125,24 +107,7 @@ public struct MessageDetailView: View {
     @ViewBuilder
     private func moderationCard(_ message: Message) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            HStack {
-                SectionHeader(text: "Moderation")
-                Spacer()
-                Button {
-                    Task { await moderate() }
-                } label: {
-                    if moderating {
-                        ProgressView()
-                    } else {
-                        Label("Re-run", systemImage: "shield.lefthalf.filled")
-                            .font(Theme.Fonts.bodySmall.weight(.semibold))
-                    }
-                }
-                .buttonStyle(.bordered)
-                .tint(Theme.Colors.accent)
-                .disabled(moderating || message.latestTranscription?.status != .succeeded)
-                .accessibilityLabel("Re-run moderation")
-            }
+            SectionHeader(text: "Moderation")
             if let moderation = message.latestModeration {
                 if let rec = moderation.recommendation {
                     StatRow(label: "Recommendation", value: rec.displayName)
@@ -163,7 +128,7 @@ public struct MessageDetailView: View {
             } else {
                 Text(message.latestTranscription?.status == .succeeded
                      ? "Moderation hasn't run yet for this message."
-                     : "Transcribe the message before moderating.")
+                     : "Moderation runs once transcription has finished.")
                     .font(Theme.Fonts.bodySmall)
                     .foregroundStyle(Theme.Colors.textSecondary)
             }
@@ -278,40 +243,6 @@ public struct MessageDetailView: View {
         }
         if let newList {
             transcriptions = newList.items
-        }
-    }
-
-    private func transcribe() async {
-        transcribing = true
-        errorMessage = nil
-        statusMessage = nil
-        defer { transcribing = false }
-        do {
-            let newest = try await client.transcribeMessage(id: messageId)
-            statusMessage = "Transcription \(newest.status.displayName.lowercased())."
-            // Refresh the full message + list so the UI shows the new latest
-            // transcript and any moderation update the operator just made.
-            await load()
-        } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't re-run transcription."
-        }
-    }
-
-    private func moderate() async {
-        moderating = true
-        errorMessage = nil
-        statusMessage = nil
-        defer { moderating = false }
-        do {
-            let newest = try await client.moderateMessage(id: messageId)
-            if let rec = newest.recommendation {
-                statusMessage = "Moderation: \(rec.displayName)."
-            } else {
-                statusMessage = "Moderation re-run requested."
-            }
-            await load()
-        } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't re-run moderation."
         }
     }
 

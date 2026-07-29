@@ -257,10 +257,6 @@ public enum DemoData {
         version: "demo"
     )
 
-    public static var transcription: Transcription {
-        transcriptions(messageId: "demo-message-1").first!
-    }
-
     public static func statsOverview(window: StatsWindow) -> StatsOverview {
         let rangeStart: Date?
         switch window {
@@ -378,25 +374,6 @@ public enum DemoData {
                 completedAt: now.addingTimeInterval(-10 * 60)
             )
         ]
-    }
-
-    public static func moderation(messageId: String) -> Moderation {
-        Moderation(
-            id: "\(messageId)-moderation",
-            messageId: messageId,
-            transcriptionId: "\(messageId)-transcription",
-            provider: .openai,
-            model: "demo-moderator",
-            status: .succeeded,
-            flagged: false,
-            recommendation: .approve,
-            maxScore: 0.02,
-            categories: ["safe": 0.98],
-            reasonSummary: "Demo message is safe to approve.",
-            latencyMs: 420,
-            error: nil,
-            createdAt: now.addingTimeInterval(-9 * 60)
-        )
     }
 
     private static func message(

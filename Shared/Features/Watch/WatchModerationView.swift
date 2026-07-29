@@ -3,9 +3,9 @@
 //  TelephoneBoothOperatorMobile
 //
 //  Lists messages awaiting moderation (status == .pending or
-//  .received). Tap to view a compact detail page with a Re-run
-//  moderation button. Lightweight by design — no audio playback
-//  on the watch.
+//  .received). Tap to view a compact detail page showing the
+//  transcript and moderation summary. Lightweight by design — no
+//  audio playback on the watch.
 //
 
 #if os(watchOS)
@@ -132,17 +132,12 @@ struct WatchModerationDetailView: View {
 
     @State private var message: Message?
     @State private var errorMessage: String?
-    @State private var infoMessage: String?
-    @State private var isReRunning = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 if let errorMessage {
                     BannerView(message: errorMessage, kind: .error)
-                }
-                if let infoMessage {
-                    BannerView(message: infoMessage, kind: .info)
                 }
                 if let message {
                     detail(message)
@@ -175,21 +170,6 @@ struct WatchModerationDetailView: View {
                     .font(.caption)
                     .foregroundStyle(Theme.Colors.warning)
             }
-            Button {
-                Task { await reRunModeration() }
-            } label: {
-                HStack {
-                    if isReRunning {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    Text("Re-run moderation")
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(isReRunning)
         }
     }
 
@@ -198,20 +178,6 @@ struct WatchModerationDetailView: View {
             message = try await client.fetchMessage(id: messageId)
         } catch {
             errorMessage = "Couldn't load message."
-        }
-    }
-
-    private func reRunModeration() async {
-        isReRunning = true
-        defer { isReRunning = false }
-        errorMessage = nil
-        infoMessage = nil
-        do {
-            _ = try await client.moderateMessage(id: messageId)
-            infoMessage = "Moderation queued."
-            await load()
-        } catch {
-            errorMessage = "Couldn't re-run moderation."
         }
     }
 }

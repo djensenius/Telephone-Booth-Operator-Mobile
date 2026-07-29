@@ -188,20 +188,6 @@ public actor OperatorClient {
         return try await get("/v1/messages/\(messageId)/transcriptions")
     }
 
-    /// `POST /v1/messages/{id}/transcribe` — re-runs transcription (and
-    /// downstream moderation). Returns the new `Transcription`.
-    public func transcribeMessage(id: String) async throws -> Transcription {
-        if await usesDemoData { return DemoData.transcriptions(messageId: id).first ?? DemoData.transcription }
-        return try await postEmpty("/v1/messages/\(id)/transcribe")
-    }
-
-    /// `POST /v1/messages/{id}/moderate` — re-runs AI moderation against
-    /// the latest succeeded transcription. Returns the new `Moderation`.
-    public func moderateMessage(id: String) async throws -> Moderation {
-        if await usesDemoData { return DemoData.moderation(messageId: id) }
-        return try await postEmpty("/v1/messages/\(id)/moderate")
-    }
-
     /// `POST /v1/messages/{id}/decision` — records a human operator's
     /// approve/reject decision. AI moderation is only advisory: the decision
     /// here is the authoritative, human-made one. Returns the updated `Message`.
