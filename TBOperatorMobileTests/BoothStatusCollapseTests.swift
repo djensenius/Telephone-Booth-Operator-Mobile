@@ -22,6 +22,7 @@ final class BoothStatusCollapseTests: XCTestCase {
     func testDecodesCollapseMetadata() throws {
         let status = try decode("""
         {
+            "id": 8801,
             "state": "idle",
             "updatedAt": "2023-11-14T22:13:20.000Z",
             "firstSeenAt": "2023-11-14T22:00:00.000Z",
@@ -29,6 +30,7 @@ final class BoothStatusCollapseTests: XCTestCase {
         }
         """)
 
+        XCTAssertEqual(status.id, 8801)
         XCTAssertEqual(status.repeatCount, 41)
         XCTAssertEqual(status.firstSeenAt, Date(timeIntervalSince1970: 1_699_999_200))
         XCTAssertEqual(status.heldSince, status.firstSeenAt)
@@ -165,6 +167,20 @@ final class BoothStatusCollapseTests: XCTestCase {
         XCTAssertGreaterThan(later.repeatCount ?? 0, first.repeatCount ?? 0)
         XCTAssertEqual(later.repeatCount, 131)
         XCTAssertEqual(later.heldForLabel(now: later.updatedAt), "11m · 131 reports")
+    }
+
+    func testNewestFirstPageOfLegacyRowsIsStoredInChronologicalOrder() {
+        // An operator that predates collapsing sends no window and no id, so
+        // only the page's own order tells two reports of one instant apart.
+        let page = [
+            BoothStatus(state: .uploading, updatedAt: now),
+            BoothStatus(state: .recording, updatedAt: now),
+            BoothStatus(state: .idle, updatedAt: now.addingTimeInterval(-30))
+        ]
+
+        let history = BoothStatusLiveStore.merging(page, into: [])
+
+        XCTAssertEqual(history.map(\.state), [.idle, .recording, .uploading])
     }
 
     func testStaleRestReportDoesNotRewindAFresherRun() {

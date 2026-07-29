@@ -31,10 +31,8 @@ public final class BoothStatusLiveStore {
     public private(set) var lastError: String?
 
     /// True only when the `/v1/system/current` request itself failed while we
-    /// have no cached snapshot to show. Lets the System tab present its
-    /// retry/error state during a system-endpoint outage instead of a
-    /// permanent "no snapshot yet". Distinct from the successful-but-empty
-    /// case (endpoint reachable, booth simply hasn't reported yet).
+    /// have no cached snapshot to show, so the System tab can show its retry
+    /// state during an outage instead of a permanent "no snapshot yet".
     public private(set) var systemUnavailable: Bool = false
 
     private let client: OperatorClient
@@ -212,8 +210,7 @@ public final class BoothStatusLiveStore {
 
     /// Applies the outcome of the `/v1/system/current` REST request. The double
     /// optional distinguishes a thrown error (`.none`) from a successful-but-
-    /// empty response (`.some(.none)`) so a system-endpoint outage surfaces an
-    /// error state while "booth hasn't reported yet" stays an empty state.
+    /// empty response (`.some(.none)`), which stays an empty state.
     private func applySystemResult(_ newSystem: BoothSystemSnapshotEnvelope??) {
         switch newSystem {
         case .some(let envelope?):
@@ -247,8 +244,7 @@ public final class BoothStatusLiveStore {
     }
 
     /// Retry only the `/v1/system/current` endpoint (used on the live-socket
-    /// cadence while `systemUnavailable` is set) so the System tab recovers
-    /// after an outage without waiting for a full REST reseed.
+    /// cadence while `systemUnavailable` is set) so the tab recovers early.
     private func refreshSystem() async {
         if demoMode || config.isDemoMode { return }
         let client = self.client
@@ -358,8 +354,7 @@ public final class BoothStatusLiveStore {
     }
 
     /// Cache order: oldest first, by booth timestamp, then by the operator's
-    /// insertion order for reports of the same instant — the same order the
-    /// operator uses, so a REST page keeps the shape it arrived in.
+    /// insertion order for reports of the same instant.
     private nonisolated static func precedes(_ lhs: BoothStatus, _ rhs: BoothStatus) -> Bool {
         if lhs.updatedAt != rhs.updatedAt { return lhs.updatedAt < rhs.updatedAt }
         // A row without an id predates them all: only an operator that predates
@@ -372,15 +367,14 @@ public final class BoothStatusLiveStore {
     ///
     /// The page is the operator's own ordered history, so it is authoritative
     /// for the span it covers — merging it entry by entry would append the
-    /// whole page again whenever runs share a booth timestamp, since nothing on
-    /// the wire tells two identical runs apart. Entries outside the span are
-    /// kept, and a run the socket has already delivered in a fresher form keeps
-    /// that fresher view.
+    /// whole page again whenever runs share a booth timestamp. Entries outside
+    /// the span are kept, and a run the socket has already delivered in a
+    /// fresher form keeps that fresher view.
     private nonisolated static func replacing(
         _ history: [BoothStatus],
         withPage page: [BoothStatus]
     ) -> [BoothStatus] {
-        let page = stableOrdered(page)
+        let page = stableOrdered(oldestFirst(page))
         guard let oldest = page.first, let newest = page.last else { return history }
         // A run the socket has already advanced keeps that fresher view, and
         // the cached row it came from is then dropped from what is kept — a
@@ -415,9 +409,16 @@ public final class BoothStatusLiveStore {
         return ordered(freshest, unclaimed)
     }
 
-    /// Order a cache without disturbing rows the comparator cannot separate:
-    /// two legacy rows can share a timestamp and carry no id, leaving position
-    /// as the only thing telling them apart. `sorted(by:)` is not stable.
+    /// The operator serves history newest first, so flip a descending page
+    /// before ordering it: legacy rows that tie on their timestamp and carry no
+    /// id fall back to position, which would otherwise land them reversed.
+    private nonisolated static func oldestFirst(_ page: [BoothStatus]) -> [BoothStatus] {
+        guard let first = page.first, let last = page.last, precedes(last, first) else { return page }
+        return page.reversed()
+    }
+
+    /// Order a cache without disturbing rows the comparator cannot separate;
+    /// `sorted(by:)` is not stable.
     private nonisolated static func stableOrdered(_ rows: [BoothStatus]) -> [BoothStatus] {
         rows.enumerated()
             .sorted { lhs, rhs in
