@@ -371,6 +371,36 @@ final class BoothStatusCollapseTests: XCTestCase {
         XCTAssertEqual(history.map(\.id), [2, 1, 3])
     }
 
+    func testAPageDoesNotDuplicateARunTheSocketHasAdvanced() {
+        let start = now
+        let held = BoothStatus(
+            id: 1,
+            state: .idle,
+            updatedAt: start.addingTimeInterval(60),
+            firstSeenAt: start,
+            repeatCount: 6
+        )
+        // The page was generated before that heartbeat reached the socket.
+        let stale = BoothStatus(
+            id: 1,
+            state: .idle,
+            updatedAt: start.addingTimeInterval(30),
+            firstSeenAt: start,
+            repeatCount: 3
+        )
+        let earlier = BoothStatus(
+            id: 0,
+            state: .recording,
+            updatedAt: start.addingTimeInterval(-10),
+            firstSeenAt: start.addingTimeInterval(-10)
+        )
+
+        let history = BoothStatusLiveStore.merging([earlier, stale], into: [held])
+
+        XCTAssertEqual(history.map(\.id), [0, 1])
+        XCTAssertEqual(history[1].repeatCount, 6)
+    }
+
     func testLegacyReportsNeverMatchACollapsedRun() {
         let collapsed = run(firstSeenAt: now, updatedAt: now.addingTimeInterval(60), repeatCount: 5)
         let legacy = BoothStatus(state: .idle, updatedAt: now.addingTimeInterval(30))

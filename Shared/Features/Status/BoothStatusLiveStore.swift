@@ -387,15 +387,31 @@ public final class BoothStatusLiveStore {
     ) -> [BoothStatus] {
         let page = page.sorted(by: precedes)
         guard let oldest = page.first, let newest = page.last else { return history }
-        let freshest = page.map { item in
-            history.first { $0.isSameRun(as: item) && supersedes($0, item) } ?? item
+        // A run the socket has already advanced keeps that fresher view, and
+        // the cached row it came from is then dropped from the slices either
+        // side — a heartbeat can push it past the page's newest report, where
+        // it would otherwise be kept a second time.
+        var reused: Set<Int> = []
+        let freshest = page.map { item -> BoothStatus in
+            guard let index = history.firstIndex(where: {
+                $0.isSameRun(as: item) && supersedes($0, item)
+            }) else { return item }
+            reused.insert(index)
+            return history[index]
         }
         // Boundaries compare on `(updatedAt, id)` too, so a row the socket
         // delivered while the page was in flight survives even when it shares
         // the page's newest timestamp.
-        return history.filter { precedes($0, oldest) }
-            + freshest
-            + history.filter { precedes(newest, $0) }
+        let kept = { (offset: Int, row: BoothStatus, keep: (BoothStatus) -> Bool) in
+            !reused.contains(offset) && keep(row)
+        }
+        let older = history.enumerated()
+            .filter { kept($0.offset, $0.element) { precedes($0, oldest) } }
+            .map(\.element)
+        let newer = history.enumerated()
+            .filter { kept($0.offset, $0.element) { precedes(newest, $0) } }
+            .map(\.element)
+        return older + freshest + newer
     }
 
     /// Fold a single report (a socket frame) into the cache.
