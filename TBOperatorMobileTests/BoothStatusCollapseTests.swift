@@ -401,6 +401,17 @@ final class BoothStatusCollapseTests: XCTestCase {
         XCTAssertEqual(history[1].repeatCount, 6)
     }
 
+    func testRowsWithoutAnIdSortBeforeIdentifiedRowsOfTheSameInstant() {
+        let instant = now
+        let legacy = BoothStatus(state: .idle, updatedAt: instant)
+        let first = BoothStatus(id: 1, state: .recording, updatedAt: instant, firstSeenAt: instant)
+        let second = BoothStatus(id: 2, state: .beep, updatedAt: instant, firstSeenAt: instant)
+
+        let history = BoothStatusLiveStore.merging([second, first, legacy], into: [])
+
+        XCTAssertEqual(history.map(\.state), [.idle, .recording, .beep])
+    }
+
     func testLegacyReportsNeverMatchACollapsedRun() {
         let collapsed = run(firstSeenAt: now, updatedAt: now.addingTimeInterval(60), repeatCount: 5)
         let legacy = BoothStatus(state: .idle, updatedAt: now.addingTimeInterval(30))

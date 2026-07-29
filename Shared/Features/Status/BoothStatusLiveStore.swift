@@ -369,8 +369,10 @@ public final class BoothStatusLiveStore {
     /// operator uses, so a REST page keeps the shape it arrived in.
     private nonisolated static func precedes(_ lhs: BoothStatus, _ rhs: BoothStatus) -> Bool {
         if lhs.updatedAt != rhs.updatedAt { return lhs.updatedAt < rhs.updatedAt }
-        guard let lhsId = lhs.id, let rhsId = rhs.id else { return false }
-        return lhsId < rhsId
+        // A row without an id predates them all: only an operator that predates
+        // the collapse omits it, and its rows are older than anything a newer
+        // operator has served.
+        return (lhs.id ?? Int.min) < (rhs.id ?? Int.min)
     }
 
     /// Splice a REST history page into the cache.
