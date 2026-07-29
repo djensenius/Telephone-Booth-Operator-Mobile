@@ -412,6 +412,34 @@ final class BoothStatusCollapseTests: XCTestCase {
         XCTAssertEqual(history.map(\.state), [.idle, .recording, .beep])
     }
 
+    func testAPageKeepsARowInsertedAfterItWasGenerated() {
+        let start = now
+        let older = BoothStatus(
+            id: 1,
+            state: .idle,
+            updatedAt: start,
+            firstSeenAt: start
+        )
+        let newer = BoothStatus(
+            id: 2,
+            state: .idle,
+            updatedAt: start.addingTimeInterval(60),
+            firstSeenAt: start.addingTimeInterval(60)
+        )
+        // Broadcast while the page request was in flight: reported between the
+        // page's entries, but recorded after the page was generated.
+        let delayed = BoothStatus(
+            id: 3,
+            state: .recording,
+            updatedAt: start.addingTimeInterval(30),
+            firstSeenAt: start.addingTimeInterval(30)
+        )
+
+        let history = BoothStatusLiveStore.merging([newer, older], into: [delayed])
+
+        XCTAssertEqual(history.map(\.id), [1, 3, 2])
+    }
+
     func testLegacyReportsNeverMatchACollapsedRun() {
         let collapsed = run(firstSeenAt: now, updatedAt: now.addingTimeInterval(60), repeatCount: 5)
         let legacy = BoothStatus(state: .idle, updatedAt: now.addingTimeInterval(30))

@@ -272,7 +272,11 @@ public final class BoothStatusLiveStore {
     private func apply(status newStatus: BoothStatus) {
         if let current = status, Self.supersedes(current, newStatus) {
             // A fresher status (e.g. from the live socket) already applied while
-            // a slower REST response was in flight; ignore the stale update.
+            // a slower REST response was in flight, so it stays on display —
+            // but the report is still a real one, and it may be a delayed
+            // transition the history has never seen. The merge drops it if it
+            // is only a staler view of a run already held.
+            mergeIntoHistory(newStatus)
             return
         }
         status = newStatus
@@ -390,9 +394,9 @@ public final class BoothStatusLiveStore {
         let page = page.sorted(by: precedes)
         guard let oldest = page.first, let newest = page.last else { return history }
         // A run the socket has already advanced keeps that fresher view, and
-        // the cached row it came from is then dropped from the slices either
-        // side — a heartbeat can push it past the page's newest report, where
-        // it would otherwise be kept a second time.
+        // the cached row it came from is then dropped from what is kept — a
+        // heartbeat can push it past the page's newest report, where it would
+        // otherwise be held twice.
         var reused: Set<Int> = []
         let freshest = page.map { item -> BoothStatus in
             guard let index = history.firstIndex(where: {
@@ -401,19 +405,45 @@ public final class BoothStatusLiveStore {
             reused.insert(index)
             return history[index]
         }
-        // Boundaries compare on `(updatedAt, id)` too, so a row the socket
-        // delivered while the page was in flight survives even when it shares
-        // the page's newest timestamp.
-        let kept = { (offset: Int, row: BoothStatus, keep: (BoothStatus) -> Bool) in
-            !reused.contains(offset) && keep(row)
+        // Cached rows the page does not speak for: those ordered outside it,
+        // and those the operator inserted after generating it — a report
+        // delayed past the page's oldest entry is broadcast with a row id newer
+        // than anything in the page even though its booth timestamp falls
+        // inside the span.
+        let newestPageId = page.compactMap(\.id).max() ?? Int.min
+        let unclaimed = history.enumerated()
+            .filter { offset, row in
+                guard !reused.contains(offset) else { return false }
+                return precedes(row, oldest) || precedes(newest, row)
+                    || (row.id ?? Int.min) > newestPageId
+            }
+            .map(\.element)
+        return ordered(freshest, unclaimed)
+    }
+
+    /// Merge two caches that are each already in order, keeping that order
+    /// rather than re-sorting — rows sharing a timestamp with no id to separate
+    /// them can only be told apart by the position they already hold.
+    private nonisolated static func ordered(
+        _ lhs: [BoothStatus],
+        _ rhs: [BoothStatus]
+    ) -> [BoothStatus] {
+        var merged: [BoothStatus] = []
+        merged.reserveCapacity(lhs.count + rhs.count)
+        var lhsIndex = lhs.startIndex
+        var rhsIndex = rhs.startIndex
+        while lhsIndex < lhs.endIndex, rhsIndex < rhs.endIndex {
+            if precedes(rhs[rhsIndex], lhs[lhsIndex]) {
+                merged.append(rhs[rhsIndex])
+                rhsIndex += 1
+            } else {
+                merged.append(lhs[lhsIndex])
+                lhsIndex += 1
+            }
         }
-        let older = history.enumerated()
-            .filter { kept($0.offset, $0.element) { precedes($0, oldest) } }
-            .map(\.element)
-        let newer = history.enumerated()
-            .filter { kept($0.offset, $0.element) { precedes(newest, $0) } }
-            .map(\.element)
-        return older + freshest + newer
+        merged.append(contentsOf: lhs[lhsIndex...])
+        merged.append(contentsOf: rhs[rhsIndex...])
+        return merged
     }
 
     /// Fold a single report (a socket frame) into the cache.
