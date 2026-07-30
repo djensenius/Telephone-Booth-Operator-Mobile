@@ -85,7 +85,8 @@ final class OperatorClientRetryTests: XCTestCase {
             XCTFail("Expected OperatorError.unauthorized, got \(error)")
         }
 
-        // Hard-fail refresh (4xx) signs the user out via AuthManager.refreshTokenIfNeeded.
+        // A protocol-valid `invalid_grant` from /token signs the user out via
+        // AuthManager.refreshSession().
         XCTAssertEqual(auth.authState, .signedOut,
                        "Refresh-token rejection must sign the user out")
 
