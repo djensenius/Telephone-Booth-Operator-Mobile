@@ -206,7 +206,9 @@ public struct AuditLogView: View {
     }
 
     private func loadMore() async {
-        guard let cursor = nextCursor, loadState != .loadingMore else { return }
+        // Only from idle: a refresh in flight is about to move the page
+        // boundary this cursor points at.
+        guard let cursor = nextCursor, loadState == .idle else { return }
         let requested = generation
         loadState = .loadingMore
         errorMessage = nil

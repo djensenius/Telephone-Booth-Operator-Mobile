@@ -48,7 +48,7 @@ extension OperatorClient {
             let items = DemoData.auditEntries.filter {
                 $0.targetType == targetType && $0.targetId == targetId
             }
-            return AuditLogPage(items: items, nextCursor: nil)
+            return AuditLogPage(items: Array(items.prefix(limit)), nextCursor: nil)
         }
         var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
         if let cursor { items.append(URLQueryItem(name: "cursor", value: cursor)) }
