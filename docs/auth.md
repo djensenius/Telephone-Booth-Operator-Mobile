@@ -214,11 +214,15 @@ that could tear a session down is therefore biased towards keeping it:
 
 - `refreshSession()` returns a `RefreshOutcome`
   (`refreshed` / `rejected` / `transientFailure`). Only `.rejected`
-  clears the Keychain. Rejection means the provider returned an OAuth
-  `invalid_grant`, `invalid_client`, `unauthorized_client`, or
-  `invalid_scope` error (or a bare 400/401 with no parseable body). A 429,
-  a 403 from a proxy or WAF, a 404 from a mis-set token URL, a 5xx, or any
-  transport error is transient — the refresh token stays put and we retry.
+  clears the Keychain, and the only thing that counts as a rejection is a
+  *protocol-valid* `invalid_grant`: HTTP 400 with a JSON `{"error":
+  "invalid_grant"}` body, per RFC 6749 §5.2. That is the one response
+  that says something about the grant we hold. Everything else is
+  transient — a 429, a 403 from a proxy or WAF, a 404 from a mis-set
+  token URL, a 5xx, a transport error, a bare 400/401 with no parseable
+  body, and the configuration errors (`invalid_client`,
+  `unauthorized_client`, `invalid_scope`) that would otherwise let one
+  mis-deployed Authentik app wipe every operator's Keychain.
 - A launch with no connectivity leaves `authState` at `.unknown` rather
   than signing out. `AuthManager` retries with backoff (2 s → 60 s), the
   next foreground retries again, and the UI shows "we'll keep trying" with

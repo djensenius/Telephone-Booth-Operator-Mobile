@@ -113,7 +113,9 @@ public final class CurrentUserStore {
             // No usable bearer right now. That happens whenever the device is
             // offline with an expired access token; `AuthManager` still holds
             // the refresh token and signs out on its own if the provider
-            // definitively rejects it. Never tear down the session from here.
+            // definitively rejects it. Never tear down the session from here,
+            // and don't let an offline stretch count towards the strike limit.
+            consecutiveAuthFailures = 0
             lastError = "Reconnecting…"
         } catch {
             // Transient network/decoding failures shouldn't sign the operator

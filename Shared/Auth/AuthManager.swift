@@ -100,6 +100,11 @@ public final class AuthManager {
     @ObservationIgnored
     var restoreRetryTask: Task<Void, Never>?
 
+    /// Bumped for every scheduled retry loop so a cancelled loop can't clear
+    /// the handle belonging to the attempt that replaced it.
+    @ObservationIgnored
+    var restoreRetryGeneration = 0
+
     /// URLSession used for token operations. Internal so tests can swap it.
     @ObservationIgnored
     var urlSession: URLSession = .shared

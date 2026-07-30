@@ -156,9 +156,10 @@ final class AuthTests: XCTestCase {
         manager.signOut()
     }
 
-    /// A rate-limited or 5xx `/token` response is not a dead session.
+    /// A rate-limited, misconfigured, or unparseable `/token` response is not
+    /// a dead session — only a protocol-valid `invalid_grant` is.
     @MainActor
-    func testRefreshRateLimitIsNotADefinitiveRejection() {
+    func testOnlyProtocolValidInvalidGrantIsADefinitiveRejection() {
         XCTAssertFalse(
             AuthManager.isDefinitiveRejection(status: 429, body: Data()),
             "429 means slow down, not signed out"
@@ -173,15 +174,31 @@ final class AuthTests: XCTestCase {
             AuthManager.isDefinitiveRejection(status: 403, body: Data("<html>blocked</html>".utf8)),
             "A proxy/WAF 403 must not clear the session"
         )
+        XCTAssertFalse(
+            AuthManager.isDefinitiveRejection(status: 401, body: Data()),
+            "A bare 401 is ambiguous — a proxy produces the same thing"
+        )
+        XCTAssertFalse(
+            AuthManager.isDefinitiveRejection(status: 400, body: Data()),
+            "A 400 with no OAuth error payload proves nothing about the grant"
+        )
+        XCTAssertFalse(
+            AuthManager.isDefinitiveRejection(
+                status: 400, body: Data("{\"error\":\"invalid_client\"}".utf8)
+            ),
+            "Client/scope misconfiguration is a provider outage, not a dead grant"
+        )
+        XCTAssertFalse(
+            AuthManager.isDefinitiveRejection(
+                status: 500, body: Data("{\"error\":\"invalid_grant\"}".utf8)
+            ),
+            "invalid_grant only counts on the protocol's 400 response"
+        )
         XCTAssertTrue(
             AuthManager.isDefinitiveRejection(
                 status: 400, body: Data("{\"error\":\"invalid_grant\"}".utf8)
             ),
             "invalid_grant means the refresh token is dead"
-        )
-        XCTAssertTrue(
-            AuthManager.isDefinitiveRejection(status: 401, body: Data()),
-            "A bare 401 from the token endpoint means the grant was refused"
         )
     }
 

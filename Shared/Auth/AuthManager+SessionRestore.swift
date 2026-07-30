@@ -92,7 +92,17 @@ extension AuthManager {
     func sessionRestoreDeferred(scheduleRetry: Bool) {
         sessionRestoreFailed = true
         guard scheduleRetry, restoreRetryTask == nil else { return }
+        restoreRetryGeneration &+= 1
+        let generation = restoreRetryGeneration
         restoreRetryTask = Task { @MainActor [weak self] in
+            // Always release the handle, however the loop exits, so a later
+            // foreground can schedule a fresh round of retries — but only if
+            // a newer attempt hasn't already taken ownership of it.
+            defer {
+                if let self, self.restoreRetryGeneration == generation {
+                    self.restoreRetryTask = nil
+                }
+            }
             for delay in [2, 5, 15, 30, 60] {
                 try? await Task.sleep(for: .seconds(delay))
                 if Task.isCancelled { return }
@@ -100,7 +110,6 @@ extension AuthManager {
                 await self.restoreSession(scheduleRetry: false)
                 if self.authState != .unknown { return }
             }
-            self?.restoreRetryTask = nil
         }
     }
 
@@ -111,18 +120,23 @@ extension AuthManager {
     /// Treating every 4xx as fatal is what makes an app feel like it "logs you
     /// out constantly": a 429 from rate limiting, a 403 from a WAF, or a 404
     /// from a mis-set token URL would all discard a refresh token that is
-    /// still good for weeks. Per RFC 6749 §5.2, only these OAuth error codes
-    /// mean the grant itself is no longer usable.
+    /// still good for weeks. Only a *protocol-valid* rejection counts — RFC
+    /// 6749 §5.2 requires HTTP 400 with a JSON `error` field, and only
+    /// `invalid_grant` says anything about the grant we hold.
+    ///
+    /// Everything else is deliberately transient, including:
+    /// - `invalid_client` / `unauthorized_client` / `invalid_scope`, which
+    ///   describe provider or client *configuration*. A mis-deployed
+    ///   Authentik app would otherwise wipe every operator's Keychain.
+    /// - A bare 400/401 with no parseable body, which is ambiguous — a
+    ///   reverse proxy or captive portal produces exactly that.
+    ///
+    /// A session that really is dead still resolves itself: the refresh keeps
+    /// failing, the UI offers **Sign Out**, and `CurrentUserStore` tears the
+    /// session down after repeated 401s from `/v1/auth/me`.
     static func isDefinitiveRejection(status: Int, body: Data) -> Bool {
-        let fatalCodes: Set<String> = [
-            "invalid_grant", "invalid_client", "unauthorized_client", "invalid_scope"
-        ]
-        if let code = oauthErrorCode(in: body) {
-            return fatalCodes.contains(code)
-        }
-        // No parseable OAuth error payload: a bare 400/401 from a token
-        // endpoint still almost always means the grant was refused.
-        return status == 400 || status == 401
+        guard status == 400 else { return false }
+        return oauthErrorCode(in: body) == "invalid_grant"
     }
 
     static func oauthErrorCode(in body: Data) -> String? {
