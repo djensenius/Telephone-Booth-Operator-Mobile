@@ -27,13 +27,22 @@ let authManagerLogger = Logger(
 
 private let logger = authManagerLogger
 
+/// Outcome of a refresh attempt. Only `.rejected` means the session is
+/// genuinely dead; `.transientFailure` keeps the cached tokens so the next
+/// launch, foreground, or API call can retry.
+public enum RefreshOutcome: Sendable {
+    case refreshed
+    case rejected
+    case transientFailure
+}
+
 /// Serialises concurrent refresh attempts: at most one in-flight refresh
 /// per process.
 private actor RefreshCoordinator {
     private var isRefreshing = false
-    private var continuations: [CheckedContinuation<Bool, Never>] = []
+    private var continuations: [CheckedContinuation<RefreshOutcome, Never>] = []
 
-    func acquireOrWait() async -> Bool? {
+    func acquireOrWait() async -> RefreshOutcome? {
         if isRefreshing {
             return await withCheckedContinuation { cont in continuations.append(cont) }
         }
@@ -41,11 +50,11 @@ private actor RefreshCoordinator {
         return nil
     }
 
-    func complete(success: Bool) {
+    func complete(_ outcome: RefreshOutcome) {
         let waiters = continuations
         continuations.removeAll()
         isRefreshing = false
-        for waiter in waiters { waiter.resume(returning: success) }
+        for waiter in waiters { waiter.resume(returning: outcome) }
     }
 }
 
@@ -65,8 +74,13 @@ public final class AuthManager {
         case signedOut
     }
 
-    public private(set) var authState: AuthState = .unknown
+    public internal(set) var authState: AuthState = .unknown
     public var isSignedIn: Bool { authState == .signedIn }
+
+    /// True when a cached session exists but couldn't be restored because the
+    /// provider was unreachable. The tokens are still on disk; the UI should
+    /// offer a retry rather than a sign-in prompt.
+    public internal(set) var sessionRestoreFailed = false
 
     @ObservationIgnored
     private let config = AppConfig.shared
@@ -83,12 +97,16 @@ public final class AuthManager {
     @ObservationIgnored
     private let refreshCoordinator = RefreshCoordinator()
 
+    @ObservationIgnored
+    var restoreRetryTask: Task<Void, Never>?
+
     /// URLSession used for token operations. Internal so tests can swap it.
     @ObservationIgnored
     var urlSession: URLSession = .shared
 
     private init() {
         migrateKeychainAccessibility()
+        let hasRefreshToken = getKeychainItem(account: "oidc_refresh_token") != nil
         if getAccessToken() != nil {
             if let expiryStr = getKeychainItem(account: "oidc_token_expiry"),
                let interval = TimeInterval(expiryStr),
@@ -99,51 +117,14 @@ public final class AuthManager {
                 authState = .signedIn
                 logger.info("Init: signed in (valid token in keychain)")
             }
+        } else if hasRefreshToken {
+            // Access token missing (e.g. a failed write) but the long-lived
+            // refresh token survived — restore rather than prompt for login.
+            authState = .unknown
+            logger.info("Init: refresh token only, will restore on launch")
         } else {
             authState = .signedOut
             logger.info("Init: no token found, signedOut")
-        }
-    }
-
-    // MARK: - Session lifecycle
-
-    /// Validates the cached session at app launch. On a definitive 4xx
-    /// refresh rejection the session is cleared; transient/offline failures
-    /// allow the cached token only when it hasn't expired yet.
-    public func validateSessionOnLaunch() async {
-        guard authState == .unknown else { return }
-        #if os(watchOS)
-        // Brokered mode: no refresh token of our own. Try the paired phone,
-        // then fall back to a still-valid cached access token if it's offline.
-        if getKeychainItem(account: "oidc_refresh_token") == nil {
-            if await WatchAuthSync.shared.ensureBrokeredToken() {
-                authState = .signedIn
-                logger.info("validateSession: restored via paired-phone broker")
-            } else if getAccessToken() != nil, !isTokenExpired() {
-                authState = .signedIn
-                logger.info("validateSession: phone unreachable, cached token still valid")
-            } else {
-                signOut()
-            }
-            return
-        }
-        #endif
-        guard getKeychainItem(account: "oidc_refresh_token") != nil else {
-            logger.info("validateSession: no refresh token — signing out")
-            signOut()
-            return
-        }
-
-        let refreshed = await refreshTokenIfNeeded()
-        if refreshed {
-            authState = .signedIn
-            logger.info("validateSession: session restored via refresh")
-        } else if authState == .unknown, getAccessToken() != nil, !isTokenExpired() {
-            authState = .signedIn
-            logger.info("validateSession: refresh failed but token still valid")
-        } else if authState == .unknown {
-            signOut()
-            logger.warning("validateSession: expired token + refresh failure — signed out")
         }
     }
 
@@ -254,6 +235,9 @@ public final class AuthManager {
     }
 
     public func signOut() {
+        restoreRetryTask?.cancel()
+        restoreRetryTask = nil
+        sessionRestoreFailed = false
         deleteKeychainItem(account: "oidc_access_token")
         deleteKeychainItem(account: "oidc_refresh_token")
         deleteKeychainItem(account: "oidc_token_expiry")
@@ -293,7 +277,13 @@ public final class AuthManager {
             return getAccessToken() != nil && !isTokenExpired()
         }
         #endif
-        guard getAccessToken() != nil else { return false }
+        guard getAccessToken() != nil else {
+            // No access token but the refresh token may have survived (or the
+            // access-token write failed): try to mint a new one before
+            // declaring the caller unauthenticated.
+            guard getKeychainItem(account: "oidc_refresh_token") != nil else { return false }
+            return await refreshSession() == .refreshed
+        }
         guard isTokenExpiringSoon() else { return true }
         logger.debug("ensureValidToken: refreshing proactively")
         let refreshed = await refreshTokenIfNeeded()
@@ -316,31 +306,45 @@ public final class AuthManager {
     }
 
     public func refreshTokenIfNeeded() async -> Bool {
+        await refreshSession() == .refreshed
+    }
+
+    /// Exchanges the stored refresh token for a new token pair.
+    ///
+    /// Only a definitive provider rejection (`invalid_grant` and friends)
+    /// clears the session. Anything else — offline, DNS failure, 5xx, 429,
+    /// a proxy swallowing the request — is reported as `.transientFailure`
+    /// and the Keychain is left untouched so we can try again later.
+    @discardableResult
+    public func refreshSession() async -> RefreshOutcome {
         if let coalesced = await refreshCoordinator.acquireOrWait() { return coalesced }
         guard let refreshToken = getKeychainItem(account: "oidc_refresh_token") else {
-            logger.warning("refreshTokenIfNeeded: no refresh token")
-            await refreshCoordinator.complete(success: false)
-            return false
+            logger.warning("refreshSession: no refresh token")
+            await refreshCoordinator.complete(.transientFailure)
+            return .transientFailure
         }
         do {
             let tokens = try await refreshAccessToken(refreshToken)
             let persisted = storeTokens(tokens)
             if persisted {
                 logger.info("Token refreshed (expiresIn=\(tokens.expiresIn ?? -1))")
-            } else {
-                logger.error("Token refreshed but keychain write failed")
+                await refreshCoordinator.complete(.refreshed)
+                return .refreshed
             }
-            await refreshCoordinator.complete(success: persisted)
-            return persisted
+            // The provider gave us a new pair but we couldn't persist it.
+            // Don't sign out — the old refresh token may still work.
+            logger.error("Token refreshed but keychain write failed")
+            await refreshCoordinator.complete(.transientFailure)
+            return .transientFailure
         } catch AuthError.refreshTokenInvalid(let reason) {
             logger.error("Refresh token rejected — signing out: \(reason, privacy: .private)")
-            await refreshCoordinator.complete(success: false)
+            await refreshCoordinator.complete(.rejected)
             signOut()
-            return false
+            return .rejected
         } catch {
             logger.warning("Refresh failed transiently: \(error.localizedDescription, privacy: .private)")
-            await refreshCoordinator.complete(success: false)
-            return false
+            await refreshCoordinator.complete(.transientFailure)
+            return .transientFailure
         }
     }
 
@@ -404,7 +408,7 @@ public final class AuthManager {
             return try JSONDecoder().decode(OIDCTokens.self, from: data)
         }
         let body = String(data: data, encoding: .utf8) ?? "unknown"
-        if (400...499).contains(http.statusCode) {
+        if Self.isDefinitiveRejection(status: http.statusCode, body: data) {
             logger.error("Refresh rejected (\(http.statusCode)): \(body, privacy: .private)")
             throw AuthError.refreshTokenInvalid(body)
         }
@@ -477,6 +481,9 @@ public final class AuthManager {
     /// Resets auth state to `.unknown` so `validateSessionOnLaunch()` can be
     /// exercised again. Internal — visible only via `@testable import`.
     func resetStateForTesting() {
+        restoreRetryTask?.cancel()
+        restoreRetryTask = nil
+        sessionRestoreFailed = false
         authState = .unknown
     }
 }

@@ -79,6 +79,9 @@ public struct RootContainerView: View {
             guard !effectiveDemoMode else { return }
             guard newPhase == .active else { return }
             Task { @MainActor in
+                // A restore that failed while offline is retried here, so
+                // coming back to the app is enough to resume the session.
+                await AuthManager.shared.validateSessionOnLaunch()
                 _ = await AuthManager.shared.ensureValidToken()
                 await PendingMessagesStore.shared.refresh(using: .shared)
             }
@@ -97,15 +100,47 @@ public struct RootContainerView: View {
     private var liveRoot: some View {
         switch auth.authState {
         case .unknown:
-            ProgressView("Connecting to the booth…")
-                .progressViewStyle(.circular)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Theme.Colors.background)
+            SessionRestoreView(restoreFailed: auth.sessionRestoreFailed)
         case .signedOut:
             LoginView()
         case .signedIn:
             SignedInRootView()
         }
+    }
+}
+
+/// Shown while a cached session is being restored. When the provider can't be
+/// reached the tokens are kept and retried in the background, so this offers a
+/// manual retry instead of dumping the operator back to a sign-in screen.
+private struct SessionRestoreView: View {
+    let restoreFailed: Bool
+
+    var body: some View {
+        VStack(spacing: Theme.Spacing.medium) {
+            if restoreFailed {
+                Image(systemName: "wifi.exclamationmark")
+                    .font(.largeTitle)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                Text("Can't reach the booth right now. You're still signed in — we'll keep trying.")
+                    .font(Theme.Fonts.bodyMedium)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                Button("Try Again") {
+                    Task { await AuthManager.shared.retrySessionRestore() }
+                }
+                .buttonStyle(.borderedProminent)
+                Button("Sign Out", role: .destructive) {
+                    AuthManager.shared.signOut()
+                }
+                .buttonStyle(.borderless)
+            } else {
+                ProgressView("Connecting to the booth…")
+                    .progressViewStyle(.circular)
+            }
+        }
+        .padding(Theme.Spacing.large)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.Colors.background)
     }
 }
 

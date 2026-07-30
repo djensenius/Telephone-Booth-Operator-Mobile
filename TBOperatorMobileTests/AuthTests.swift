@@ -120,9 +120,12 @@ final class AuthTests: XCTestCase {
 
     // MARK: - Launch validation (validateSessionOnLaunch)
 
-    /// Expired token + transient refresh failure → must sign out, not stay signed in.
+    /// Expired token + transient refresh failure → keep the session and retry.
+    /// Discarding a 30-day refresh token because the device happened to be
+    /// offline at launch is what makes an app feel like it logs you out
+    /// constantly.
     @MainActor
-    func testValidateSessionExpiredTokenTransientFailureSignsOut() async {
+    func testValidateSessionExpiredTokenTransientFailureKeepsSession() async {
         let manager = AuthManager.shared
         // Store an already-expired token
         let expiredTokens = OIDCTokens(
@@ -142,11 +145,44 @@ final class AuthTests: XCTestCase {
 
         await manager.validateSessionOnLaunch()
 
-        XCTAssertEqual(manager.authState, .signedOut,
-                       "Expired token + transient refresh failure must not become .signedIn")
+        XCTAssertEqual(manager.authState, .unknown,
+                       "A transient refresh failure must not resolve the session either way")
+        XCTAssertTrue(manager.sessionRestoreFailed,
+                      "The UI needs to know the restore failed so it can offer a retry")
+        XCTAssertNotNil(manager.getKeychainItem(account: "oidc_refresh_token"),
+                        "The refresh token must survive a transient failure")
         // Clean up
         manager.urlSession = .shared
         manager.signOut()
+    }
+
+    /// A rate-limited or 5xx `/token` response is not a dead session.
+    @MainActor
+    func testRefreshRateLimitIsNotADefinitiveRejection() {
+        XCTAssertFalse(
+            AuthManager.isDefinitiveRejection(status: 429, body: Data()),
+            "429 means slow down, not signed out"
+        )
+        XCTAssertFalse(
+            AuthManager.isDefinitiveRejection(
+                status: 400, body: Data("{\"error\":\"server_error\"}".utf8)
+            ),
+            "A 400 carrying a non-fatal OAuth error must not clear the session"
+        )
+        XCTAssertFalse(
+            AuthManager.isDefinitiveRejection(status: 403, body: Data("<html>blocked</html>".utf8)),
+            "A proxy/WAF 403 must not clear the session"
+        )
+        XCTAssertTrue(
+            AuthManager.isDefinitiveRejection(
+                status: 400, body: Data("{\"error\":\"invalid_grant\"}".utf8)
+            ),
+            "invalid_grant means the refresh token is dead"
+        )
+        XCTAssertTrue(
+            AuthManager.isDefinitiveRejection(status: 401, body: Data()),
+            "A bare 401 from the token endpoint means the grant was refused"
+        )
     }
 
     /// Expired token + successful refresh → should sign in.

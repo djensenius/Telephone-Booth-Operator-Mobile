@@ -178,15 +178,13 @@ iCloud-Keychain export, no restore to a new phone). See
 checkpoints:
 
 - **At launch** — `validateSessionOnLaunch()` runs from
-  `RootContainerView.task` exactly once per process. If the cached access
-  token is within 60 s of expiry (or already expired), it exchanges the
-  refresh token before showing any UI. A 4xx from `/token` signs the user
-  out cleanly; transient failures (no network, 5xx) keep the user signed
-  in as long as the cached access token hasn't truly expired.
+  `RootContainerView.task`. If the cached access token is within 60 s of
+  expiry (or already expired), it exchanges the refresh token before
+  showing any UI.
 - **On foreground** — `RootContainerView` watches `scenePhase` and calls
-  `ensureValidToken()` whenever the app becomes `.active`. This pre-warms
-  the bearer after the device has been asleep so the first user-driven
-  request doesn't pay the refresh latency.
+  `validateSessionOnLaunch()` + `ensureValidToken()` whenever the app
+  becomes `.active`. This pre-warms the bearer after the device has been
+  asleep, and retries a restore that failed earlier while offline.
 - **Before every API call** — `OperatorClient` calls
   `auth.authorizationHeader()`, which goes through `ensureValidToken()`
   and refreshes if needed. Concurrent calls coalesce through
@@ -210,17 +208,42 @@ signed in for the lifetime of the refresh token (30 days by default).
 The Keychain still holds the refresh token across cold launches, so even
 a force-quit + week-later relaunch typically resumes silently.
 
+**4. A cached session is only ever discarded deliberately.** The design
+goal is that the operator signs in once and signs out by hand. Everything
+that could tear a session down is therefore biased towards keeping it:
+
+- `refreshSession()` returns a `RefreshOutcome`
+  (`refreshed` / `rejected` / `transientFailure`). Only `.rejected`
+  clears the Keychain. Rejection means the provider returned an OAuth
+  `invalid_grant`, `invalid_client`, `unauthorized_client`, or
+  `invalid_scope` error (or a bare 400/401 with no parseable body). A 429,
+  a 403 from a proxy or WAF, a 404 from a mis-set token URL, a 5xx, or any
+  transport error is transient — the refresh token stays put and we retry.
+- A launch with no connectivity leaves `authState` at `.unknown` rather
+  than signing out. `AuthManager` retries with backoff (2 s → 60 s), the
+  next foreground retries again, and the UI shows "we'll keep trying" with
+  a manual **Try Again** instead of a sign-in prompt
+  (`sessionRestoreFailed`).
+- `CurrentUserStore`'s 2-minute `/v1/auth/me` liveness poll needs
+  `authFailureTolerance` (3) *consecutive* 401/403 responses before it
+  signs out, so a single blip costs nothing. A local
+  `OperatorError.unauthenticated` (offline with an expired access token)
+  never signs out at all — `AuthManager` owns that decision.
+- If the access token is missing but the refresh token survived,
+  `ensureValidToken()` mints a new one instead of reporting "signed out".
+
 **When the user does get bounced to LoginView:**
 
-- Refresh token expired (>30 days idle).
+- Refresh token expired (default 30 days idle — raise "Refresh token
+  validity" on the Authentik provider if you want longer).
 - Authentik admin revoked the session, deleted the user, or removed them
   from `OIDC_ALLOWED_GROUPS`.
-- The operator API rotated its issuer / audience and the new server
-  rejects every token we hold.
+- The account keeps failing `/v1/auth/me` for three consecutive polls.
+- The user tapped **Sign Out**, changed the API host, or entered demo mode.
 
-In all three cases `AuthManager.refreshTokenIfNeeded()` sees a 4xx from
-`/token`, calls `signOut()`, and `RootContainerView` re-renders the login
-screen on the next observation cycle.
+In the provider-side cases `AuthManager.refreshSession()` sees an
+`invalid_grant` from `/token`, calls `signOut()`, and `RootContainerView`
+re-renders the login screen on the next observation cycle.
 
 ## Open questions (to resolve during operator PR 1)
 
