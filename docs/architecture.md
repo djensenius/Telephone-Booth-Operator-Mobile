@@ -36,6 +36,9 @@
 
 ## Key decisions
 
+- Every write this app makes is recorded by the operator's audit trail with
+  the operator, the IP and a timestamp; admins can read it back on the Audit
+  tab. See [`audit-log.md`](audit-log.md).
 - Mobile clients **never** talk to Postgres or Azure directly. Everything
   flows through the operator's versioned `/v1` API.
 - Mobile clients authenticate with **OIDC Authorization Code + PKCE**
