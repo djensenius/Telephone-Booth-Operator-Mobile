@@ -132,6 +132,38 @@ final class AuditLogTests: XCTestCase {
         XCTAssertEqual(value["dryRun"], .bool(false))
     }
 
+    /// The operator can add actor types without a client release, so one
+    /// unknown value must not take the whole page down with it.
+    func testUnknownActorTypeDecodesWithoutFailingThePage() throws {
+        let json = #"""
+        {
+          "items": [
+            {
+              "id": "8f0a5f2e-2f3a-4c1c-9a2f-2a4f0b6d1e11",
+              "action": "message.approve",
+              "actorType": "serviceMesh",
+              "actorLabel": "mesh",
+              "method": "POST",
+              "path": "/v1/messages/x/decision",
+              "statusCode": 200,
+              "createdAt": "2026-05-23T14:32:11Z"
+            }
+          ],
+          "nextCursor": null
+        }
+        """#
+
+        let page = try OperatorJSON.decoder.decode(
+            AuditLogPage.self,
+            from: Data(json.utf8)
+        )
+
+        XCTAssertEqual(page.items.count, 1)
+        XCTAssertEqual(page.items[0].actorType, .unknown("serviceMesh"))
+        XCTAssertEqual(page.items[0].actorType.rawValue, "serviceMesh")
+        XCTAssertEqual(page.items[0].actorType.label, "serviceMesh")
+    }
+
     #if !os(watchOS) && !os(tvOS)
     /// The trail is admin-only, so a 403 needs to say so rather than look like
     /// a transient failure.

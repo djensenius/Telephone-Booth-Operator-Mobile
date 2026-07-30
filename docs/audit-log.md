@@ -1,9 +1,14 @@
 # Audit log
 
-The operator backend records every write action with the acting principal,
-the client IP, the request path, the response status and a timestamp. This
-app both **contributes** to that trail (its approvals, rejections and
-question edits are writes) and **reads** it, on an admin-only Audit tab.
+The operator backend records write actions with the acting principal, the
+client IP, the request path, the response status and a timestamp. This app
+both **contributes** to that trail (its approvals, rejections and question
+edits are writes) and **reads** it, on an admin-only Audit tab.
+
+High-frequency booth telemetry — `PUT /v1/status`, `PUT /v1/system` and
+`POST /v1/events` — is excluded by default and only recorded when the
+operator sets `AUDIT_LOG_TELEMETRY=true`. Everything this app sends is
+recorded either way.
 
 The server-side design lives in
 [`docs/audit-log.md`](https://github.com/djensenius/Telephone-Booth-Operator/blob/main/docs/audit-log.md)

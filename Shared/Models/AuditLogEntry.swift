@@ -10,15 +10,61 @@
 import Foundation
 
 /// What kind of principal took an action.
-public enum AuditActorType: String, Codable, Sendable, CaseIterable {
+///
+/// The operator may add actor types without a client release, so unknown
+/// values decode into `.unknown` rather than failing the whole page.
+public enum AuditActorType: RawRepresentable, Codable, Sendable, Hashable {
     /// A signed-in operator.
-    case operatorUser = "operator"
+    case operatorUser
     /// A phone-side or worker API token.
     case apiToken
     /// No credentials were presented.
     case anonymous
     /// The API itself, for background jobs.
     case system
+    /// An actor type this build does not know about.
+    case unknown(String)
+
+    /// The actor types this build can name, in filter order.
+    public static let knownCases: [AuditActorType] = [
+        .operatorUser, .apiToken, .anonymous, .system
+    ]
+
+    // MARK: - Raw value mapping
+
+    public var rawValue: String {
+        switch self {
+        case .operatorUser: return "operator"
+        case .apiToken: return "apiToken"
+        case .anonymous: return "anonymous"
+        case .system: return "system"
+        case .unknown(let value): return value
+        }
+    }
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "operator": self = .operatorUser
+        case "apiToken": self = .apiToken
+        case "anonymous": self = .anonymous
+        case "system": self = .system
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    // MARK: - Codable
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self.init(rawValue: try container.decode(String.self))
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+
+    // MARK: - Presentation
 
     /// Short label for lists and filter chips.
     public var label: String {
@@ -27,6 +73,7 @@ public enum AuditActorType: String, Codable, Sendable, CaseIterable {
         case .apiToken: "Token"
         case .anonymous: "Anonymous"
         case .system: "System"
+        case .unknown(let value): value
         }
     }
 
@@ -37,6 +84,7 @@ public enum AuditActorType: String, Codable, Sendable, CaseIterable {
         case .apiToken: "key.fill"
         case .anonymous: "questionmark.circle"
         case .system: "gearshape.fill"
+        case .unknown: "questionmark.square.dashed"
         }
     }
 }
