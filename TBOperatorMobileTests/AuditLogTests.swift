@@ -133,15 +133,53 @@ final class AuditLogTests: XCTestCase {
     }
 
     #if !os(watchOS) && !os(tvOS)
-    /// The trail is admin-only, so a rejection needs to say so rather than
-    /// look like a transient failure.
-    func testUnauthorizedErrorExplainsAdminRequirement() {
+    /// The trail is admin-only, so a 403 needs to say so rather than look like
+    /// a transient failure.
+    func testForbiddenErrorExplainsAdminRequirement() {
         let message = AuditLogView.message(
-            for: OperatorError.unauthorized(""),
+            for: OperatorError.unauthorized(#"{"error":"forbidden"}"#),
             fallback: "Failed to load the audit log."
         )
 
         XCTAssertEqual(message, "The audit log is available to administrators only.")
+    }
+
+    /// The client collapses 401 and 403 into `.unauthorized`; an expired
+    /// sign-in must not be reported as a privileges problem.
+    func testExpiredSessionIsNotReportedAsAPermissionsProblem() {
+        let message = AuditLogView.message(
+            for: OperatorError.unauthorized(#"{"error":"unauthorized"}"#),
+            fallback: "Failed to load the audit log."
+        )
+
+        XCTAssertEqual(message, "Your session has expired. Sign in again.")
+    }
+
+    /// A 5xx is the server falling over, not a refusal.
+    func testServerFailureIsNotLabelledDenied() {
+        let failed = AuditLogEntry(
+            id: "a",
+            action: "message.approve",
+            actorType: .operatorUser,
+            actorLabel: "operator@example.com",
+            method: "POST",
+            path: "/v1/messages/x/decision",
+            statusCode: 503,
+            createdAt: Date()
+        )
+        let denied = AuditLogEntry(
+            id: "b",
+            action: "message.approve",
+            actorType: .anonymous,
+            actorLabel: "anonymous",
+            method: "POST",
+            path: "/v1/messages/x/decision",
+            statusCode: 403,
+            createdAt: Date()
+        )
+
+        XCTAssertEqual(AuditLogRow.outcomeLabel(for: failed), "failed 503")
+        XCTAssertEqual(AuditLogRow.outcomeLabel(for: denied), "denied 403")
     }
 
     func testActionFilterPrefixesExcludeSignOuts() {
