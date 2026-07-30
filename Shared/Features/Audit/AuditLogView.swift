@@ -60,8 +60,8 @@ public struct AuditLogView: View {
     @State private var loadState: LoadState = .idle
     @State private var errorMessage: String?
     @State private var filter: ActionFilter = .all
-    /// Bumped on every filter change so a slow in-flight page cannot overwrite
-    /// or append to the results of a newer one.
+    /// Bumped whenever a first page is requested, so a slow in-flight page
+    /// cannot overwrite or append to the results of a newer one.
     @State private var generation = 0
 
     private let client: OperatorClient
@@ -109,8 +109,7 @@ public struct AuditLogView: View {
         .padding(.horizontal, Theme.Spacing.medium)
         .padding(.vertical, Theme.Spacing.small)
         .onChange(of: filter) {
-            generation += 1
-            Task { await loadFirstPage() }
+            Task { await loadFirstPage(discardingEntries: true) }
         }
     }
 
@@ -159,10 +158,14 @@ public struct AuditLogView: View {
 
     private var emptyState: some View {
         VStack(spacing: Theme.Spacing.medium) {
-            Image(systemName: "list.bullet.rectangle.portrait")
+            Image(
+                systemName: errorMessage == nil
+                    ? "list.bullet.rectangle.portrait"
+                    : "exclamationmark.triangle"
+            )
                 .font(.system(size: 36))
                 .foregroundStyle(Theme.Colors.textSecondary)
-            Text("No recorded actions")
+            Text(errorMessage == nil ? "No recorded actions" : "Couldn't load the audit log")
                 .font(Theme.Fonts.bodyLarge)
                 .foregroundStyle(Theme.Colors.textPrimary)
             if let errorMessage {
@@ -176,10 +179,17 @@ public struct AuditLogView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func loadFirstPage() async {
+    /// Starting a first page also invalidates any in-flight `loadMore`: its
+    /// cursor belongs to a page boundary that is about to move.
+    private func loadFirstPage(discardingEntries discard: Bool = false) async {
+        generation += 1
         let requested = generation
         loadState = .loadingInitial
         errorMessage = nil
+        if discard {
+            entries = []
+            nextCursor = nil
+        }
         do {
             let page = try await client.fetchAuditLogs(action: filter.prefix, limit: pageSize)
             guard requested == generation else { return }
@@ -188,8 +198,8 @@ public struct AuditLogView: View {
             loadState = nextCursor == nil ? .done : .idle
         } catch {
             guard requested == generation else { return }
-            entries = []
-            nextCursor = nil
+            // A failed refresh keeps what is already on screen; only a filter
+            // change makes the visible entries wrong.
             errorMessage = Self.message(for: error, fallback: "Failed to load the audit log.")
             loadState = .idle
         }
@@ -308,7 +318,9 @@ struct AuditLogRow: View {
         return parts.joined(separator: " · ")
     }
 
-    private var accessibilityLabel: String {
+    /// Everything the row shows, in reading order, so VoiceOver users are not
+    /// missing the request or its detail.
+    var accessibilityLabel: String {
         let outcome: String
         if entry.succeeded {
             outcome = "succeeded"
@@ -317,9 +329,15 @@ struct AuditLogRow: View {
         } else {
             outcome = "was denied with \(entry.statusCode)"
         }
-        let from = entry.ip.map { " from \($0)" } ?? ""
-        return "\(entry.actionTitle) by \(entry.actorLabel)\(from), \(outcome), "
-            + entry.createdAt.formatted(date: .abbreviated, time: .standard)
+        var parts = ["\(entry.actionTitle) by \(entry.actorLabel)"]
+        if let address = entry.ip { parts.append("from \(address)") }
+        parts.append(outcome)
+        parts.append("\(entry.method) \(entry.path)")
+        parts.append(entry.createdAt.formatted(date: .abbreviated, time: .standard))
+        if let metadata = entry.metadata, !metadata.isEmpty {
+            parts.append(Self.metadataSummary(metadata))
+        }
+        return parts.joined(separator: ", ")
     }
 }
 

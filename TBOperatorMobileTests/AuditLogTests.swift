@@ -214,6 +214,33 @@ final class AuditLogTests: XCTestCase {
         XCTAssertEqual(AuditLogRow.outcomeLabel(for: denied), "denied 403")
     }
 
+    /// VoiceOver replaces the row's combined text, so the label has to carry
+    /// the request and its detail as well as who acted.
+    func testAccessibilityLabelCarriesTheRequestAndItsDetail() {
+        let entry = AuditLogEntry(
+            id: "c",
+            action: "message.approve",
+            targetType: "message",
+            targetId: "m1",
+            actorType: .operatorUser,
+            actorLabel: "operator@example.com",
+            ip: "203.0.113.7",
+            method: "POST",
+            path: "/v1/messages/m1/decision",
+            statusCode: 200,
+            metadata: ["decision": .string("approve")],
+            createdAt: Date()
+        )
+
+        let label = AuditLogRow(entry: entry).accessibilityLabel
+
+        XCTAssertTrue(label.contains("operator@example.com"))
+        XCTAssertTrue(label.contains("from 203.0.113.7"))
+        XCTAssertTrue(label.contains("POST /v1/messages/m1/decision"))
+        XCTAssertTrue(label.contains("decision: approve"))
+        XCTAssertTrue(label.contains("succeeded"))
+    }
+
     func testActionFilterPrefixesExcludeSignOuts() {
         XCTAssertNil(AuditLogView.ActionFilter.all.prefix)
         XCTAssertEqual(AuditLogView.ActionFilter.messages.prefix, "message.")
