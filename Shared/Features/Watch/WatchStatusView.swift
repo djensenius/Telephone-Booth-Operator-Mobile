@@ -84,6 +84,9 @@ struct WatchStatusView: View {
             if let fan = liveStore.systemEnvelope?.snapshot.fan {
                 WatchStatRow(label: "Fan command", value: fan.commandDescription ?? "—")
                 WatchStatRow(label: "Fan measured", value: fan.measuredSpeedDescription)
+                if let coolingState = fan.coolingStateDescription {
+                    WatchStatRow(label: "Fan state", value: coolingState)
+                }
             }
         }
     }

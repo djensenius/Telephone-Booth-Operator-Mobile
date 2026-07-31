@@ -76,6 +76,13 @@ public struct SystemVitalsStrip: View {
                     value: fan.measuredSpeedDescription,
                     severity: .nominal
                 )
+                if let coolingState = fan.coolingStateDescription {
+                    VitalTile(
+                        label: "Fan state",
+                        value: coolingState,
+                        severity: .nominal
+                    )
+                }
             }
             if let flags = snapshot?.throttlingFlags, !flags.isEmpty {
                 VitalTile(label: "Throttling", value: "\(flags.count)", severity: .warn)
