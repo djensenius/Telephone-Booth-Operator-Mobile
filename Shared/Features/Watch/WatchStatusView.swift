@@ -81,6 +81,10 @@ struct WatchStatusView: View {
             )
             WatchStatRow(label: "Received today", value: "\(liveStore.stats?.messages.receivedToday ?? 0)")
             WatchStatRow(label: "WS clients", value: "\(liveStore.stats?.realtime.wsClients ?? 0)")
+            if let fan = liveStore.systemEnvelope?.snapshot.fan {
+                WatchStatRow(label: "Fan command", value: fan.commandDescription ?? "—")
+                WatchStatRow(label: "Fan measured", value: fan.measuredSpeedDescription)
+            }
         }
     }
 

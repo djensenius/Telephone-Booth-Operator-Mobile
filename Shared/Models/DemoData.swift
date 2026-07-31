@@ -247,6 +247,12 @@ public enum DemoData {
                 peerCount: 5,
                 hostname: "telephone-booth-demo"
             ),
+            fan: BoothSystemSnapshot.FanStats(
+                commandedOn: true,
+                pwmRatio: 0.67,
+                coolingState: 2,
+                maxCoolingState: 3
+            ),
             throttling: BoothSystemSnapshot.ThrottlingFlags(),
             runtimeMode: .simulator,
             hostname: "telephone-booth-demo",

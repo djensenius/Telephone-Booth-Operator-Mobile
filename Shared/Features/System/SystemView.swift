@@ -40,6 +40,7 @@ public struct SystemView: View {
                     SystemDisksCard(snapshot: envelope.snapshot)
                     SystemNetworkCard(snapshot: envelope.snapshot)
                     SystemAudioCard(snapshot: envelope.snapshot)
+                    SystemFanCard(snapshot: envelope.snapshot)
                     SystemConnectivityCard(snapshot: envelope.snapshot)
                 } else if loading {
                     ProgressView().frame(maxWidth: .infinity).padding(Theme.Spacing.extraLarge)
@@ -307,6 +308,30 @@ private struct SystemAudioCard: View {
                 if let dbfs = snapshot.audioOutputDbfs {
                     StatRow(label: "Output level", value: String(format: "%.1f dBFS", dbfs))
                 }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Theme.Spacing.large)
+            .glassCardBackground()
+        }
+    }
+}
+
+// MARK: - Cooling fan
+
+private struct SystemFanCard: View {
+    let snapshot: BoothSystemSnapshot
+
+    var body: some View {
+        if let fan = snapshot.fan {
+            VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+                SectionHeader(text: "Cooling fan")
+                if let command = fan.commandDescription {
+                    StatRow(label: "Command", value: command)
+                }
+                if let state = fan.coolingStateDescription {
+                    StatRow(label: "Cooling state", value: state)
+                }
+                StatRow(label: "Measured speed", value: fan.measuredSpeedDescription)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Theme.Spacing.large)

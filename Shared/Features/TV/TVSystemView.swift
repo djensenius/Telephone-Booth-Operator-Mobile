@@ -76,6 +76,7 @@ struct TVSystemView: View {
             TVSystemMemoryCard(snapshot: snapshot)
             TVSystemDisksCard(snapshot: snapshot)
             TVSystemNetworkCard(snapshot: snapshot)
+            TVSystemFanCard(snapshot: snapshot)
             TVSystemAudioConnectivityCard(snapshot: snapshot)
         }
     }
@@ -377,6 +378,29 @@ private struct TVSystemNetworkCard: View {
                             .foregroundStyle(Theme.Colors.textSecondary)
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Cooling fan
+
+private struct TVSystemFanCard: View {
+    let snapshot: BoothSystemSnapshot
+
+    var body: some View {
+        if let fan = snapshot.fan {
+            TVFocusCard {
+                VStack(alignment: .leading, spacing: 16) {
+                    TVCardHeader(title: "Cooling fan", systemImage: "fan")
+                    if let command = fan.commandDescription {
+                        TVKeyValueRow(key: "Command", value: command)
+                    }
+                    if let state = fan.coolingStateDescription {
+                        TVKeyValueRow(key: "Cooling state", value: state)
+                    }
+                    TVKeyValueRow(key: "Measured speed", value: fan.measuredSpeedDescription)
                 }
             }
         }

@@ -65,6 +65,18 @@ public struct SystemVitalsStrip: View {
                 value: SystemVitals.formatUptime(snapshot?.uptimeSeconds),
                 severity: .nominal
             )
+            if let fan = snapshot?.fan {
+                VitalTile(
+                    label: "Fan command",
+                    value: fan.commandDescription ?? "—",
+                    severity: .nominal
+                )
+                VitalTile(
+                    label: "Fan measured",
+                    value: fan.measuredSpeedDescription,
+                    severity: .nominal
+                )
+            }
             if let flags = snapshot?.throttlingFlags, !flags.isEmpty {
                 VitalTile(label: "Throttling", value: "\(flags.count)", severity: .warn)
             }
