@@ -5,7 +5,7 @@
 //  Mirrors the operator's `BoothSystemSnapshotSchema` from
 //  `packages/shared/src/index.ts`. The canonical wire format groups
 //  metrics into sub-objects (`cpu`, `memory`, `disks[]`, `networks[]`,
-//  `process`, `audio`, `tailscale`, `throttling`) matching the Rust
+//  `process`, `audio`, `tailscale`, `fan`, `throttling`) matching the Rust
 //  `booth-hal::SystemSnapshot` struct that the booth client serialises.
 //
 //  All fields are optional so the schema is forward-compatible with
@@ -31,6 +31,7 @@ public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
     public let process: ProcessStats?
     public let audio: AudioStats?
     public let tailscale: TailscaleStats?
+    public let fan: FanStats?
     public let throttling: ThrottlingFlags?
     public let runtimeMode: RuntimeMode?
     // Host-identity fields are not in the narrowed operator schema, but
@@ -203,6 +204,49 @@ public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
         }
     }
 
+    /// Linux PWM cooling-fan command and optional tachometer feedback.
+    /// Commanded state describes what the kernel requested; only `rpm`
+    /// confirms measured rotor speed.
+    public struct FanStats: Codable, Sendable, Equatable {
+        public let commandedOn: Bool?
+        public let pwmRatio: Double?
+        public let rpm: Int?
+        public let coolingState: Int?
+        public let maxCoolingState: Int?
+
+        public init(
+            commandedOn: Bool? = nil,
+            pwmRatio: Double? = nil,
+            rpm: Int? = nil,
+            coolingState: Int? = nil,
+            maxCoolingState: Int? = nil
+        ) {
+            self.commandedOn = commandedOn
+            self.pwmRatio = pwmRatio
+            self.rpm = rpm
+            self.coolingState = coolingState
+            self.maxCoolingState = maxCoolingState
+        }
+
+        public var commandDescription: String? {
+            guard commandedOn != nil || pwmRatio != nil else { return nil }
+            let command = commandedOn.map { $0 ? "On" : "Off" } ?? "Unknown"
+            guard let pwmRatio else { return command }
+            let bounded = max(0, min(1, pwmRatio))
+            return String(format: "\(command) (%.0f%% PWM)", bounded * 100)
+        }
+
+        public var coolingStateDescription: String? {
+            guard let coolingState else { return nil }
+            guard let maxCoolingState else { return "\(coolingState)" }
+            return "\(coolingState) / \(maxCoolingState)"
+        }
+
+        public var measuredSpeedDescription: String {
+            rpm.map { "\($0) RPM" } ?? "No tachometer"
+        }
+    }
+
     /// Six boolean Pi throttling flags returned by `vcgencmd get_throttled`.
     /// Adapters that can't read these (non-Pi hosts) omit the whole object.
     public struct ThrottlingFlags: Codable, Sendable, Equatable {
@@ -254,6 +298,7 @@ public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
         process: ProcessStats? = nil,
         audio: AudioStats? = nil,
         tailscale: TailscaleStats? = nil,
+        fan: FanStats? = nil,
         throttling: ThrottlingFlags? = nil,
         runtimeMode: RuntimeMode? = nil,
         hostname: String? = nil,
@@ -269,6 +314,7 @@ public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
         self.process = process
         self.audio = audio
         self.tailscale = tailscale
+        self.fan = fan
         self.throttling = throttling
         self.runtimeMode = runtimeMode
         self.hostname = hostname

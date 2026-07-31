@@ -40,6 +40,11 @@ final class BoothSystemSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.tailscale?.connected, true)
         XCTAssertEqual(snapshot.tailscale?.peerCount, 5)
         XCTAssertNil(snapshot.tailscale?.exitNode)
+        XCTAssertEqual(snapshot.fan?.commandedOn, true)
+        XCTAssertEqual(snapshot.fan?.pwmRatio, 0.67)
+        XCTAssertEqual(snapshot.fan?.rpm, 4250)
+        XCTAssertEqual(snapshot.fan?.coolingState, 2)
+        XCTAssertEqual(snapshot.fan?.maxCoolingState, 3)
         XCTAssertEqual(snapshot.throttling?.throttled, true)
         XCTAssertEqual(snapshot.process?.threads, 6)
         XCTAssertEqual(snapshot.runtimeMode, .real)
@@ -57,6 +62,9 @@ final class BoothSystemSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.tailscaleHostname, "booth-a.tailnet.ts.net")
         XCTAssertEqual(snapshot.audioInputDevice, "USB Mic")
         XCTAssertNil(snapshot.audioInputDbfs)
+        XCTAssertEqual(snapshot.fan?.commandDescription, "On (67% PWM)")
+        XCTAssertEqual(snapshot.fan?.coolingStateDescription, "2 / 3")
+        XCTAssertEqual(snapshot.fan?.measuredSpeedDescription, "4250 RPM")
         XCTAssertEqual(
             snapshot.throttlingFlags,
             ["throttled", "undervoltageOccurred", "throttledOccurred"]
@@ -106,6 +114,13 @@ final class BoothSystemSnapshotTests: XCTestCase {
           "peerCount": 5,
           "hostname": "booth-a.tailnet.ts.net",
           "exitNode": null
+        },
+        "fan": {
+          "commandedOn": true,
+          "pwmRatio": 0.67,
+          "rpm": 4250,
+          "coolingState": 2,
+          "maxCoolingState": 3
         },
         "throttling": {
           "undervoltage": false,
@@ -201,5 +216,18 @@ final class BoothSystemSnapshotTests: XCTestCase {
         // distinguishing "throttling subsystem reporting cleanly" from
         // "throttling subsystem not available".
         XCTAssertEqual(snapshot.throttlingFlags, [])
+    }
+
+    func testFanCommandDoesNotImplyMeasuredRotationWithoutTachometer() {
+        let fan = BoothSystemSnapshot.FanStats(
+            commandedOn: true,
+            pwmRatio: 0.34,
+            coolingState: 1,
+            maxCoolingState: 3
+        )
+
+        XCTAssertEqual(fan.commandDescription, "On (34% PWM)")
+        XCTAssertEqual(fan.coolingStateDescription, "1 / 3")
+        XCTAssertEqual(fan.measuredSpeedDescription, "No tachometer")
     }
 }
