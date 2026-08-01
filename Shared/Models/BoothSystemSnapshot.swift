@@ -243,7 +243,7 @@ public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
         }
 
         public var measuredSpeedDescription: String {
-            rpm.map { "\($0) RPM" } ?? "No tachometer"
+            rpm.map { "\($0) RPM" } ?? "No tachometer feedback"
         }
     }
 

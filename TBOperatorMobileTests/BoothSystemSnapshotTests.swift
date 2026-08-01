@@ -228,6 +228,6 @@ final class BoothSystemSnapshotTests: XCTestCase {
 
         XCTAssertEqual(fan.commandDescription, "On (34% PWM)")
         XCTAssertEqual(fan.coolingStateDescription, "1 / 3")
-        XCTAssertEqual(fan.measuredSpeedDescription, "No tachometer")
+        XCTAssertEqual(fan.measuredSpeedDescription, "No tachometer feedback")
     }
 }
