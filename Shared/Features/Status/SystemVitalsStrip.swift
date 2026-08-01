@@ -179,7 +179,7 @@ private struct FanVitalTile: View {
             fan.pwmRatio == nil
                 ? fan.commandedOn.map { "fan commanded \($0 ? "on" : "off")" }
                 : nil,
-            fan.rpm == nil ? "no tachometer feedback" : nil,
+            fan.rpm == nil ? "no tachometer feedback" : nil
         ]
         .compactMap(\.self)
         .joined(separator: ", ")
