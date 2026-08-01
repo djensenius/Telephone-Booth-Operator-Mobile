@@ -139,14 +139,11 @@ private struct FanVitalTile: View {
     }
 
     private var commandRatio: Double? {
-        if let pwmRatio = fan.pwmRatio {
-            return max(0, min(1, pwmRatio))
-        }
-        return fan.commandedOn == false ? 0 : nil
+        fan.pwmRatio.map { max(0, min(1, $0)) }
     }
 
     private var pwmPercent: Int? {
-        commandRatio.map { Int(($0 * 100).rounded()) }
+        fan.pwmRatio.map { Int((max(0, min(1, $0)) * 100).rounded()) }
     }
 
     private var primaryValue: String {
@@ -156,12 +153,21 @@ private struct FanVitalTile: View {
         if let pwmPercent {
             return "\(pwmPercent)%"
         }
-        return fan.commandedOn == true ? "On" : "—"
+        if let commandedOn = fan.commandedOn {
+            return commandedOn ? "On" : "Off"
+        }
+        return "—"
     }
 
     private var metaText: String {
         if fan.rpm != nil {
-            return pwmPercent.map { "RPM · \($0)% PWM" } ?? "RPM"
+            if let pwmPercent {
+                return "RPM · \(pwmPercent)% PWM"
+            }
+            if let commandedOn = fan.commandedOn {
+                return "RPM · \(commandedOn ? "On" : "Off")"
+            }
+            return "RPM"
         }
         return pwmPercent != nil ? "PWM · no tach" : "No tach feedback"
     }
@@ -170,6 +176,9 @@ private struct FanVitalTile: View {
         [
             fan.rpm.map { "\($0) RPM measured" },
             pwmPercent.map { "\($0) percent PWM commanded" },
+            fan.pwmRatio == nil
+                ? fan.commandedOn.map { "fan commanded \($0 ? "on" : "off")" }
+                : nil,
             fan.rpm == nil ? "no tachometer feedback" : nil,
         ]
         .compactMap(\.self)
