@@ -66,23 +66,7 @@ public struct SystemVitalsStrip: View {
                 severity: .nominal
             )
             if let fan = snapshot?.fan {
-                VitalTile(
-                    label: "Fan command",
-                    value: fan.commandDescription ?? "—",
-                    severity: .nominal
-                )
-                VitalTile(
-                    label: "Fan measured",
-                    value: fan.measuredSpeedDescription,
-                    severity: .nominal
-                )
-                if let coolingState = fan.coolingStateDescription {
-                    VitalTile(
-                        label: "Fan state",
-                        value: coolingState,
-                        severity: .nominal
-                    )
-                }
+                FanVitalTile(fan: fan)
             }
             if let flags = snapshot?.throttlingFlags, !flags.isEmpty {
                 VitalTile(label: "Throttling", value: "\(flags.count)", severity: .warn)
@@ -116,6 +100,136 @@ public struct SystemVitalsStrip: View {
         guard let ratio = snapshot?.cpuUsageRatio else { return "—" }
         let bounded = max(0, min(1, ratio))
         return String(format: "%.0f%%", bounded * 100)
+    }
+}
+
+private struct FanVitalTile: View {
+    let fan: BoothSystemSnapshot.FanStats
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("FAN")
+                .font(Theme.Fonts.caption.weight(.semibold))
+                .foregroundStyle(Theme.Colors.textSecondary)
+            HStack(spacing: 6) {
+                MiniFanDial(ratio: commandRatio)
+                    .frame(width: 44, height: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(primaryValue)
+                        .font(Theme.Fonts.bodyLarge.weight(.semibold).monospacedDigit())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Text(metaText)
+                        .font(Theme.Fonts.caption.monospacedDigit())
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+        }
+        .padding(Theme.Spacing.small)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Theme.Colors.textPrimary.opacity(0.08))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Cooling fan"))
+        .accessibilityValue(Text(accessibilityValue))
+    }
+
+    private var commandRatio: Double? {
+        fan.pwmRatio.map { max(0, min(1, $0)) }
+    }
+
+    private var pwmPercent: Int? {
+        fan.pwmRatio.map { Int((max(0, min(1, $0)) * 100).rounded()) }
+    }
+
+    private var primaryValue: String {
+        if let rpm = fan.rpm {
+            return rpm.formatted()
+        }
+        if let pwmPercent {
+            return "\(pwmPercent)%"
+        }
+        if let commandedOn = fan.commandedOn {
+            return commandedOn ? "On" : "Off"
+        }
+        return "—"
+    }
+
+    private var metaText: String {
+        if fan.rpm != nil {
+            if let pwmPercent {
+                return "RPM · \(pwmPercent)% PWM"
+            }
+            if let commandedOn = fan.commandedOn {
+                return "RPM · \(commandedOn ? "On" : "Off")"
+            }
+            return "RPM"
+        }
+        return pwmPercent != nil ? "PWM · no tach" : "No tach feedback"
+    }
+
+    private var accessibilityValue: String {
+        [
+            fan.rpm.map { "\($0) RPM measured" },
+            pwmPercent.map { "\($0) percent PWM commanded" },
+            fan.pwmRatio == nil
+                ? fan.commandedOn.map { "fan commanded \($0 ? "on" : "off")" }
+                : nil,
+            fan.rpm == nil ? "no tachometer feedback" : nil
+        ]
+        .compactMap(\.self)
+        .joined(separator: ", ")
+    }
+}
+
+private struct MiniFanDial: View {
+    let ratio: Double?
+
+    var body: some View {
+        GeometryReader { proxy in
+            let center = CGPoint(x: proxy.size.width / 2, y: proxy.size.height - 2)
+            let radius = min(proxy.size.width / 2 - 3, proxy.size.height - 5)
+            ZStack {
+                arc(center: center, radius: radius, endDegrees: 360)
+                    .stroke(
+                        Theme.Colors.textSecondary.opacity(0.2),
+                        style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                    )
+                if let ratio {
+                    arc(center: center, radius: radius, endDegrees: 180 + ratio * 180)
+                        .stroke(
+                            Theme.Colors.primary,
+                            style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                        )
+                    Capsule()
+                        .fill(Theme.Colors.warning)
+                        .frame(width: 2, height: radius - 2)
+                        .offset(y: -(radius - 2) / 2)
+                        .rotationEffect(.degrees(-90 + ratio * 180))
+                        .position(center)
+                }
+                Circle()
+                    .fill(Theme.Colors.warning)
+                    .frame(width: 6, height: 6)
+                    .position(center)
+            }
+        }
+    }
+
+    private func arc(center: CGPoint, radius: CGFloat, endDegrees: Double) -> Path {
+        Path { path in
+            path.addArc(
+                center: center,
+                radius: radius,
+                startAngle: .degrees(180),
+                endAngle: .degrees(endDegrees),
+                clockwise: false
+            )
+        }
     }
 }
 
