@@ -200,6 +200,69 @@ public struct Transcription: Codable, Sendable, Equatable, Identifiable {
     public let requestedById: String?
     public let createdAt: Date
     public let completedAt: Date?
+    public let translationStatus: TranscriptionStatus?
+    public let translatedText: String?
+    public let translatedLanguage: String?
+    public let translationProvider: AiProvider?
+    public let translationModel: String?
+    public let translationError: String?
+    public let translationLatencyMs: Int?
+    public let translationCompletedAt: Date?
+
+    public init(
+        id: String,
+        messageId: String,
+        provider: AiProvider,
+        model: String?,
+        status: TranscriptionStatus,
+        text: String?,
+        language: String?,
+        durationMs: Int?,
+        latencyMs: Int?,
+        error: String?,
+        requestedById: String?,
+        createdAt: Date,
+        completedAt: Date?,
+        translationStatus: TranscriptionStatus? = nil,
+        translatedText: String? = nil,
+        translatedLanguage: String? = nil,
+        translationProvider: AiProvider? = nil,
+        translationModel: String? = nil,
+        translationError: String? = nil,
+        translationLatencyMs: Int? = nil,
+        translationCompletedAt: Date? = nil
+    ) {
+        self.id = id
+        self.messageId = messageId
+        self.provider = provider
+        self.model = model
+        self.status = status
+        self.text = text
+        self.language = language
+        self.durationMs = durationMs
+        self.latencyMs = latencyMs
+        self.error = error
+        self.requestedById = requestedById
+        self.createdAt = createdAt
+        self.completedAt = completedAt
+        self.translationStatus = translationStatus
+        self.translatedText = translatedText
+        self.translatedLanguage = translatedLanguage
+        self.translationProvider = translationProvider
+        self.translationModel = translationModel
+        self.translationError = translationError
+        self.translationLatencyMs = translationLatencyMs
+        self.translationCompletedAt = translationCompletedAt
+    }
+
+    public var completedTranslation: String? {
+        guard translationStatus == .succeeded,
+              let translatedText,
+              !translatedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return translatedText
+    }
 }
 
 public struct TranscriptionList: Codable, Sendable, Equatable {
@@ -225,6 +288,41 @@ public struct Moderation: Codable, Sendable, Equatable, Identifiable {
     public let latencyMs: Int?
     public let error: String?
     public let createdAt: Date
+    public let completedAt: Date?
+
+    public init(
+        id: String,
+        messageId: String,
+        transcriptionId: String?,
+        provider: AiProvider,
+        model: String?,
+        status: TranscriptionStatus,
+        flagged: Bool?,
+        recommendation: ModerationRecommendation?,
+        maxScore: Double?,
+        categories: [String: Double]?,
+        reasonSummary: String?,
+        latencyMs: Int?,
+        error: String?,
+        createdAt: Date,
+        completedAt: Date? = nil
+    ) {
+        self.id = id
+        self.messageId = messageId
+        self.transcriptionId = transcriptionId
+        self.provider = provider
+        self.model = model
+        self.status = status
+        self.flagged = flagged
+        self.recommendation = recommendation
+        self.maxScore = maxScore
+        self.categories = categories
+        self.reasonSummary = reasonSummary
+        self.latencyMs = latencyMs
+        self.error = error
+        self.createdAt = createdAt
+        self.completedAt = completedAt
+    }
 }
 
 public struct Message: Codable, Sendable, Equatable, Identifiable {
@@ -267,7 +365,83 @@ public struct MessageDecisionRequest: Codable, Sendable, Equatable {
     }
 }
 
+public struct MessageTranscriptionRequest: Codable, Sendable, Equatable {
+    public let text: String
+    public let language: String?
+    public let model: String?
+
+    public init(text: String, language: String?, model: String?) {
+        self.text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.language = Self.trimmed(language)
+        self.model = Self.trimmed(model)
+    }
+
+    private static func trimmed(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
+    }
+}
+
+public struct MessageTranslationRequest: Codable, Sendable, Equatable {
+    public let translatedText: String
+    public let translatedLanguage: String?
+
+    public init(translatedText: String, translatedLanguage: String? = "en") {
+        self.translatedText = translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let language = translatedLanguage?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.translatedLanguage = language?.isEmpty == false ? language : nil
+    }
+}
+
+public struct MessageModerationRequest: Codable, Sendable, Equatable {
+    public let transcriptionId: String?
+    public let flagged: Bool
+    public let recommendation: String
+    public let maxScore: Double
+    public let reasonSummary: String?
+    public let model: String?
+
+    public init(
+        transcriptionId: String?,
+        flagged: Bool,
+        recommendation: ModerationRecommendation,
+        maxScore: Double,
+        reasonSummary: String? = nil,
+        model: String?
+    ) {
+        self.transcriptionId = Self.trimmed(transcriptionId)
+        self.flagged = flagged
+        self.recommendation = recommendation.rawValue
+        self.maxScore = min(max(maxScore.isFinite ? maxScore : 0, 0), 1)
+        self.reasonSummary = Self.trimmed(reasonSummary)
+        self.model = Self.trimmed(model)
+    }
+
+    private static func trimmed(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
+    }
+}
+
 extension Message {
+    public var bestDisplayText: String? {
+        if let translation = latestTranscription?.completedTranslation {
+            return translation
+        }
+        guard let transcript = latestTranscription?.text?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !transcript.isEmpty else {
+            return nil
+        }
+        return transcript
+    }
+
     /// Returns a copy of the message reflecting a human approve/reject
     /// decision. Used to model the server response in demo mode.
     public func applyingDecision(_ decision: MessageDecision, notes: String?) -> Message {
@@ -281,6 +455,41 @@ extension Message {
             audio: audio,
             latestTranscription: latestTranscription,
             latestModeration: latestModeration
+        )
+    }
+
+    public func replacingLatestTranscription(_ transcription: Transcription) -> Message {
+        let textChanged = latestTranscription?.text != transcription.text
+            || latestTranscription?.translatedText != transcription.translatedText
+        let moderation = latestModeration.flatMap { existing -> Moderation? in
+            guard !textChanged else { return nil }
+            guard let owner = existing.transcriptionId else { return existing }
+            return owner == transcription.id ? existing : nil
+        }
+        return Message(
+            id: id,
+            status: status,
+            questionId: questionId,
+            notes: notes,
+            createdAt: createdAt,
+            receivedAt: receivedAt,
+            audio: audio,
+            latestTranscription: transcription,
+            latestModeration: moderation
+        )
+    }
+
+    public func replacingLatestModeration(_ moderation: Moderation) -> Message {
+        Message(
+            id: id,
+            status: status,
+            questionId: questionId,
+            notes: notes,
+            createdAt: createdAt,
+            receivedAt: receivedAt,
+            audio: audio,
+            latestTranscription: latestTranscription,
+            latestModeration: moderation
         )
     }
 }

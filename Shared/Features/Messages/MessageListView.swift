@@ -230,8 +230,8 @@ struct MessageRow: View {
                         .foregroundStyle(Theme.Colors.textSecondary)
                 }
             }
-            if let transcript = message.latestTranscription?.text, !transcript.isEmpty {
-                Text(transcript)
+            if let displayText = message.bestDisplayText, !displayText.isEmpty {
+                Text(displayText)
                     .font(Theme.Fonts.bodyMedium)
                     .foregroundStyle(Theme.Colors.textPrimary)
                     .lineLimit(2)
@@ -247,7 +247,8 @@ struct MessageRow: View {
                         .font(Theme.Fonts.caption)
                         .foregroundStyle(Theme.Colors.textSecondary)
                 }
-                if let moderation = message.latestModeration, let rec = moderation.recommendation {
+                if let moderation = message.latestApplicableModeration,
+                   let rec = moderation.recommendation {
                     Label("AI recommends \(rec.displayName)", systemImage: "sparkles")
                         .font(Theme.Fonts.caption.weight(.semibold))
                         .foregroundStyle(color(for: rec))
@@ -279,6 +280,7 @@ private extension Message {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return true }
         return latestTranscription?.text?.localizedCaseInsensitiveContains(query) == true
+            || latestTranscription?.translatedText?.localizedCaseInsensitiveContains(query) == true
     }
 }
 

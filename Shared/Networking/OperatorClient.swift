@@ -34,7 +34,7 @@ public actor OperatorClient {
     /// Whether this client serves demo data. Exposed `nonisolated` so demo
     /// UI routes can resolve a matching demo live-status store synchronously.
     nonisolated let demoMode: Bool
-    private var demoMessageOverrides: [String: Message] = [:]
+    var demoMessageOverrides: [String: Message] = [:]
 
     public init(config: AppConfig, auth: AuthManager, session: URLSession = .shared, demoMode: Bool = false) {
         self.config = config
@@ -150,60 +150,6 @@ public actor OperatorClient {
         if await usesDemoData { return [DemoData.systemEnvelope] }
         let list: BoothSystemSnapshotList = try await get("/v1/system/current")
         return list.items
-    }
-
-    /// `GET /v1/messages` — list (filterable by status, since, limit).
-    public func fetchMessages(
-        status: MessageStatus? = nil,
-        since: Date? = nil,
-        limit: Int = 50
-    ) async throws -> MessageList {
-        if await usesDemoData {
-            let messages = DemoData.messages.map { demoMessageOverrides[$0.id] ?? $0 }.filter { message in
-                status == nil || message.status == status
-            }
-            return MessageList(items: Array(messages.prefix(limit)))
-        }
-        var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
-        if let status { items.append(URLQueryItem(name: "status", value: status.rawValue)) }
-        if let since {
-            items.append(URLQueryItem(name: "since", value: OperatorJSON.iso8601String(from: since)))
-        }
-        return try await get("/v1/messages", query: items)
-    }
-
-    /// `GET /v1/messages/{id}` — single message, including a freshly-
-    /// signed audio URL on `audio.url`.
-    public func fetchMessage(id: String) async throws -> Message {
-        if await usesDemoData { return demoMessageOverrides[id] ?? DemoData.message(id: id) }
-        return try await get("/v1/messages/\(id)")
-    }
-
-    /// `GET /v1/messages/{id}/transcriptions` — every transcription
-    /// attempt for the message, newest first.
-    public func fetchTranscriptions(messageId: String) async throws -> TranscriptionList {
-        if await usesDemoData {
-            return TranscriptionList(items: DemoData.transcriptions(messageId: messageId))
-        }
-        return try await get("/v1/messages/\(messageId)/transcriptions")
-    }
-
-    /// `POST /v1/messages/{id}/decision` — records a human operator's
-    /// approve/reject decision. AI moderation is only advisory: the decision
-    /// here is the authoritative, human-made one. Returns the updated `Message`.
-    public func decideMessage(
-        id: String,
-        decision: MessageDecision,
-        notes: String? = nil
-    ) async throws -> Message {
-        let body = MessageDecisionRequest(decision: decision, notes: notes)
-        if await usesDemoData {
-            let updated = (demoMessageOverrides[id] ?? DemoData.message(id: id))
-                .applyingDecision(decision, notes: body.notes)
-            demoMessageOverrides[id] = updated
-            return updated
-        }
-        return try await postJSON("/v1/messages/\(id)/decision", body: body)
     }
 
     /// `GET /v1/events` — paged booth event log, newest first. `cursor` is

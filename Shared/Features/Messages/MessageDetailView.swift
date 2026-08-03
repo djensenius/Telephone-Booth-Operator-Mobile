@@ -22,6 +22,13 @@ public struct MessageDetailView: View {
     @State private var errorMessage: String?
     @State private var statusMessage: String?
     @State private var showAllTranscripts = false
+    @State private var sourceLanguage = ""
+    @State private var onDeviceProcessor = OnDeviceMessageProcessor()
+    @State private var editingTranscript = false
+    @State private var transcriptCorrection = ""
+    @State private var editingTranslation = false
+    @State private var translationCorrection = ""
+    @State private var savingCorrection = false
 
     private let client: OperatorClient
     private let onDecision: (Message) -> Void
@@ -47,10 +54,14 @@ public struct MessageDetailView: View {
                 }
                 if let message {
                     audioCard(message)
+                    appleIntelligenceCard(message)
                     if message.latestTranscription != nil || !transcriptions.isEmpty {
                         transcriptCard(message)
                     }
-                    if message.latestModeration != nil {
+                    if message.latestTranscription?.translationStatus != nil {
+                        translationCard(message)
+                    }
+                    if message.latestApplicableModeration != nil {
                         moderationCard(message)
                     }
                     decisionCard(message)
@@ -58,6 +69,7 @@ public struct MessageDetailView: View {
                 } else if loading {
                     ProgressView().padding(Theme.Spacing.extraLarge)
                 }
+
             }
             .padding(Theme.Spacing.large)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -68,11 +80,132 @@ public struct MessageDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .task {
-            await load()
+            async let availability: Void = onDeviceProcessor.refreshAvailability()
+            async let messageLoad: Void = load()
+            _ = await (availability, messageLoad)
         }
         .refreshableIfAvailable {
             await load()
         }
+    }
+
+    private func appleIntelligenceCard(_ message: Message) -> some View {
+            VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
+                SectionHeader(text: "Apple Intelligence")
+                Text(
+                    "Runs a fresh on-device transcription, English translation, and moderation "
+                        + "suggestion, then saves all three to the Operator."
+                )
+                .font(Theme.Fonts.bodySmall)
+                .foregroundStyle(Theme.Colors.textSecondary)
+
+                TextField("Source language (optional, e.g. fr-CA)", text: $sourceLanguage)
+                    .textFieldStyle(.roundedBorder)
+                    .font(Theme.Fonts.bodySmall)
+                    .disabled(onDeviceProcessor.isRunning)
+
+                if let status = onDeviceProcessor.stage.statusText {
+                    HStack(spacing: Theme.Spacing.small) {
+                        if onDeviceProcessor.isRunning {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                        Text(status)
+                            .font(Theme.Fonts.bodySmall)
+                            .foregroundStyle(
+                                onDeviceProcessor.canRetryPersistence
+                                    ? Theme.Colors.error
+                                    : Theme.Colors.textSecondary
+                            )
+                    }
+                }
+
+                if onDeviceProcessor.isAvailable {
+                    HStack(spacing: Theme.Spacing.medium) {
+                        Button {
+                            Task {
+                                await onDeviceProcessor.process(
+                                    message: message,
+                                    sourceLanguage: sourceLanguage,
+                                    client: client
+                                )
+                                await load()
+                            }
+                        } label: {
+                            Label("Process with Apple Intelligence", systemImage: "apple.intelligence")
+                                .font(Theme.Fonts.bodySmall.weight(.semibold))
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Theme.Colors.accent)
+                        .disabled(onDeviceProcessor.isRunning)
+
+                        if onDeviceProcessor.canRetryPersistence {
+                            Button("Retry save") {
+                                Task {
+                                    await onDeviceProcessor.retryPersistence(client: client)
+                                    await load()
+                                }
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(onDeviceProcessor.isRunning)
+                        }
+                    }
+                } else if onDeviceProcessor.stage != .checkingAvailability {
+                    Text("This device cannot run the complete on-device Apple Intelligence pipeline.")
+                        .font(Theme.Fonts.bodySmall)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Theme.Spacing.large)
+            .glassCardBackground()
+        }
+
+    private func translationCard(_ message: Message) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+            SectionHeader(text: "English Translation")
+            if let transcription = message.latestTranscription {
+                if let translation = transcription.completedTranslation {
+                    Text(translation)
+                        .font(Theme.Fonts.bodyLarge)
+                        .foregroundStyle(Theme.Colors.textPrimary)
+                        .textSelection(.enabled)
+                    if let provider = transcription.translationProvider {
+                        StatRow(label: "Provider", value: provider.displayName)
+                    }
+                    if let model = transcription.translationModel {
+                        StatRow(label: "Model", value: model)
+                    }
+                    if let language = transcription.translatedLanguage {
+                        StatRow(label: "Language", value: language)
+                    }
+                    TextCorrectionControls(
+                        isEditing: $editingTranslation,
+                        text: $translationCorrection,
+                        originalText: translation,
+                        editTitle: "Edit translation",
+                        saveTitle: "Save corrected translation",
+                        disabled: onDeviceProcessor.isRunning || savingCorrection
+                    ) {
+                        await saveTranslationCorrection(message)
+                    }
+                } else if transcription.translationStatus == .pending {
+                    Label("Translation is still running.", systemImage: "clock")
+                        .font(Theme.Fonts.bodySmall)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                } else if transcription.translationStatus == .failed {
+                    Label(
+                        transcription.translationError ?? "Translation failed.",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(Theme.Fonts.bodySmall)
+                    .foregroundStyle(Theme.Colors.error)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Spacing.large)
+        .glassCardBackground()
     }
 
     private func audioCard(_ message: Message) -> some View {
@@ -94,6 +227,18 @@ public struct MessageDetailView: View {
             SectionHeader(text: "Transcript")
             if let latest = message.latestTranscription ?? transcriptions.first {
                 TranscriptionRow(transcription: latest, emphasized: true)
+                if latest.status == .succeeded, let text = latest.text {
+                    TextCorrectionControls(
+                        isEditing: $editingTranscript,
+                        text: $transcriptCorrection,
+                        originalText: text,
+                        editTitle: "Edit transcript",
+                        saveTitle: "Save corrected transcript",
+                        disabled: onDeviceProcessor.isRunning || savingCorrection
+                    ) {
+                        await saveTranscriptCorrection(message)
+                    }
+                }
             }
             if transcriptions.count > 1 {
                 DisclosureGroup("History (\(transcriptions.count))", isExpanded: $showAllTranscripts) {
@@ -117,7 +262,7 @@ public struct MessageDetailView: View {
     private func moderationCard(_ message: Message) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
             SectionHeader(text: "Moderation")
-            if let moderation = message.latestModeration {
+            if let moderation = message.latestApplicableModeration {
                 if let rec = moderation.recommendation {
                     Label("AI recommendation: \(rec.displayName)", systemImage: "sparkles")
                         .font(Theme.Fonts.bodyMedium.weight(.semibold))
@@ -148,7 +293,7 @@ public struct MessageDetailView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
             SectionHeader(text: "Decision")
 
-            if let rec = message.latestModeration?.recommendation {
+            if let rec = message.latestApplicableModeration?.recommendation {
                 HStack(spacing: Theme.Spacing.small) {
                     Image(systemName: "sparkles")
                         .foregroundStyle(recommendationColor(rec))
@@ -267,6 +412,9 @@ public struct MessageDetailView: View {
         let (newMessage, newList) = await (messageTask, listTask)
         if let newMessage {
             message = newMessage
+            if sourceLanguage.isEmpty {
+                sourceLanguage = newMessage.latestTranscription?.language ?? ""
+            }
         } else if message == nil {
             errorMessage = "Couldn't load this message."
         }
@@ -275,7 +423,10 @@ public struct MessageDetailView: View {
         }
     }
 
-    private func decide(_ decision: MessageDecision) async {
+}
+
+private extension MessageDetailView {
+    func decide(_ decision: MessageDecision) async {
         deciding = true
         errorMessage = nil
         statusMessage = nil
@@ -296,43 +447,44 @@ public struct MessageDetailView: View {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't \(verb) this message."
         }
     }
-}
 
-private struct TranscriptionRow: View {
-    let transcription: Transcription
-    let emphasized: Bool
+    func saveTranscriptCorrection(_ current: Message) async {
+        savingCorrection = true
+        errorMessage = nil
+        defer { savingCorrection = false }
+        do {
+            _ = try await client.submitTranscription(
+                messageId: current.id,
+                text: transcriptCorrection,
+                language: current.latestTranscription?.language,
+                model: nil
+            )
+            editingTranscript = false
+            statusMessage = "Corrected transcript saved. Translation and moderation will refresh."
+            await load()
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription
+                ?? "Couldn't save the corrected transcript."
+        }
+    }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            HStack {
-                Text(transcription.provider.displayName)
-                    .font(Theme.Fonts.caption.weight(.semibold))
-                    .foregroundStyle(Theme.Colors.textSecondary)
-                if let model = transcription.model {
-                    Text("· \(model)")
-                        .font(Theme.Fonts.caption)
-                        .foregroundStyle(Theme.Colors.textSecondary)
-                }
-                Spacer()
-                Text(transcription.createdAt, format: .dateTime.month(.abbreviated).day().hour().minute())
-                    .font(Theme.Fonts.caption)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-            }
-            if let text = transcription.text, !text.isEmpty {
-                Text(text)
-                    .font(emphasized ? Theme.Fonts.bodyLarge : Theme.Fonts.bodyMedium)
-                    .foregroundStyle(Theme.Colors.textPrimary)
-                    .textSelection(.enabled)
-            } else if transcription.status == .failed, let error = transcription.error {
-                Label(error, systemImage: "exclamationmark.triangle.fill")
-                    .font(Theme.Fonts.bodySmall)
-                    .foregroundStyle(Theme.Colors.error)
-            } else {
-                Text(transcription.status.displayName)
-                    .font(Theme.Fonts.bodySmall)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-                    .italic()
-            }
+    func saveTranslationCorrection(_ current: Message) async {
+        savingCorrection = true
+        errorMessage = nil
+        defer { savingCorrection = false }
+        do {
+            let updated = try await client.submitTranslation(
+                messageId: current.id,
+                translatedText: translationCorrection,
+                translatedLanguage: "en"
+            )
+            message = current.replacingLatestTranscription(updated)
+            transcriptions = transcriptions.map { $0.id == updated.id ? updated : $0 }
+            editingTranslation = false
+            statusMessage = "Corrected translation saved. Moderation must be regenerated."
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription
+                ?? "Couldn't save the corrected translation."
         }
     }
 }
