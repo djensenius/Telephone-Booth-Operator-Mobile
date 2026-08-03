@@ -11,11 +11,13 @@ import SwiftUI
 
 public struct AudioPlayerView: View {
     public let audio: AudioRef
+    public let label: String
 
     @State private var controller = AudioPlaybackController()
 
-    public init(audio: AudioRef) {
+    public init(audio: AudioRef, label: String? = nil) {
         self.audio = audio
+        self.label = label ?? audio.url.lastPathComponent
     }
 
     public var body: some View {
@@ -33,7 +35,7 @@ public struct AudioPlayerView: View {
                 .accessibilityLabel(playButtonAccessibilityLabel)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(audio.url.lastPathComponent)
+                    Text(label)
                         .font(Theme.Fonts.bodySmall)
                         .foregroundStyle(Theme.Colors.textSecondary)
                         .lineLimit(1)

@@ -24,10 +24,16 @@ public struct MessageDetailView: View {
     @State private var showAllTranscripts = false
 
     private let client: OperatorClient
+    private let onDecision: (Message) -> Void
 
-    public init(messageId: String, client: OperatorClient = .shared) {
+    public init(
+        messageId: String,
+        client: OperatorClient = .shared,
+        onDecision: @escaping (Message) -> Void = { _ in }
+    ) {
         self.messageId = messageId
         self.client = client
+        self.onDecision = onDecision
     }
 
     public var body: some View {
@@ -41,8 +47,12 @@ public struct MessageDetailView: View {
                 }
                 if let message {
                     audioCard(message)
-                    transcriptCard(message)
-                    moderationCard(message)
+                    if message.latestTranscription != nil || !transcriptions.isEmpty {
+                        transcriptCard(message)
+                    }
+                    if message.latestModeration != nil {
+                        moderationCard(message)
+                    }
                     decisionCard(message)
                     metadataCard(message)
                 } else if loading {
@@ -68,7 +78,10 @@ public struct MessageDetailView: View {
     private func audioCard(_ message: Message) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
             SectionHeader(text: "Audio")
-            AudioPlayerView(audio: message.audio)
+            AudioPlayerView(
+                audio: message.audio,
+                label: "Recorded \(message.createdAt.formatted(date: .abbreviated, time: .shortened))"
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Spacing.large)
@@ -79,12 +92,8 @@ public struct MessageDetailView: View {
     private func transcriptCard(_ message: Message) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
             SectionHeader(text: "Transcript")
-            if let latest = message.latestTranscription {
+            if let latest = message.latestTranscription ?? transcriptions.first {
                 TranscriptionRow(transcription: latest, emphasized: true)
-            } else {
-                Text("No transcription yet.")
-                    .font(Theme.Fonts.bodySmall)
-                    .foregroundStyle(Theme.Colors.textSecondary)
             }
             if transcriptions.count > 1 {
                 DisclosureGroup("History (\(transcriptions.count))", isExpanded: $showAllTranscripts) {
@@ -110,7 +119,9 @@ public struct MessageDetailView: View {
             SectionHeader(text: "Moderation")
             if let moderation = message.latestModeration {
                 if let rec = moderation.recommendation {
-                    StatRow(label: "Recommendation", value: rec.displayName)
+                    Label("AI recommendation: \(rec.displayName)", systemImage: "sparkles")
+                        .font(Theme.Fonts.bodyMedium.weight(.semibold))
+                        .foregroundStyle(recommendationColor(rec))
                 }
                 StatRow(label: "Provider", value: moderation.provider.displayName)
                 if let flagged = moderation.flagged {
@@ -125,12 +136,6 @@ public struct MessageDetailView: View {
                         .foregroundStyle(Theme.Colors.textSecondary)
                         .padding(.top, Theme.Spacing.small)
                 }
-            } else {
-                Text(message.latestTranscription?.status == .succeeded
-                     ? "Moderation hasn't run yet for this message."
-                     : "Moderation runs once transcription has finished.")
-                    .font(Theme.Fonts.bodySmall)
-                    .foregroundStyle(Theme.Colors.textSecondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -146,48 +151,30 @@ public struct MessageDetailView: View {
             if let rec = message.latestModeration?.recommendation {
                 HStack(spacing: Theme.Spacing.small) {
                     Image(systemName: "sparkles")
-                        .foregroundStyle(Theme.Colors.accent)
-                    Text("AI suggestion: \(rec.displayName) (advisory only)")
+                        .foregroundStyle(recommendationColor(rec))
+                    Text("AI recommends \(rec.displayName). The final decision is yours.")
                         .font(Theme.Fonts.bodySmall)
                         .foregroundStyle(Theme.Colors.textSecondary)
                 }
             }
 
             switch message.status {
-            case .approved, .rejected:
-                StatRow(label: "Decided", value: message.status.displayName)
             case .uploading, .received:
                 Text("A decision can be made once transcription and moderation have run.")
                     .font(Theme.Fonts.bodySmall)
                     .foregroundStyle(Theme.Colors.textSecondary)
-            case .pending:
+            case .pending, .approved, .rejected:
+                if message.status == .approved || message.status == .rejected {
+                    StatRow(label: "Current decision", value: message.status.displayName)
+                }
                 TextField("Notes (optional)", text: $decisionNotes, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...4)
                     .font(Theme.Fonts.bodySmall)
                     .disabled(deciding)
                 HStack(spacing: Theme.Spacing.medium) {
-                    Button {
-                        Task { await decide(.approve) }
-                    } label: {
-                        Label("Approve", systemImage: "checkmark.circle.fill")
-                            .font(Theme.Fonts.bodySmall.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Theme.Colors.success)
-                    .disabled(deciding)
-
-                    Button {
-                        Task { await decide(.reject) }
-                    } label: {
-                        Label("Reject", systemImage: "xmark.circle.fill")
-                            .font(Theme.Fonts.bodySmall.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Theme.Colors.error)
-                    .disabled(deciding)
+                    decisionButton(.approve, isCurrent: message.status == .approved)
+                    decisionButton(.reject, isCurrent: message.status == .rejected)
                 }
                 if deciding {
                     ProgressView()
@@ -199,6 +186,48 @@ public struct MessageDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Spacing.large)
         .glassCardBackground()
+    }
+
+    @ViewBuilder
+    private func decisionButton(_ decision: MessageDecision, isCurrent: Bool) -> some View {
+        let title = decision == .approve
+            ? (isCurrent ? "Approved" : "Approve")
+            : (isCurrent ? "Rejected" : "Reject")
+        let icon = decision == .approve ? "checkmark.circle.fill" : "xmark.circle.fill"
+        let tint = decision == .approve ? Theme.Colors.success : Theme.Colors.error
+
+        if isCurrent {
+            Button {
+                Task { await decide(decision) }
+            } label: {
+                Label(title, systemImage: icon)
+                    .font(Theme.Fonts.bodySmall.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(tint)
+            .disabled(deciding)
+        } else {
+            Button {
+                Task { await decide(decision) }
+            } label: {
+                Label(title, systemImage: icon)
+                    .font(Theme.Fonts.bodySmall.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(tint)
+            .disabled(deciding)
+        }
+    }
+
+    private func recommendationColor(_ recommendation: ModerationRecommendation) -> Color {
+        switch recommendation {
+        case .approve: return Theme.Colors.success
+        case .review: return Theme.Colors.warning
+        case .reject: return Theme.Colors.error
+        case .unknown: return Theme.Colors.textSecondary
+        }
     }
 
     private func metadataCard(_ message: Message) -> some View {
@@ -259,6 +288,8 @@ public struct MessageDetailView: View {
             )
             statusMessage = "Message \(updated.status.displayName.lowercased())."
             message = updated
+            onDecision(updated)
+            await PendingMessagesStore.shared.refresh(using: client)
             decisionNotes = ""
         } catch {
             let verb = decision == .approve ? "approve" : "reject"

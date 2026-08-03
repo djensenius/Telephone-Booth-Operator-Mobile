@@ -55,6 +55,7 @@ private struct OperatorShell: View {
     @State private var pending = PendingMessagesStore.shared
     @State private var currentUser: CurrentUserStore
     @State private var selection: OperatorTab
+    @State private var messagePath: [String]
     #if os(tvOS)
     @State private var config = AppConfig.shared
     #endif
@@ -63,8 +64,11 @@ private struct OperatorShell: View {
         self.client = client
         self.eventStream = eventStream
         _currentUser = State(initialValue: CurrentUserStore(client: client))
-        let requested = LaunchEnv.screenshotTab.flatMap(OperatorTab.init(rawValue:))
+        let requested = LaunchEnv.screenshotMessageId == nil
+            ? LaunchEnv.screenshotTab.flatMap(OperatorTab.init(rawValue:))
+            : .messages
         _selection = State(initialValue: requested ?? .dashboard)
+        _messagePath = State(initialValue: LaunchEnv.screenshotMessageId.map { [$0] } ?? [])
     }
 
     var body: some View {
@@ -91,7 +95,7 @@ private struct OperatorShell: View {
             }
 
             Tab("Messages", systemImage: "tray.full", value: .messages) {
-                NavigationStack {
+                NavigationStack(path: $messagePath) {
                     MessageListView(client: client).navigationTitle("Messages")
                 }
             }
