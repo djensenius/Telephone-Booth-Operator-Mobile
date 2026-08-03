@@ -169,7 +169,7 @@ public struct MessageListView: View {
 
     private var filteredMessages: [Message] {
         messages.filter { message in
-            message.matchesSearch(searchText)
+            filter.includes(message) && message.matchesSearch(searchText)
         }
     }
 
@@ -279,9 +279,6 @@ private extension Message {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return true }
         return latestTranscription?.text?.localizedCaseInsensitiveContains(query) == true
-            || notes?.localizedCaseInsensitiveContains(query) == true
-            || status.displayName.localizedCaseInsensitiveContains(query)
-            || latestModeration?.recommendation?.displayName.localizedCaseInsensitiveContains(query) == true
     }
 }
 
