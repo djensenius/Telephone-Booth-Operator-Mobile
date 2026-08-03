@@ -29,6 +29,12 @@ public enum LaunchEnv {
         value(for: "-uiScreenshotTab")
     }
 
+    /// `-uiScreenshotMessage <id>` opens a specific message after selecting
+    /// the Messages tab, allowing screenshot automation to capture its detail.
+    public static var screenshotMessageId: String? {
+        value(for: "-uiScreenshotMessage")
+    }
+
     /// `-uiScreensaverPreview YES` forces the tvOS ambient screensaver to show
     /// immediately (the headless simulator can't inject remote idle), so it can
     /// be captured during screenshot automation.
