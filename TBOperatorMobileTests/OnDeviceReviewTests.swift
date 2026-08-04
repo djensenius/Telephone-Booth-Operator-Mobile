@@ -191,6 +191,7 @@ final class OnDeviceReviewTests: XCTestCase {
     func testLanguageTagValidation() {
         XCTAssertEqual(PromptSafety.normalizedLanguageTag("fr-CA"), "fr-CA")
         XCTAssertEqual(PromptSafety.normalizedLanguageTag("zh-Hant-TW"), "zh-Hant-TW")
+        XCTAssertEqual(PromptSafety.normalizedLanguageTag("en-US-u-hc-h12"), "en-US-u-hc-h12")
         XCTAssertNil(PromptSafety.normalizedLanguageTag("ignore-all-rules"))
         XCTAssertNil(PromptSafety.normalizedLanguageTag(" "))
     }
@@ -286,7 +287,6 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(transcription.completedTranslation, "hello")
         XCTAssertEqual(transcription.translationProvider, .macApp)
     }
-
     func testModerationSurvivesAnIdenticalTranslationRetry() {
         let translationDate = Date(timeIntervalSince1970: 20)
         let transcription = Transcription(

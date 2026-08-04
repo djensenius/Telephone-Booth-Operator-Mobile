@@ -46,6 +46,92 @@ public enum OnDeviceCapability {
 
 #if canImport(Speech)
 @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+private actor SpeechAssetReservations {
+    private struct Entry {
+        var references: Int
+        var ownsReservation: Bool?
+        let acquisition: Task<Bool, Error>
+    }
+
+    static let shared = SpeechAssetReservations()
+    private var entries: [String: Entry] = [:]
+
+    func acquire(for transcriber: SpeechTranscriber, locale: Locale) async throws {
+        let key = locale.identifier
+        let acquisition: Task<Bool, Error>
+        if var entry = entries[key] {
+            entry.references += 1
+            entries[key] = entry
+            acquisition = entry.acquisition
+        } else {
+            let task = Task {
+                let wasReserved = await AssetInventory.reservedLocales.contains(locale)
+                let status = await AssetInventory.status(forModules: [transcriber])
+                switch status {
+                case .installed:
+                    return false
+                case .downloading, .supported:
+                    break
+                case .unsupported:
+                    throw OnDeviceServiceError.unavailable(
+                        "Speech assets are unavailable for the selected source language."
+                    )
+                @unknown default:
+                    break
+                }
+                do {
+                    if let request = try await AssetInventory.assetInstallationRequest(
+                        supporting: [transcriber]
+                    ) {
+                        try await request.downloadAndInstall()
+                    }
+                } catch {
+                    if !wasReserved {
+                        await AssetInventory.release(reservedLocale: locale)
+                    }
+                    throw error
+                }
+                let isReserved = await AssetInventory.reservedLocales.contains(locale)
+                return !wasReserved && isReserved
+            }
+            entries[key] = Entry(references: 1, ownsReservation: nil, acquisition: task)
+            acquisition = task
+        }
+
+        do {
+            let ownsReservation = try await acquisition.value
+            if var entry = entries[key] {
+                entry.ownsReservation = ownsReservation
+                entries[key] = entry
+            }
+        } catch {
+            releaseFailedReference(for: key)
+            throw error
+        }
+    }
+
+    func release(locale: Locale) async {
+        let key = locale.identifier
+        guard var entry = entries[key] else { return }
+        entry.references -= 1
+        guard entry.references == 0 else {
+            entries[key] = entry
+            return
+        }
+        entries[key] = nil
+        if entry.ownsReservation == true {
+            await AssetInventory.release(reservedLocale: locale)
+        }
+    }
+
+    private func releaseFailedReference(for key: String) {
+        guard var entry = entries[key] else { return }
+        entry.references -= 1
+        entries[key] = entry.references == 0 ? nil : entry
+    }
+}
+
+@available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
 public struct AppleSpeechTranscriber: AudioTranscribing {
     private let defaultLocale: Locale
 
@@ -72,17 +158,13 @@ public struct AppleSpeechTranscriber: AudioTranscribing {
             )
         }
         let transcriber = SpeechTranscriber(locale: locale, preset: .transcription)
-        let releaseReservation = try await installAssets(for: transcriber, locale: locale)
+        try await SpeechAssetReservations.shared.acquire(for: transcriber, locale: locale)
         do {
             let transcript = try await analyze(audioFileURL: audioFileURL, with: transcriber)
-            if releaseReservation {
-                await AssetInventory.release(reservedLocale: locale)
-            }
+            await SpeechAssetReservations.shared.release(locale: locale)
             return transcript
         } catch {
-            if releaseReservation {
-                await AssetInventory.release(reservedLocale: locale)
-            }
+            await SpeechAssetReservations.shared.release(locale: locale)
             throw error
         }
     }
@@ -114,38 +196,6 @@ public struct AppleSpeechTranscriber: AudioTranscribing {
             _ = try? await resultsTask.value
             throw error
         }
-    }
-
-    private func installAssets(
-        for transcriber: SpeechTranscriber,
-        locale: Locale
-    ) async throws -> Bool {
-        let wasReserved = await AssetInventory.reservedLocales.contains(locale)
-        let status = await AssetInventory.status(forModules: [transcriber])
-        switch status {
-        case .installed:
-            return false
-        case .downloading, .supported:
-            break
-        case .unsupported:
-            throw OnDeviceServiceError.unavailable(
-                "Speech assets are unavailable for the selected source language."
-            )
-        @unknown default:
-            break
-        }
-        do {
-            if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
-                try await request.downloadAndInstall()
-            }
-        } catch {
-            if !wasReserved {
-                await AssetInventory.release(reservedLocale: locale)
-            }
-            throw error
-        }
-        let isReserved = await AssetInventory.reservedLocales.contains(locale)
-        return !wasReserved && isReserved
     }
 
     private static func requestAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {

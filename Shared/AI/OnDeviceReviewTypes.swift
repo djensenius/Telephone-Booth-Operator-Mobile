@@ -74,15 +74,48 @@ public enum PromptSafety {
             || next.count == 3 && next.allSatisfy(\.isAsciiDigit) {
             subtags.removeFirst()
         }
-        for variant in subtags {
+        consumeVariants(&subtags)
+        guard consumeExtensions(&subtags), consumePrivateUse(&subtags) else { return nil }
+        return trimmed
+    }
+
+    private static func consumeVariants(_ subtags: inout ArraySlice<Substring>) {
+        while let variant = subtags.first {
             let longForm = (5...8).contains(variant.count)
                 && variant.allSatisfy(\.isAsciiAlphanumeric)
             let digitForm = variant.count == 4
                 && variant.first?.isAsciiDigit == true
                 && variant.allSatisfy(\.isAsciiAlphanumeric)
-            guard longForm || digitForm else { return nil }
+            guard longForm || digitForm else { return }
+            subtags.removeFirst()
         }
-        return trimmed
+    }
+
+    private static func consumeExtensions(_ subtags: inout ArraySlice<Substring>) -> Bool {
+        while let singleton = subtags.first,
+              singleton.count == 1,
+              singleton.allSatisfy(\.isAsciiAlphanumeric),
+              singleton.lowercased() != "x" {
+            subtags.removeFirst()
+            var hasExtensionSubtag = false
+            while let extensionSubtag = subtags.first,
+                  (2...8).contains(extensionSubtag.count),
+                  extensionSubtag.allSatisfy(\.isAsciiAlphanumeric) {
+                hasExtensionSubtag = true
+                subtags.removeFirst()
+            }
+            guard hasExtensionSubtag else { return false }
+        }
+        return true
+    }
+
+    private static func consumePrivateUse(_ subtags: inout ArraySlice<Substring>) -> Bool {
+        guard subtags.first?.lowercased() == "x" else { return subtags.isEmpty }
+        subtags.removeFirst()
+        guard !subtags.isEmpty else { return false }
+        return subtags.allSatisfy {
+            (1...8).contains($0.count) && $0.allSatisfy(\.isAsciiAlphanumeric)
+        }
     }
 }
 
