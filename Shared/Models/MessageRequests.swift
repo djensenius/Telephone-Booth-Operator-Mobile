@@ -22,6 +22,14 @@ public enum ReviewTextSnapshot {
             .map { String(format: "%02x", $0) }
             .joined()
     }
+
+    public static func transcriptionSHA256(status: TranscriptionStatus?, text: String?) -> String? {
+        guard let status else { return nil }
+        let canonicalText = text?.trimmingCharacters(in: ecmaScriptTrimCharacters) ?? ""
+        return SHA256.hash(data: Data("\(status.rawValue)\n\(canonicalText)".utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
 }
 
 public extension Transcription {
@@ -43,6 +51,7 @@ public struct MessageDecisionRequest: Codable, Sendable, Equatable {
 
 public struct MessageTranscriptionRequest: Codable, Sendable, Equatable {
     public let expectedLatestTranscriptionId: String?
+    public let expectedLatestTranscriptionSha256: String?
     public let text: String
     public let language: String?
     public let model: String?
@@ -53,9 +62,11 @@ public struct MessageTranscriptionRequest: Codable, Sendable, Equatable {
         language: String?,
         model: String?,
         processDownstream: Bool = false,
-        expectedLatestTranscriptionId: String?
+        expectedLatestTranscriptionId: String?,
+        expectedLatestTranscriptionSha256: String?
     ) {
         self.expectedLatestTranscriptionId = Self.trimmed(expectedLatestTranscriptionId)
+        self.expectedLatestTranscriptionSha256 = Self.normalizedSHA256(expectedLatestTranscriptionSha256)
         self.text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         self.language = Self.trimmed(language)
         self.model = Self.trimmed(model)
@@ -64,6 +75,7 @@ public struct MessageTranscriptionRequest: Codable, Sendable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case expectedLatestTranscriptionId
+        case expectedLatestTranscriptionSha256
         case text
         case language
         case model
@@ -77,6 +89,11 @@ public struct MessageTranscriptionRequest: Codable, Sendable, Equatable {
         } else {
             try container.encodeNil(forKey: .expectedLatestTranscriptionId)
         }
+        if let expectedLatestTranscriptionSha256 {
+            try container.encode(expectedLatestTranscriptionSha256, forKey: .expectedLatestTranscriptionSha256)
+        } else {
+            try container.encodeNil(forKey: .expectedLatestTranscriptionSha256)
+        }
         try container.encode(text, forKey: .text)
         try container.encodeIfPresent(language, forKey: .language)
         try container.encodeIfPresent(model, forKey: .model)
@@ -89,6 +106,15 @@ public struct MessageTranscriptionRequest: Codable, Sendable, Equatable {
             return nil
         }
         return trimmed
+    }
+
+    private static func normalizedSHA256(_ value: String?) -> String? {
+        guard let value = trimmed(value)?.lowercased(),
+              value.count == 64,
+              value.allSatisfy(\.isHexDigit) else {
+            return nil
+        }
+        return value
     }
 }
 

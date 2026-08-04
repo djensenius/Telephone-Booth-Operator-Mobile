@@ -24,7 +24,7 @@ public struct MessageDetailView: View {
     @State private var onDeviceProcessor = OnDeviceMessageProcessor()
     @State private var editingTranscript = false
     @State private var transcriptCorrection = ""
-    @State private var transcriptCorrectionTranscriptionId: String?
+    @State private var transcriptCorrectionSnapshot: Transcription?
     @State private var editingTranslation = false
     @State private var translationCorrection = ""
     @State private var translationCorrectionTranscriptionId: String?
@@ -240,7 +240,7 @@ private extension MessageDetailView {
                         saveTitle: "Save corrected transcript",
                         disabled: usesDemoData || onDeviceProcessor.isRunning || savingCorrection,
                         onEdit: {
-                            transcriptCorrectionTranscriptionId = latest.id
+                            transcriptCorrectionSnapshot = latest
                         },
                         save: { await saveTranscriptCorrection(message) }
                     )
@@ -458,10 +458,10 @@ private extension MessageDetailView {
                 text: transcriptCorrection,
                 language: current.latestTranscription?.language,
                 model: nil,
-                expectedLatestTranscriptionId: transcriptCorrectionTranscriptionId
+                expectedLatestTranscription: transcriptCorrectionSnapshot
             )
             editingTranscript = false
-            transcriptCorrectionTranscriptionId = nil
+            transcriptCorrectionSnapshot = nil
             statusMessage = "Corrected transcript saved. Translation and moderation will refresh."
             await load()
         } catch {

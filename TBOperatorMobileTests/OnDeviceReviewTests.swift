@@ -78,6 +78,9 @@ private actor StubReviewClient: MessageReviewPersisting {
     ) async throws -> Transcription {
         transcriptionSubmissions += 1
         try failIfRequested(.transcript)
+        guard message.latestTranscription?.id == body.expectedLatestTranscriptionId else {
+            throw StubFailure.requested
+        }
         let transcription = Transcription(
             id: "generated-transcript",
             messageId: messageId,
@@ -228,14 +231,15 @@ final class OnDeviceReviewTests: XCTestCase {
             text: " hello ",
             language: " fr ",
             model: " apple-speech-analyzer ",
-            expectedLatestTranscriptionId: " t0 "
+            expectedLatestTranscriptionId: " t0 ",
+            expectedLatestTranscriptionSha256: String(repeating: "A", count: 64)
         )
         XCTAssertEqual(transcript.text, "hello")
         XCTAssertEqual(transcript.language, "fr")
         XCTAssertEqual(transcript.model, "apple-speech-analyzer")
         XCTAssertEqual(transcript.expectedLatestTranscriptionId, "t0")
+        XCTAssertEqual(transcript.expectedLatestTranscriptionSha256, String(repeating: "a", count: 64))
         XCTAssertFalse(transcript.processDownstream)
-
         let translation = MessageTranslationRequest(
             transcriptionId: " t1 ",
             expectedTranscriptionId: " t1 ",
@@ -249,7 +253,6 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(translation.expectedTranslationSha256, String(repeating: "a", count: 64))
         XCTAssertEqual(translation.translatedText, "hello")
         XCTAssertEqual(translation.model, "apple-foundation-models")
-
         let moderation = MessageModerationRequest(
             transcriptionId: " t1 ",
             inputSha256: String(repeating: "A", count: 64),
@@ -263,7 +266,6 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(moderation.recommendation, "reject")
         XCTAssertEqual(moderation.maxScore, 1)
     }
-
     func testTranscriptionDecodesTranslationFields() throws {
         let json = """
         {
@@ -397,7 +399,6 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(saved?.latestTranscription?.translatedText, "hello")
         XCTAssertEqual(saved?.latestApplicableModeration?.recommendation, .approve)
     }
-
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
     func testProcessorRetriesOnlyMissingTranslationAndModeration() async {
@@ -455,7 +456,6 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(counts.transcriptions, 0)
         XCTAssertFalse(processor.canRetryPersistence)
     }
-
     func testAudioFetcherRejectsInvalidHashBeforeNetworking() async {
         let fetcher = URLSessionAudioFetcher()
         do {

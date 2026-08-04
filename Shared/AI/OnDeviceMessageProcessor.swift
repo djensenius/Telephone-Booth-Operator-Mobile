@@ -70,11 +70,13 @@ public final class OnDeviceMessageProcessor {
         let transcriptionId: String?
         let status: TranscriptionStatus?
         let text: String?
+        let sha256: String?
 
         init(_ message: Message) {
             transcriptionId = message.latestTranscription?.id
             status = message.latestTranscription?.status
             text = Self.trimmed(message.latestTranscription?.text)
+            sha256 = ReviewTextSnapshot.transcriptionSHA256(status: status, text: text)
         }
 
         private static func trimmed(_ value: String?) -> String? {
@@ -269,7 +271,8 @@ public final class OnDeviceMessageProcessor {
                             language: pending.language,
                             model: pending.transcriptionModel,
                             processDownstream: false,
-                            expectedLatestTranscriptionId: currentSnapshot.transcriptionId
+                            expectedLatestTranscriptionId: currentSnapshot.transcriptionId,
+                            expectedLatestTranscriptionSha256: currentSnapshot.sha256
                         )
                     )
                     pending.transcriptionId = transcription.id

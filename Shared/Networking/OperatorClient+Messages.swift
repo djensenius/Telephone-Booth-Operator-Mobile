@@ -43,14 +43,18 @@ extension OperatorClient {
         language: String?,
         model: String?,
         processDownstream: Bool = true,
-        expectedLatestTranscriptionId: String?
+        expectedLatestTranscription: Transcription?
     ) async throws -> Transcription {
         let body = MessageTranscriptionRequest(
             text: text,
             language: language,
             model: model,
             processDownstream: processDownstream,
-            expectedLatestTranscriptionId: expectedLatestTranscriptionId
+            expectedLatestTranscriptionId: expectedLatestTranscription?.id,
+            expectedLatestTranscriptionSha256: ReviewTextSnapshot.transcriptionSHA256(
+                status: expectedLatestTranscription?.status,
+                text: expectedLatestTranscription?.text
+            )
         )
         return try await submitTranscription(messageId: messageId, body: body)
     }
@@ -61,7 +65,12 @@ extension OperatorClient {
     ) async throws -> Transcription {
         if await usesDemoData {
             let message = demoMessageOverrides[messageId] ?? DemoData.message(id: messageId)
-            guard message.latestTranscription?.id == body.expectedLatestTranscriptionId else {
+            let latest = message.latestTranscription
+            guard latest?.id == body.expectedLatestTranscriptionId,
+                  ReviewTextSnapshot.transcriptionSHA256(
+                    status: latest?.status,
+                    text: latest?.text
+                  ) == body.expectedLatestTranscriptionSha256 else {
                 throw OperatorError.httpError(status: 409, body: "stale_transcription")
             }
             let updated = Transcription(
