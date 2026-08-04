@@ -16,11 +16,18 @@ private final class SizeLimitingDownloadDelegate: NSObject, URLSessionDownloadDe
     private let maxBytes: Int64
     private let lock = NSLock()
     private var limitExceeded = false
+    private var insecureRedirect = false
 
     var exceededLimit: Bool {
         lock.lock()
         defer { lock.unlock() }
         return limitExceeded
+    }
+
+    var rejectedInsecureRedirect: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return insecureRedirect
     }
 
     init(maxBytes: Int) {
@@ -45,6 +52,23 @@ private final class SizeLimitingDownloadDelegate: NSObject, URLSessionDownloadDe
         limitExceeded = true
         lock.unlock()
         downloadTask.cancel()
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping @Sendable (URLRequest?) -> Void
+    ) {
+        guard request.url?.scheme?.lowercased() == "https" else {
+            lock.lock()
+            insecureRedirect = true
+            lock.unlock()
+            completionHandler(nil)
+            return
+        }
+        completionHandler(request)
     }
 }
 
@@ -85,26 +109,7 @@ public struct URLSessionAudioFetcher: AudioFetching {
             throw AudioFetchError.insecureURL
         }
 
-        let downloadedURL: URL
-        let response: URLResponse
-        let downloadDelegate = SizeLimitingDownloadDelegate(maxBytes: maxBytes)
-        do {
-            var request = URLRequest(
-                url: url,
-                cachePolicy: .reloadIgnoringLocalAndRemoteCacheData
-            )
-            request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
-            (downloadedURL, response) = try await session.download(
-                for: request,
-                delegate: downloadDelegate
-            )
-        } catch {
-            if downloadDelegate.exceededLimit {
-                throw AudioFetchError.tooLarge
-            }
-            audioFetchLogger.error("Audio download failed: \(String(describing: type(of: error)), privacy: .public)")
-            throw AudioFetchError.fetchFailed
-        }
+        let (downloadedURL, response) = try await download(url: url, maxBytes: maxBytes)
         defer { try? FileManager.default.removeItem(at: downloadedURL) }
         guard let http = response as? HTTPURLResponse,
               (200..<300).contains(http.statusCode) else {
@@ -141,6 +146,31 @@ public struct URLSessionAudioFetcher: AudioFetching {
             throw AudioFetchError.fetchFailed
         }
         return try await body(stagedURL)
+    }
+
+    private func download(url: URL, maxBytes: Int) async throws -> (URL, URLResponse) {
+        let delegate = SizeLimitingDownloadDelegate(maxBytes: maxBytes)
+        var request = URLRequest(
+            url: url,
+            cachePolicy: .reloadIgnoringLocalAndRemoteCacheData
+        )
+        request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
+        do {
+            let result = try await session.download(for: request, delegate: delegate)
+            guard !delegate.rejectedInsecureRedirect else {
+                throw AudioFetchError.insecureURL
+            }
+            return result
+        } catch {
+            if delegate.rejectedInsecureRedirect {
+                throw AudioFetchError.insecureURL
+            }
+            if delegate.exceededLimit {
+                throw AudioFetchError.tooLarge
+            }
+            audioFetchLogger.error("Audio download failed: \(String(describing: type(of: error)), privacy: .public)")
+            throw AudioFetchError.fetchFailed
+        }
     }
 
     public static func normalizedSHA256(_ value: String) -> String? {

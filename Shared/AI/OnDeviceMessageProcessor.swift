@@ -384,7 +384,8 @@ public final class OnDeviceMessageProcessor {
         _ existing: Moderation?
     ) -> Bool {
         guard let existing else { return false }
-        return existing.flagged == expected.flagged
+        return existing.provider == .onDevice
+            && existing.flagged == expected.flagged
             && existing.recommendation == expected.recommendation
             && existing.maxScore == expected.maxScore
             && existing.model == expected.model
