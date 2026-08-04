@@ -41,6 +41,11 @@
   tab. See [`audit-log.md`](audit-log.md).
 - Mobile clients **never** talk to Postgres or Azure directly. Everything
   flows through the operator's versioned `/v1` API.
+- Eligible iOS, iPadOS, macOS, and visionOS devices can enrich a message
+  entirely on-device: download and verify its pre-signed audio, transcribe with
+  SpeechAnalyzer, translate to English with Foundation Models, and generate an
+  advisory moderation recommendation. The app then persists those results
+  through the Operator API; it does not call the Transcription HTTP service.
 - Mobile clients authenticate with **OIDC Authorization Code + PKCE**
   directly against Authentik (no embedded webview, no cookie session).
 - The operator API gains an additive bearer middleware (PR 1 in the

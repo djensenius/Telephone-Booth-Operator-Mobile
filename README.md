@@ -87,6 +87,25 @@ directly to Authentik. No client secret (public client), no embedded
 webview, no cookie session. Refresh tokens live in the Keychain. See
 [`docs/auth.md`](docs/auth.md) for the full flow.
 
+## On-device message processing
+
+On eligible iOS, iPadOS, macOS, and visionOS 26 devices, the existing message
+detail screen can **Process with Apple Intelligence**. One action downloads the
+message's pre-signed audio, verifies its SHA-256, transcribes it with
+SpeechAnalyzer, translates the new transcript to English with Foundation
+Models, generates an advisory moderation recommendation, and saves all three
+results to the Operator API.
+
+This release requires an Operator deployment that supports downstream-free
+transcript submission, transcription-targeted on-device translations, and
+moderation input hashes. Older Operator releases must be upgraded first.
+
+Processing stays in the existing Messages → Message → Decision flow. The
+Operator remains the source of truth and audit boundary; the final human
+approve/reject decision is still separate. Audio and text are not sent to a
+translation or moderation service, and the app never sends its Operator bearer
+token to the pre-signed audio URL.
+
 ## Documentation
 
 | Doc                                          | When you need it                          |

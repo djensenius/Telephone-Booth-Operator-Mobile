@@ -290,7 +290,7 @@ final class TBOperatorMobileTests: XCTestCase {
             "recommendation": "approve",
             "maxScore": 0.05,
             "categories": {"hate": 0.01},
-            "reasonSummary": null,
+            "requestedById": "55555555-5555-4555-8555-555555555555",
             "latencyMs": 120,
             "error": null,
             "createdAt": "2026-05-23T14:31:02Z"
@@ -304,7 +304,7 @@ final class TBOperatorMobileTests: XCTestCase {
         XCTAssertEqual(message.latestTranscription?.text, "Hello, operator.")
         XCTAssertEqual(message.latestTranscription?.provider, .openai)
         XCTAssertEqual(message.latestModeration?.recommendation, .approve)
-        XCTAssertEqual(message.latestModeration?.flagged, false)
+        XCTAssertEqual(message.latestModeration?.requestedById, "55555555-5555-4555-8555-555555555555")
     }
 
     func testMessageDecodesWithoutTranscription() throws {

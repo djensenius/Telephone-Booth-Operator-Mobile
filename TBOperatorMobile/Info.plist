@@ -4,6 +4,8 @@
 <dict>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Record question prompts for the booth.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Process message audio on this device with Apple Intelligence.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

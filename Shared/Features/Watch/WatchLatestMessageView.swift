@@ -67,7 +67,7 @@ struct WatchLatestMessageView: View {
                     .font(.body)
                     .foregroundStyle(Theme.Colors.textSecondary)
             }
-            if let reason = msg.latestModeration?.reasonSummary, !reason.isEmpty {
+            if let reason = msg.latestApplicableModeration?.reasonSummary, !reason.isEmpty {
                 Text(reason)
                     .font(.caption)
                     .foregroundStyle(Theme.Colors.warning)
