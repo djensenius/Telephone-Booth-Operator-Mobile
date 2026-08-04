@@ -42,7 +42,7 @@ extension OperatorClient {
         text: String,
         language: String?,
         model: String?,
-        processDownstream: Bool = true,
+        processDownstream: Bool = false,
         expectedLatestTranscription: Transcription?
     ) async throws -> Transcription {
         let body = MessageTranscriptionRequest(

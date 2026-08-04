@@ -139,7 +139,6 @@ public struct MessageDetailView: View {
                         .buttonStyle(.borderedProminent)
                         .tint(Theme.Colors.accent)
                         .disabled(onDeviceProcessor.isRunning)
-
                         if onDeviceProcessor.canRetryPersistence {
                             Button("Retry save") {
                                 Task {
@@ -458,6 +457,7 @@ private extension MessageDetailView {
                 text: transcriptCorrection,
                 language: current.latestTranscription?.language,
                 model: nil,
+                processDownstream: false,
                 expectedLatestTranscription: transcriptCorrectionSnapshot
             )
             editingTranscript = false
