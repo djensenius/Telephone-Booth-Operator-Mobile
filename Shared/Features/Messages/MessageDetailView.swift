@@ -32,15 +32,15 @@ public struct MessageDetailView: View {
     @State private var savingCorrection = false
     @State private var usesDemoData = false
     private let client: OperatorClient
-    private let onDecision: (Message) -> Void
+    private let onMessageUpdate: (Message) -> Void
     public init(
         messageId: String,
         client: OperatorClient = .shared,
-        onDecision: @escaping (Message) -> Void = { _ in }
+        onMessageUpdate: @escaping (Message) -> Void = { _ in }
     ) {
         self.messageId = messageId
         self.client = client
-        self.onDecision = onDecision
+        self.onMessageUpdate = onMessageUpdate
     }
     public var body: some View {
         ScrollView {
@@ -407,7 +407,6 @@ private extension MessageDetailView {
         .padding(Theme.Spacing.large)
         .glassCardBackground()
     }
-
     private func load() async {
         loading = true
         errorMessage = nil
@@ -417,6 +416,7 @@ private extension MessageDetailView {
         let (newMessage, newList) = await (messageTask, listTask)
         if let newMessage {
             message = newMessage
+            onMessageUpdate(newMessage)
             if sourceLanguage.isEmpty {
                 sourceLanguage = newMessage.latestTranscription?.language ?? ""
             }
@@ -440,7 +440,7 @@ private extension MessageDetailView {
             )
             statusMessage = "Message \(updated.status.displayName.lowercased())."
             message = updated
-            onDecision(updated)
+            onMessageUpdate(updated)
             await PendingMessagesStore.shared.refresh(using: client)
             decisionNotes = ""
         } catch {
@@ -469,7 +469,6 @@ private extension MessageDetailView {
                 ?? "Couldn't save the corrected transcript."
         }
     }
-
     func saveTranslationCorrection(_ current: Message) async {
         savingCorrection = true
         errorMessage = nil
@@ -485,6 +484,7 @@ private extension MessageDetailView {
                 )
             )
             message = (message ?? current).replacingLatestTranscription(updated)
+            if let message { onMessageUpdate(message) }
             transcriptions = transcriptions.map { $0.id == updated.id ? updated : $0 }
             editingTranslation = false
             translationCorrectionTranscriptionId = nil
