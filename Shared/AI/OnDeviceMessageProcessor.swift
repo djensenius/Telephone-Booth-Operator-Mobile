@@ -298,7 +298,9 @@ public final class OnDeviceMessageProcessor {
                     || Self.trimmed(current.latestTranscription?.translatedText)
                         != Self.trimmed(pending.translation.translatedText)
                     || current.latestTranscription?.translationProvider != .onDevice
-                    || current.latestTranscription?.translationModel != pending.translation.model {
+                    || current.latestTranscription?.translationModel != pending.translation.model
+                    || current.latestTranscription?.translatedLanguage
+                        != pending.translation.targetLanguage {
                     _ = try await client.submitTranslation(
                         messageId: pending.messageId,
                         body: MessageTranslationRequest(

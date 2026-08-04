@@ -403,6 +403,7 @@
 		B0BB5BD4097F17C83D637261 /* RootContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37087EC6949DE3BAE1DFF056 /* RootContainerView.swift */; };
 		B13CAAC8222E793C8F270D3A /* CallSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9596BEC9DF2776F880EA70F /* CallSession.swift */; };
 		B1569780A0D2425153FA746A /* StatusSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6634FDFD7E3022DE6661687E /* StatusSocket.swift */; };
+		B18940415C807151C9D65A5B /* OnDeviceAudioFetcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A656FC85633AF2B813476502 /* OnDeviceAudioFetcherTests.swift */; };
 		B2722124A581E528A0AFCBAF /* LiveActivityEventObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 075EBD41F4DADB4726DA09A8 /* LiveActivityEventObserver.swift */; };
 		B35575E59C1058852E4C166B /* BoothStatusLiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E95B37CFE5471F2A73BEA65 /* BoothStatusLiveStore.swift */; };
 		B3BDF753A9C70023DDA08F88 /* TVScreensaverContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9428B331EAFB0695F8F7AF0B /* TVScreensaverContent.swift */; };
@@ -767,6 +768,7 @@
 		A52F2D18A7953F329D00C2A4 /* TVScreensaverHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVScreensaverHost.swift; sourceTree = "<group>"; };
 		A57C08F65970EB67A8553EE3 /* OperatorMe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperatorMe.swift; sourceTree = "<group>"; };
 		A58F0A1D6582D1806CE4E408 /* NotificationSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsSection.swift; sourceTree = "<group>"; };
+		A656FC85633AF2B813476502 /* OnDeviceAudioFetcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceAudioFetcherTests.swift; sourceTree = "<group>"; };
 		A8B94F36732A0600EF2F0B59 /* BoothStatusWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoothStatusWidget.swift; sourceTree = "<group>"; };
 		A9596BEC9DF2776F880EA70F /* CallSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallSession.swift; sourceTree = "<group>"; };
 		AA54852FDBAC5AD6E9BBEE05 /* TVScreensaverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVScreensaverView.swift; sourceTree = "<group>"; };
@@ -849,6 +851,7 @@
 				9CD9DDE3D8BCDE0B477C7475 /* EventStreamTests.swift */,
 				D2A3907C3F55C792DA6D5DC3 /* IDTokenValidatorTests.swift */,
 				435BF82B0A74BD00A4B073F2 /* NotificationTests.swift */,
+				A656FC85633AF2B813476502 /* OnDeviceAudioFetcherTests.swift */,
 				E10A7A362240B310BF2B7BC8 /* OnDeviceReviewTests.swift */,
 				40625CD545E668C2C4B504AF /* OperatorClientRetryTests.swift */,
 				4BE8907DDE2CF48DA4FC91B0 /* PendingMessagesTests.swift */,
@@ -2081,6 +2084,7 @@
 				730A9E1DC7AF671AF03E61BB /* EventStreamTests.swift in Sources */,
 				0D22073568FBC9379AD4D926 /* IDTokenValidatorTests.swift in Sources */,
 				884D83CA01F406FABA0EF9E1 /* NotificationTests.swift in Sources */,
+				B18940415C807151C9D65A5B /* OnDeviceAudioFetcherTests.swift in Sources */,
 				4F24C9C6E96A37867C5E5F5D /* OnDeviceReviewTests.swift in Sources */,
 				87F5FC28B50F4B43BB95AE3D /* OperatorClientRetryTests.swift in Sources */,
 				706EFE607CDE22837E2DF1E8 /* PendingMessagesTests.swift in Sources */,
