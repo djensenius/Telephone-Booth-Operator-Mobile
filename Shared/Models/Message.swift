@@ -391,8 +391,11 @@ extension Message {
     }
 
     public func replacingLatestTranscription(_ transcription: Transcription) -> Message {
-        let textChanged = latestTranscription?.text != transcription.text
-            || latestTranscription?.translatedText != transcription.translatedText
+        let previousHash = ReviewTextSnapshot.sha256(latestTranscription?.translationSnapshotText)
+            ?? ReviewTextSnapshot.sha256(latestTranscription?.text)
+        let updatedHash = ReviewTextSnapshot.sha256(transcription.translationSnapshotText)
+            ?? ReviewTextSnapshot.sha256(transcription.text)
+        let textChanged = previousHash != updatedHash
         let moderation = latestModeration.flatMap { existing -> Moderation? in
             guard !textChanged else { return nil }
             guard let owner = existing.transcriptionId else { return existing }

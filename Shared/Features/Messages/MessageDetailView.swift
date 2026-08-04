@@ -139,21 +139,21 @@ public struct MessageDetailView: View {
                         .buttonStyle(.borderedProminent)
                         .tint(Theme.Colors.accent)
                         .disabled(onDeviceProcessor.isRunning)
-                        if onDeviceProcessor.canRetryPersistence {
-                            Button("Retry save") {
-                                Task {
-                                    await onDeviceProcessor.retryPersistence(client: client)
-                                    await load()
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(onDeviceProcessor.isRunning)
-                        }
                     }
                 } else if onDeviceProcessor.stage != .checkingAvailability {
                     Text("Check the BCP-47 source language (for example, fr-CA) and device support.")
                         .font(Theme.Fonts.bodySmall)
                         .foregroundStyle(Theme.Colors.textSecondary)
+                }
+                if !usesDemoData, onDeviceProcessor.canRetryPersistence {
+                    Button("Retry save") {
+                        Task {
+                            await onDeviceProcessor.retryPersistence(client: client)
+                            await load()
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(onDeviceProcessor.isRunning)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -291,12 +291,10 @@ private extension MessageDetailView {
         .padding(Theme.Spacing.large)
         .glassCardBackground()
     }
-
     @ViewBuilder
     private func decisionCard(_ message: Message) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
             SectionHeader(text: "Decision")
-
             if let rec = message.latestApplicableModeration?.recommendation {
                 HStack(spacing: Theme.Spacing.small) {
                     Image(systemName: "sparkles")
@@ -306,7 +304,6 @@ private extension MessageDetailView {
                         .foregroundStyle(Theme.Colors.textSecondary)
                 }
             }
-
             switch message.status {
             case .uploading, .received:
                 Text("A decision can be made once transcription and moderation have run.")
@@ -336,7 +333,6 @@ private extension MessageDetailView {
         .padding(Theme.Spacing.large)
         .glassCardBackground()
     }
-
     @ViewBuilder
     private func decisionButton(_ decision: MessageDecision, isCurrent: Bool) -> some View {
         let title = decision == .approve
@@ -452,7 +448,7 @@ private extension MessageDetailView {
         errorMessage = nil
         defer { savingCorrection = false }
         do {
-            _ = try await client.submitTranscription(
+            let updated = try await client.submitTranscription(
                 messageId: current.id,
                 text: transcriptCorrection,
                 language: current.latestTranscription?.language,
@@ -460,9 +456,13 @@ private extension MessageDetailView {
                 processDownstream: false,
                 expectedLatestTranscription: transcriptCorrectionSnapshot
             )
+            let updatedMessage = (message ?? current).replacingLatestTranscription(updated)
+            message = updatedMessage
+            onMessageUpdate(updatedMessage)
+            transcriptions = [updated] + transcriptions.filter { $0.id != updated.id }
             editingTranscript = false
             transcriptCorrectionSnapshot = nil
-            statusMessage = "Corrected transcript saved. Translation and moderation will refresh."
+            statusMessage = "Corrected transcript saved. Translation and moderation must be regenerated."
             await load()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription

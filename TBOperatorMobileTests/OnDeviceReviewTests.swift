@@ -56,6 +56,7 @@ private actor StubReviewClient: MessageReviewPersisting {
         case transcriptResponse
         case translation
         case moderation
+        case moderationResponse
     }
     private(set) var message: Message
     private var failOnce: Step?
@@ -159,6 +160,7 @@ private actor StubReviewClient: MessageReviewPersisting {
             completedAt: Date()
         )
         message = message.replacingLatestModeration(moderation)
+        try failIfRequested(.moderationResponse)
         return moderation
     }
     func replaceTranscription(_ transcription: Transcription) {
@@ -420,6 +422,24 @@ final class OnDeviceReviewTests: XCTestCase {
         let saved = try? await client.fetchMessage(id: message.id)
         XCTAssertEqual(saved?.latestTranscription?.translatedText, "competing translation")
     }
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testProcessorRetriesModerationFailuresWithoutDuplicatingLostResponses() async {
+        for failure in [StubReviewClient.Step.moderation, .moderationResponse] {
+            let message = DemoData.message(id: "demo-message-3")
+            let client = StubReviewClient(message: message, failOnce: failure)
+            let processor = makeProcessor()
+            await processor.refreshAvailability()
+            await processor.process(message: message, sourceLanguage: "fr", client: client)
+            XCTAssertTrue(processor.canRetryPersistence)
+            await processor.retryPersistence(client: client)
+            XCTAssertEqual(processor.stage, .completed)
+            let counts = await client.counts()
+            XCTAssertEqual(counts.moderations, failure == .moderation ? 2 : 1)
+            let saved = try? await client.fetchMessage(id: message.id)
+            XCTAssertEqual(saved?.latestApplicableModeration?.recommendation, .approve)
+        }
+    }
 
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
@@ -456,33 +476,6 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(counts.transcriptions, 0)
         XCTAssertFalse(processor.canRetryPersistence)
     }
-    func testAudioFetcherRejectsInvalidHashBeforeNetworking() async {
-        let fetcher = URLSessionAudioFetcher()
-        do {
-            _ = try await fetcher.withFetchedAudioFile(
-                url: URL(string: "https://example.com/audio.flac")!,
-                expectedSHA256: "invalid",
-                maxBytes: 10
-            ) { _ in true             }
-            XCTFail("Expected invalid hash failure")
-        } catch {
-            XCTAssertEqual(error as? AudioFetchError, .invalidExpectedHash)
-        }
-    }
-    func testAudioFetcherRejectsInsecureURLBeforeNetworking() async {
-        let fetcher = URLSessionAudioFetcher()
-        do {
-            _ = try await fetcher.withFetchedAudioFile(
-                url: URL(string: "http://example.com/audio.flac")!,
-                expectedSHA256: String(repeating: "a", count: 64),
-                maxBytes: 10
-            ) { _ in true }
-            XCTFail("Expected insecure URL failure")
-        } catch {
-            XCTAssertEqual(error as? AudioFetchError, .insecureURL)
-        }
-    }
-
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
     private func makeProcessor(

@@ -92,6 +92,34 @@ final class OnDeviceAudioFetcherTests: XCTestCase {
         XCTAssertFalse(throwingBodyFileExists)
     }
 
+    func testRejectsInvalidHashBeforeNetworking() async {
+        let fetcher = URLSessionAudioFetcher()
+        do {
+            _ = try await fetcher.withFetchedAudioFile(
+                url: Self.audioURL,
+                expectedSHA256: "invalid",
+                maxBytes: 10
+            ) { _ in true }
+            XCTFail("Expected invalid hash failure")
+        } catch {
+            XCTAssertEqual(error as? AudioFetchError, .invalidExpectedHash)
+        }
+    }
+
+    func testRejectsInsecureURLBeforeNetworking() async {
+        let fetcher = URLSessionAudioFetcher()
+        do {
+            _ = try await fetcher.withFetchedAudioFile(
+                url: URL(string: "http://example.com/audio.flac")!,
+                expectedSHA256: String(repeating: "a", count: 64),
+                maxBytes: 10
+            ) { _ in true }
+            XCTFail("Expected insecure URL failure")
+        } catch {
+            XCTAssertEqual(error as? AudioFetchError, .insecureURL)
+        }
+    }
+
     private static let audioURL = URL(string: "https://example.com/audio.flac")!
 
     private func makeFetcher() -> URLSessionAudioFetcher {
