@@ -217,13 +217,20 @@ public protocol AudioFetching: Sendable {
 }
 
 public struct URLSessionAudioFetcher: AudioFetching {
+    private static let sharedDownloadSession = makeDownloadSession(from: .shared)
     private let downloadSession: BoundedAudioSession
 
     public init(session: URLSession = .shared) {
+        downloadSession = session === URLSession.shared
+            ? Self.sharedDownloadSession
+            : Self.makeDownloadSession(from: session)
+    }
+
+    private static func makeDownloadSession(from session: URLSession) -> BoundedAudioSession {
         let configuration = session.configuration
         configuration.urlCache = nil
         configuration.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        downloadSession = BoundedAudioSession(configuration: configuration)
+        return BoundedAudioSession(configuration: configuration)
     }
 
     public func withFetchedAudioFile<T: Sendable>(

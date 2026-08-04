@@ -8,7 +8,6 @@
 //
 
 #if !os(watchOS) && !os(tvOS)
-
 import SwiftUI
 public struct MessageDetailView: View {
     public let messageId: String
@@ -372,7 +371,6 @@ private extension MessageDetailView {
         case .unknown: return Theme.Colors.textSecondary
         }
     }
-
     private func metadataCard(_ message: Message) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
             SectionHeader(text: "Metadata")
@@ -461,6 +459,7 @@ private extension MessageDetailView {
             transcriptions = [updated] + transcriptions.filter { $0.id != updated.id }
             editingTranscript = false
             transcriptCorrectionSnapshot = nil
+            onDeviceProcessor.reset()
             statusMessage = "Corrected transcript saved. Translation and moderation were cleared."
             await load()
         } catch {
@@ -489,6 +488,7 @@ private extension MessageDetailView {
             editingTranslation = false
             translationCorrectionTranscriptionId = nil
             translationCorrectionSHA256 = nil
+            onDeviceProcessor.reset()
             statusMessage = "Corrected translation saved."
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription
