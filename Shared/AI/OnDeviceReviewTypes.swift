@@ -126,11 +126,7 @@ public enum OnDeviceReviewLogic {
     }
 
     private static func normalizedSource(_ value: String?) -> String? {
-        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !value.isEmpty else {
-            return nil
-        }
-        return value.lowercased()
+        PromptSafety.normalizedLanguageTag(value)?.lowercased()
     }
 }
 

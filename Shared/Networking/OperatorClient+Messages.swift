@@ -42,16 +42,28 @@ extension OperatorClient {
         text: String,
         language: String?,
         model: String?,
-        processDownstream: Bool = true
+        processDownstream: Bool = true,
+        expectedLatestTranscriptionId: String?
     ) async throws -> Transcription {
         let body = MessageTranscriptionRequest(
             text: text,
             language: language,
             model: model,
-            processDownstream: processDownstream
+            processDownstream: processDownstream,
+            expectedLatestTranscriptionId: expectedLatestTranscriptionId
         )
+        return try await submitTranscription(messageId: messageId, body: body)
+    }
+
+    public func submitTranscription(
+        messageId: String,
+        body: MessageTranscriptionRequest
+    ) async throws -> Transcription {
         if await usesDemoData {
             let message = demoMessageOverrides[messageId] ?? DemoData.message(id: messageId)
+            guard message.latestTranscription?.id == body.expectedLatestTranscriptionId else {
+                throw OperatorError.httpError(status: 409, body: "stale_transcription")
+            }
             let updated = Transcription(
                 id: "\(messageId)-on-device-\(UUID().uuidString)",
                 messageId: messageId,
@@ -78,14 +90,23 @@ extension OperatorClient {
         translatedText: String,
         translatedLanguage: String? = "en",
         transcriptionId: String? = nil,
+        expectedTranscriptionId: String? = nil,
         model: String? = nil
     ) async throws -> Transcription {
         let body = MessageTranslationRequest(
             transcriptionId: transcriptionId,
+            expectedTranscriptionId: expectedTranscriptionId,
             translatedText: translatedText,
             translatedLanguage: translatedLanguage,
             model: model
         )
+        return try await submitTranslation(messageId: messageId, body: body)
+    }
+
+    public func submitTranslation(
+        messageId: String,
+        body: MessageTranslationRequest
+    ) async throws -> Transcription {
         if await usesDemoData {
             return try applyDemoTranslation(messageId: messageId, body: body)
         }
@@ -143,6 +164,10 @@ extension OperatorClient {
         let message = demoMessageOverrides[messageId] ?? DemoData.message(id: messageId)
         guard let transcription = message.latestTranscription else {
             throw OperatorError.httpError(status: 409, body: "no_succeeded_transcription")
+        }
+        let expectedId = body.transcriptionId ?? body.expectedTranscriptionId
+        guard expectedId == nil || expectedId == transcription.id else {
+            throw OperatorError.httpError(status: 409, body: "stale_transcription")
         }
         let updated = Transcription(
             id: transcription.id,

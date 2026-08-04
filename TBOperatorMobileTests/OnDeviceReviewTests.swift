@@ -6,6 +6,7 @@
 import Foundation
 import XCTest
 @testable import TBOperatorMobile
+
 private struct StubAudioFetcher: AudioFetching {
     func withFetchedAudioFile<T: Sendable>(
         url: URL,
@@ -50,6 +51,7 @@ private struct StubModerator: TextModerating {
 private enum StubFailure: Error {
     case requested
 }
+
 private struct SubmissionCounts {
     let transcriptions: Int
     let translations: Int
@@ -80,10 +82,7 @@ private actor StubReviewClient: MessageReviewPersisting {
 
     func submitTranscription(
         messageId: String,
-        text: String,
-        language: String?,
-        model: String?,
-        processDownstream: Bool
+        body: MessageTranscriptionRequest
     ) async throws -> Transcription {
         transcriptionSubmissions += 1
         try failIfRequested(.transcript)
@@ -91,10 +90,10 @@ private actor StubReviewClient: MessageReviewPersisting {
             id: "generated-transcript",
             messageId: messageId,
             provider: .onDevice,
-            model: model,
+            model: body.model,
             status: .succeeded,
-            text: text,
-            language: language,
+            text: body.text,
+            language: body.language,
             durationMs: message.audio.durationMs,
             latencyMs: nil,
             error: nil,
@@ -108,15 +107,12 @@ private actor StubReviewClient: MessageReviewPersisting {
 
     func submitTranslation(
         messageId: String,
-        translatedText: String,
-        translatedLanguage: String?,
-        transcriptionId: String?,
-        model: String?
+        body: MessageTranslationRequest
     ) async throws -> Transcription {
         translationSubmissions += 1
         try failIfRequested(.translation)
         guard let current = message.latestTranscription,
-              current.id == transcriptionId else {
+              current.id == body.transcriptionId else {
             throw StubFailure.requested
         }
         let updated = Transcription(
@@ -134,10 +130,10 @@ private actor StubReviewClient: MessageReviewPersisting {
             createdAt: current.createdAt,
             completedAt: current.completedAt,
             translationStatus: .succeeded,
-            translatedText: translatedText,
-            translatedLanguage: translatedLanguage,
+            translatedText: body.translatedText,
+            translatedLanguage: body.translatedLanguage,
             translationProvider: .onDevice,
-            translationModel: model,
+            translationModel: body.model,
             translationCompletedAt: Date()
         )
         message = message.replacingLatestTranscription(updated)
@@ -239,20 +235,24 @@ final class OnDeviceReviewTests: XCTestCase {
         let transcript = MessageTranscriptionRequest(
             text: " hello ",
             language: " fr ",
-            model: " apple-speech-analyzer "
+            model: " apple-speech-analyzer ",
+            expectedLatestTranscriptionId: " t0 "
         )
         XCTAssertEqual(transcript.text, "hello")
         XCTAssertEqual(transcript.language, "fr")
         XCTAssertEqual(transcript.model, "apple-speech-analyzer")
+        XCTAssertEqual(transcript.expectedLatestTranscriptionId, "t0")
         XCTAssertFalse(transcript.processDownstream)
 
         let translation = MessageTranslationRequest(
             transcriptionId: " t1 ",
+            expectedTranscriptionId: " t1 ",
             translatedText: " hello ",
             translatedLanguage: " en ",
             model: " apple-foundation-models "
         )
         XCTAssertEqual(translation.transcriptionId, "t1")
+        XCTAssertEqual(translation.expectedTranscriptionId, "t1")
         XCTAssertEqual(translation.translatedText, "hello")
         XCTAssertEqual(translation.model, "apple-foundation-models")
 

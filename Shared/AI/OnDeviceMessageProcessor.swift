@@ -14,17 +14,11 @@ public protocol MessageReviewPersisting: Sendable {
     func fetchMessage(id: String) async throws -> Message
     func submitTranscription(
         messageId: String,
-        text: String,
-        language: String?,
-        model: String?,
-        processDownstream: Bool
+        body: MessageTranscriptionRequest
     ) async throws -> Transcription
     func submitTranslation(
         messageId: String,
-        translatedText: String,
-        translatedLanguage: String?,
-        transcriptionId: String?,
-        model: String?
+        body: MessageTranslationRequest
     ) async throws -> Transcription
     func submitModeration(
         messageId: String,
@@ -159,7 +153,15 @@ public final class OnDeviceMessageProcessor {
         sourceLanguage: String?,
         client: any MessageReviewPersisting
     ) async {
-        guard isAvailable, !isRunning else { return }
+        guard !isRunning else { return }
+        let normalizedSourceLanguage = PromptSafety.normalizedLanguageTag(sourceLanguage)
+        let locale = normalizedSourceLanguage.map(Locale.init(identifier:)) ?? .current
+        stage = .checkingAvailability
+        isAvailable = await availabilityCheck(locale)
+        guard isAvailable else {
+            fail("The selected source language is not supported for on-device transcription.")
+            return
+        }
         generation += 1
         let currentGeneration = generation
         pendingResult = nil
@@ -173,7 +175,7 @@ public final class OnDeviceMessageProcessor {
             ) { [transcriber] fileURL in
                 try await transcriber.transcribe(
                     audioFileURL: fileURL,
-                    language: PromptSafety.normalizedLanguageTag(sourceLanguage)
+                    language: normalizedSourceLanguage
                 )
             }
             guard generation == currentGeneration else { return }
@@ -202,7 +204,7 @@ public final class OnDeviceMessageProcessor {
                 messageId: message.id,
                 baseline: SourceSnapshot(message),
                 transcript: trimmedTranscript,
-                language: translation.sourceLanguage ?? PromptSafety.normalizedLanguageTag(sourceLanguage),
+                language: translation.sourceLanguage ?? normalizedSourceLanguage,
                 transcriptionModel: "apple-speech-analyzer",
                 translation: translation,
                 moderation: moderation,
@@ -233,14 +235,18 @@ public final class OnDeviceMessageProcessor {
             if pending.step == .transcript {
                 stage = .savingTranscript
                 let current = try await client.fetchMessage(id: pending.messageId)
-                if SourceSnapshot(current) == pending.baseline
+                let currentSnapshot = SourceSnapshot(current)
+                if currentSnapshot == pending.baseline
                     || Self.matchesGeneratedTranscript(current.latestTranscription, pending: pending) {
                     let transcription = try await client.submitTranscription(
                         messageId: pending.messageId,
-                        text: pending.transcript,
-                        language: pending.language,
-                        model: pending.transcriptionModel,
-                        processDownstream: false
+                        body: MessageTranscriptionRequest(
+                            text: pending.transcript,
+                            language: pending.language,
+                            model: pending.transcriptionModel,
+                            processDownstream: false,
+                            expectedLatestTranscriptionId: currentSnapshot.transcriptionId
+                        )
                     )
                     pending.transcriptionId = transcription.id
                 } else {
@@ -268,10 +274,12 @@ public final class OnDeviceMessageProcessor {
                     || current.latestTranscription?.translationModel != pending.translation.model {
                     _ = try await client.submitTranslation(
                         messageId: pending.messageId,
-                        translatedText: pending.translation.translatedText,
-                        translatedLanguage: pending.translation.targetLanguage,
-                        transcriptionId: pending.transcriptionId,
-                        model: pending.translation.model
+                        body: MessageTranslationRequest(
+                            transcriptionId: pending.transcriptionId,
+                            translatedText: pending.translation.translatedText,
+                            translatedLanguage: pending.translation.targetLanguage,
+                            model: pending.translation.model
+                        )
                     )
                 }
                 pending.step = .moderation

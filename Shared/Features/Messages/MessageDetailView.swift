@@ -29,6 +29,7 @@ public struct MessageDetailView: View {
     @State private var editingTranslation = false
     @State private var translationCorrection = ""
     @State private var savingCorrection = false
+    @State private var usesDemoData = false
 
     private let client: OperatorClient
     private let onDecision: (Message) -> Void
@@ -80,9 +81,12 @@ public struct MessageDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .task {
-            async let availability: Void = onDeviceProcessor.refreshAvailability()
-            async let messageLoad: Void = load()
-            _ = await (availability, messageLoad)
+            usesDemoData = await client.usesDemoData
+            await load()
+        }
+        .task(id: sourceLanguage) {
+            let identifier = PromptSafety.normalizedLanguageTag(sourceLanguage) ?? Locale.current.identifier
+            await onDeviceProcessor.refreshAvailability(locale: Locale(identifier: identifier))
         }
         .refreshableIfAvailable {
             await load()
@@ -98,12 +102,10 @@ public struct MessageDetailView: View {
                 )
                 .font(Theme.Fonts.bodySmall)
                 .foregroundStyle(Theme.Colors.textSecondary)
-
                 TextField("Source language (optional, e.g. fr-CA)", text: $sourceLanguage)
                     .textFieldStyle(.roundedBorder)
                     .font(Theme.Fonts.bodySmall)
                     .disabled(onDeviceProcessor.isRunning)
-
                 if let status = onDeviceProcessor.stage.statusText {
                     HStack(spacing: Theme.Spacing.small) {
                         if onDeviceProcessor.isRunning {
@@ -120,7 +122,11 @@ public struct MessageDetailView: View {
                     }
                 }
 
-                if onDeviceProcessor.isAvailable {
+                if usesDemoData {
+                    Text("On-device processing is unavailable for demo messages.")
+                        .font(Theme.Fonts.bodySmall)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                } else if onDeviceProcessor.isAvailable {
                     HStack(spacing: Theme.Spacing.medium) {
                         Button {
                             Task {
@@ -457,7 +463,8 @@ private extension MessageDetailView {
                 messageId: current.id,
                 text: transcriptCorrection,
                 language: current.latestTranscription?.language,
-                model: nil
+                model: nil,
+                expectedLatestTranscriptionId: current.latestTranscription?.id
             )
             editingTranscript = false
             statusMessage = "Corrected transcript saved. Translation and moderation will refresh."
@@ -476,7 +483,8 @@ private extension MessageDetailView {
             let updated = try await client.submitTranslation(
                 messageId: current.id,
                 translatedText: translationCorrection,
-                translatedLanguage: "en"
+                translatedLanguage: "en",
+                expectedTranscriptionId: current.latestTranscription?.id
             )
             message = current.replacingLatestTranscription(updated)
             transcriptions = transcriptions.map { $0.id == updated.id ? updated : $0 }
