@@ -286,7 +286,7 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(transcription.translationProvider, .macApp)
     }
 
-    func testModerationPredatingTranslationIsNotApplicable() {
+    func testModerationSurvivesAnIdenticalTranslationRetry() {
         let translationDate = Date(timeIntervalSince1970: 20)
         let transcription = Transcription(
             id: "t1",
@@ -307,7 +307,7 @@ final class OnDeviceReviewTests: XCTestCase {
             translatedLanguage: "en",
             translationCompletedAt: translationDate
         )
-        let staleModeration = Moderation(
+        let retainedModeration = Moderation(
             id: "mod1",
             messageId: "m1",
             transcriptionId: "t1",
@@ -333,10 +333,10 @@ final class OnDeviceReviewTests: XCTestCase {
             receivedAt: nil,
             audio: AudioRef(url: URL(fileURLWithPath: "/tmp/audio"), sha256: "", durationMs: nil),
             latestTranscription: transcription,
-            latestModeration: staleModeration
+            latestModeration: retainedModeration
         )
 
-        XCTAssertNil(message.latestApplicableModeration)
+        XCTAssertEqual(message.latestApplicableModeration?.id, "mod1")
 
         let pendingModeration = Moderation(
             id: "mod2",

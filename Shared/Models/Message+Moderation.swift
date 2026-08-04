@@ -17,9 +17,6 @@ extension Message {
         let moderatedAt = moderation.completedAt ?? moderation.createdAt
         let transcribedAt = transcription.completedAt ?? transcription.createdAt
         guard moderatedAt >= transcribedAt else { return nil }
-        if let translatedAt = transcription.translationCompletedAt {
-            guard moderatedAt >= translatedAt else { return nil }
-        }
         return moderation
     }
 }

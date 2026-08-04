@@ -187,7 +187,7 @@ private extension MessageDetailView {
                         originalText: translation,
                         editTitle: "Edit translation",
                         saveTitle: "Save corrected translation",
-                        disabled: onDeviceProcessor.isRunning || savingCorrection,
+                        disabled: usesDemoData || onDeviceProcessor.isRunning || savingCorrection,
                         onEdit: {
                             translationCorrectionTranscriptionId = transcription.id
                             translationCorrectionSHA256 =
@@ -238,7 +238,7 @@ private extension MessageDetailView {
                         originalText: text,
                         editTitle: "Edit transcript",
                         saveTitle: "Save corrected transcript",
-                        disabled: onDeviceProcessor.isRunning || savingCorrection,
+                        disabled: usesDemoData || onDeviceProcessor.isRunning || savingCorrection,
                         onEdit: {
                             transcriptCorrectionTranscriptionId = latest.id
                         },
