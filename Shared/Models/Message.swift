@@ -295,6 +295,7 @@ public struct Moderation: Codable, Sendable, Equatable, Identifiable {
     public let reasonSummary: String?
     public let latencyMs: Int?
     public let error: String?
+    public let requestedById: String?
     public let createdAt: Date
     public let completedAt: Date?
 
@@ -312,6 +313,7 @@ public struct Moderation: Codable, Sendable, Equatable, Identifiable {
         reasonSummary: String?,
         latencyMs: Int?,
         error: String?,
+        requestedById: String? = nil,
         createdAt: Date,
         completedAt: Date? = nil
     ) {
@@ -328,6 +330,7 @@ public struct Moderation: Codable, Sendable, Equatable, Identifiable {
         self.reasonSummary = reasonSummary
         self.latencyMs = latencyMs
         self.error = error
+        self.requestedById = requestedById
         self.createdAt = createdAt
         self.completedAt = completedAt
     }

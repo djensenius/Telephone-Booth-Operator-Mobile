@@ -307,6 +307,7 @@ public final class OnDeviceMessageProcessor {
                 return
             }
             if current.latestApplicableModeration?.transcriptionId == pending.transcriptionId,
+               current.latestApplicableModeration?.requestedById == pending.requestedById,
                Self.matches(pending.moderation, current.latestApplicableModeration) {
                 pendingResult = nil
                 stage = .completed

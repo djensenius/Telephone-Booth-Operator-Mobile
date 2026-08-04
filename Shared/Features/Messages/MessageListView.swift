@@ -280,7 +280,7 @@ private extension Message {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return true }
         return latestTranscription?.text?.localizedCaseInsensitiveContains(query) == true
-            || latestTranscription?.translatedText?.localizedCaseInsensitiveContains(query) == true
+            || latestTranscription?.completedTranslation?.localizedCaseInsensitiveContains(query) == true
     }
 }
 

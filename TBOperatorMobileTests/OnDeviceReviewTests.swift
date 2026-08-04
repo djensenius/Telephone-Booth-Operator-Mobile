@@ -68,7 +68,6 @@ private actor StubReviewClient: MessageReviewPersisting {
         self.message = message
         self.failOnce = failOnce
     }
-
     func fetchMessage(id: String) async throws -> Message {
         message
     }
@@ -158,6 +157,7 @@ private actor StubReviewClient: MessageReviewPersisting {
             reasonSummary: nil,
             latencyMs: nil,
             error: nil,
+            requestedById: DemoData.operatorProfile.id,
             createdAt: Date(),
             completedAt: Date()
         )

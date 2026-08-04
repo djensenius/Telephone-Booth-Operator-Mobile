@@ -340,7 +340,6 @@ private extension MessageDetailView {
             : (isCurrent ? "Rejected" : "Reject")
         let icon = decision == .approve ? "checkmark.circle.fill" : "xmark.circle.fill"
         let tint = decision == .approve ? Theme.Colors.success : Theme.Colors.error
-
         if isCurrent {
             Button {
                 Task { await decide(decision) }
@@ -365,7 +364,6 @@ private extension MessageDetailView {
             .disabled(deciding)
         }
     }
-
     private func recommendationColor(_ recommendation: ModerationRecommendation) -> Color {
         switch recommendation {
         case .approve: return Theme.Colors.success
@@ -444,6 +442,7 @@ private extension MessageDetailView {
         }
     }
     func saveTranscriptCorrection(_ current: Message) async {
+        guard !savingCorrection else { return }
         savingCorrection = true
         errorMessage = nil
         defer { savingCorrection = false }
@@ -462,7 +461,7 @@ private extension MessageDetailView {
             transcriptions = [updated] + transcriptions.filter { $0.id != updated.id }
             editingTranscript = false
             transcriptCorrectionSnapshot = nil
-            statusMessage = "Corrected transcript saved. Translation and moderation must be regenerated."
+            statusMessage = "Corrected transcript saved. Translation and moderation were cleared."
             await load()
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription
@@ -470,6 +469,7 @@ private extension MessageDetailView {
         }
     }
     func saveTranslationCorrection(_ current: Message) async {
+        guard !savingCorrection else { return }
         savingCorrection = true
         errorMessage = nil
         defer { savingCorrection = false }
