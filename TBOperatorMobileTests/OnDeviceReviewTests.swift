@@ -71,7 +71,7 @@ private actor StubReviewClient: MessageReviewPersisting {
     func fetchMessage(id: String) async throws -> Message {
         message
     }
-
+    func fetchCurrentUserId() async throws -> String { DemoData.operatorProfile.id }
     func submitTranscription(
         messageId: String,
         body: MessageTranscriptionRequest
@@ -89,7 +89,7 @@ private actor StubReviewClient: MessageReviewPersisting {
             durationMs: message.audio.durationMs,
             latencyMs: nil,
             error: nil,
-            requestedById: nil,
+            requestedById: DemoData.operatorProfile.id,
             createdAt: Date(),
             completedAt: Date()
         )

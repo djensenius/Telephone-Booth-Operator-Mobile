@@ -152,7 +152,7 @@ public struct MessageDetailView: View {
                         }
                     }
                 } else if onDeviceProcessor.stage != .checkingAvailability {
-                    Text("This device cannot run the complete on-device Apple Intelligence pipeline.")
+                    Text("Check the BCP-47 source language (for example, fr-CA) and device support.")
                         .font(Theme.Fonts.bodySmall)
                         .foregroundStyle(Theme.Colors.textSecondary)
                 }
@@ -484,7 +484,7 @@ private extension MessageDetailView {
                     translatedLanguage: "en"
                 )
             )
-            message = current.replacingLatestTranscription(updated)
+            message = (message ?? current).replacingLatestTranscription(updated)
             transcriptions = transcriptions.map { $0.id == updated.id ? updated : $0 }
             editingTranslation = false
             translationCorrectionTranscriptionId = nil

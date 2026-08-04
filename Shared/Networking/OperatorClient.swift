@@ -52,6 +52,10 @@ public actor OperatorClient {
         return try await get("/v1/auth/me")
     }
 
+    public func fetchCurrentUserId() async throws -> String {
+        try await fetchMe().id
+    }
+
     /// `GET /v1/stats/summary` — booth health + queue counts. Operator
     /// caches this for 5s, so 15-minute widget polling is cheap.
     public func fetchStatsSummary() async throws -> StatsSummary {

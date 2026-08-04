@@ -11,6 +11,7 @@ import os
 
 public protocol MessageReviewPersisting: Sendable {
     func fetchMessage(id: String) async throws -> Message
+    func fetchCurrentUserId() async throws -> String
     func submitTranscription(
         messageId: String,
         body: MessageTranscriptionRequest
@@ -89,6 +90,7 @@ public final class OnDeviceMessageProcessor {
         let transcriptionModel: String
         let translation: TranslationResult
         let moderation: ModerationVerdict
+        let requestedById: String
         var step: PersistenceStep
         var transcriptionId: String?
     }
@@ -184,7 +186,7 @@ public final class OnDeviceMessageProcessor {
                     "The selected source language is not supported for on-device transcription."
                 )
             }
-            let currentMessage = try await fetchCurrentMessage(
+            let (currentMessage, requestedById) = try await fetchCurrentContext(
                 id: message.id,
                 client: client,
                 generation: currentGeneration
@@ -230,6 +232,7 @@ public final class OnDeviceMessageProcessor {
                 transcriptionModel: "apple-speech-analyzer",
                 translation: translation,
                 moderation: moderation,
+                requestedById: requestedById,
                 step: .transcript,
                 transcriptionId: nil
             )
@@ -369,14 +372,16 @@ public final class OnDeviceMessageProcessor {
         return (language, language.map(Locale.init(identifier:)) ?? .current)
     }
 
-    private func fetchCurrentMessage(
+    private func fetchCurrentContext(
         id: String,
         client: any MessageReviewPersisting,
         generation expectedGeneration: Int
-    ) async throws -> Message {
-        let message = try await client.fetchMessage(id: id)
+    ) async throws -> (Message, String) {
+        async let message = client.fetchMessage(id: id)
+        async let requestedById = client.fetchCurrentUserId()
+        let context = try await (message, requestedById)
         guard generation == expectedGeneration else { throw CancellationError() }
-        return message
+        return context
     }
 
     private static func matches(
@@ -398,6 +403,7 @@ public final class OnDeviceMessageProcessor {
         guard let existing else { return false }
         return existing.status == .succeeded
             && existing.provider == .onDevice
+            && existing.requestedById == pending.requestedById
             && existing.model == pending.transcriptionModel
             && existing.language == pending.language
             && trimmed(existing.text) == trimmed(pending.transcript)
