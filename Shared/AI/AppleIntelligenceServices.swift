@@ -72,8 +72,25 @@ public struct AppleSpeechTranscriber: AudioTranscribing {
             )
         }
         let transcriber = SpeechTranscriber(locale: locale, preset: .transcription)
-        try await installAssets(for: transcriber)
+        let releaseReservation = try await installAssets(for: transcriber, locale: locale)
+        do {
+            let transcript = try await analyze(audioFileURL: audioFileURL, with: transcriber)
+            if releaseReservation {
+                await AssetInventory.release(reservedLocale: locale)
+            }
+            return transcript
+        } catch {
+            if releaseReservation {
+                await AssetInventory.release(reservedLocale: locale)
+            }
+            throw error
+        }
+    }
 
+    private func analyze(
+        audioFileURL: URL,
+        with transcriber: SpeechTranscriber
+    ) async throws -> String {
         let resultsTask = Task { () throws -> String in
             var combined = AttributedString()
             for try await result in transcriber.results {
@@ -99,11 +116,15 @@ public struct AppleSpeechTranscriber: AudioTranscribing {
         }
     }
 
-    private func installAssets(for transcriber: SpeechTranscriber) async throws {
+    private func installAssets(
+        for transcriber: SpeechTranscriber,
+        locale: Locale
+    ) async throws -> Bool {
+        let wasReserved = await AssetInventory.reservedLocales.contains(locale)
         let status = await AssetInventory.status(forModules: [transcriber])
         switch status {
         case .installed:
-            return
+            return false
         case .downloading, .supported:
             break
         case .unsupported:
@@ -113,9 +134,18 @@ public struct AppleSpeechTranscriber: AudioTranscribing {
         @unknown default:
             break
         }
-        if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
-            try await request.downloadAndInstall()
+        do {
+            if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+                try await request.downloadAndInstall()
+            }
+        } catch {
+            if !wasReserved {
+                await AssetInventory.release(reservedLocale: locale)
+            }
+            throw error
         }
+        let isReserved = await AssetInventory.reservedLocales.contains(locale)
+        return !wasReserved && isReserved
     }
 
     private static func requestAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {

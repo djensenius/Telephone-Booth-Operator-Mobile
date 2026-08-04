@@ -330,7 +330,8 @@ public final class OnDeviceMessageProcessor {
                 fail("The translation changed before its suggestion could be saved.")
                 return
             }
-            if Self.matches(pending.moderation, current.latestApplicableModeration) {
+            if current.latestApplicableModeration?.transcriptionId == pending.transcriptionId,
+               Self.matches(pending.moderation, current.latestApplicableModeration) {
                 pendingResult = nil
                 stage = .completed
                 return

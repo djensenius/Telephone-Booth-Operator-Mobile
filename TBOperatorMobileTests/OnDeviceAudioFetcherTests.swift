@@ -44,6 +44,19 @@ final class OnDeviceAudioFetcherTests: XCTestCase {
             ) { _ in true }
         }
 
+        let firstChunk = Data(repeating: 1, count: 32)
+        let remainingChunks = Data(repeating: 2, count: 1_024)
+        AudioFetcherURLProtocol.resetStreamingState()
+        AudioFetcherURLProtocol.scenario = .stream(firstChunk, remainingChunks)
+        await assertFetchError(.tooLarge) {
+            try await fetcher.withFetchedAudioFile(
+                url: Self.audioURL,
+                expectedSHA256: expectedHash,
+                maxBytes: 16
+            ) { _ in true }
+        }
+        XCTAssertTrue(AudioFetcherURLProtocol.stopLoadingWasCalled)
+
         AudioFetcherURLProtocol.scenario = .body(audio)
         await assertFetchError(.hashMismatch) {
             try await fetcher.withFetchedAudioFile(
@@ -122,14 +135,28 @@ private final class AudioFetcherURLProtocol: URLProtocol {
     enum Scenario {
         case body(Data)
         case insecureRedirect(Data)
+        case stream(Data, Data)
     }
 
     nonisolated(unsafe) static var scenario = Scenario.body(Data())
     nonisolated(unsafe) static var lastRequest: URLRequest?
+    nonisolated(unsafe) static var stopLoadingWasCalled = false
+    private let stateLock = NSLock()
+    private var stopped = false
 
     override static func canInit(with request: URLRequest) -> Bool { true }
     override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-    override func stopLoading() {}
+
+    static func resetStreamingState() {
+        stopLoadingWasCalled = false
+    }
+
+    override func stopLoading() {
+        stateLock.lock()
+        stopped = true
+        Self.stopLoadingWasCalled = true
+        stateLock.unlock()
+    }
 
     override func startLoading() {
         Self.lastRequest = request
@@ -149,7 +176,48 @@ private final class AudioFetcherURLProtocol: URLProtocol {
                 headerFields: ["Location": redirected.url!.absoluteString]
             )!
             client?.urlProtocol(self, wasRedirectedTo: redirected, redirectResponse: response)
+            client?.urlProtocolDidFinishLoading(self)
+        case .stream(let firstChunk, let remainingChunks):
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: nil
+            )!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            let reference = URLProtocolReference(self)
+            DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) {
+                guard let protocolInstance = reference.value else { return }
+                _ = protocolInstance.deliver(firstChunk)
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 0.5) {
+                guard let protocolInstance = reference.value,
+                      protocolInstance.deliver(remainingChunks) else {
+                    return
+                }
+                protocolInstance.client?.urlProtocolDidFinishLoading(protocolInstance)
+            }
         }
+    }
+
+    private final class URLProtocolReference: @unchecked Sendable {
+        weak var value: AudioFetcherURLProtocol?
+
+        init(_ value: AudioFetcherURLProtocol) {
+            self.value = value
+        }
+    }
+
+    @discardableResult
+    private func deliver(_ data: Data) -> Bool {
+        stateLock.lock()
+        guard !stopped else {
+            stateLock.unlock()
+            return false
+        }
+        stateLock.unlock()
+        client?.urlProtocol(self, didLoad: data)
+        return true
     }
 
     private func respond(with data: Data) {
