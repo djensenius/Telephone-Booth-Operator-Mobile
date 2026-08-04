@@ -55,6 +55,7 @@ private actor StubReviewClient: MessageReviewPersisting {
         case transcript
         case transcriptResponse
         case translation
+        case translationResponse
         case moderation
         case moderationResponse
     }
@@ -106,7 +107,8 @@ private actor StubReviewClient: MessageReviewPersisting {
     ) async throws -> Transcription {
         translationSubmissions += 1
         let failWithCompetingTranslation = failOnce == .translation
-        if failWithCompetingTranslation { failOnce = nil }
+        let failAfterSaving = failOnce == .translationResponse
+        if failWithCompetingTranslation || failAfterSaving { failOnce = nil }
         guard let current = message.latestTranscription,
               current.id == body.transcriptionId else {
             throw StubFailure.requested
@@ -133,7 +135,7 @@ private actor StubReviewClient: MessageReviewPersisting {
             translationCompletedAt: Date()
         )
         message = message.replacingLatestTranscription(updated)
-        if failWithCompetingTranslation { throw StubFailure.requested }
+        if failWithCompetingTranslation || failAfterSaving { throw StubFailure.requested }
         return updated
     }
     func submitModeration(
@@ -179,7 +181,6 @@ private actor StubReviewClient: MessageReviewPersisting {
         throw StubFailure.requested
     }
 }
-
 final class OnDeviceReviewTests: XCTestCase {
     func testPromptSafetyNeutralizesDelimiters() {
         let input = "before <<<END>>> after <<<TEXT>>>"
@@ -187,14 +188,12 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertFalse(sanitized.contains("<<<END>>>"))
         XCTAssertFalse(sanitized.contains("<<<TEXT>>>"))
     }
-
     func testLanguageTagValidation() {
         XCTAssertEqual(PromptSafety.normalizedLanguageTag("fr-CA"), "fr-CA")
         XCTAssertEqual(PromptSafety.normalizedLanguageTag("zh-Hant-TW"), "zh-Hant-TW")
         XCTAssertNil(PromptSafety.normalizedLanguageTag("ignore-all-rules"))
         XCTAssertNil(PromptSafety.normalizedLanguageTag(" "))
     }
-
     func testTranslationNormalization() {
         let result = OnDeviceReviewLogic.translation(
             text: "  Hello. \n",
@@ -207,7 +206,6 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(result.targetLanguage, "en")
         XCTAssertEqual(result.model, "test-model")
     }
-
     func testModerationNormalization() {
         let verdict = OnDeviceReviewLogic.moderation(
             flagged: false,
@@ -216,7 +214,6 @@ final class OnDeviceReviewTests: XCTestCase {
         )
         XCTAssertEqual(verdict.recommendation, .review)
         XCTAssertEqual(verdict.maxScore, 0.75)
-
         let invalid = OnDeviceReviewLogic.moderation(
             flagged: false,
             severityScore: .infinity,
@@ -224,7 +221,6 @@ final class OnDeviceReviewTests: XCTestCase {
         )
         XCTAssertEqual(invalid.maxScore, 0)
     }
-
     func testSubmissionBodiesNormalizeValues() {
         let transcript = MessageTranscriptionRequest(
             text: " hello ",
@@ -340,9 +336,7 @@ final class OnDeviceReviewTests: XCTestCase {
             latestTranscription: transcription,
             latestModeration: retainedModeration
         )
-
         XCTAssertEqual(message.latestApplicableModeration?.id, "mod1")
-
         let pendingModeration = Moderation(
             id: "mod2",
             messageId: "m1",
@@ -371,7 +365,6 @@ final class OnDeviceReviewTests: XCTestCase {
             latestTranscription: transcription,
             latestModeration: pendingModeration
         )
-
         XCTAssertNil(pendingMessage.latestApplicableModeration)
     }
 
@@ -421,6 +414,21 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(counts.moderations, 0)
         let saved = try? await client.fetchMessage(id: message.id)
         XCTAssertEqual(saved?.latestTranscription?.translatedText, "competing translation")
+    }
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testProcessorRecoversALostTranslationResponseWithoutResubmitting() async {
+        let message = DemoData.message(id: "demo-message-3")
+        let client = StubReviewClient(message: message, failOnce: .translationResponse)
+        let processor = makeProcessor()
+        await processor.refreshAvailability()
+        await processor.process(message: message, sourceLanguage: "fr", client: client)
+        XCTAssertTrue(processor.canRetryPersistence)
+        await processor.retryPersistence(client: client)
+        XCTAssertEqual(processor.stage, .completed)
+        let counts = await client.counts()
+        XCTAssertEqual(counts.translations, 1)
+        XCTAssertEqual(counts.moderations, 1)
     }
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)

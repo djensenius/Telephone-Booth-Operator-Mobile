@@ -13,26 +13,47 @@ private let audioFetchLogger = Logger(
 )
 
 private final class SizeLimitingDataDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
-    private let maxBytes: Int64
-    private let destinationURL: URL
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<(URL, URLResponse), Error>?
-    private var completionError: Error?
-    private var downloadSession: URLSession?
-    private var fileHandle: FileHandle?
-    private var response: URLResponse?
-    private var receivedBytes: Int64 = 0
-    private var limitExceeded = false
-    private var insecureRedirect = false
+    private final class DownloadState: @unchecked Sendable {
+        let maxBytes: Int64
+        let destinationURL: URL
+        let continuation: CheckedContinuation<(URL, URLResponse), Error>
+        var fileHandle: FileHandle?
+        var response: URLResponse?
+        var receivedBytes: Int64 = 0
+        var completionError: Error?
+        var limitExceeded = false
+        var insecureRedirect = false
 
-    init(maxBytes: Int, destinationURL: URL) {
-        self.maxBytes = Int64(maxBytes)
-        self.destinationURL = destinationURL
+        init(
+            maxBytes: Int,
+            destinationURL: URL,
+            fileHandle: FileHandle,
+            continuation: CheckedContinuation<(URL, URLResponse), Error>
+        ) {
+            self.maxBytes = Int64(maxBytes)
+            self.destinationURL = destinationURL
+            self.fileHandle = fileHandle
+            self.continuation = continuation
+        }
+    }
+
+    private let lock = NSLock()
+    private var downloads: [Int: DownloadState] = [:]
+    private var session: URLSession!
+
+    init(configuration: URLSessionConfiguration) {
+        super.init()
+        session = URLSession(
+            configuration: configuration,
+            delegate: self,
+            delegateQueue: nil
+        )
     }
 
     func download(
         request: URLRequest,
-        configuration: URLSessionConfiguration
+        maxBytes: Int,
+        destinationURL: URL
     ) async throws -> (URL, URLResponse) {
         guard FileManager.default.createFile(
             atPath: destinationURL.path,
@@ -41,18 +62,19 @@ private final class SizeLimitingDataDelegate: NSObject, URLSessionDataDelegate, 
         ) else {
             throw AudioFetchError.fetchFailed
         }
-        fileHandle = try FileHandle(forWritingTo: destinationURL)
+        let fileHandle = try FileHandle(forWritingTo: destinationURL)
         return try await withCheckedThrowingContinuation { continuation in
-            lock.lock()
-            self.continuation = continuation
-            let session = URLSession(
-                configuration: configuration,
-                delegate: self,
-                delegateQueue: nil
+            let task = session.dataTask(with: request)
+            let state = DownloadState(
+                maxBytes: maxBytes,
+                destinationURL: destinationURL,
+                fileHandle: fileHandle,
+                continuation: continuation
             )
-            downloadSession = session
+            lock.lock()
+            downloads[task.taskIdentifier] = state
             lock.unlock()
-            session.dataTask(with: request).resume()
+            task.resume()
         }
     }
 
@@ -63,11 +85,16 @@ private final class SizeLimitingDataDelegate: NSObject, URLSessionDataDelegate, 
         completionHandler: @escaping @Sendable (URLSession.ResponseDisposition) -> Void
     ) {
         lock.lock()
-        self.response = response
-        if response.expectedContentLength > maxBytes {
-            limitExceeded = true
+        guard let state = downloads[dataTask.taskIdentifier] else {
+            lock.unlock()
+            completionHandler(.cancel)
+            return
         }
-        let disposition: URLSession.ResponseDisposition = limitExceeded ? .cancel : .allow
+        state.response = response
+        if response.expectedContentLength > state.maxBytes {
+            state.limitExceeded = true
+        }
+        let disposition: URLSession.ResponseDisposition = state.limitExceeded ? .cancel : .allow
         lock.unlock()
         completionHandler(disposition)
     }
@@ -78,23 +105,25 @@ private final class SizeLimitingDataDelegate: NSObject, URLSessionDataDelegate, 
         didReceive data: Data
     ) {
         lock.lock()
-        guard !limitExceeded, !insecureRedirect else {
+        guard let state = downloads[dataTask.taskIdentifier],
+              !state.limitExceeded,
+              !state.insecureRedirect else {
             lock.unlock()
             return
         }
-        receivedBytes += Int64(data.count)
-        guard receivedBytes <= maxBytes else {
-            limitExceeded = true
+        state.receivedBytes += Int64(data.count)
+        guard state.receivedBytes <= state.maxBytes else {
+            state.limitExceeded = true
             lock.unlock()
             dataTask.cancel()
             return
         }
         do {
-            try fileHandle?.write(contentsOf: data)
+            try state.fileHandle?.write(contentsOf: data)
         } catch {
-            completionError = error
+            state.completionError = error
         }
-        let shouldCancel = completionError != nil
+        let shouldCancel = state.completionError != nil
         lock.unlock()
         if shouldCancel {
             dataTask.cancel()
@@ -110,7 +139,7 @@ private final class SizeLimitingDataDelegate: NSObject, URLSessionDataDelegate, 
     ) {
         guard request.url?.scheme?.lowercased() == "https" else {
             lock.lock()
-            insecureRedirect = true
+            downloads[task.taskIdentifier]?.insecureRedirect = true
             lock.unlock()
             completionHandler(nil)
             return
@@ -124,31 +153,26 @@ private final class SizeLimitingDataDelegate: NSObject, URLSessionDataDelegate, 
         didCompleteWithError error: Error?
     ) {
         lock.lock()
-        guard let continuation else {
+        guard let state = downloads.removeValue(forKey: task.taskIdentifier) else {
             lock.unlock()
             return
         }
-        self.continuation = nil
-        try? fileHandle?.close()
-        fileHandle = nil
+        try? state.fileHandle?.close()
+        state.fileHandle = nil
         let result: Result<(URL, URLResponse), Error>
-        if insecureRedirect {
+        if state.insecureRedirect {
             result = .failure(AudioFetchError.insecureURL)
-        } else if limitExceeded {
+        } else if state.limitExceeded {
             result = .failure(AudioFetchError.tooLarge)
-        } else if let error = completionError ?? error {
+        } else if let error = state.completionError ?? error {
             result = .failure(error)
-        } else if let response {
-            result = .success((destinationURL, response))
+        } else if let response = state.response {
+            result = .success((state.destinationURL, response))
         } else {
             result = .failure(AudioFetchError.fetchFailed)
         }
-        let downloadSession = self.downloadSession
-        self.downloadSession = nil
         lock.unlock()
-
-        downloadSession?.finishTasksAndInvalidate()
-        continuation.resume(with: result)
+        state.continuation.resume(with: result)
     }
 }
 
@@ -170,10 +194,13 @@ public protocol AudioFetching: Sendable {
 }
 
 public struct URLSessionAudioFetcher: AudioFetching {
-    private let session: URLSession
+    private let downloadSession: SizeLimitingDataDelegate
 
     public init(session: URLSession = .shared) {
-        self.session = session
+        let configuration = session.configuration
+        configuration.urlCache = nil
+        configuration.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        downloadSession = SizeLimitingDataDelegate(configuration: configuration)
     }
 
     public func withFetchedAudioFile<T: Sendable>(
@@ -231,20 +258,17 @@ public struct URLSessionAudioFetcher: AudioFetching {
     private func download(url: URL, maxBytes: Int) async throws -> (URL, URLResponse) {
         let destinationURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("tboperator-download-\(UUID().uuidString)")
-        let delegate = SizeLimitingDataDelegate(
-            maxBytes: maxBytes,
-            destinationURL: destinationURL
-        )
         var request = URLRequest(
             url: url,
             cachePolicy: .reloadIgnoringLocalAndRemoteCacheData
         )
         request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
-        let configuration = session.configuration
-        configuration.urlCache = nil
-        configuration.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
         do {
-            return try await delegate.download(request: request, configuration: configuration)
+            return try await downloadSession.download(
+                request: request,
+                maxBytes: maxBytes,
+                destinationURL: destinationURL
+            )
         } catch let error as AudioFetchError {
             try? FileManager.default.removeItem(at: destinationURL)
             throw error
