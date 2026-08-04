@@ -140,12 +140,6 @@ public struct AppleSpeechTranscriber: AudioTranscribing {
     }
 
     public func transcribe(audioFileURL: URL, language: String?) async throws -> String {
-        let authorization = await Self.requestAuthorization()
-        guard authorization == .authorized else {
-            throw OnDeviceServiceError.unauthorized(
-                "Grant Speech Recognition access in Settings to process message audio."
-            )
-        }
         guard SpeechTranscriber.isAvailable else {
             throw OnDeviceServiceError.unavailable(
                 "On-device speech transcription is not available on this device."
@@ -198,13 +192,6 @@ public struct AppleSpeechTranscriber: AudioTranscribing {
         }
     }
 
-    private static func requestAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
-        await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { status in
-                continuation.resume(returning: status)
-            }
-        }
-    }
 }
 #endif
 
