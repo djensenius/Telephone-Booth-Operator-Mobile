@@ -62,7 +62,6 @@ private actor StubReviewClient: MessageReviewPersisting {
     private(set) var transcriptionSubmissions = 0
     private(set) var translationSubmissions = 0
     private(set) var moderationSubmissions = 0
-
     init(message: Message, failOnce: Step? = nil) {
         self.message = message
         self.failOnce = failOnce
@@ -100,13 +99,13 @@ private actor StubReviewClient: MessageReviewPersisting {
         try failIfRequested(.transcriptResponse)
         return transcription
     }
-
     func submitTranslation(
         messageId: String,
         body: MessageTranslationRequest
     ) async throws -> Transcription {
         translationSubmissions += 1
-        try failIfRequested(.translation)
+        let failWithCompetingTranslation = failOnce == .translation
+        if failWithCompetingTranslation { failOnce = nil }
         guard let current = message.latestTranscription,
               current.id == body.transcriptionId else {
             throw StubFailure.requested
@@ -126,16 +125,16 @@ private actor StubReviewClient: MessageReviewPersisting {
             createdAt: current.createdAt,
             completedAt: current.completedAt,
             translationStatus: .succeeded,
-            translatedText: body.translatedText,
+            translatedText: failWithCompetingTranslation ? "competing translation" : body.translatedText,
             translatedLanguage: body.translatedLanguage,
-            translationProvider: .onDevice,
-            translationModel: body.model,
+            translationProvider: failWithCompetingTranslation ? .push : .onDevice,
+            translationModel: failWithCompetingTranslation ? "worker" : body.model,
             translationCompletedAt: Date()
         )
         message = message.replacingLatestTranscription(updated)
+        if failWithCompetingTranslation { throw StubFailure.requested }
         return updated
     }
-
     func submitModeration(
         messageId: String,
         body: MessageModerationRequest
@@ -165,7 +164,6 @@ private actor StubReviewClient: MessageReviewPersisting {
     func replaceTranscription(_ transcription: Transcription) {
         message = message.replacingLatestTranscription(transcription)
     }
-
     func counts() -> SubmissionCounts {
         SubmissionCounts(
             transcriptions: transcriptionSubmissions,
@@ -173,7 +171,6 @@ private actor StubReviewClient: MessageReviewPersisting {
             moderations: moderationSubmissions
         )
     }
-
     private func failIfRequested(_ step: Step) throws {
         guard failOnce == step else { return }
         failOnce = nil
@@ -401,23 +398,25 @@ final class OnDeviceReviewTests: XCTestCase {
     }
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
-    func testProcessorRetriesOnlyMissingTranslationAndModeration() async {
+    func testProcessorRejectsACompetingTranslationDuringRetry() async {
         let message = DemoData.message(id: "demo-message-3")
         let client = StubReviewClient(message: message, failOnce: .translation)
         let processor = makeProcessor()
         await processor.refreshAvailability()
-
         await processor.process(message: message, sourceLanguage: "fr", client: client)
         XCTAssertTrue(processor.canRetryPersistence)
         await processor.refreshAvailability(sourceLanguage: "fr")
         XCTAssertTrue(processor.canRetryPersistence)
         await processor.retryPersistence(client: client)
-
-        XCTAssertEqual(processor.stage, .completed)
+        guard case .failed = processor.stage else {
+            return XCTFail("Expected stale translation failure")
+        }
         let counts = await client.counts()
         XCTAssertEqual(counts.transcriptions, 1)
-        XCTAssertEqual(counts.translations, 2)
-        XCTAssertEqual(counts.moderations, 1)
+        XCTAssertEqual(counts.translations, 1)
+        XCTAssertEqual(counts.moderations, 0)
+        let saved = try? await client.fetchMessage(id: message.id)
+        XCTAssertEqual(saved?.latestTranscription?.translatedText, "competing translation")
     }
 
     @MainActor

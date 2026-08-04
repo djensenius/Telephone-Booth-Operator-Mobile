@@ -93,6 +93,7 @@ public final class OnDeviceMessageProcessor {
         let translation: TranslationResult
         let moderation: ModerationVerdict
         let requestedById: String
+        let expectedTranslationSha256: String?
         var step: PersistenceStep
         var transcriptionId: String?
     }
@@ -235,6 +236,7 @@ public final class OnDeviceMessageProcessor {
                 translation: translation,
                 moderation: moderation,
                 requestedById: requestedById,
+                expectedTranslationSha256: nil,
                 step: .transcript,
                 transcriptionId: nil
             )
@@ -289,36 +291,7 @@ public final class OnDeviceMessageProcessor {
             }
 
             if pending.step == .translation {
-                stage = .savingTranslation
-                let current = try await client.fetchMessage(id: pending.messageId)
-                guard current.latestTranscription?.id == pending.transcriptionId,
-                      Self.trimmed(current.latestTranscription?.text) == Self.trimmed(pending.transcript) else {
-                    pendingResult = nil
-                    fail("The transcript changed before its translation could be saved.")
-                    return
-                }
-                if current.latestTranscription?.translationStatus != .succeeded
-                    || Self.trimmed(current.latestTranscription?.translatedText)
-                        != Self.trimmed(pending.translation.translatedText)
-                    || current.latestTranscription?.translationProvider != .onDevice
-                    || current.latestTranscription?.translationModel != pending.translation.model
-                    || current.latestTranscription?.translatedLanguage
-                        != pending.translation.targetLanguage {
-                    _ = try await client.submitTranslation(
-                        messageId: pending.messageId,
-                        body: MessageTranslationRequest(
-                            transcriptionId: pending.transcriptionId,
-                            expectedTranslationSha256: ReviewTextSnapshot.sha256(
-                                current.latestTranscription?.translationSnapshotText
-                            ),
-                            translatedText: pending.translation.translatedText,
-                            translatedLanguage: pending.translation.targetLanguage,
-                            model: pending.translation.model
-                        )
-                    )
-                }
-                pending.step = .moderation
-                pendingResult = pending
+                guard try await persistTranslation(&pending, client: client) else { return }
             }
 
             stage = .savingModeration
@@ -354,6 +327,42 @@ public final class OnDeviceMessageProcessor {
             pendingResult = pending
             fail(Self.describe(error))
         }
+    }
+
+    private func persistTranslation(
+        _ pending: inout PendingResult,
+        client: any MessageReviewPersisting
+    ) async throws -> Bool {
+        stage = .savingTranslation
+        let current = try await client.fetchMessage(id: pending.messageId)
+        guard current.latestTranscription?.id == pending.transcriptionId,
+              Self.trimmed(current.latestTranscription?.text) == Self.trimmed(pending.transcript) else {
+            pendingResult = nil
+            fail("The transcript changed before its translation could be saved.")
+            return false
+        }
+        if !Self.matchesGeneratedTranslation(current.latestTranscription, pending: pending) {
+            guard ReviewTextSnapshot.sha256(
+                current.latestTranscription?.translationSnapshotText
+            ) == pending.expectedTranslationSha256 else {
+                pendingResult = nil
+                fail("The translation changed before the generated translation could be saved.")
+                return false
+            }
+            _ = try await client.submitTranslation(
+                messageId: pending.messageId,
+                body: MessageTranslationRequest(
+                    transcriptionId: pending.transcriptionId,
+                    expectedTranslationSha256: pending.expectedTranslationSha256,
+                    translatedText: pending.translation.translatedText,
+                    translatedLanguage: pending.translation.targetLanguage,
+                    model: pending.translation.model
+                )
+            )
+        }
+        pending.step = .moderation
+        pendingResult = pending
+        return true
     }
 
     private func fail(_ message: String) {
@@ -413,6 +422,17 @@ public final class OnDeviceMessageProcessor {
             && existing.model == pending.transcriptionModel
             && existing.language == pending.language
             && trimmed(existing.text) == trimmed(pending.transcript)
+    }
+
+    private static func matchesGeneratedTranslation(
+        _ existing: Transcription?,
+        pending: PendingResult
+    ) -> Bool {
+        existing?.translationStatus == .succeeded
+            && trimmed(existing?.translatedText) == trimmed(pending.translation.translatedText)
+            && existing?.translationProvider == .onDevice
+            && existing?.translationModel == pending.translation.model
+            && existing?.translatedLanguage == pending.translation.targetLanguage
     }
 
     private static func describe(_ error: any Error) -> String {
