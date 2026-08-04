@@ -6,7 +6,6 @@
 import Foundation
 import XCTest
 @testable import TBOperatorMobile
-
 private struct StubAudioFetcher: AudioFetching {
     func withFetchedAudioFile<T: Sendable>(
         url: URL,
@@ -17,10 +16,8 @@ private struct StubAudioFetcher: AudioFetching {
         try await body(FileManager.default.temporaryDirectory.appendingPathComponent("audio.flac"))
     }
 }
-
 private struct StubTranscriber: AudioTranscribing {
     let operation: @Sendable () async throws -> String
-
     func transcribe(audioFileURL: URL, language: String?) async throws -> String {
         try await operation()
     }
@@ -56,6 +53,7 @@ private struct SubmissionCounts {
 private actor StubReviewClient: MessageReviewPersisting {
     enum Step {
         case transcript
+        case transcriptResponse
         case translation
         case moderation
     }
@@ -96,6 +94,7 @@ private actor StubReviewClient: MessageReviewPersisting {
             completedAt: Date()
         )
         message = message.replacingLatestTranscription(transcription)
+        try failIfRequested(.transcriptResponse)
         return transcription
     }
 
@@ -160,7 +159,6 @@ private actor StubReviewClient: MessageReviewPersisting {
         message = message.replacingLatestModeration(moderation)
         return moderation
     }
-
     func replaceTranscription(_ transcription: Transcription) {
         message = message.replacingLatestTranscription(transcription)
     }
@@ -374,8 +372,11 @@ final class OnDeviceReviewTests: XCTestCase {
 
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
-    func testProcessorPersistsAllStagesInOrder() async {
-        let client = StubReviewClient(message: DemoData.message(id: "demo-message-3"))
+    func testProcessorResumesAllStagesAfterLostTranscriptResponse() async {
+        let client = StubReviewClient(
+            message: DemoData.message(id: "demo-message-3"),
+            failOnce: .transcriptResponse
+        )
         let processor = makeProcessor()
         await processor.refreshAvailability()
 
@@ -384,6 +385,8 @@ final class OnDeviceReviewTests: XCTestCase {
             sourceLanguage: "fr",
             client: client
         )
+        XCTAssertTrue(processor.canRetryPersistence)
+        await processor.retryPersistence(client: client)
 
         XCTAssertEqual(processor.stage, .completed)
         let counts = await client.counts()

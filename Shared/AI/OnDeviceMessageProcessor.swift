@@ -253,8 +253,7 @@ public final class OnDeviceMessageProcessor {
                 stage = .savingTranscript
                 let current = try await client.fetchMessage(id: pending.messageId)
                 let currentSnapshot = SourceSnapshot(current)
-                if currentSnapshot == pending.baseline
-                    || Self.matchesGeneratedTranscript(current.latestTranscription, pending: pending) {
+                if currentSnapshot == pending.baseline {
                     let transcription = try await client.submitTranscription(
                         messageId: pending.messageId,
                         body: MessageTranscriptionRequest(
@@ -265,6 +264,9 @@ public final class OnDeviceMessageProcessor {
                             expectedLatestTranscriptionId: currentSnapshot.transcriptionId
                         )
                     )
+                    pending.transcriptionId = transcription.id
+                } else if let transcription = current.latestTranscription,
+                          Self.matchesGeneratedTranscript(transcription, pending: pending) {
                     pending.transcriptionId = transcription.id
                 } else {
                     pendingResult = nil

@@ -10,10 +10,8 @@
 #if !os(watchOS) && !os(tvOS)
 
 import SwiftUI
-
 public struct MessageDetailView: View {
     public let messageId: String
-
     @State private var message: Message?
     @State private var transcriptions: [Transcription] = []
     @State private var loading = false
@@ -26,14 +24,15 @@ public struct MessageDetailView: View {
     @State private var onDeviceProcessor = OnDeviceMessageProcessor()
     @State private var editingTranscript = false
     @State private var transcriptCorrection = ""
+    @State private var transcriptCorrectionTranscriptionId: String?
     @State private var editingTranslation = false
     @State private var translationCorrection = ""
+    @State private var translationCorrectionTranscriptionId: String?
+    @State private var translationCorrectionSHA256: String?
     @State private var savingCorrection = false
     @State private var usesDemoData = false
-
     private let client: OperatorClient
     private let onDecision: (Message) -> Void
-
     public init(
         messageId: String,
         client: OperatorClient = .shared,
@@ -43,7 +42,6 @@ public struct MessageDetailView: View {
         self.client = client
         self.onDecision = onDecision
     }
-
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.large) {
@@ -91,7 +89,6 @@ public struct MessageDetailView: View {
             await load()
         }
     }
-
     private func appleIntelligenceCard(_ message: Message) -> some View {
             VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
                 SectionHeader(text: "Apple Intelligence")
@@ -164,7 +161,8 @@ public struct MessageDetailView: View {
             .padding(Theme.Spacing.large)
             .glassCardBackground()
         }
-
+}
+private extension MessageDetailView {
     private func translationCard(_ message: Message) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
             SectionHeader(text: "English Translation")
@@ -189,10 +187,14 @@ public struct MessageDetailView: View {
                         originalText: translation,
                         editTitle: "Edit translation",
                         saveTitle: "Save corrected translation",
-                        disabled: onDeviceProcessor.isRunning || savingCorrection
-                    ) {
-                        await saveTranslationCorrection(message)
-                    }
+                        disabled: onDeviceProcessor.isRunning || savingCorrection,
+                        onEdit: {
+                            translationCorrectionTranscriptionId = transcription.id
+                            translationCorrectionSHA256 =
+                                ReviewTextSnapshot.sha256(transcription.translationSnapshotText)
+                        },
+                        save: { await saveTranslationCorrection(message) }
+                    )
                 } else if transcription.translationStatus == .pending {
                     Label("Translation is still running.", systemImage: "clock")
                         .font(Theme.Fonts.bodySmall)
@@ -211,7 +213,6 @@ public struct MessageDetailView: View {
         .padding(Theme.Spacing.large)
         .glassCardBackground()
     }
-
     private func audioCard(_ message: Message) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
             SectionHeader(text: "Audio")
@@ -224,7 +225,6 @@ public struct MessageDetailView: View {
         .padding(Theme.Spacing.large)
         .glassCardBackground()
     }
-
     @ViewBuilder
     private func transcriptCard(_ message: Message) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
@@ -238,10 +238,12 @@ public struct MessageDetailView: View {
                         originalText: text,
                         editTitle: "Edit transcript",
                         saveTitle: "Save corrected transcript",
-                        disabled: onDeviceProcessor.isRunning || savingCorrection
-                    ) {
-                        await saveTranscriptCorrection(message)
-                    }
+                        disabled: onDeviceProcessor.isRunning || savingCorrection,
+                        onEdit: {
+                            transcriptCorrectionTranscriptionId = latest.id
+                        },
+                        save: { await saveTranscriptCorrection(message) }
+                    )
                 }
             }
             if transcriptions.count > 1 {
@@ -261,7 +263,6 @@ public struct MessageDetailView: View {
         .padding(Theme.Spacing.large)
         .glassCardBackground()
     }
-
     @ViewBuilder
     private func moderationCard(_ message: Message) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
@@ -426,8 +427,6 @@ public struct MessageDetailView: View {
             transcriptions = newList.items
         }
     }
-}
-private extension MessageDetailView {
     func decide(_ decision: MessageDecision) async {
         deciding = true
         errorMessage = nil
@@ -459,9 +458,10 @@ private extension MessageDetailView {
                 text: transcriptCorrection,
                 language: current.latestTranscription?.language,
                 model: nil,
-                expectedLatestTranscriptionId: current.latestTranscription?.id
+                expectedLatestTranscriptionId: transcriptCorrectionTranscriptionId
             )
             editingTranscript = false
+            transcriptCorrectionTranscriptionId = nil
             statusMessage = "Corrected transcript saved. Translation and moderation will refresh."
             await load()
         } catch {
@@ -478,9 +478,8 @@ private extension MessageDetailView {
             let updated = try await client.submitTranslation(
                 messageId: current.id,
                 body: MessageTranslationRequest(
-                    expectedTranscriptionId: current.latestTranscription?.id,
-                    expectedTranslationSha256:
-                        ReviewTextSnapshot.sha256(current.latestTranscription?.translationSnapshotText),
+                    expectedTranscriptionId: translationCorrectionTranscriptionId,
+                    expectedTranslationSha256: translationCorrectionSHA256,
                     translatedText: translationCorrection,
                     translatedLanguage: "en"
                 )
@@ -488,6 +487,8 @@ private extension MessageDetailView {
             message = current.replacingLatestTranscription(updated)
             transcriptions = transcriptions.map { $0.id == updated.id ? updated : $0 }
             editingTranslation = false
+            translationCorrectionTranscriptionId = nil
+            translationCorrectionSHA256 = nil
             statusMessage = "Corrected translation saved. The previous moderation suggestion was removed."
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription

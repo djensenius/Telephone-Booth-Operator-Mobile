@@ -15,6 +15,7 @@ struct TextCorrectionControls: View {
     let editTitle: String
     let saveTitle: String
     let disabled: Bool
+    let onEdit: () -> Void
     let save: () async -> Void
 
     var body: some View {
@@ -38,6 +39,7 @@ struct TextCorrectionControls: View {
             }
         } else {
             Button(editTitle) {
+                onEdit()
                 text = originalText
                 isEditing = true
             }
