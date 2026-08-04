@@ -97,7 +97,7 @@ public enum OnDeviceReviewLogic {
         let fallback = normalizedSource(fallbackSource)
         return TranslationResult(
             translatedText: text.trimmingCharacters(in: .whitespacesAndNewlines),
-            sourceLanguage: detected == "unknown" ? fallback : detected ?? fallback,
+            sourceLanguage: (detected == "und" || detected == "unknown") ? fallback : detected ?? fallback,
             targetLanguage: "en",
             model: model
         )

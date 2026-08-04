@@ -197,12 +197,12 @@ final class OnDeviceReviewTests: XCTestCase {
     func testTranslationNormalization() {
         let result = OnDeviceReviewLogic.translation(
             text: "  Hello. \n",
-            detectedSource: "FR",
-            fallbackSource: nil,
+            detectedSource: "und",
+            fallbackSource: "fr-CA",
             model: "test-model"
         )
         XCTAssertEqual(result.translatedText, "Hello.")
-        XCTAssertEqual(result.sourceLanguage, "fr")
+        XCTAssertEqual(result.sourceLanguage, "fr-ca")
         XCTAssertEqual(result.targetLanguage, "en")
         XCTAssertEqual(result.model, "test-model")
     }
