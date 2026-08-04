@@ -184,10 +184,15 @@ public final class OnDeviceMessageProcessor {
                     "The selected source language is not supported for on-device transcription."
                 )
             }
+            let currentMessage = try await fetchCurrentMessage(
+                id: message.id,
+                client: client,
+                generation: currentGeneration
+            )
             stage = .fetchingAndTranscribing
             let transcript = try await audioFetcher.withFetchedAudioFile(
-                url: message.audio.url,
-                expectedSHA256: message.audio.sha256,
+                url: currentMessage.audio.url,
+                expectedSHA256: currentMessage.audio.sha256,
                 maxBytes: 100 * 1024 * 1024
             ) { [transcriber] fileURL in
                 try await transcriber.transcribe(
@@ -218,8 +223,8 @@ public final class OnDeviceMessageProcessor {
             guard generation == currentGeneration else { return }
 
             pendingResult = PendingResult(
-                messageId: message.id,
-                baseline: SourceSnapshot(message),
+                messageId: currentMessage.id,
+                baseline: SourceSnapshot(currentMessage),
                 transcript: trimmedTranscript,
                 language: translation.sourceLanguage ?? selection.language,
                 transcriptionModel: "apple-speech-analyzer",
@@ -362,6 +367,16 @@ public final class OnDeviceMessageProcessor {
             )
         }
         return (language, language.map(Locale.init(identifier:)) ?? .current)
+    }
+
+    private func fetchCurrentMessage(
+        id: String,
+        client: any MessageReviewPersisting,
+        generation expectedGeneration: Int
+    ) async throws -> Message {
+        let message = try await client.fetchMessage(id: id)
+        guard generation == expectedGeneration else { throw CancellationError() }
+        return message
     }
 
     private static func matches(

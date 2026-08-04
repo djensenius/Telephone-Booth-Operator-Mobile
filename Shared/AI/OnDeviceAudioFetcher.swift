@@ -89,8 +89,13 @@ public struct URLSessionAudioFetcher: AudioFetching {
         let response: URLResponse
         let downloadDelegate = SizeLimitingDownloadDelegate(maxBytes: maxBytes)
         do {
+            var request = URLRequest(
+                url: url,
+                cachePolicy: .reloadIgnoringLocalAndRemoteCacheData
+            )
+            request.setValue("no-store", forHTTPHeaderField: "Cache-Control")
             (downloadedURL, response) = try await session.download(
-                for: URLRequest(url: url),
+                for: request,
                 delegate: downloadDelegate
             )
         } catch {

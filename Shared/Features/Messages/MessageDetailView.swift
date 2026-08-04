@@ -489,7 +489,7 @@ private extension MessageDetailView {
             editingTranslation = false
             translationCorrectionTranscriptionId = nil
             translationCorrectionSHA256 = nil
-            statusMessage = "Corrected translation saved. The previous moderation suggestion was removed."
+            statusMessage = "Corrected translation saved."
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription
                 ?? "Couldn't save the corrected translation."
