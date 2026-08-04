@@ -76,7 +76,10 @@ public final class OnDeviceMessageProcessor {
             transcriptionId = message.latestTranscription?.id
             status = message.latestTranscription?.status
             text = Self.trimmed(message.latestTranscription?.text)
-            sha256 = ReviewTextSnapshot.transcriptionSHA256(status: status, text: text)
+            sha256 = ReviewTextSnapshot.transcriptionSHA256(
+                status: status,
+                text: message.latestTranscription?.text
+            )
         }
 
         private static func trimmed(_ value: String?) -> String? {

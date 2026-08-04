@@ -237,6 +237,10 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(transcript.expectedLatestTranscriptionId, "t0")
         XCTAssertEqual(transcript.expectedLatestTranscriptionSha256, String(repeating: "a", count: 64))
         XCTAssertFalse(transcript.processDownstream)
+        XCTAssertEqual(
+            ReviewTextSnapshot.transcriptionSHA256(status: .succeeded, text: "\u{0085}edge\u{0085}"),
+            "ab4bb8e45249f75d083cab5e1e3a2f8f2d563dd5877dfc3a047e39be8702abf2"
+        )
         let translation = MessageTranslationRequest(
             transcriptionId: " t1 ",
             expectedTranscriptionId: " t1 ",
@@ -378,7 +382,6 @@ final class OnDeviceReviewTests: XCTestCase {
         )
         let processor = makeProcessor()
         await processor.refreshAvailability()
-
         await processor.process(
             message: DemoData.message(id: "demo-message-3"),
             sourceLanguage: "fr",
@@ -386,7 +389,6 @@ final class OnDeviceReviewTests: XCTestCase {
         )
         XCTAssertTrue(processor.canRetryPersistence)
         await processor.retryPersistence(client: client)
-
         XCTAssertEqual(processor.stage, .completed)
         let counts = await client.counts()
         XCTAssertEqual(counts.transcriptions, 1)
@@ -445,7 +447,6 @@ final class OnDeviceReviewTests: XCTestCase {
         }
         let processor = makeProcessor(transcriber: transcriber)
         await processor.refreshAvailability()
-
         await processor.process(message: message, sourceLanguage: "fr", client: client)
 
         guard case .failed = processor.stage else {
@@ -462,13 +463,12 @@ final class OnDeviceReviewTests: XCTestCase {
                 url: URL(string: "https://example.com/audio.flac")!,
                 expectedSHA256: "invalid",
                 maxBytes: 10
-            ) { _ in true }
+            ) { _ in true             }
             XCTFail("Expected invalid hash failure")
         } catch {
             XCTAssertEqual(error as? AudioFetchError, .invalidExpectedHash)
         }
     }
-
     func testAudioFetcherRejectsInsecureURLBeforeNetworking() async {
         let fetcher = URLSessionAudioFetcher()
         do {
