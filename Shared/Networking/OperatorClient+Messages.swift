@@ -41,15 +41,21 @@ extension OperatorClient {
         messageId: String,
         text: String,
         language: String?,
-        model: String?
+        model: String?,
+        processDownstream: Bool = true
     ) async throws -> Transcription {
-        let body = MessageTranscriptionRequest(text: text, language: language, model: model)
+        let body = MessageTranscriptionRequest(
+            text: text,
+            language: language,
+            model: model,
+            processDownstream: processDownstream
+        )
         if await usesDemoData {
             let message = demoMessageOverrides[messageId] ?? DemoData.message(id: messageId)
             let updated = Transcription(
                 id: "\(messageId)-on-device-\(UUID().uuidString)",
                 messageId: messageId,
-                provider: .macApp,
+                provider: .onDevice,
                 model: body.model,
                 status: .succeeded,
                 text: body.text,
@@ -70,11 +76,15 @@ extension OperatorClient {
     public func submitTranslation(
         messageId: String,
         translatedText: String,
-        translatedLanguage: String? = "en"
+        translatedLanguage: String? = "en",
+        transcriptionId: String? = nil,
+        model: String? = nil
     ) async throws -> Transcription {
         let body = MessageTranslationRequest(
+            transcriptionId: transcriptionId,
             translatedText: translatedText,
-            translatedLanguage: translatedLanguage
+            translatedLanguage: translatedLanguage,
+            model: model
         )
         if await usesDemoData {
             return try applyDemoTranslation(messageId: messageId, body: body)
@@ -92,7 +102,7 @@ extension OperatorClient {
                 id: "\(messageId)-moderation-\(UUID().uuidString)",
                 messageId: messageId,
                 transcriptionId: body.transcriptionId,
-                provider: .macApp,
+                provider: .onDevice,
                 model: body.model,
                 status: .succeeded,
                 flagged: body.flagged,
@@ -151,8 +161,8 @@ extension OperatorClient {
             translationStatus: .succeeded,
             translatedText: body.translatedText,
             translatedLanguage: body.translatedLanguage,
-            translationProvider: .macApp,
-            translationModel: "apple-foundation-models",
+            translationProvider: body.transcriptionId == nil ? nil : .onDevice,
+            translationModel: body.transcriptionId == nil ? nil : body.model,
             translationError: nil,
             translationLatencyMs: nil,
             translationCompletedAt: Date()

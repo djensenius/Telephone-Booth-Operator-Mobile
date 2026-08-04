@@ -97,7 +97,7 @@ struct TranscriptionRow: View {
 
     @ViewBuilder
     private var translationContent: some View {
-        if let translation = transcription.completedTranslation {
+        if !emphasized, let translation = transcription.completedTranslation {
             VStack(alignment: .leading, spacing: Theme.Spacing.small) {
                 Text("English")
                     .font(Theme.Fonts.caption.weight(.semibold))
@@ -108,7 +108,7 @@ struct TranscriptionRow: View {
                     .textSelection(.enabled)
             }
             .padding(.top, Theme.Spacing.small)
-        } else if transcription.translationStatus == .failed {
+        } else if !emphasized, transcription.translationStatus == .failed {
             Label(
                 transcription.translationError ?? "Translation failed.",
                 systemImage: "exclamationmark.triangle.fill"

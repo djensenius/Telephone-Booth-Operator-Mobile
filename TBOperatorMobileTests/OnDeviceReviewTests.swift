@@ -6,6 +6,189 @@
 import Foundation
 import XCTest
 @testable import TBOperatorMobile
+private struct StubAudioFetcher: AudioFetching {
+    func withFetchedAudioFile<T: Sendable>(
+        url: URL,
+        expectedSHA256: String,
+        maxBytes: Int,
+        _ body: @Sendable (URL) async throws -> T
+    ) async throws -> T {
+        try await body(FileManager.default.temporaryDirectory.appendingPathComponent("audio.flac"))
+    }
+}
+
+private struct StubTranscriber: AudioTranscribing {
+    let operation: @Sendable () async throws -> String
+
+    func transcribe(audioFileURL: URL, language: String?) async throws -> String {
+        try await operation()
+    }
+}
+
+private struct StubTranslator: TextTranslating {
+    func translate(_ input: String, sourceLanguage: String?) async throws -> TranslationResult {
+        TranslationResult(
+            translatedText: "hello",
+            sourceLanguage: "fr",
+            targetLanguage: "en",
+            model: "apple-foundation-models"
+        )
+    }
+}
+
+private struct StubModerator: TextModerating {
+    func moderate(_ input: String) async throws -> ModerationVerdict {
+        ModerationVerdict(
+            flagged: false,
+            recommendation: .approve,
+            maxScore: 0.1,
+            model: "apple-foundation-models"
+        )
+    }
+}
+
+private enum StubFailure: Error {
+    case requested
+}
+private struct SubmissionCounts {
+    let transcriptions: Int
+    let translations: Int
+    let moderations: Int
+}
+
+private actor StubReviewClient: MessageReviewPersisting {
+    enum Step {
+        case transcript
+        case translation
+        case moderation
+    }
+
+    private(set) var message: Message
+    private var failOnce: Step?
+    private(set) var transcriptionSubmissions = 0
+    private(set) var translationSubmissions = 0
+    private(set) var moderationSubmissions = 0
+
+    init(message: Message, failOnce: Step? = nil) {
+        self.message = message
+        self.failOnce = failOnce
+    }
+
+    func fetchMessage(id: String) async throws -> Message {
+        message
+    }
+
+    func submitTranscription(
+        messageId: String,
+        text: String,
+        language: String?,
+        model: String?,
+        processDownstream: Bool
+    ) async throws -> Transcription {
+        transcriptionSubmissions += 1
+        try failIfRequested(.transcript)
+        let transcription = Transcription(
+            id: "generated-transcript",
+            messageId: messageId,
+            provider: .onDevice,
+            model: model,
+            status: .succeeded,
+            text: text,
+            language: language,
+            durationMs: message.audio.durationMs,
+            latencyMs: nil,
+            error: nil,
+            requestedById: nil,
+            createdAt: Date(),
+            completedAt: Date()
+        )
+        message = message.replacingLatestTranscription(transcription)
+        return transcription
+    }
+
+    func submitTranslation(
+        messageId: String,
+        translatedText: String,
+        translatedLanguage: String?,
+        transcriptionId: String?,
+        model: String?
+    ) async throws -> Transcription {
+        translationSubmissions += 1
+        try failIfRequested(.translation)
+        guard let current = message.latestTranscription,
+              current.id == transcriptionId else {
+            throw StubFailure.requested
+        }
+        let updated = Transcription(
+            id: current.id,
+            messageId: current.messageId,
+            provider: current.provider,
+            model: current.model,
+            status: current.status,
+            text: current.text,
+            language: current.language,
+            durationMs: current.durationMs,
+            latencyMs: current.latencyMs,
+            error: current.error,
+            requestedById: current.requestedById,
+            createdAt: current.createdAt,
+            completedAt: current.completedAt,
+            translationStatus: .succeeded,
+            translatedText: translatedText,
+            translatedLanguage: translatedLanguage,
+            translationProvider: .onDevice,
+            translationModel: model,
+            translationCompletedAt: Date()
+        )
+        message = message.replacingLatestTranscription(updated)
+        return updated
+    }
+
+    func submitModeration(
+        messageId: String,
+        body: MessageModerationRequest
+    ) async throws -> Moderation {
+        moderationSubmissions += 1
+        try failIfRequested(.moderation)
+        let moderation = Moderation(
+            id: "generated-moderation",
+            messageId: messageId,
+            transcriptionId: body.transcriptionId,
+            provider: .onDevice,
+            model: body.model,
+            status: .succeeded,
+            flagged: body.flagged,
+            recommendation: ModerationRecommendation(rawValue: body.recommendation),
+            maxScore: body.maxScore,
+            categories: nil,
+            reasonSummary: nil,
+            latencyMs: nil,
+            error: nil,
+            createdAt: Date(),
+            completedAt: Date()
+        )
+        message = message.replacingLatestModeration(moderation)
+        return moderation
+    }
+
+    func replaceTranscription(_ transcription: Transcription) {
+        message = message.replacingLatestTranscription(transcription)
+    }
+
+    func counts() -> SubmissionCounts {
+        SubmissionCounts(
+            transcriptions: transcriptionSubmissions,
+            translations: translationSubmissions,
+            moderations: moderationSubmissions
+        )
+    }
+
+    private func failIfRequested(_ step: Step) throws {
+        guard failOnce == step else { return }
+        failOnce = nil
+        throw StubFailure.requested
+    }
+}
 
 final class OnDeviceReviewTests: XCTestCase {
     func testPromptSafetyNeutralizesDelimiters() {
@@ -61,15 +244,28 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(transcript.text, "hello")
         XCTAssertEqual(transcript.language, "fr")
         XCTAssertEqual(transcript.model, "apple-speech-analyzer")
+        XCTAssertFalse(transcript.processDownstream)
+
+        let translation = MessageTranslationRequest(
+            transcriptionId: " t1 ",
+            translatedText: " hello ",
+            translatedLanguage: " en ",
+            model: " apple-foundation-models "
+        )
+        XCTAssertEqual(translation.transcriptionId, "t1")
+        XCTAssertEqual(translation.translatedText, "hello")
+        XCTAssertEqual(translation.model, "apple-foundation-models")
 
         let moderation = MessageModerationRequest(
             transcriptionId: " t1 ",
+            inputSha256: String(repeating: "A", count: 64),
             flagged: true,
             recommendation: .reject,
             maxScore: 2,
             model: " apple-foundation-models "
         )
         XCTAssertEqual(moderation.transcriptionId, "t1")
+        XCTAssertEqual(moderation.inputSha256, String(repeating: "a", count: 64))
         XCTAssertEqual(moderation.recommendation, "reject")
         XCTAssertEqual(moderation.maxScore, 1)
     }
@@ -178,5 +374,126 @@ final class OnDeviceReviewTests: XCTestCase {
         )
 
         XCTAssertNil(pendingMessage.latestApplicableModeration)
+    }
+
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testProcessorPersistsAllStagesInOrder() async {
+        let client = StubReviewClient(message: DemoData.message(id: "demo-message-3"))
+        let processor = makeProcessor()
+        await processor.refreshAvailability()
+
+        await processor.process(
+            message: DemoData.message(id: "demo-message-3"),
+            sourceLanguage: "fr",
+            client: client
+        )
+
+        XCTAssertEqual(processor.stage, .completed)
+        let counts = await client.counts()
+        XCTAssertEqual(counts.transcriptions, 1)
+        XCTAssertEqual(counts.translations, 1)
+        XCTAssertEqual(counts.moderations, 1)
+        let saved = try? await client.fetchMessage(id: "demo-message-3")
+        XCTAssertEqual(saved?.latestTranscription?.translatedText, "hello")
+        XCTAssertEqual(saved?.latestApplicableModeration?.recommendation, .approve)
+    }
+
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testProcessorRetriesOnlyMissingTranslationAndModeration() async {
+        let message = DemoData.message(id: "demo-message-3")
+        let client = StubReviewClient(message: message, failOnce: .translation)
+        let processor = makeProcessor()
+        await processor.refreshAvailability()
+
+        await processor.process(message: message, sourceLanguage: "fr", client: client)
+        XCTAssertTrue(processor.canRetryPersistence)
+        await processor.retryPersistence(client: client)
+
+        XCTAssertEqual(processor.stage, .completed)
+        let counts = await client.counts()
+        XCTAssertEqual(counts.transcriptions, 1)
+        XCTAssertEqual(counts.translations, 2)
+        XCTAssertEqual(counts.moderations, 1)
+    }
+
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testProcessorRejectsAChangedSourceBeforeSaving() async {
+        let message = DemoData.message(id: "demo-message-3")
+        let client = StubReviewClient(message: message)
+        let transcriber = StubTranscriber {
+            let competing = Transcription(
+                id: "competing",
+                messageId: message.id,
+                provider: .push,
+                model: "worker",
+                status: .succeeded,
+                text: "newer",
+                language: "en",
+                durationMs: nil,
+                latencyMs: nil,
+                error: nil,
+                requestedById: nil,
+                createdAt: Date(),
+                completedAt: Date()
+            )
+            await client.replaceTranscription(competing)
+            return "bonjour"
+        }
+        let processor = makeProcessor(transcriber: transcriber)
+        await processor.refreshAvailability()
+
+        await processor.process(message: message, sourceLanguage: "fr", client: client)
+
+        guard case .failed = processor.stage else {
+            return XCTFail("Expected stale source failure")
+        }
+        let counts = await client.counts()
+        XCTAssertEqual(counts.transcriptions, 0)
+        XCTAssertFalse(processor.canRetryPersistence)
+    }
+
+    func testAudioFetcherRejectsInvalidHashBeforeNetworking() async {
+        let fetcher = URLSessionAudioFetcher()
+        do {
+            _ = try await fetcher.withFetchedAudioFile(
+                url: URL(string: "https://example.com/audio.flac")!,
+                expectedSHA256: "invalid",
+                maxBytes: 10
+            ) { _ in true }
+            XCTFail("Expected invalid hash failure")
+        } catch {
+            XCTAssertEqual(error as? AudioFetchError, .invalidExpectedHash)
+        }
+    }
+
+    func testAudioFetcherRejectsInsecureURLBeforeNetworking() async {
+        let fetcher = URLSessionAudioFetcher()
+        do {
+            _ = try await fetcher.withFetchedAudioFile(
+                url: URL(string: "http://example.com/audio.flac")!,
+                expectedSHA256: String(repeating: "a", count: 64),
+                maxBytes: 10
+            ) { _ in true }
+            XCTFail("Expected insecure URL failure")
+        } catch {
+            XCTAssertEqual(error as? AudioFetchError, .insecureURL)
+        }
+    }
+
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    private func makeProcessor(
+        transcriber: any AudioTranscribing = StubTranscriber { "bonjour" }
+    ) -> OnDeviceMessageProcessor {
+        OnDeviceMessageProcessor(
+            audioFetcher: StubAudioFetcher(),
+            transcriber: transcriber,
+            translator: StubTranslator(),
+            moderator: StubModerator(),
+            availabilityCheck: { _ in true }
+        )
     }
 }

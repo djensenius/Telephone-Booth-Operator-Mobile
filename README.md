@@ -96,6 +96,10 @@ SpeechAnalyzer, translates the new transcript to English with Foundation
 Models, generates an advisory moderation recommendation, and saves all three
 results to the Operator API.
 
+This release requires an Operator deployment that supports downstream-free
+transcript submission, transcription-targeted on-device translations, and
+moderation input hashes. Older Operator releases must be upgraded first.
+
 Processing stays in the existing Messages → Message → Decision flow. The
 Operator remains the source of truth and audit boundary; the final human
 approve/reject decision is still separate. Audio and text are not sent to a
