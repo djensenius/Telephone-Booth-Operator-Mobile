@@ -74,7 +74,6 @@ targets:
       path: TBOperatorMobile/TBOperatorMobile.entitlements
       properties:
         aps-environment: development
-        com.apple.developer.speech-recognition: true
         com.apple.security.application-groups:
           - group.org.davidjensenius.TelephoneBoothOperatorMobile
     dependencies:
@@ -200,7 +199,6 @@ targets:
       path: TBOperatorMobileMac/TBOperatorMobileMac.entitlements
       properties:
         aps-environment: development
-        com.apple.developer.speech-recognition: true
         com.apple.security.app-sandbox: true
         com.apple.security.device.audio-input: true
         com.apple.security.network.client: true
@@ -244,7 +242,6 @@ targets:
       path: TBOperatorMobileVision/TBOperatorMobileVision.entitlements
       properties:
         aps-environment: development
-        com.apple.developer.speech-recognition: true
         com.apple.security.application-groups:
           - group.org.davidjensenius.TelephoneBoothOperatorMobile
 
