@@ -39,18 +39,9 @@ private final class SizeLimitingDataDelegate: NSObject, URLSessionDataDelegate, 
 
     private let lock = NSLock()
     private var downloads: [Int: DownloadState] = [:]
-    private var session: URLSession!
-
-    init(configuration: URLSessionConfiguration) {
-        super.init()
-        session = URLSession(
-            configuration: configuration,
-            delegate: self,
-            delegateQueue: nil
-        )
-    }
 
     func download(
+        session: URLSession,
         request: URLRequest,
         maxBytes: Int,
         destinationURL: URL
@@ -176,6 +167,38 @@ private final class SizeLimitingDataDelegate: NSObject, URLSessionDataDelegate, 
     }
 }
 
+private final class BoundedAudioSession: @unchecked Sendable {
+    private let delegate: SizeLimitingDataDelegate
+    private let session: URLSession
+
+    init(configuration: URLSessionConfiguration) {
+        let delegate = SizeLimitingDataDelegate()
+        self.delegate = delegate
+        session = URLSession(
+            configuration: configuration,
+            delegate: delegate,
+            delegateQueue: nil
+        )
+    }
+
+    deinit {
+        session.invalidateAndCancel()
+    }
+
+    func download(
+        request: URLRequest,
+        maxBytes: Int,
+        destinationURL: URL
+    ) async throws -> (URL, URLResponse) {
+        try await delegate.download(
+            session: session,
+            request: request,
+            maxBytes: maxBytes,
+            destinationURL: destinationURL
+        )
+    }
+}
+
 public enum AudioFetchError: Error, Sendable, Equatable {
     case invalidExpectedHash
     case tooLarge
@@ -194,13 +217,13 @@ public protocol AudioFetching: Sendable {
 }
 
 public struct URLSessionAudioFetcher: AudioFetching {
-    private let downloadSession: SizeLimitingDataDelegate
+    private let downloadSession: BoundedAudioSession
 
     public init(session: URLSession = .shared) {
         let configuration = session.configuration
         configuration.urlCache = nil
         configuration.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        downloadSession = SizeLimitingDataDelegate(configuration: configuration)
+        downloadSession = BoundedAudioSession(configuration: configuration)
     }
 
     public func withFetchedAudioFile<T: Sendable>(
