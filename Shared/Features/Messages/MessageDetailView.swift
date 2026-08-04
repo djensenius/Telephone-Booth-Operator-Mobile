@@ -85,8 +85,7 @@ public struct MessageDetailView: View {
             await load()
         }
         .task(id: sourceLanguage) {
-            let identifier = PromptSafety.normalizedLanguageTag(sourceLanguage) ?? Locale.current.identifier
-            await onDeviceProcessor.refreshAvailability(locale: Locale(identifier: identifier))
+            await onDeviceProcessor.refreshAvailability(sourceLanguage: sourceLanguage)
         }
         .refreshableIfAvailable {
             await load()
@@ -121,7 +120,6 @@ public struct MessageDetailView: View {
                             )
                     }
                 }
-
                 if usesDemoData {
                     Text("On-device processing is unavailable for demo messages.")
                         .font(Theme.Fonts.bodySmall)
@@ -428,9 +426,7 @@ public struct MessageDetailView: View {
             transcriptions = newList.items
         }
     }
-
 }
-
 private extension MessageDetailView {
     func decide(_ decision: MessageDecision) async {
         deciding = true
@@ -453,7 +449,6 @@ private extension MessageDetailView {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't \(verb) this message."
         }
     }
-
     func saveTranscriptCorrection(_ current: Message) async {
         savingCorrection = true
         errorMessage = nil
@@ -482,14 +477,18 @@ private extension MessageDetailView {
         do {
             let updated = try await client.submitTranslation(
                 messageId: current.id,
-                translatedText: translationCorrection,
-                translatedLanguage: "en",
-                expectedTranscriptionId: current.latestTranscription?.id
+                body: MessageTranslationRequest(
+                    expectedTranscriptionId: current.latestTranscription?.id,
+                    expectedTranslationSha256:
+                        ReviewTextSnapshot.sha256(current.latestTranscription?.translationSnapshotText),
+                    translatedText: translationCorrection,
+                    translatedLanguage: "en"
+                )
             )
             message = current.replacingLatestTranscription(updated)
             transcriptions = transcriptions.map { $0.id == updated.id ? updated : $0 }
             editingTranslation = false
-            statusMessage = "Corrected translation saved. Moderation must be regenerated."
+            statusMessage = "Corrected translation saved. The previous moderation suggestion was removed."
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription
                 ?? "Couldn't save the corrected translation."

@@ -87,24 +87,6 @@ extension OperatorClient {
 
     public func submitTranslation(
         messageId: String,
-        translatedText: String,
-        translatedLanguage: String? = "en",
-        transcriptionId: String? = nil,
-        expectedTranscriptionId: String? = nil,
-        model: String? = nil
-    ) async throws -> Transcription {
-        let body = MessageTranslationRequest(
-            transcriptionId: transcriptionId,
-            expectedTranscriptionId: expectedTranscriptionId,
-            translatedText: translatedText,
-            translatedLanguage: translatedLanguage,
-            model: model
-        )
-        return try await submitTranslation(messageId: messageId, body: body)
-    }
-
-    public func submitTranslation(
-        messageId: String,
         body: MessageTranslationRequest
     ) async throws -> Transcription {
         if await usesDemoData {
@@ -168,6 +150,10 @@ extension OperatorClient {
         let expectedId = body.transcriptionId ?? body.expectedTranscriptionId
         guard expectedId == nil || expectedId == transcription.id else {
             throw OperatorError.httpError(status: 409, body: "stale_transcription")
+        }
+        guard ReviewTextSnapshot.sha256(transcription.translationSnapshotText)
+            == body.expectedTranslationSha256 else {
+            throw OperatorError.httpError(status: 409, body: "stale_translation")
         }
         let updated = Transcription(
             id: transcription.id,

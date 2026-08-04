@@ -25,7 +25,6 @@ private struct StubTranscriber: AudioTranscribing {
         try await operation()
     }
 }
-
 private struct StubTranslator: TextTranslating {
     func translate(_ input: String, sourceLanguage: String?) async throws -> TranslationResult {
         TranslationResult(
@@ -36,7 +35,6 @@ private struct StubTranslator: TextTranslating {
         )
     }
 }
-
 private struct StubModerator: TextModerating {
     func moderate(_ input: String) async throws -> ModerationVerdict {
         ModerationVerdict(
@@ -47,24 +45,20 @@ private struct StubModerator: TextModerating {
         )
     }
 }
-
 private enum StubFailure: Error {
     case requested
 }
-
 private struct SubmissionCounts {
     let transcriptions: Int
     let translations: Int
     let moderations: Int
 }
-
 private actor StubReviewClient: MessageReviewPersisting {
     enum Step {
         case transcript
         case translation
         case moderation
     }
-
     private(set) var message: Message
     private var failOnce: Step?
     private(set) var transcriptionSubmissions = 0
@@ -247,12 +241,14 @@ final class OnDeviceReviewTests: XCTestCase {
         let translation = MessageTranslationRequest(
             transcriptionId: " t1 ",
             expectedTranscriptionId: " t1 ",
+            expectedTranslationSha256: String(repeating: "A", count: 64),
             translatedText: " hello ",
             translatedLanguage: " en ",
             model: " apple-foundation-models "
         )
         XCTAssertEqual(translation.transcriptionId, "t1")
         XCTAssertEqual(translation.expectedTranscriptionId, "t1")
+        XCTAssertEqual(translation.expectedTranslationSha256, String(repeating: "a", count: 64))
         XCTAssertEqual(translation.translatedText, "hello")
         XCTAssertEqual(translation.model, "apple-foundation-models")
 
@@ -408,6 +404,8 @@ final class OnDeviceReviewTests: XCTestCase {
         await processor.refreshAvailability()
 
         await processor.process(message: message, sourceLanguage: "fr", client: client)
+        XCTAssertTrue(processor.canRetryPersistence)
+        await processor.refreshAvailability(sourceLanguage: "fr")
         XCTAssertTrue(processor.canRetryPersistence)
         await processor.retryPersistence(client: client)
 

@@ -3,7 +3,32 @@
 //  TelephoneBoothOperatorMobile
 //
 
+import CryptoKit
 import Foundation
+
+public enum ReviewTextSnapshot {
+    private static let ecmaScriptTrimCharacters = CharacterSet(
+        charactersIn: "\u{0009}\u{000B}\u{000C}\u{0020}\u{00A0}\u{1680}"
+            + "\u{2000}\u{2001}\u{2002}\u{2003}\u{2004}\u{2005}\u{2006}"
+            + "\u{2007}\u{2008}\u{2009}\u{200A}\u{202F}\u{205F}\u{3000}"
+            + "\u{FEFF}\u{000A}\u{000D}\u{2028}\u{2029}"
+    )
+
+    public static func sha256(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let canonical = value.trimmingCharacters(in: ecmaScriptTrimCharacters)
+        guard !canonical.isEmpty else { return nil }
+        return SHA256.hash(data: Data(canonical.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
+}
+
+public extension Transcription {
+    var translationSnapshotText: String? {
+        translationStatus == .succeeded ? translatedText : nil
+    }
+}
 
 public struct MessageDecisionRequest: Codable, Sendable, Equatable {
     public let decision: MessageDecision
@@ -70,6 +95,7 @@ public struct MessageTranscriptionRequest: Codable, Sendable, Equatable {
 public struct MessageTranslationRequest: Codable, Sendable, Equatable {
     public let transcriptionId: String?
     public let expectedTranscriptionId: String?
+    public let expectedTranslationSha256: String?
     public let translatedText: String
     public let translatedLanguage: String?
     public let model: String?
@@ -77,16 +103,41 @@ public struct MessageTranslationRequest: Codable, Sendable, Equatable {
     public init(
         transcriptionId: String? = nil,
         expectedTranscriptionId: String? = nil,
+        expectedTranslationSha256: String?,
         translatedText: String,
         translatedLanguage: String? = "en",
         model: String? = nil
     ) {
         self.transcriptionId = Self.trimmed(transcriptionId)
         self.expectedTranscriptionId = Self.trimmed(expectedTranscriptionId)
+        self.expectedTranslationSha256 = Self.normalizedSHA256(expectedTranslationSha256)
         self.translatedText = translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
         let language = translatedLanguage?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.translatedLanguage = language?.isEmpty == false ? language : nil
         self.model = Self.trimmed(model)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case transcriptionId
+        case expectedTranscriptionId
+        case expectedTranslationSha256
+        case translatedText
+        case translatedLanguage
+        case model
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(transcriptionId, forKey: .transcriptionId)
+        try container.encodeIfPresent(expectedTranscriptionId, forKey: .expectedTranscriptionId)
+        if let expectedTranslationSha256 {
+            try container.encode(expectedTranslationSha256, forKey: .expectedTranslationSha256)
+        } else {
+            try container.encodeNil(forKey: .expectedTranslationSha256)
+        }
+        try container.encode(translatedText, forKey: .translatedText)
+        try container.encodeIfPresent(translatedLanguage, forKey: .translatedLanguage)
+        try container.encodeIfPresent(model, forKey: .model)
     }
 
     private static func trimmed(_ value: String?) -> String? {
@@ -95,6 +146,15 @@ public struct MessageTranslationRequest: Codable, Sendable, Equatable {
             return nil
         }
         return trimmed
+    }
+
+    private static func normalizedSHA256(_ value: String?) -> String? {
+        guard let value = trimmed(value)?.lowercased(),
+              value.count == 64,
+              value.allSatisfy(\.isHexDigit) else {
+            return nil
+        }
+        return value
     }
 }
 

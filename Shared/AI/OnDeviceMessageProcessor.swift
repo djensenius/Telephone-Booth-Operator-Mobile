@@ -6,7 +6,6 @@
 #if !os(watchOS) && !os(tvOS) && canImport(Speech) && canImport(FoundationModels)
 
 import Foundation
-import CryptoKit
 import Observation
 import os
 
@@ -99,7 +98,7 @@ public final class OnDeviceMessageProcessor {
 
     public var isRunning: Bool {
         switch stage {
-        case .fetchingAndTranscribing, .translating, .moderating,
+        case .checkingAvailability, .fetchingAndTranscribing, .translating, .moderating,
              .savingTranscript, .savingTranslation, .savingModeration:
             return true
         default:
@@ -125,6 +124,7 @@ public final class OnDeviceMessageProcessor {
     )
     @ObservationIgnored private var pendingResult: PendingResult?
     @ObservationIgnored private var generation = 0
+    @ObservationIgnored private var availabilityGeneration = 0
 
     public init(
         audioFetcher: any AudioFetching = URLSessionAudioFetcher(),
@@ -142,10 +142,26 @@ public final class OnDeviceMessageProcessor {
         self.availabilityCheck = availabilityCheck
     }
 
-    public func refreshAvailability(locale: Locale = .current) async {
-        stage = .checkingAvailability
-        isAvailable = await availabilityCheck(locale)
-        stage = .idle
+    public func refreshAvailability(sourceLanguage: String? = nil) async {
+        availabilityGeneration += 1
+        let requestGeneration = availabilityGeneration
+        if stage == .idle || stage == .checkingAvailability {
+            stage = .checkingAvailability
+        }
+        let normalizedLanguage = PromptSafety.normalizedLanguageTag(sourceLanguage)
+        let trimmedLanguage = sourceLanguage?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let available: Bool
+        if trimmedLanguage?.isEmpty == false, normalizedLanguage == nil {
+            available = false
+        } else {
+            let locale = normalizedLanguage.map(Locale.init(identifier:)) ?? .current
+            available = await availabilityCheck(locale)
+        }
+        guard requestGeneration == availabilityGeneration else { return }
+        isAvailable = available
+        if stage == .checkingAvailability {
+            stage = .idle
+        }
     }
 
     public func process(
@@ -154,20 +170,21 @@ public final class OnDeviceMessageProcessor {
         client: any MessageReviewPersisting
     ) async {
         guard !isRunning else { return }
-        let normalizedSourceLanguage = PromptSafety.normalizedLanguageTag(sourceLanguage)
-        let locale = normalizedSourceLanguage.map(Locale.init(identifier:)) ?? .current
-        stage = .checkingAvailability
-        isAvailable = await availabilityCheck(locale)
-        guard isAvailable else {
-            fail("The selected source language is not supported for on-device transcription.")
-            return
-        }
         generation += 1
         let currentGeneration = generation
         pendingResult = nil
-        stage = .fetchingAndTranscribing
-
         do {
+            let selection = try Self.sourceLanguageSelection(sourceLanguage)
+            stage = .checkingAvailability
+            let available = await availabilityCheck(selection.locale)
+            guard generation == currentGeneration else { return }
+            isAvailable = available
+            guard isAvailable else {
+                throw OnDeviceServiceError.unavailable(
+                    "The selected source language is not supported for on-device transcription."
+                )
+            }
+            stage = .fetchingAndTranscribing
             let transcript = try await audioFetcher.withFetchedAudioFile(
                 url: message.audio.url,
                 expectedSHA256: message.audio.sha256,
@@ -175,7 +192,7 @@ public final class OnDeviceMessageProcessor {
             ) { [transcriber] fileURL in
                 try await transcriber.transcribe(
                     audioFileURL: fileURL,
-                    language: normalizedSourceLanguage
+                    language: selection.language
                 )
             }
             guard generation == currentGeneration else { return }
@@ -204,7 +221,7 @@ public final class OnDeviceMessageProcessor {
                 messageId: message.id,
                 baseline: SourceSnapshot(message),
                 transcript: trimmedTranscript,
-                language: translation.sourceLanguage ?? normalizedSourceLanguage,
+                language: translation.sourceLanguage ?? selection.language,
                 transcriptionModel: "apple-speech-analyzer",
                 translation: translation,
                 moderation: moderation,
@@ -276,6 +293,9 @@ public final class OnDeviceMessageProcessor {
                         messageId: pending.messageId,
                         body: MessageTranslationRequest(
                             transcriptionId: pending.transcriptionId,
+                            expectedTranslationSha256: ReviewTextSnapshot.sha256(
+                                current.latestTranscription?.translationSnapshotText
+                            ),
                             translatedText: pending.translation.translatedText,
                             translatedLanguage: pending.translation.targetLanguage,
                             model: pending.translation.model
@@ -302,7 +322,7 @@ public final class OnDeviceMessageProcessor {
             }
             let moderationBody = MessageModerationRequest(
                 transcriptionId: pending.transcriptionId,
-                inputSha256: Self.sha256(pending.translation.translatedText),
+                inputSha256: ReviewTextSnapshot.sha256(pending.translation.translatedText),
                 flagged: pending.moderation.flagged,
                 recommendation: pending.moderation.recommendation,
                 maxScore: pending.moderation.maxScore,
@@ -329,6 +349,19 @@ public final class OnDeviceMessageProcessor {
         value?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private static func sourceLanguageSelection(
+        _ sourceLanguage: String?
+    ) throws -> (language: String?, locale: Locale) {
+        let language = PromptSafety.normalizedLanguageTag(sourceLanguage)
+        let trimmed = sourceLanguage?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed?.isEmpty == false, language == nil {
+            throw OnDeviceServiceError.badRequest(
+                "Enter a valid BCP-47 source language, such as fr-CA."
+            )
+        }
+        return (language, language.map(Locale.init(identifier:)) ?? .current)
+    }
+
     private static func matches(
         _ expected: ModerationVerdict,
         _ existing: Moderation?
@@ -350,12 +383,6 @@ public final class OnDeviceMessageProcessor {
             && existing.model == pending.transcriptionModel
             && existing.language == pending.language
             && trimmed(existing.text) == trimmed(pending.transcript)
-    }
-
-    private static func sha256(_ value: String) -> String {
-        SHA256.hash(data: Data(value.utf8))
-            .map { String(format: "%02x", $0) }
-            .joined()
     }
 
     private static func describe(_ error: any Error) -> String {
