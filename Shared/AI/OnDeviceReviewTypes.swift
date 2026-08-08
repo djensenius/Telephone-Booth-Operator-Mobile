@@ -175,8 +175,9 @@ public enum OnDeviceReviewLogic {
             candidate = trimmed
         }
         guard let data = candidate.data(using: .utf8),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return trimmed
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              object.count == 1 else {
+            return candidate
         }
         for key in ["translatedText", "translated_text", "message", "text"] {
             if let result = object[key] as? String {
@@ -184,7 +185,7 @@ public enum OnDeviceReviewLogic {
                 if !normalized.isEmpty { return normalized }
             }
         }
-        return trimmed
+        return candidate
     }
 }
 
