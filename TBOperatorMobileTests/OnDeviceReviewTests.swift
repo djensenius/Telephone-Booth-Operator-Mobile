@@ -197,7 +197,7 @@ final class OnDeviceReviewTests: XCTestCase {
     }
     func testTranslationNormalization() {
         let result = OnDeviceReviewLogic.translation(
-            text: "  Hello. \n",
+            text: "```json\n{\"message\":\"Hello.\"}\n```",
             detectedSource: "und",
             fallbackSource: "fr-CA",
             model: "test-model"
