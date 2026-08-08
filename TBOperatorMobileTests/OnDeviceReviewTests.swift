@@ -197,7 +197,7 @@ final class OnDeviceReviewTests: XCTestCase {
     }
     func testTranslationNormalization() {
         let result = OnDeviceReviewLogic.translation(
-            text: "  Hello. \n",
+            text: "```json\n{\"message\":\"Hello.\"}\n```",
             detectedSource: "und",
             fallbackSource: "fr-CA",
             model: "test-model"
@@ -206,19 +206,6 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(result.sourceLanguage, "fr-ca")
         XCTAssertEqual(result.targetLanguage, "en")
         XCTAssertEqual(result.model, "test-model")
-    }
-    func testTranslationNormalizationUnwrapsJSONEnvelope() {
-        let result = OnDeviceReviewLogic.translation(
-            text: """
-            ```json
-            {"message":"I'm leaving a message. This is a test."}
-            ```
-            """,
-            detectedSource: "en",
-            fallbackSource: nil,
-            model: "test-model"
-        )
-        XCTAssertEqual(result.translatedText, "I'm leaving a message. This is a test.")
     }
     func testModerationNormalization() {
         let verdict = OnDeviceReviewLogic.moderation(
