@@ -197,6 +197,13 @@ public struct AppleSpeechTranscriber: AudioTranscribing {
 
 #if canImport(FoundationModels)
 @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+@Generable
+private struct TranslationOutput {
+    @Guide(description: "The natural, fluent English translation, with no JSON or formatting.")
+    var translatedText: String
+}
+
+@available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
 public actor AppleTranslationService: TextTranslating {
     public static let modelIdentifier = "apple-foundation-models"
 
@@ -212,10 +219,11 @@ public actor AppleTranslationService: TextTranslating {
         do {
             let response = try await session.respond(
                 to: Self.prompt(input: input, sourceLanguage: sourceLanguage),
+                generating: TranslationOutput.self,
                 options: GenerationOptions(temperature: 0)
             )
             return OnDeviceReviewLogic.translation(
-                text: response.content,
+                text: response.content.translatedText,
                 detectedSource: NLLanguageRecognizer.dominantLanguage(for: input)?.rawValue,
                 fallbackSource: sourceLanguage,
                 model: Self.modelIdentifier

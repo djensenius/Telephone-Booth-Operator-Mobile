@@ -129,7 +129,7 @@ public enum OnDeviceReviewLogic {
         let detected = normalizedSource(detectedSource)
         let fallback = normalizedSource(fallbackSource)
         return TranslationResult(
-            translatedText: text.trimmingCharacters(in: .whitespacesAndNewlines),
+            translatedText: normalizedTranslationText(text),
             sourceLanguage: (detected == "und" || detected == "unknown") ? fallback : detected ?? fallback,
             targetLanguage: "en",
             model: model
@@ -160,6 +160,31 @@ public enum OnDeviceReviewLogic {
 
     private static func normalizedSource(_ value: String?) -> String? {
         PromptSafety.normalizedLanguageTag(value)?.lowercased()
+    }
+
+    private static func normalizedTranslationText(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let candidate: String
+        if trimmed.hasPrefix("```"), trimmed.hasSuffix("```"),
+           let firstLineBreak = trimmed.firstIndex(of: "\n") {
+            let contentStart = trimmed.index(after: firstLineBreak)
+            let contentEnd = trimmed.index(trimmed.endIndex, offsetBy: -3)
+            candidate = String(trimmed[contentStart..<contentEnd])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            candidate = trimmed
+        }
+        guard let data = candidate.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return trimmed
+        }
+        for key in ["translatedText", "translated_text", "message", "text"] {
+            if let result = object[key] as? String {
+                let normalized = result.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !normalized.isEmpty { return normalized }
+            }
+        }
+        return trimmed
     }
 }
 
