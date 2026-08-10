@@ -5,7 +5,7 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Record question prompts for the booth.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Process message audio on this Mac with Apple Intelligence.</string>
+	<string>Transcribe message audio for review on this Mac.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

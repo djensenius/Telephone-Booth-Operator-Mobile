@@ -249,7 +249,7 @@ struct MessageRow: View {
                 }
                 if let moderation = message.latestApplicableModeration,
                    let rec = moderation.recommendation {
-                    Label("AI recommends \(rec.displayName)", systemImage: "sparkles")
+                    Label("Suggested action: \(rec.displayName)", systemImage: "checklist")
                         .font(Theme.Fonts.caption.weight(.semibold))
                         .foregroundStyle(color(for: rec))
                         .padding(.horizontal, Theme.Spacing.small)

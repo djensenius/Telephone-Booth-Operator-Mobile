@@ -57,7 +57,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         LSApplicationCategoryType: public.app-category.utilities
         NSMicrophoneUsageDescription: Record question prompts for the booth.
-        NSSpeechRecognitionUsageDescription: Process message audio on this device with Apple Intelligence.
+        NSSpeechRecognitionUsageDescription: Transcribe message audio for review on this device.
         OIDCIssuerBase: https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile
         OIDCClientID: x0M0MleMvCSCx8MqIE2jVoYe57nAhGymIG8azTEY
         OperatorAPIBase: https://api.telephonebooth.io
@@ -175,7 +175,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         LSApplicationCategoryType: public.app-category.utilities
         NSMicrophoneUsageDescription: Record question prompts for the booth.
-        NSSpeechRecognitionUsageDescription: Process message audio on this Mac with Apple Intelligence.
+        NSSpeechRecognitionUsageDescription: Transcribe message audio for review on this Mac.
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - tboperator
@@ -224,7 +224,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         ITSAppUsesNonExemptEncryption: false
         NSMicrophoneUsageDescription: Record question prompts for the booth.
-        NSSpeechRecognitionUsageDescription: Process message audio on this device with Apple Intelligence.
+        NSSpeechRecognitionUsageDescription: Transcribe message audio for review on this device.
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - tboperator
