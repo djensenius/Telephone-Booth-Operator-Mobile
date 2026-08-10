@@ -333,7 +333,7 @@ private enum FoundationModelsSupport {
     static func ensureAvailable(_ model: SystemLanguageModel) throws {
         guard case .available = model.availability else {
             throw OnDeviceServiceError.unavailable(
-                "Apple Intelligence is not available or its model is not ready."
+                "On-device processing is unavailable or not ready."
             )
         }
     }
@@ -349,7 +349,7 @@ private enum FoundationModelsSupport {
         case .rateLimited, .concurrentRequests:
             return .timeout("The on-device model is busy. Try again.")
         case .assetsUnavailable:
-            return .unavailable("Apple Intelligence model assets are unavailable.")
+            return .unavailable("Required on-device resources are unavailable.")
         default:
             return .unavailable("On-device generation failed.")
         }

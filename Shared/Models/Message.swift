@@ -356,8 +356,8 @@ public struct MessageList: Codable, Sendable, Equatable {
     }
 }
 
-/// A human moderation decision. The AI moderation result is only ever an
-/// advisory suggestion — approving or rejecting a message is always an explicit
+/// A human moderation decision. The moderation result is only ever an advisory
+/// suggestion — approving or rejecting a message is always an explicit
 /// operator action recorded server-side against the acting operator.
 public enum MessageDecision: String, Codable, Sendable, Hashable {
     case approve

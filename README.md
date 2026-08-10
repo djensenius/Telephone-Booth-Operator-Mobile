@@ -90,10 +90,10 @@ webview, no cookie session. Refresh tokens live in the Keychain. See
 ## On-device message processing
 
 On eligible iOS, iPadOS, macOS, and visionOS 26 devices, the existing message
-detail screen can **Process with Apple Intelligence**. One action downloads the
+detail screen can **Transcribe, Translate & Review**. One action downloads the
 message's pre-signed audio, verifies its SHA-256, transcribes it with
 SpeechAnalyzer, translates the new transcript to English with Foundation
-Models, generates an advisory moderation recommendation, and saves all three
+Models, produces a suggested moderation action, and saves all three
 results to the Operator API.
 
 This release requires an Operator deployment that supports downstream-free

@@ -46,7 +46,7 @@ public final class OnDeviceMessageProcessor {
 
         public var statusText: String? {
             switch self {
-            case .checkingAvailability: return "Checking Apple Intelligence…"
+            case .checkingAvailability: return "Checking device support…"
             case .idle: return nil
             case .fetchingAndTranscribing: return "Downloading and transcribing audio…"
             case .translating: return "Translating the new transcript to English…"
@@ -286,7 +286,7 @@ public final class OnDeviceMessageProcessor {
                     pending.transcriptionId = transcription.id
                 } else {
                     pendingResult = nil
-                    fail("This message changed while Apple Intelligence was running. Run it again.")
+                    fail("This message changed during on-device processing. Run it again.")
                     return
                 }
                 pending.step = .translation
@@ -456,7 +456,7 @@ public final class OnDeviceMessageProcessor {
            let description = localized.errorDescription {
             return description
         }
-        return "Apple Intelligence processing failed. Try again."
+        return "On-device processing failed. Try again."
     }
 }
 

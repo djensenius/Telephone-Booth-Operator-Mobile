@@ -90,10 +90,10 @@ public struct MessageDetailView: View {
     }
     private func appleIntelligenceCard(_ message: Message) -> some View {
             VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-                SectionHeader(text: "Apple Intelligence")
+                SectionHeader(text: "Transcribe, Translate & Review")
                 Text(
-                    "Runs a fresh on-device transcription, English translation, and moderation "
-                        + "suggestion, then saves all three to the Operator."
+                    "Creates a fresh transcript, English translation, and suggested action "
+                        + "on this device, then saves all three to the Operator."
                 )
                 .font(Theme.Fonts.bodySmall)
                 .foregroundStyle(Theme.Colors.textSecondary)
@@ -132,7 +132,7 @@ public struct MessageDetailView: View {
                                 await load()
                             }
                         } label: {
-                            Label("Process with Apple Intelligence", systemImage: "apple.intelligence")
+                            Label("Transcribe, Translate & Review", systemImage: "waveform")
                                 .font(Theme.Fonts.bodySmall.weight(.semibold))
                         }
                         .buttonStyle(.borderedProminent)
@@ -267,7 +267,7 @@ private extension MessageDetailView {
             SectionHeader(text: "Moderation")
             if let moderation = message.latestApplicableModeration {
                 if let rec = moderation.recommendation {
-                    Label("AI recommendation: \(rec.displayName)", systemImage: "sparkles")
+                    Label("Suggested action: \(rec.displayName)", systemImage: "checklist")
                         .font(Theme.Fonts.bodyMedium.weight(.semibold))
                         .foregroundStyle(recommendationColor(rec))
                 }
@@ -296,9 +296,9 @@ private extension MessageDetailView {
             SectionHeader(text: "Decision")
             if let rec = message.latestApplicableModeration?.recommendation {
                 HStack(spacing: Theme.Spacing.small) {
-                    Image(systemName: "sparkles")
+                    Image(systemName: "checklist")
                         .foregroundStyle(recommendationColor(rec))
-                    Text("AI recommends \(rec.displayName). The final decision is yours.")
+                    Text("Suggested action: \(rec.displayName). Review the message before deciding.")
                         .font(Theme.Fonts.bodySmall)
                         .foregroundStyle(Theme.Colors.textSecondary)
                 }
