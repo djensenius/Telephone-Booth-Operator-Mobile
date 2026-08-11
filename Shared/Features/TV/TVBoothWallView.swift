@@ -60,7 +60,7 @@ struct TVBoothWallView: View {
         }
         .scrollClipDisabled()
         .background(TVBackground())
-        .task { await pollLoop() }
+        .autoRefresh(every: .seconds(10)) { await refresh() }
         .boothStatusLive(liveStore)
     }
 
@@ -207,13 +207,6 @@ struct TVBoothWallView: View {
 
     private var currentStatus: BoothStatus? {
         liveStore.status ?? liveStore.stats?.booth
-    }
-
-    private func pollLoop() async {
-        while !Task.isCancelled {
-            await refresh()
-            try? await Task.sleep(for: .seconds(10))
-        }
     }
 
     private func refresh() async {

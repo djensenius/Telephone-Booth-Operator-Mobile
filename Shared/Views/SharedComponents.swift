@@ -9,6 +9,17 @@
 
 import SwiftUI
 
+private struct AutomaticRefreshEnabledKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    var automaticRefreshEnabled: Bool {
+        get { self[AutomaticRefreshEnabledKey.self] }
+        set { self[AutomaticRefreshEnabledKey.self] = newValue }
+    }
+}
+
 /// Uppercased section caption used at the top of each dashboard card.
 public struct SectionHeader: View {
     public let text: String
@@ -87,6 +98,27 @@ public struct BannerView: View {
 }
 
 public extension View {
+    func automaticRefreshEnabled(_ enabled: Bool) -> some View {
+        environment(\.automaticRefreshEnabled, enabled)
+    }
+
+    /// Runs an immediate refresh and repeats it while this view is visible and
+    /// the app is active. Changing `id` restarts the loop immediately.
+    func autoRefresh<ID: Equatable>(
+        id: ID,
+        every interval: Duration = .seconds(30),
+        action: @escaping @MainActor @Sendable () async -> Void
+    ) -> some View {
+        modifier(AutoRefreshModifier(id: id, interval: interval, action: action))
+    }
+
+    func autoRefresh(
+        every interval: Duration = .seconds(30),
+        action: @escaping @MainActor @Sendable () async -> Void
+    ) -> some View {
+        autoRefresh(id: false, every: interval, action: action)
+    }
+
     /// `.refreshable` is unavailable on tvOS. Apply it where supported,
     /// no-op elsewhere.
     @ViewBuilder
@@ -132,6 +164,68 @@ public extension View {
         self.listRowBackground(Theme.Colors.secondaryBackground)
         #endif
     }
+}
+
+private struct AutoRefreshModifier<ID: Equatable>: ViewModifier {
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.automaticRefreshEnabled) private var automaticRefreshEnabled
+
+    let id: ID
+    let interval: Duration
+    let action: @MainActor @Sendable () async -> Void
+
+    func body(content: Content) -> some View {
+        let shouldRefresh = automaticRefreshEnabled && scenePhase != .background
+        content.task(id: AutoRefreshTaskID(id: id, shouldRefresh: shouldRefresh)) {
+            guard shouldRefresh else { return }
+            while !Task.isCancelled {
+                await action()
+                do {
+                    try await Task.sleep(for: interval)
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+}
+
+private struct AutoRefreshTaskID<ID: Equatable>: Equatable {
+    let id: ID
+    let shouldRefresh: Bool
+}
+
+struct ReloadedPages<Item> {
+    let items: [Item]
+    let nextCursor: String?
+    let pageCount: Int
+}
+
+@MainActor
+func reloadLoadedPages<Item>(
+    pageCount: Int,
+    isCurrent: @MainActor () -> Bool,
+    fetchPage: @MainActor (String?) async throws -> (items: [Item], nextCursor: String?)
+) async throws -> ReloadedPages<Item> {
+    let requestedPageCount = max(1, pageCount)
+    var items: [Item] = []
+    var nextCursor: String?
+    var fetchedPageCount = 0
+
+    repeat {
+        guard isCurrent() else { throw CancellationError() }
+        try Task.checkCancellation()
+        let page = try await fetchPage(nextCursor)
+        items.append(contentsOf: page.items)
+        nextCursor = page.nextCursor
+        fetchedPageCount += 1
+    } while fetchedPageCount < requestedPageCount && nextCursor != nil
+
+    return ReloadedPages(
+        items: items,
+        nextCursor: nextCursor,
+        pageCount: fetchedPageCount
+    )
 }
 
 /// Native trailing placement for list filter controls: the window toolbar's

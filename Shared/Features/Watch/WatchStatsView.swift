@@ -43,7 +43,7 @@ struct WatchStatsView: View {
             .padding(.horizontal, 4)
         }
         .refreshableIfAvailable { await refresh() }
-        .task { await refresh() }
+        .autoRefresh { await refresh() }
     }
 
     private func tile(label: String, value: String) -> some View {
@@ -65,6 +65,7 @@ struct WatchStatsView: View {
     }
 
     private func refresh() async {
+        guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
         do {

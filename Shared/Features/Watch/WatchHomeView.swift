@@ -53,18 +53,22 @@ struct WatchHomeView: View {
         NavigationStack {
             TabView(selection: $selection) {
                 WatchStatusView(client: client)
+                    .automaticRefreshEnabled(selection == .status)
                     .tabItem { Label("Status", systemImage: "gauge.with.dots.needle.bottom.50percent") }
                     .tag(WatchPage.status)
 
                 WatchLatestMessageView(client: client)
+                    .automaticRefreshEnabled(selection == .latest)
                     .tabItem { Label("Latest", systemImage: "tray.full") }
                     .tag(WatchPage.latest)
 
                 WatchModerationView(client: client)
+                    .automaticRefreshEnabled(selection == .moderation)
                     .tabItem { Label("Moderation", systemImage: "checkmark.shield") }
                     .tag(WatchPage.moderation)
 
                 WatchStatsView(client: client)
+                    .automaticRefreshEnabled(selection == .stats)
                     .tabItem { Label("Stats", systemImage: "chart.bar.fill") }
                     .tag(WatchPage.stats)
             }

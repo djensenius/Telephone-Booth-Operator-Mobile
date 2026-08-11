@@ -2,9 +2,8 @@
 //  MessageDetailView.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Single-message screen: status badge, FLAC audio playback, the
-//  latest transcript (and full history collapsed below), the moderation
-//  summary, and the human approve/reject decision.
+//  Single-message screen with playback, transcript history, moderation,
+//  and the human approve/reject decision.
 //
 
 #if !os(watchOS) && !os(tvOS)
@@ -77,7 +76,7 @@ public struct MessageDetailView: View {
         #if os(iOS) || os(visionOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
-        .task {
+        .autoRefresh {
             usesDemoData = await client.usesDemoData
             await load()
         }
@@ -399,6 +398,7 @@ private extension MessageDetailView {
         .glassCardBackground()
     }
     private func load() async {
+        guard !loading else { return }
         loading = true
         errorMessage = nil
         defer { loading = false }

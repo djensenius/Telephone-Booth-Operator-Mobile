@@ -50,7 +50,7 @@ struct WatchModerationView: View {
         .refreshableIfAvailable {
             await refresh()
         }
-        .task {
+        .autoRefresh {
             await refresh()
         }
     }
@@ -69,6 +69,7 @@ struct WatchModerationView: View {
     }
 
     func refresh() async {
+        guard !isRefreshing else { return }
         isRefreshing = true
         errorMessage = nil
         defer { isRefreshing = false }
@@ -146,7 +147,7 @@ struct WatchModerationDetailView: View {
             .padding(.horizontal, 4)
         }
         .navigationTitle("Message")
-        .task {
+        .autoRefresh {
             await load()
         }
     }

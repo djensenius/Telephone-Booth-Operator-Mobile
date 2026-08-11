@@ -39,7 +39,7 @@ struct WatchLatestMessageView: View {
         .refreshableIfAvailable {
             await refresh()
         }
-        .task {
+        .autoRefresh {
             await refresh()
         }
     }
@@ -95,6 +95,7 @@ struct WatchLatestMessageView: View {
     }
 
     func refresh() async {
+        guard !isRefreshing else { return }
         isRefreshing = true
         errorMessage = nil
         defer { isRefreshing = false }

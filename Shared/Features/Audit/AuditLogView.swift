@@ -63,6 +63,7 @@ public struct AuditLogView: View {
     /// Bumped whenever a first page is requested, so a slow in-flight page
     /// cannot overwrite or append to the results of a newer one.
     @State private var generation = 0
+    @State private var loadedPageCount = 0
 
     private let client: OperatorClient
     private let pageSize: Int
@@ -89,10 +90,8 @@ public struct AuditLogView: View {
             }
         }
         .background(Theme.Colors.background)
-        .task {
-            if entries.isEmpty {
-                await loadFirstPage()
-            }
+        .autoRefresh {
+            await refreshLoadedPages()
         }
         .refreshableIfAvailable {
             await loadFirstPage()
@@ -189,12 +188,14 @@ public struct AuditLogView: View {
         if discard {
             entries = []
             nextCursor = nil
+            loadedPageCount = 0
         }
         do {
             let page = try await client.fetchAuditLogs(action: filter.prefix, limit: pageSize)
             guard requested == generation else { return }
             entries = page.items
             nextCursor = page.nextCursor
+            loadedPageCount = 1
             loadState = nextCursor == nil ? .done : .idle
         } catch {
             guard requested == generation else { return }
@@ -202,6 +203,44 @@ public struct AuditLogView: View {
             // change makes the visible entries wrong.
             errorMessage = Self.message(for: error, fallback: "Failed to load the audit log.")
             loadState = .idle
+        }
+    }
+
+    private func refreshLoadedPages() async {
+        guard loadState != .loadingInitial, loadState != .loadingMore else { return }
+        generation += 1
+        let requested = generation
+        let pageCount = max(loadedPageCount, 1)
+        let action = filter.prefix
+        loadState = .loadingInitial
+        do {
+            let refreshed = try await reloadLoadedPages(
+                pageCount: pageCount,
+                isCurrent: { requested == generation },
+                fetchPage: { cursor in
+                    let page = try await client.fetchAuditLogs(
+                        action: action,
+                        cursor: cursor,
+                        limit: pageSize
+                    )
+                    return (page.items, page.nextCursor)
+                }
+            )
+            guard requested == generation else { return }
+            guard !Task.isCancelled else {
+                loadState = nextCursor == nil ? .done : .idle
+                return
+            }
+            entries = refreshed.items
+            nextCursor = refreshed.nextCursor
+            loadedPageCount = refreshed.pageCount
+            errorMessage = nil
+            loadState = nextCursor == nil ? .done : .idle
+        } catch {
+            guard requested == generation else { return }
+            loadState = nextCursor == nil ? .done : .idle
+            guard !Task.isCancelled else { return }
+            errorMessage = Self.message(for: error, fallback: "Failed to refresh the audit log.")
         }
     }
 
@@ -221,6 +260,7 @@ public struct AuditLogView: View {
             guard requested == generation else { return }
             entries.append(contentsOf: page.items)
             nextCursor = page.nextCursor
+            loadedPageCount += 1
             loadState = nextCursor == nil ? .done : .idle
         } catch {
             guard requested == generation else { return }

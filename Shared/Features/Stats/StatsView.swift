@@ -21,6 +21,7 @@ public struct StatsView: View {
     @State private var errorMessage: String?
     @State private var controlsError: String?
     @State private var isRefreshing = false
+    @State private var refreshGeneration = 0
 
     private let client: OperatorClient
 
@@ -62,18 +63,28 @@ public struct StatsView: View {
             .padding(Theme.Spacing.large)
         }
         .background(Theme.Colors.background)
-        .task(id: selection) { await refresh() }
+        .autoRefresh(id: selection) { await refresh() }
         .task { await loadFilters() }
         .refreshableIfAvailable { await refresh() }
     }
 
     private func refresh() async {
+        refreshGeneration += 1
+        let generation = refreshGeneration
+        let requestedSelection = selection
         isRefreshing = true
-        defer { isRefreshing = false }
+        defer {
+            if generation == refreshGeneration {
+                isRefreshing = false
+            }
+        }
         do {
-            overview = try await client.fetchStatsOverview(selection: selection)
+            let result = try await client.fetchStatsOverview(selection: requestedSelection)
+            guard !Task.isCancelled, generation == refreshGeneration else { return }
+            overview = result
             errorMessage = nil
         } catch {
+            guard !Task.isCancelled, generation == refreshGeneration else { return }
             errorMessage = "Couldn't load stats: \(error.localizedDescription)"
         }
     }

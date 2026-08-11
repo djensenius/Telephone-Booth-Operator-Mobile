@@ -25,6 +25,7 @@ struct MacStatsView: View {
     @State private var overview: StatsOverview?
     @State private var errorMessage: String?
     @State private var isRefreshing = false
+    @State private var refreshGeneration = 0
     @State private var isPresentingCustom = false
     @State private var newFilterName = ""
 
@@ -67,7 +68,7 @@ struct MacStatsView: View {
                 rangeMenu
             }
         }
-        .task(id: selection) { await refresh() }
+        .autoRefresh(id: selection) { await refresh() }
         .task { await loadFilters() }
         .sheet(isPresented: $isPresentingCustom) {
             customRangeSheet
@@ -151,12 +152,22 @@ struct MacStatsView: View {
     }
 
     private func refresh() async {
+        refreshGeneration += 1
+        let generation = refreshGeneration
+        let requestedSelection = selection
         isRefreshing = true
-        defer { isRefreshing = false }
+        defer {
+            if generation == refreshGeneration {
+                isRefreshing = false
+            }
+        }
         do {
-            overview = try await client.fetchStatsOverview(selection: selection)
+            let result = try await client.fetchStatsOverview(selection: requestedSelection)
+            guard !Task.isCancelled, generation == refreshGeneration else { return }
+            overview = result
             errorMessage = nil
         } catch {
+            guard !Task.isCancelled, generation == refreshGeneration else { return }
             errorMessage = "Couldn't load stats: \(error.localizedDescription)"
         }
     }
