@@ -40,6 +40,7 @@ public final class AudioPlaybackController {
     private var endObserver: NSObjectProtocol?
     private var statusObservation: NSKeyValueObservation?
     private var generation: UInt64 = 0
+    private var ownsAudioSession = false
 
     public init() {}
 
@@ -64,6 +65,7 @@ public final class AudioPlaybackController {
                 switch status {
                 case .failed:
                     self.state = .failed(errorMessage)
+                    self.deactivateAudioSession()
                 case .readyToPlay:
                     if case .loading = self.state {
                         self.state = .paused
@@ -98,6 +100,7 @@ public final class AudioPlaybackController {
                 guard let self, self.generation == loadGeneration else { return }
                 self.state = .finished
                 self.currentTime = self.duration
+                self.deactivateAudioSession()
             }
         }
     }
@@ -105,6 +108,12 @@ public final class AudioPlaybackController {
     public func play() {
         guard let player else { return }
         if case .failed = state { return }
+        do {
+            try activateAudioSession()
+        } catch {
+            state = .failed("Couldn't start audio playback.")
+            return
+        }
         if case .finished = state {
             player.seek(to: .zero)
         }
@@ -146,9 +155,30 @@ public final class AudioPlaybackController {
         endObserver = nil
         player?.pause()
         player = nil
+        deactivateAudioSession()
         currentTime = 0
         duration = 0
         state = .idle
+    }
+
+    private func activateAudioSession() throws {
+        #if os(iOS) || os(visionOS)
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playback, mode: .default)
+        try session.setActive(true)
+        ownsAudioSession = true
+        #endif
+    }
+
+    private func deactivateAudioSession() {
+        #if os(iOS) || os(visionOS)
+        guard ownsAudioSession else { return }
+        try? AVAudioSession.sharedInstance().setActive(
+            false,
+            options: [.notifyOthersOnDeactivation]
+        )
+        ownsAudioSession = false
+        #endif
     }
 }
 
