@@ -121,10 +121,15 @@ struct TranscriptionRow: View {
     }
 }
 
+struct MessageQuestionMetadata {
+    var resolvedId: String?
+    var prompt: String?
+    var isLoading = false
+}
+
 struct MessageMetadataCard: View {
     let message: Message
-    let questionPrompt: String?
-    let loadingQuestion: Bool
+    let questionMetadata: MessageQuestionMetadata
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
@@ -143,7 +148,8 @@ struct MessageMetadataCard: View {
             if message.questionId != nil {
                 StatRow(
                     label: "Question",
-                    value: questionPrompt ?? (loadingQuestion ? "Loading…" : "Question unavailable")
+                    value: questionMetadata.prompt
+                        ?? (questionMetadata.isLoading ? "Loading…" : "Question unavailable")
                 )
             }
             if let notes = message.notes, !notes.isEmpty {

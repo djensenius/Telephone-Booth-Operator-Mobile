@@ -13,8 +13,7 @@ public struct MessageDetailView: View {
     @State private var message: Message?
     @State private var transcriptions: [Transcription] = []
     @State private var loading = false
-    @State private var loadingQuestion = false
-    @State private var questionPrompt: String?
+    @State private var questionMetadata = MessageQuestionMetadata()
     @State private var deciding = false
     @State private var decisionNotes = ""
     @State private var errorMessage: String?
@@ -66,8 +65,7 @@ public struct MessageDetailView: View {
                     decisionCard(message)
                     MessageMetadataCard(
                         message: message,
-                        questionPrompt: questionPrompt,
-                        loadingQuestion: loadingQuestion
+                        questionMetadata: questionMetadata
                     )
                 } else if loading {
                     ProgressView().padding(Theme.Spacing.extraLarge)
@@ -400,15 +398,18 @@ private extension MessageDetailView {
     }
     private func loadQuestionPrompt(for message: Message) async {
         guard let questionId = message.questionId else {
-            questionPrompt = nil
-            loadingQuestion = false
+            questionMetadata = MessageQuestionMetadata()
             return
         }
-        questionPrompt = nil
-        loadingQuestion = true
-        defer { loadingQuestion = false }
+        guard questionMetadata.resolvedId != questionId else { return }
+        questionMetadata = MessageQuestionMetadata(isLoading: true)
+        defer { questionMetadata.isLoading = false }
         do {
-            questionPrompt = try await client.fetchQuestion(id: questionId)?.prompt
+            let question = try await client.fetchQuestion(id: questionId)
+            questionMetadata = MessageQuestionMetadata(
+                resolvedId: questionId,
+                prompt: question?.prompt
+            )
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription
                 ?? "Couldn't load the question."
