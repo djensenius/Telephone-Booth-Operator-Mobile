@@ -65,6 +65,7 @@ public final class AudioPlaybackController {
                 switch status {
                 case .failed:
                     self.state = .failed(errorMessage)
+                    self.deactivateAudioSession()
                 case .readyToPlay:
                     if case .loading = self.state {
                         self.state = .paused
