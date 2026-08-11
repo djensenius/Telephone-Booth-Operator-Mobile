@@ -121,4 +121,47 @@ struct TranscriptionRow: View {
     }
 }
 
+struct MessageQuestionMetadata {
+    var resolvedId: String?
+    var prompt: String?
+    var isLoading = false
+}
+
+struct MessageMetadataCard: View {
+    let message: Message
+    let questionMetadata: MessageQuestionMetadata
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+            SectionHeader(text: "Metadata")
+            StatRow(label: "Status", value: message.status.displayName)
+            StatRow(
+                label: "Created",
+                value: message.createdAt.formatted(.dateTime.month(.abbreviated).day().hour().minute().second())
+            )
+            if let received = message.receivedAt {
+                StatRow(
+                    label: "Received",
+                    value: received.formatted(.dateTime.month(.abbreviated).day().hour().minute().second())
+                )
+            }
+            if message.questionId != nil {
+                StatRow(
+                    label: "Question",
+                    value: questionMetadata.prompt
+                        ?? (questionMetadata.isLoading ? "Loading…" : "Question unavailable")
+                )
+            }
+            if let notes = message.notes, !notes.isEmpty {
+                Text(notes)
+                    .font(Theme.Fonts.bodySmall)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Spacing.large)
+        .glassCardBackground()
+    }
+}
+
 #endif

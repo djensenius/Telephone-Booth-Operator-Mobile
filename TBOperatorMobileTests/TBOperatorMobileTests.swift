@@ -462,6 +462,22 @@ final class TBOperatorMobileTests: XCTestCase {
     }
 }
 
+final class QuestionLookupTests: XCTestCase {
+    @MainActor
+    func testFetchQuestionResolvesPromptByIdInDemoMode() async throws {
+        let client = OperatorClient(
+            config: AppConfig.shared,
+            auth: AuthManager.shared,
+            demoMode: true
+        )
+        let question = try await client.fetchQuestion(id: "demo-question-1")
+
+        XCTAssertEqual(question?.prompt, "What is your favorite telephone memory?")
+        let missingQuestion = try await client.fetchQuestion(id: "missing-question")
+        XCTAssertNil(missingQuestion)
+    }
+}
+
 final class BoothStateWireTests: XCTestCase {
     func testBoothStateCallUnavailableWireRoundTrip() throws {
         // Decoding the wire value must produce the known case, not `.unknown`;

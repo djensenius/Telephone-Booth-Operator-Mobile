@@ -13,6 +13,7 @@ public struct MessageDetailView: View {
     @State private var message: Message?
     @State private var transcriptions: [Transcription] = []
     @State private var loading = false
+    @State private var questionMetadata = MessageQuestionMetadata()
     @State private var deciding = false
     @State private var decisionNotes = ""
     @State private var errorMessage: String?
@@ -62,7 +63,10 @@ public struct MessageDetailView: View {
                         moderationCard(message)
                     }
                     decisionCard(message)
-                    metadataCard(message)
+                    MessageMetadataCard(
+                        message: message,
+                        questionMetadata: questionMetadata
+                    )
                 } else if loading {
                     ProgressView().padding(Theme.Spacing.extraLarge)
                 }
@@ -89,7 +93,7 @@ public struct MessageDetailView: View {
     }
     private func appleIntelligenceCard(_ message: Message) -> some View {
             VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-                SectionHeader(text: "Transcribe, Translate & Review")
+                SectionHeader(text: "Transcribe, Translate, & Review")
                 Text(
                     "Creates a fresh transcript, English translation, and suggested action "
                         + "on this device, then saves all three to the Operator."
@@ -131,7 +135,7 @@ public struct MessageDetailView: View {
                                 await load()
                             }
                         } label: {
-                            Label("Transcribe, Translate & Review", systemImage: "waveform")
+                            Label("Transcribe, Translate, & Review", systemImage: "waveform")
                                 .font(Theme.Fonts.bodySmall.weight(.semibold))
                         }
                         .buttonStyle(.borderedProminent)
@@ -370,33 +374,6 @@ private extension MessageDetailView {
         case .unknown: return Theme.Colors.textSecondary
         }
     }
-    private func metadataCard(_ message: Message) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            SectionHeader(text: "Metadata")
-            StatRow(label: "Status", value: message.status.displayName)
-            StatRow(
-                label: "Created",
-                value: message.createdAt.formatted(.dateTime.month(.abbreviated).day().hour().minute().second())
-            )
-            if let received = message.receivedAt {
-                StatRow(
-                    label: "Received",
-                    value: received.formatted(.dateTime.month(.abbreviated).day().hour().minute().second())
-                )
-            }
-            if let questionId = message.questionId {
-                StatRow(label: "Question", value: questionId)
-            }
-            if let notes = message.notes, !notes.isEmpty {
-                Text(notes)
-                    .font(Theme.Fonts.bodySmall)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Theme.Spacing.large)
-        .glassCardBackground()
-    }
     private func load() async {
         guard !loading else { return }
         loading = true
@@ -411,11 +388,31 @@ private extension MessageDetailView {
             if sourceLanguage.isEmpty {
                 sourceLanguage = newMessage.latestTranscription?.language ?? ""
             }
+            await loadQuestionPrompt(for: newMessage)
         } else if message == nil {
             errorMessage = "Couldn't load this message."
         }
         if let newList {
             transcriptions = newList.items
+        }
+    }
+    private func loadQuestionPrompt(for message: Message) async {
+        guard let questionId = message.questionId else {
+            questionMetadata = MessageQuestionMetadata()
+            return
+        }
+        guard questionMetadata.resolvedId != questionId else { return }
+        questionMetadata = MessageQuestionMetadata(isLoading: true)
+        defer { questionMetadata.isLoading = false }
+        do {
+            let question = try await client.fetchQuestion(id: questionId)
+            questionMetadata = MessageQuestionMetadata(
+                resolvedId: questionId,
+                prompt: question?.prompt
+            )
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription
+                ?? "Couldn't load the question."
         }
     }
     func decide(_ decision: MessageDecision) async {

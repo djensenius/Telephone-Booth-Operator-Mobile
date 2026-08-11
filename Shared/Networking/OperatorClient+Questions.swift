@@ -36,6 +36,19 @@ extension OperatorClient {
         return try await get("/v1/questions", query: items)
     }
 
+    /// Resolves one question by id regardless of installation era or status.
+    /// This keeps historical messages labeled after their question is archived.
+    public func fetchQuestion(id: String) async throws -> Question? {
+        if await usesDemoData {
+            return DemoData.questions.first { $0.id == id }
+        }
+        let list: QuestionList = try await get(
+            "/v1/questions",
+            query: [URLQueryItem(name: "ids", value: id)]
+        )
+        return list.items.first { $0.id == id }
+    }
+
     /// `POST /v1/questions` — create a question referencing a previously
     /// uploaded audio file. New questions default to `draft` server-side.
     public func createQuestion(
