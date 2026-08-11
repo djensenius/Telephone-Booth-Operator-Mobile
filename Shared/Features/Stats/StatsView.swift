@@ -62,12 +62,13 @@ public struct StatsView: View {
             .padding(Theme.Spacing.large)
         }
         .background(Theme.Colors.background)
-        .task(id: selection) { await refresh() }
+        .autoRefresh(id: selection) { await refresh() }
         .task { await loadFilters() }
         .refreshableIfAvailable { await refresh() }
     }
 
     private func refresh() async {
+        guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
         do {

@@ -77,7 +77,7 @@ public struct MessageDetailView: View {
         #if os(iOS) || os(visionOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
-        .task {
+        .autoRefresh {
             usesDemoData = await client.usesDemoData
             await load()
         }
@@ -399,6 +399,7 @@ private extension MessageDetailView {
         .glassCardBackground()
     }
     private func load() async {
+        guard !loading else { return }
         loading = true
         errorMessage = nil
         defer { loading = false }

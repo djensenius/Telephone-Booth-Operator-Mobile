@@ -16,6 +16,7 @@ public struct SessionListView: View {
     @State private var nextCursor: String?
     @State private var loadState: LoadState = .idle
     @State private var errorMessage: String?
+    @State private var generation = 0
 
     private let client: OperatorClient
     private let pageSize: Int
@@ -45,10 +46,8 @@ public struct SessionListView: View {
             }
         }
         .background(Theme.Colors.background)
-        .task {
-            if sessions.isEmpty {
-                await loadFirstPage()
-            }
+        .autoRefresh {
+            await refreshFirstPage()
         }
         .refreshableIfAvailable {
             await loadFirstPage()
@@ -123,29 +122,58 @@ public struct SessionListView: View {
     }
 
     private func loadFirstPage() async {
+        generation += 1
+        let requested = generation
         loadState = .loadingInitial
         errorMessage = nil
         do {
             let page = try await client.fetchSessions(cursor: nil, limit: pageSize)
+            guard requested == generation else { return }
             sessions = page.items
             nextCursor = page.nextCursor
             loadState = nextCursor == nil ? .done : .idle
         } catch {
+            guard requested == generation else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to load sessions."
             loadState = .idle
         }
     }
 
+    private func refreshFirstPage() async {
+        guard loadState != .loadingInitial, loadState != .loadingMore else { return }
+        let retainedSessions = sessions.count > pageSize ? Array(sessions.dropFirst(pageSize)) : []
+        let retainedCursor = nextCursor
+        generation += 1
+        let requested = generation
+        loadState = .loadingInitial
+        do {
+            let page = try await client.fetchSessions(cursor: nil, limit: pageSize)
+            guard requested == generation else { return }
+            let refreshedIDs = Set(page.items.map(\.id))
+            sessions = page.items + retainedSessions.filter { !refreshedIDs.contains($0.id) }
+            nextCursor = retainedSessions.isEmpty ? page.nextCursor : retainedCursor
+            errorMessage = nil
+            loadState = nextCursor == nil ? .done : .idle
+        } catch {
+            guard requested == generation else { return }
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to refresh sessions."
+            loadState = nextCursor == nil ? .done : .idle
+        }
+    }
+
     private func loadMore() async {
-        guard let cursor = nextCursor, loadState != .loadingMore else { return }
+        guard let cursor = nextCursor, loadState == .idle else { return }
+        let requested = generation
         loadState = .loadingMore
         errorMessage = nil
         do {
             let page = try await client.fetchSessions(cursor: cursor, limit: pageSize)
+            guard requested == generation else { return }
             sessions.append(contentsOf: page.items)
             nextCursor = page.nextCursor
             loadState = nextCursor == nil ? .done : .idle
         } catch {
+            guard requested == generation else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to load more sessions."
             loadState = .idle
         }

@@ -75,6 +75,7 @@ private struct OperatorShell: View {
         TabView(selection: $selection) {
             Tab("Dashboard", systemImage: "gauge.with.dots.needle.bottom.50percent", value: .dashboard) {
                 dashboardTab
+                    .automaticRefreshEnabled(selection == .dashboard)
             }
 
             Tab("Stats", systemImage: "chart.bar.fill", value: .stats) {
@@ -85,6 +86,7 @@ private struct OperatorShell: View {
                     statsView.navigationTitle("Stats")
                 }
                 #endif
+                .automaticRefreshEnabled(selection == .stats)
             }
 
             #if !os(tvOS)
@@ -92,12 +94,14 @@ private struct OperatorShell: View {
                 NavigationStack {
                     SessionListView(client: client).navigationTitle("Sessions")
                 }
+                .automaticRefreshEnabled(selection == .sessions)
             }
 
             Tab("Messages", systemImage: "tray.full", value: .messages) {
                 NavigationStack(path: $messagePath) {
                     MessageListView(client: client).navigationTitle("Messages")
                 }
+                .automaticRefreshEnabled(selection == .messages)
             }
             .badge(pending.pendingCount)
 
@@ -105,6 +109,7 @@ private struct OperatorShell: View {
                 NavigationStack {
                     EventsFeedView(client: client, stream: eventStream).navigationTitle("Events")
                 }
+                .automaticRefreshEnabled(selection == .events)
             }
 
             Tab("Questions", systemImage: "questionmark.bubble", value: .questions) {
@@ -112,6 +117,7 @@ private struct OperatorShell: View {
                     QuestionsView(client: client, isAdmin: currentUser.isAdmin)
                         .navigationTitle("Questions")
                 }
+                .automaticRefreshEnabled(selection == .questions)
             }
 
             // The trail is admin-only server-side; hiding the tab keeps a
@@ -121,6 +127,7 @@ private struct OperatorShell: View {
                     NavigationStack {
                         AuditLogView(client: client).navigationTitle("Audit")
                     }
+                    .automaticRefreshEnabled(selection == .audit)
                 }
             }
             #endif
@@ -133,6 +140,7 @@ private struct OperatorShell: View {
                     SystemView(client: client).navigationTitle("System")
                 }
                 #endif
+                .automaticRefreshEnabled(selection == .system)
             }
 
             #if !os(macOS)

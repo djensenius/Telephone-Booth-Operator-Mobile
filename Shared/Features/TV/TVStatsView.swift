@@ -56,22 +56,14 @@ struct TVStatsView: View {
                 }
             }
         })
-        .task(id: window) {
-            // Refresh immediately when the range changes, then keep a
-            // wall-mounted Stats tab live (and retry a failed first load)
-            // by re-polling on a slow cadence while the tab is on screen.
-            // Clear the previous range's numbers *and* any stale error first so
-            // neither is shown relabelled under the newly selected window while
-            // the new (or a failed) request is in flight.
-            refreshToken += 1
-            let token = refreshToken
+        .onChange(of: window, initial: true) {
             overview = nil
             errorMessage = nil
-            let requested = window
-            while !Task.isCancelled {
-                await refresh(window: requested, token: token)
-                try? await Task.sleep(for: .seconds(15))
-            }
+        }
+        .autoRefresh(id: window) {
+            refreshToken += 1
+            let token = refreshToken
+            await refresh(window: window, token: token)
         }
         .boothStatusLive(liveStore)
     }

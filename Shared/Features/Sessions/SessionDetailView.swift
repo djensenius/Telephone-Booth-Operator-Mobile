@@ -47,7 +47,7 @@ public struct SessionDetailView: View {
         #if os(iOS) || os(visionOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
-        .task {
+        .autoRefresh {
             await load()
         }
         .refreshableIfAvailable {
@@ -107,6 +107,7 @@ public struct SessionDetailView: View {
     }
 
     private func load() async {
+        guard !loading else { return }
         loading = true
         errorMessage = nil
         defer { loading = false }

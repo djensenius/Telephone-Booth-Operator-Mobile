@@ -67,7 +67,7 @@ struct MacStatsView: View {
                 rangeMenu
             }
         }
-        .task(id: selection) { await refresh() }
+        .autoRefresh(id: selection) { await refresh() }
         .task { await loadFilters() }
         .sheet(isPresented: $isPresentingCustom) {
             customRangeSheet
@@ -151,6 +151,7 @@ struct MacStatsView: View {
     }
 
     private func refresh() async {
+        guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
         do {

@@ -105,7 +105,7 @@ struct TVScreensaverView: View {
             if !isReduced { startDrift() }
         }
         .task { await runPlaylist() }
-        .task { await pollOverview() }
+        .autoRefresh(every: .seconds(20)) { await refreshOverview() }
     }
 
     // MARK: - Centered float
@@ -238,12 +238,9 @@ struct TVScreensaverView: View {
 
     // MARK: - Overview polling (graph backup to the live status socket)
 
-    private func pollOverview() async {
-        while !Task.isCancelled {
-            if let fresh = try? await client.fetchStatsOverview(window: .last7d) {
-                overview = fresh
-            }
-            try? await Task.sleep(for: .seconds(20))
+    private func refreshOverview() async {
+        if let fresh = try? await client.fetchStatsOverview(window: .last7d) {
+            overview = fresh
         }
     }
 }

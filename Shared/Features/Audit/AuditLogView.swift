@@ -89,10 +89,8 @@ public struct AuditLogView: View {
             }
         }
         .background(Theme.Colors.background)
-        .task {
-            if entries.isEmpty {
-                await loadFirstPage()
-            }
+        .autoRefresh {
+            await refreshFirstPage()
         }
         .refreshableIfAvailable {
             await loadFirstPage()
@@ -202,6 +200,28 @@ public struct AuditLogView: View {
             // change makes the visible entries wrong.
             errorMessage = Self.message(for: error, fallback: "Failed to load the audit log.")
             loadState = .idle
+        }
+    }
+
+    private func refreshFirstPage() async {
+        guard loadState != .loadingInitial, loadState != .loadingMore else { return }
+        let retainedEntries = entries.count > pageSize ? Array(entries.dropFirst(pageSize)) : []
+        let retainedCursor = nextCursor
+        generation += 1
+        let requested = generation
+        loadState = .loadingInitial
+        do {
+            let page = try await client.fetchAuditLogs(action: filter.prefix, limit: pageSize)
+            guard requested == generation else { return }
+            let refreshedIDs = Set(page.items.map(\.id))
+            entries = page.items + retainedEntries.filter { !refreshedIDs.contains($0.id) }
+            nextCursor = retainedEntries.isEmpty ? page.nextCursor : retainedCursor
+            errorMessage = nil
+            loadState = nextCursor == nil ? .done : .idle
+        } catch {
+            guard requested == generation else { return }
+            errorMessage = Self.message(for: error, fallback: "Failed to refresh the audit log.")
+            loadState = nextCursor == nil ? .done : .idle
         }
     }
 

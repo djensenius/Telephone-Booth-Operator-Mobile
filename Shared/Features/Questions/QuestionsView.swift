@@ -48,6 +48,7 @@ public struct QuestionsView: View {
     @State private var expandedId: String?
     @State private var filter: QuestionFilter = .all
     @State private var isComposing = false
+    @State private var generation = 0
 
     private let client: OperatorClient
     private let pageSize: Int
@@ -96,8 +97,8 @@ public struct QuestionsView: View {
                 handleCreated(created)
             }
         }
-        .task {
-            if questions.isEmpty { await loadFirstPage() }
+        .autoRefresh {
+            await refreshFirstPage()
         }
         .onChange(of: filter) { _, _ in
             Task { await loadFirstPage() }
@@ -245,29 +246,58 @@ public struct QuestionsView: View {
     }
 
     private func loadFirstPage() async {
+        generation += 1
+        let requested = generation
         loadState = .loadingInitial
         errorMessage = nil
         do {
             let page = try await client.fetchQuestions(cursor: nil, limit: pageSize, status: filter.status)
+            guard requested == generation else { return }
             questions = page.items
             nextCursor = page.nextCursor
             loadState = nextCursor == nil ? .done : .idle
         } catch {
+            guard requested == generation else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to load questions."
             loadState = .idle
         }
     }
 
+    private func refreshFirstPage() async {
+        guard loadState != .loadingInitial, loadState != .loadingMore else { return }
+        let retainedQuestions = questions.count > pageSize ? Array(questions.dropFirst(pageSize)) : []
+        let retainedCursor = nextCursor
+        generation += 1
+        let requested = generation
+        loadState = .loadingInitial
+        do {
+            let page = try await client.fetchQuestions(cursor: nil, limit: pageSize, status: filter.status)
+            guard requested == generation else { return }
+            let refreshedIDs = Set(page.items.map(\.id))
+            questions = page.items + retainedQuestions.filter { !refreshedIDs.contains($0.id) }
+            nextCursor = retainedQuestions.isEmpty ? page.nextCursor : retainedCursor
+            errorMessage = nil
+            loadState = nextCursor == nil ? .done : .idle
+        } catch {
+            guard requested == generation else { return }
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to refresh questions."
+            loadState = nextCursor == nil ? .done : .idle
+        }
+    }
+
     private func loadMore() async {
-        guard let cursor = nextCursor, loadState != .loadingMore else { return }
+        guard let cursor = nextCursor, loadState == .idle else { return }
+        let requested = generation
         loadState = .loadingMore
         errorMessage = nil
         do {
             let page = try await client.fetchQuestions(cursor: cursor, limit: pageSize, status: filter.status)
+            guard requested == generation else { return }
             questions.append(contentsOf: page.items)
             nextCursor = page.nextCursor
             loadState = nextCursor == nil ? .done : .idle
         } catch {
+            guard requested == generation else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to load more questions."
             loadState = .idle
         }

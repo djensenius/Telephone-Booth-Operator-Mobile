@@ -78,7 +78,7 @@ public struct MessageListView: View {
         }
         .background(Theme.Colors.background)
         .searchable(text: $searchText, prompt: "Search transcripts")
-        .task(id: filter) {
+        .autoRefresh(id: filter) {
             await refresh()
         }
         .refreshableIfAvailable {
@@ -174,6 +174,7 @@ public struct MessageListView: View {
     }
 
     private func refresh() async {
+        guard !loading else { return }
         loading = true
         errorMessage = nil
         defer { loading = false }

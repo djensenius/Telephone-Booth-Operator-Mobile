@@ -3,31 +3,26 @@
 //  TelephoneBoothOperatorMobile
 //
 //  Live cached system snapshot for the booth — host info, CPU, memory,
-//  swap, disks, network, audio, tailscale, runtime mode. Pulled from
-//  `/v1/system/current` (no booth filter, so the operator returns the
-//  primary booth in the single-booth install).
+//  swap, disks, network, audio, tailscale, runtime mode. Uses the shared
+//  WebSocket-backed status store with `/v1/system/current` as its fallback.
 //
 
 import SwiftUI
 
 public struct SystemView: View {
-    @State private var envelope: BoothSystemSnapshotEnvelope?
-    @State private var loading = false
-    @State private var errorMessage: String?
+    @State private var liveStore: BoothStatusLiveStore
 
-    private let client: OperatorClient
-
-    public init(client: OperatorClient = .shared) {
-        self.client = client
+    public init(client: OperatorClient = .shared, liveStore: BoothStatusLiveStore? = nil) {
+        _liveStore = State(initialValue: liveStore ?? (client.demoMode ? .demo : .shared))
     }
 
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.large) {
-                if let errorMessage {
+                if let errorMessage = liveStore.lastError {
                     BannerView(message: errorMessage, kind: .error)
                 }
-                if let envelope {
+                if let envelope = liveStore.systemEnvelope {
                     SystemVitalsStrip(snapshot: envelope.snapshot, receivedAt: envelope.receivedAt)
                     SystemHostCard(
                         boothId: envelope.boothId,
@@ -42,8 +37,13 @@ public struct SystemView: View {
                     SystemAudioCard(snapshot: envelope.snapshot)
                     SystemFanCard(snapshot: envelope.snapshot)
                     SystemConnectivityCard(snapshot: envelope.snapshot)
-                } else if loading {
+                } else if liveStore.connection == .connecting {
                     ProgressView().frame(maxWidth: .infinity).padding(Theme.Spacing.extraLarge)
+                } else if liveStore.systemUnavailable {
+                    Text("Couldn't reach the booth's system endpoint.")
+                        .font(Theme.Fonts.bodySmall)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                        .padding(Theme.Spacing.extraLarge)
                 } else {
                     Text("No system snapshot has been received yet.")
                         .font(Theme.Fonts.bodySmall)
@@ -55,19 +55,8 @@ public struct SystemView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Theme.Colors.background)
-        .task { await refresh() }
-        .refreshableIfAvailable { await refresh() }
-    }
-
-    public func refresh() async {
-        loading = true
-        errorMessage = nil
-        defer { loading = false }
-        do {
-            envelope = try await client.fetchCurrentSystemEnvelope()
-        } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't load system status."
-        }
+        .refreshableIfAvailable { await liveStore.refreshNow() }
+        .boothStatusLive(liveStore)
     }
 }
 
