@@ -79,13 +79,15 @@ private struct OperatorShell: View {
             }
 
             Tab("Stats", systemImage: "chart.bar.fill", value: .stats) {
-                #if os(tvOS)
-                TVStatsView(client: client)
-                #else
-                NavigationStack {
-                    statsView.navigationTitle("Stats")
+                Group {
+                    #if os(tvOS)
+                    TVStatsView(client: client)
+                    #else
+                    NavigationStack {
+                        statsView.navigationTitle("Stats")
+                    }
+                    #endif
                 }
-                #endif
                 .automaticRefreshEnabled(selection == .stats)
             }
 
@@ -133,13 +135,15 @@ private struct OperatorShell: View {
             #endif
 
             Tab("System", systemImage: "cpu", value: .system) {
-                #if os(tvOS)
-                TVSystemView(client: client)
-                #else
-                NavigationStack {
-                    SystemView(client: client).navigationTitle("System")
+                Group {
+                    #if os(tvOS)
+                    TVSystemView(client: client)
+                    #else
+                    NavigationStack {
+                        SystemView(client: client).navigationTitle("System")
+                    }
+                    #endif
                 }
-                #endif
                 .automaticRefreshEnabled(selection == .system)
             }
 

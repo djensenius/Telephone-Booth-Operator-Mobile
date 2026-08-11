@@ -1,8 +1,7 @@
 //
 //  BoothStalenessTests.swift
 //
-//  Pure-function tests for the booth staleness helper that powers the
-//  status badge "Last seen X ago" / "Booth offline" chips.
+//  Tests for shared view helpers.
 //
 
 import XCTest
@@ -37,5 +36,32 @@ final class BoothStalenessTests: XCTestCase {
         let result = boothStaleness(lastStatusAt: now.addingTimeInterval(-301), now: now)
         XCTAssertEqual(result.level, .offline)
         XCTAssertEqual(result.label, "Booth offline")
+    }
+}
+
+final class PaginationRefreshTests: XCTestCase {
+    @MainActor
+    func testReloadLoadedPagesUsesFreshCursorChain() async throws {
+        var requestedCursors: [String?] = []
+
+        let result = try await reloadLoadedPages(
+            pageCount: 2,
+            isCurrent: { true },
+            fetchPage: { cursor in
+                requestedCursors.append(cursor)
+                if cursor == nil {
+                    return ([1, 2], "page-2")
+                }
+                XCTAssertEqual(cursor, "page-2")
+                return ([3, 4], "page-3")
+            }
+        )
+
+        XCTAssertEqual(requestedCursors.count, 2)
+        XCTAssertNil(requestedCursors[0])
+        XCTAssertEqual(requestedCursors[1], "page-2")
+        XCTAssertEqual(result.items, [1, 2, 3, 4])
+        XCTAssertEqual(result.nextCursor, "page-3")
+        XCTAssertEqual(result.pageCount, 2)
     }
 }

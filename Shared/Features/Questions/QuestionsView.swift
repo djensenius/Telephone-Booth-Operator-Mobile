@@ -49,6 +49,7 @@ public struct QuestionsView: View {
     @State private var filter: QuestionFilter = .all
     @State private var isComposing = false
     @State private var generation = 0
+    @State private var loadedPageCount = 0
 
     private let client: OperatorClient
     private let pageSize: Int
@@ -98,7 +99,7 @@ public struct QuestionsView: View {
             }
         }
         .autoRefresh {
-            await refreshFirstPage()
+            await refreshLoadedPages()
         }
         .onChange(of: filter) { _, _ in
             Task { await loadFirstPage() }
@@ -255,6 +256,7 @@ public struct QuestionsView: View {
             guard requested == generation else { return }
             questions = page.items
             nextCursor = page.nextCursor
+            loadedPageCount = 1
             loadState = nextCursor == nil ? .done : .idle
         } catch {
             guard requested == generation else { return }
@@ -263,25 +265,41 @@ public struct QuestionsView: View {
         }
     }
 
-    private func refreshFirstPage() async {
+    private func refreshLoadedPages() async {
         guard loadState != .loadingInitial, loadState != .loadingMore else { return }
-        let retainedQuestions = questions.count > pageSize ? Array(questions.dropFirst(pageSize)) : []
-        let retainedCursor = nextCursor
         generation += 1
         let requested = generation
+        let pageCount = max(loadedPageCount, 1)
+        let status = filter.status
         loadState = .loadingInitial
         do {
-            let page = try await client.fetchQuestions(cursor: nil, limit: pageSize, status: filter.status)
+            let refreshed = try await reloadLoadedPages(
+                pageCount: pageCount,
+                isCurrent: { requested == generation },
+                fetchPage: { cursor in
+                    let page = try await client.fetchQuestions(
+                        cursor: cursor,
+                        limit: pageSize,
+                        status: status
+                    )
+                    return (page.items, page.nextCursor)
+                }
+            )
             guard requested == generation else { return }
-            let refreshedIDs = Set(page.items.map(\.id))
-            questions = page.items + retainedQuestions.filter { !refreshedIDs.contains($0.id) }
-            nextCursor = retainedQuestions.isEmpty ? page.nextCursor : retainedCursor
+            guard !Task.isCancelled else {
+                loadState = nextCursor == nil ? .done : .idle
+                return
+            }
+            questions = refreshed.items
+            nextCursor = refreshed.nextCursor
+            loadedPageCount = refreshed.pageCount
             errorMessage = nil
             loadState = nextCursor == nil ? .done : .idle
         } catch {
             guard requested == generation else { return }
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to refresh questions."
             loadState = nextCursor == nil ? .done : .idle
+            guard !Task.isCancelled else { return }
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to refresh questions."
         }
     }
 
@@ -295,6 +313,7 @@ public struct QuestionsView: View {
             guard requested == generation else { return }
             questions.append(contentsOf: page.items)
             nextCursor = page.nextCursor
+            loadedPageCount += 1
             loadState = nextCursor == nil ? .done : .idle
         } catch {
             guard requested == generation else { return }

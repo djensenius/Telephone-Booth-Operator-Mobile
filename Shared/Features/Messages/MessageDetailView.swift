@@ -2,9 +2,8 @@
 //  MessageDetailView.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Single-message screen: status badge, FLAC audio playback, the
-//  latest transcript (and full history collapsed below), the moderation
-//  summary, and the human approve/reject decision.
+//  Single-message screen with playback, transcript history, moderation,
+//  and the human approve/reject decision.
 //
 
 #if !os(watchOS) && !os(tvOS)

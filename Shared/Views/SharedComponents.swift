@@ -107,14 +107,14 @@ public extension View {
     func autoRefresh<ID: Equatable>(
         id: ID,
         every interval: Duration = .seconds(30),
-        action: @escaping @Sendable () async -> Void
+        action: @escaping @MainActor @Sendable () async -> Void
     ) -> some View {
         modifier(AutoRefreshModifier(id: id, interval: interval, action: action))
     }
 
     func autoRefresh(
         every interval: Duration = .seconds(30),
-        action: @escaping @Sendable () async -> Void
+        action: @escaping @MainActor @Sendable () async -> Void
     ) -> some View {
         autoRefresh(id: false, every: interval, action: action)
     }
@@ -172,7 +172,7 @@ private struct AutoRefreshModifier<ID: Equatable>: ViewModifier {
 
     let id: ID
     let interval: Duration
-    let action: @Sendable () async -> Void
+    let action: @MainActor @Sendable () async -> Void
 
     func body(content: Content) -> some View {
         let shouldRefresh = automaticRefreshEnabled && scenePhase != .background
@@ -193,6 +193,39 @@ private struct AutoRefreshModifier<ID: Equatable>: ViewModifier {
 private struct AutoRefreshTaskID<ID: Equatable>: Equatable {
     let id: ID
     let shouldRefresh: Bool
+}
+
+struct ReloadedPages<Item> {
+    let items: [Item]
+    let nextCursor: String?
+    let pageCount: Int
+}
+
+@MainActor
+func reloadLoadedPages<Item>(
+    pageCount: Int,
+    isCurrent: @MainActor () -> Bool,
+    fetchPage: @MainActor (String?) async throws -> (items: [Item], nextCursor: String?)
+) async throws -> ReloadedPages<Item> {
+    let requestedPageCount = max(1, pageCount)
+    var items: [Item] = []
+    var nextCursor: String?
+    var fetchedPageCount = 0
+
+    repeat {
+        guard isCurrent() else { throw CancellationError() }
+        try Task.checkCancellation()
+        let page = try await fetchPage(nextCursor)
+        items.append(contentsOf: page.items)
+        nextCursor = page.nextCursor
+        fetchedPageCount += 1
+    } while fetchedPageCount < requestedPageCount && nextCursor != nil
+
+    return ReloadedPages(
+        items: items,
+        nextCursor: nextCursor,
+        pageCount: fetchedPageCount
+    )
 }
 
 /// Native trailing placement for list filter controls: the window toolbar's

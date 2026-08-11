@@ -17,6 +17,7 @@ public struct SessionListView: View {
     @State private var loadState: LoadState = .idle
     @State private var errorMessage: String?
     @State private var generation = 0
+    @State private var loadedPageCount = 0
 
     private let client: OperatorClient
     private let pageSize: Int
@@ -47,7 +48,7 @@ public struct SessionListView: View {
         }
         .background(Theme.Colors.background)
         .autoRefresh {
-            await refreshFirstPage()
+            await refreshLoadedPages()
         }
         .refreshableIfAvailable {
             await loadFirstPage()
@@ -131,6 +132,7 @@ public struct SessionListView: View {
             guard requested == generation else { return }
             sessions = page.items
             nextCursor = page.nextCursor
+            loadedPageCount = 1
             loadState = nextCursor == nil ? .done : .idle
         } catch {
             guard requested == generation else { return }
@@ -139,25 +141,36 @@ public struct SessionListView: View {
         }
     }
 
-    private func refreshFirstPage() async {
+    private func refreshLoadedPages() async {
         guard loadState != .loadingInitial, loadState != .loadingMore else { return }
-        let retainedSessions = sessions.count > pageSize ? Array(sessions.dropFirst(pageSize)) : []
-        let retainedCursor = nextCursor
         generation += 1
         let requested = generation
+        let pageCount = max(loadedPageCount, 1)
         loadState = .loadingInitial
         do {
-            let page = try await client.fetchSessions(cursor: nil, limit: pageSize)
+            let refreshed = try await reloadLoadedPages(
+                pageCount: pageCount,
+                isCurrent: { requested == generation },
+                fetchPage: { cursor in
+                    let page = try await client.fetchSessions(cursor: cursor, limit: pageSize)
+                    return (page.items, page.nextCursor)
+                }
+            )
             guard requested == generation else { return }
-            let refreshedIDs = Set(page.items.map(\.id))
-            sessions = page.items + retainedSessions.filter { !refreshedIDs.contains($0.id) }
-            nextCursor = retainedSessions.isEmpty ? page.nextCursor : retainedCursor
+            guard !Task.isCancelled else {
+                loadState = nextCursor == nil ? .done : .idle
+                return
+            }
+            sessions = refreshed.items
+            nextCursor = refreshed.nextCursor
+            loadedPageCount = refreshed.pageCount
             errorMessage = nil
             loadState = nextCursor == nil ? .done : .idle
         } catch {
             guard requested == generation else { return }
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to refresh sessions."
             loadState = nextCursor == nil ? .done : .idle
+            guard !Task.isCancelled else { return }
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to refresh sessions."
         }
     }
 
@@ -171,6 +184,7 @@ public struct SessionListView: View {
             guard requested == generation else { return }
             sessions.append(contentsOf: page.items)
             nextCursor = page.nextCursor
+            loadedPageCount += 1
             loadState = nextCursor == nil ? .done : .idle
         } catch {
             guard requested == generation else { return }

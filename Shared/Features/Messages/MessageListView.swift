@@ -53,6 +53,7 @@ public struct MessageListView: View {
     @State private var filter: MessageFilter = .all
     @State private var searchText = ""
     @State private var decidingMessageIds: Set<String> = []
+    @State private var refreshGeneration = 0
 
     private let client: OperatorClient
 
@@ -174,14 +175,22 @@ public struct MessageListView: View {
     }
 
     private func refresh() async {
-        guard !loading else { return }
+        refreshGeneration += 1
+        let generation = refreshGeneration
+        let requestedStatus = filter.status
         loading = true
         errorMessage = nil
-        defer { loading = false }
+        defer {
+            if generation == refreshGeneration {
+                loading = false
+            }
+        }
         do {
-            let list = try await client.fetchMessages(status: filter.status, limit: 100)
+            let list = try await client.fetchMessages(status: requestedStatus, limit: 100)
+            guard !Task.isCancelled, generation == refreshGeneration else { return }
             messages = list.items
         } catch {
+            guard !Task.isCancelled, generation == refreshGeneration else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to load messages."
         }
     }
