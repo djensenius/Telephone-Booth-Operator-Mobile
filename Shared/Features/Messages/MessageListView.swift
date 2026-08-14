@@ -58,9 +58,11 @@ public struct MessageListView: View {
     @State private var refreshGeneration = 0
 
     private let client: OperatorClient
+    private let socket: StatusSocket
 
-    public init(client: OperatorClient = .shared) {
+    public init(client: OperatorClient = .shared, socket: StatusSocket? = nil) {
         self.client = client
+        self.socket = socket ?? (client.demoMode ? .demo : .shared)
     }
 
     public var body: some View {
@@ -83,6 +85,9 @@ public struct MessageListView: View {
         .searchable(text: $searchText, prompt: "Search transcripts")
         .autoRefresh(id: filter) {
             await refresh()
+        }
+        .task {
+            await watchMessageUpdates()
         }
         .refreshableIfAvailable {
             await refresh()
@@ -114,14 +119,22 @@ public struct MessageListView: View {
                     .listRowSeparator(.hidden)
             }
             ForEach(filteredMessages) { message in
-                NavigationLink(value: message.id) {
-                    MessageRow(
-                        message: message,
-                        isDeciding: decidingMessageIds.contains(message.id)
-                            || deletingMessageIds.contains(message.id)
-                    )
+                HStack(spacing: Theme.Spacing.small) {
+                    NavigationLink(value: message.id) {
+                        MessageRow(
+                            message: message,
+                            isDeciding: isPerformingAction(on: message)
+                        )
+                    }
+                    #if os(macOS)
+                    Spacer(minLength: 0)
+                    quickActions(for: message)
+                    #endif
                 }
                 .operatorListRowBackground()
+                .contextMenu {
+                    actionButtons(for: message)
+                }
                 .swipeActions(edge: .leading, allowsFullSwipe: true) {
                     if message.canBeDecided, message.status != .approved {
                         Button {
@@ -158,6 +171,73 @@ public struct MessageListView: View {
                 onMessageDelete: { id in messages.removeAll { $0.id == id } }
             )
         }
+    }
+
+    #if os(macOS)
+    private func quickActions(for message: Message) -> some View {
+        HStack(spacing: Theme.Spacing.small) {
+            if message.canBeDecided, message.status != .approved {
+                Button {
+                    Task { await decide(message, as: .approve) }
+                } label: {
+                    Image(systemName: "checkmark.circle")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(Theme.Colors.success)
+                .help("Approve")
+            }
+            if message.canBeDecided, message.status != .rejected {
+                Button {
+                    Task { await decide(message, as: .reject) }
+                } label: {
+                    Image(systemName: "xmark.circle")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(Theme.Colors.error)
+                .help("Reject")
+            }
+            Button {
+                deleteCandidate = message
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(
+                message.recommendsPermanentDelete
+                    ? Theme.Colors.error
+                    : Theme.Colors.textSecondary
+            )
+            .help("Delete permanently")
+        }
+        .disabled(isPerformingAction(on: message))
+    }
+    #endif
+
+    @ViewBuilder
+    private func actionButtons(for message: Message) -> some View {
+        if message.canBeDecided, message.status != .approved {
+            Button {
+                Task { await decide(message, as: .approve) }
+            } label: {
+                Label("Approve", systemImage: "checkmark.circle")
+            }
+        }
+        if message.canBeDecided, message.status != .rejected {
+            Button {
+                Task { await decide(message, as: .reject) }
+            } label: {
+                Label("Reject", systemImage: "xmark.circle")
+            }
+        }
+        Button(role: .destructive) {
+            deleteCandidate = message
+        } label: {
+            Label("Delete permanently", systemImage: "trash")
+        }
+    }
+
+    private func isPerformingAction(on message: Message) -> Bool {
+        decidingMessageIds.contains(message.id) || deletingMessageIds.contains(message.id)
     }
 
     private var filterPicker: some View {
@@ -257,13 +337,42 @@ public struct MessageListView: View {
     }
 
     private func apply(_ updated: Message) {
-        guard filter.includes(updated) else {
-            messages.removeAll { $0.id == updated.id }
+        messages.applyLiveUpdate(updated, isIncluded: filter.includes(updated))
+    }
+
+    private func watchMessageUpdates() async {
+        while !Task.isCancelled {
+            do {
+                for try await envelope in socket.subscribe() {
+                    guard !Task.isCancelled else { return }
+                    if case .message(let message) = envelope {
+                        apply(message)
+                    }
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                // The periodic REST refresh remains the fallback while the
+                // live connection retries.
+            }
+            guard !Task.isCancelled else { return }
+            try? await Task.sleep(for: .seconds(2))
+        }
+    }
+}
+
+extension Array where Element == Message {
+    mutating func applyLiveUpdate(_ updated: Message, isIncluded: Bool) {
+        guard isIncluded else {
+            removeAll { $0.id == updated.id }
             return
         }
-        if let index = messages.firstIndex(where: { $0.id == updated.id }) {
-            messages[index] = updated
+        if let index = firstIndex(where: { $0.id == updated.id }) {
+            self[index] = updated
+        } else {
+            append(updated)
         }
+        sort { $0.createdAt > $1.createdAt }
     }
 }
 

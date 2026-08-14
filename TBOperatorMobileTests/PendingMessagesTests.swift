@@ -130,4 +130,34 @@ final class PendingMessagesTests: XCTestCase {
             XCTAssertEqual(status, 404)
         }
     }
+
+    func testLiveMessageUpdateInsertsAndSortsMissingMessage() {
+        let older = DemoData.message(id: "older")
+        var messages = [older]
+        let newer = Message(
+            id: "newer",
+            status: .pending,
+            installationId: older.installationId,
+            questionId: older.questionId,
+            notes: nil,
+            createdAt: older.createdAt.addingTimeInterval(60),
+            receivedAt: older.receivedAt?.addingTimeInterval(60),
+            audio: older.audio,
+            latestTranscription: older.latestTranscription,
+            latestModeration: older.latestModeration
+        )
+
+        messages.applyLiveUpdate(newer, isIncluded: true)
+
+        XCTAssertEqual(messages.map(\.id), ["newer", older.id])
+    }
+
+    func testLiveMessageUpdateRemovesMessageThatLeavesFilter() {
+        let message = DemoData.message(id: "message")
+        var messages = [message]
+
+        messages.applyLiveUpdate(message, isIncluded: false)
+
+        XCTAssertTrue(messages.isEmpty)
+    }
 }
