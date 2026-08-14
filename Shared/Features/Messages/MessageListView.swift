@@ -56,6 +56,9 @@ public struct MessageListView: View {
     @State private var deletingMessageIds: Set<String> = []
     @State private var deleteCandidate: Message?
     @State private var refreshGeneration = 0
+    #if os(macOS)
+    @State private var hoveredMessageId: String?
+    #endif
 
     private let client: OperatorClient
     private let socket: StatusSocket
@@ -119,18 +122,29 @@ public struct MessageListView: View {
                     .listRowSeparator(.hidden)
             }
             ForEach(filteredMessages) { message in
-                HStack(spacing: Theme.Spacing.small) {
-                    NavigationLink(value: message.id) {
-                        MessageRow(
-                            message: message,
-                            isDeciding: isPerformingAction(on: message)
-                        )
-                    }
-                    #if os(macOS)
-                    Spacer(minLength: 0)
-                    quickActions(for: message)
-                    #endif
+                NavigationLink(value: message.id) {
+                    MessageRow(
+                        message: message,
+                        isDeciding: isPerformingAction(on: message)
+                    )
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                #if os(macOS)
+                .overlay(alignment: .trailing) {
+                    if hoveredMessageId == message.id {
+                        quickActions(for: message)
+                            .padding(.horizontal, Theme.Spacing.small)
+                            .padding(.vertical, 4)
+                            .glassEffect(.regular, in: .capsule)
+                            .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                    }
+                }
+                .onHover { isHovering in
+                    withAnimation(.easeOut(duration: 0.12)) {
+                        hoveredMessageId = isHovering ? message.id : nil
+                    }
+                }
+                #endif
                 .operatorListRowBackground()
                 .contextMenu {
                     actionButtons(for: message)
@@ -399,8 +413,8 @@ struct MessageRow: View {
                     .font(Theme.Fonts.bodyMedium)
                     .foregroundStyle(Theme.Colors.textPrimary)
                     .lineLimit(2)
-            } else if message.latestTranscription?.status == .pending {
-                Text("Transcribing…")
+            } else {
+                Text(message.isAwaitingTranscript ? "Processing audio…" : "No transcript available")
                     .font(Theme.Fonts.bodySmall)
                     .foregroundStyle(Theme.Colors.textSecondary)
                     .italic()
@@ -446,6 +460,10 @@ struct MessageRow: View {
 private extension Message {
     var canBeDecided: Bool {
         status == .pending || status == .approved || status == .rejected
+    }
+
+    var isAwaitingTranscript: Bool {
+        status == .uploading || status == .received || latestTranscription?.status == .pending
     }
 
     func matchesSearch(_ searchText: String) -> Bool {
