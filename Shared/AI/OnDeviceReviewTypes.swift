@@ -285,7 +285,13 @@ extension OnDeviceMessageProcessor {
         if needs.contains(.review) {
             result.review = OnDeviceReviewLogic.noSpeechReview(durationMs: claim.message.audio.durationMs)
         }
-        if needs.contains(.translation) {
+        let hasCurrentTranslation = !needs.contains(.transcription)
+            && claim.message.latestTranscription?.completedTranslation != nil
+        // English moderation claims can omit `.translation`, while the manual
+        // path always translates before reviewing. Keep both paths on the same
+        // Foundation Models sequence when no current translation exists.
+        if needs.contains(.translation)
+            || needs.contains(.moderation) && !hasCurrentTranslation {
             result.translation = try await processTranslation(
                 claim,
                 text: result.text,

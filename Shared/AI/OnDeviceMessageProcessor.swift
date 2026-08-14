@@ -526,6 +526,10 @@ public final class AutomaticMessageProcessingCoordinator {
         return false
     }
 
+    public var shouldPresentStatus: Bool {
+        isProcessing || canRetry || summary?.queued ?? 0 > 0
+    }
+
     @ObservationIgnored private let client: any MessageProcessingPersisting
     @ObservationIgnored private let processor: OnDeviceMessageProcessor
     @ObservationIgnored private let socket: StatusSocket?
