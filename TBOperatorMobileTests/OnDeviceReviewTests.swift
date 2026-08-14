@@ -325,6 +325,14 @@ final class OnDeviceReviewTests: XCTestCase {
         )
         XCTAssertEqual(invalid.maxScore, 0)
     }
+    func testInconclusiveModerationIsUnflaggedReview() {
+        let verdict = OnDeviceReviewLogic.inconclusiveModeration(model: "test-model")
+        XCTAssertFalse(verdict.flagged)
+        XCTAssertEqual(verdict.recommendation, .review)
+        XCTAssertEqual(verdict.maxScore, 0)
+        XCTAssertEqual(verdict.model, "test-model")
+        XCTAssertNotNil(verdict.reasonSummary)
+    }
     func testNoSpeechAtThreeSecondsIsLikelyHangup() {
         let result = OnDeviceReviewLogic.noSpeechReview(durationMs: 3_000)
         XCTAssertEqual(result.classification, .likelyHangup)

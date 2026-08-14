@@ -46,6 +46,9 @@
   SpeechAnalyzer, translate to English with Foundation Models, and generate an
   advisory moderation recommendation. The app then persists those results
   through the Operator API; it does not call the Transcription HTTP service.
+  If the on-device model declines to classify a transcript, the app retries
+  once with neutral wording and otherwise records an unflagged "review"
+  suggestion with a reason, rather than a false positive.
 - While an eligible app scene is active, its automatic processor claims one
   `/v1/message-processing` lease at a time, heartbeats it, and submits only
   the server-requested missing steps. It releases work on backgrounding or

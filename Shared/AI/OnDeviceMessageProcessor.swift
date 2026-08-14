@@ -322,6 +322,7 @@ extension OnDeviceMessageProcessor {
                 flagged: pending.moderation.flagged,
                 recommendation: pending.moderation.recommendation,
                 maxScore: pending.moderation.maxScore,
+                reasonSummary: pending.moderation.reasonSummary,
                 model: pending.moderation.model
             )
             _ = try await client.submitModeration(

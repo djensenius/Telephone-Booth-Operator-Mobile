@@ -33,6 +33,21 @@ public struct ModerationVerdict: Sendable, Equatable {
     public let recommendation: ModerationRecommendation
     public let maxScore: Double
     public let model: String
+    public let reasonSummary: String?
+
+    public init(
+        flagged: Bool,
+        recommendation: ModerationRecommendation,
+        maxScore: Double,
+        model: String,
+        reasonSummary: String? = nil
+    ) {
+        self.flagged = flagged
+        self.recommendation = recommendation
+        self.maxScore = maxScore
+        self.model = model
+        self.reasonSummary = reasonSummary
+    }
 }
 
 public protocol TextModerating: Sendable {
@@ -171,6 +186,19 @@ public enum OnDeviceReviewLogic {
             recommendation: recommendation,
             maxScore: score,
             model: model
+        )
+    }
+
+    /// A verdict for text the on-device model would not classify. The message is
+    /// neither flagged nor scored, because nothing was actually judged — it is
+    /// only routed to a person.
+    public static func inconclusiveModeration(model: String) -> ModerationVerdict {
+        ModerationVerdict(
+            flagged: false,
+            recommendation: .review,
+            maxScore: 0,
+            model: model,
+            reasonSummary: "The on-device model would not classify this message, so it needs a human review."
         )
     }
 
@@ -382,6 +410,7 @@ extension OnDeviceMessageProcessor {
             flagged: moderation.flagged,
             recommendation: moderation.recommendation,
             maxScore: moderation.maxScore,
+            reasonSummary: moderation.reasonSummary,
             model: moderation.model
         )
     }
