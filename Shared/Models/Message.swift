@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  Message.swift
 //  TelephoneBoothOperatorMobile
@@ -182,6 +183,68 @@ public enum ModerationRecommendation: Codable, Sendable, Hashable {
     public var displayName: String { rawValue.capitalized }
 }
 
+public enum MessageReviewClassification: Codable, Sendable, Hashable {
+    case likelyHangup
+    case unclear
+    case unknown(String)
+
+    public var rawValue: String {
+        switch self {
+        case .likelyHangup: return "likely_hangup"
+        case .unclear: return "unclear"
+        case .unknown(let value): return value
+        }
+    }
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "likely_hangup": self = .likelyHangup
+        case "unclear": self = .unclear
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        try self.init(rawValue: decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+public enum MessageReviewRecommendation: Codable, Sendable, Hashable {
+    case delete
+    case review
+    case unknown(String)
+
+    public var rawValue: String {
+        switch self {
+        case .delete: return "delete"
+        case .review: return "review"
+        case .unknown(let value): return value
+        }
+    }
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "delete": self = .delete
+        case "review": self = .review
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        try self.init(rawValue: decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
 public struct AudioRef: Codable, Sendable, Equatable {
     public let url: URL
     public let sha256: String
@@ -339,13 +402,50 @@ public struct Moderation: Codable, Sendable, Equatable, Identifiable {
 public struct Message: Codable, Sendable, Equatable, Identifiable {
     public let id: String
     public let status: MessageStatus
+    public let installationId: String?
     public let questionId: String?
     public let notes: String?
     public let createdAt: Date
     public let receivedAt: Date?
+    public let reviewClassification: MessageReviewClassification?
+    public let reviewRecommendation: MessageReviewRecommendation?
+    public let reviewClassifiedAt: Date?
+    public let reviewClassifiedById: String?
     public let audio: AudioRef
     public let latestTranscription: Transcription?
     public let latestModeration: Moderation?
+
+    public init(
+        id: String,
+        status: MessageStatus,
+        installationId: String? = nil,
+        questionId: String?,
+        notes: String?,
+        createdAt: Date,
+        receivedAt: Date?,
+        reviewClassification: MessageReviewClassification? = nil,
+        reviewRecommendation: MessageReviewRecommendation? = nil,
+        reviewClassifiedAt: Date? = nil,
+        reviewClassifiedById: String? = nil,
+        audio: AudioRef,
+        latestTranscription: Transcription?,
+        latestModeration: Moderation?
+    ) {
+        self.id = id
+        self.status = status
+        self.installationId = installationId
+        self.questionId = questionId
+        self.notes = notes
+        self.createdAt = createdAt
+        self.receivedAt = receivedAt
+        self.reviewClassification = reviewClassification
+        self.reviewRecommendation = reviewRecommendation
+        self.reviewClassifiedAt = reviewClassifiedAt
+        self.reviewClassifiedById = reviewClassifiedById
+        self.audio = audio
+        self.latestTranscription = latestTranscription
+        self.latestModeration = latestModeration
+    }
 }
 
 public struct MessageList: Codable, Sendable, Equatable {
@@ -383,10 +483,15 @@ extension Message {
         Message(
             id: id,
             status: decision == .approve ? .approved : .rejected,
+            installationId: installationId,
             questionId: questionId,
             notes: notes ?? self.notes,
             createdAt: createdAt,
             receivedAt: receivedAt,
+            reviewClassification: reviewClassification,
+            reviewRecommendation: reviewRecommendation,
+            reviewClassifiedAt: reviewClassifiedAt,
+            reviewClassifiedById: reviewClassifiedById,
             audio: audio,
             latestTranscription: latestTranscription,
             latestModeration: latestModeration
@@ -407,10 +512,15 @@ extension Message {
         return Message(
             id: id,
             status: status,
+            installationId: installationId,
             questionId: questionId,
             notes: notes,
             createdAt: createdAt,
             receivedAt: receivedAt,
+            reviewClassification: reviewClassification,
+            reviewRecommendation: reviewRecommendation,
+            reviewClassifiedAt: reviewClassifiedAt,
+            reviewClassifiedById: reviewClassifiedById,
             audio: audio,
             latestTranscription: transcription,
             latestModeration: moderation
@@ -421,13 +531,22 @@ extension Message {
         Message(
             id: id,
             status: status,
+            installationId: installationId,
             questionId: questionId,
             notes: notes,
             createdAt: createdAt,
             receivedAt: receivedAt,
+            reviewClassification: reviewClassification,
+            reviewRecommendation: reviewRecommendation,
+            reviewClassifiedAt: reviewClassifiedAt,
+            reviewClassifiedById: reviewClassifiedById,
             audio: audio,
             latestTranscription: latestTranscription,
             latestModeration: moderation
         )
+    }
+
+    public var recommendsPermanentDelete: Bool {
+        reviewRecommendation == .delete
     }
 }

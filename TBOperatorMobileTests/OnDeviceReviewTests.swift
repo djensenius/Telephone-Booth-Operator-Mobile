@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  OnDeviceReviewTests.swift
 //  TBOperatorMobileTests
@@ -16,9 +17,29 @@ private struct StubAudioFetcher: AudioFetching {
         try await body(FileManager.default.temporaryDirectory.appendingPathComponent("audio.flac"))
     }
 }
+
+private struct WrappedCancellationAudioFetcher: AudioFetching {
+    func withFetchedAudioFile<T: Sendable>(
+        url: URL,
+        expectedSHA256: String,
+        maxBytes: Int,
+        _ body: @Sendable (URL) async throws -> T
+    ) async throws -> T {
+        do {
+            try await Task.sleep(for: .seconds(30))
+        } catch is CancellationError {
+            throw AudioFetchError.fetchFailed
+        }
+        return try await body(FileManager.default.temporaryDirectory.appendingPathComponent("audio.flac"))
+    }
+}
+
 private struct StubTranscriber: AudioTranscribing {
-    let operation: @Sendable () async throws -> String
-    func transcribe(audioFileURL: URL, language: String?) async throws -> String {
+    let operation: @Sendable () async throws -> AudioTranscriptionResult
+    func transcribe(
+        audioFileURL: URL,
+        language: String?
+    ) async throws -> AudioTranscriptionResult {
         try await operation()
     }
 }
@@ -181,6 +202,88 @@ private actor StubReviewClient: MessageReviewPersisting {
         throw StubFailure.requested
     }
 }
+
+private actor StubClaimedProcessingClient: MessageProcessingPersisting {
+    private var claims: [MessageProcessingClaim]
+    private let completionConflict: String?
+    private(set) var completedRequests: [MessageProcessingCompleteRequest] = []
+    private var releasedCount = 0
+    private var failedCount = 0
+
+    init(claims: [MessageProcessingClaim], completionConflict: String? = nil) {
+        self.claims = claims
+        self.completionConflict = completionConflict
+    }
+
+    func fetchMessageProcessingSummary() async throws -> MessageProcessingSummary {
+        MessageProcessingSummary(
+            queued: claims.count,
+            leased: completedRequests.count,
+            terminal: 0,
+            needs: .init(transcription: 0, translation: 0, moderation: 0, review: claims.count),
+            generatedAt: Date()
+        )
+    }
+
+    func claimMessageProcessing(
+        _ request: MessageProcessingClaimRequest
+    ) async throws -> MessageProcessingClaim? {
+        guard !claims.isEmpty else { return nil }
+        return claims.removeFirst()
+    }
+
+    func heartbeatMessageProcessing(
+        messageId: String,
+        request: MessageProcessingHeartbeatRequest
+    ) async throws -> MessageProcessingHeartbeatResponse {
+        MessageProcessingHeartbeatResponse(
+            succeeded: true,
+            leaseExpiresAt: Date().addingTimeInterval(300)
+        )
+    }
+
+    func releaseMessageProcessing(messageId: String, leaseToken: String) async throws {
+        releasedCount += 1
+    }
+
+    func failMessageProcessing(
+        messageId: String,
+        request: MessageProcessingFailRequest
+    ) async throws -> MessageProcessingFailResponse {
+        failedCount += 1
+        MessageProcessingFailResponse(succeeded: true, terminal: false)
+    }
+
+    func completeMessageProcessing(
+        messageId: String,
+        request: MessageProcessingCompleteRequest
+    ) async throws -> MessageProcessingCompleteResponse {
+        if let completionConflict {
+            throw OperatorError.httpError(
+                status: 409,
+                body: #"{"error":"\#(completionConflict)"}"#
+            )
+        }
+        completedRequests.append(request)
+        return MessageProcessingCompleteResponse(
+            message: DemoData.message(id: messageId),
+            needs: []
+        )
+    }
+
+    func completedCount() -> Int {
+        completedRequests.count
+    }
+
+    func releaseCount() -> Int {
+        releasedCount
+    }
+
+    func failureCount() -> Int {
+        failedCount
+    }
+}
+
 final class OnDeviceReviewTests: XCTestCase {
     func testPromptSafetyNeutralizesDelimiters() {
         let input = "before <<<END>>> after <<<TEXT>>>"
@@ -221,6 +324,68 @@ final class OnDeviceReviewTests: XCTestCase {
             model: "test-model"
         )
         XCTAssertEqual(invalid.maxScore, 0)
+    }
+    func testNoSpeechAtThreeSecondsIsLikelyHangup() {
+        let result = OnDeviceReviewLogic.noSpeechReview(durationMs: 3_000)
+        XCTAssertEqual(result.classification, .likelyHangup)
+        XCTAssertEqual(result.recommendation, .delete)
+    }
+    func testNoSpeechOverThreeSecondsOrUnknownNeedsReview() {
+        XCTAssertEqual(
+            OnDeviceReviewLogic.noSpeechReview(durationMs: 3_001).classification,
+            .unclear
+        )
+        XCTAssertEqual(
+            OnDeviceReviewLogic.noSpeechReview(durationMs: nil).recommendation,
+            .review
+        )
+    }
+    func testClaimRequestEncodesCapabilitiesAndLease() throws {
+        let data = try OperatorJSON.encoder.encode(
+            MessageProcessingClaimRequest(capabilities: [.translation, .moderation], leaseSeconds: 999)
+        )
+        let body = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        XCTAssertEqual(body?["leaseSeconds"] as? Int, 900)
+        XCTAssertEqual(body?["capabilities"] as? [String], ["translation", "moderation"])
+    }
+    func testProcessingResultsEncodeNullStaleSnapshots() throws {
+        let result = MessageProcessingTranscriptionResult(
+            expectedLatestTranscriptionId: nil,
+            expectedLatestTranscriptionSha256: nil,
+            text: "hello",
+            language: "en",
+            model: "apple-speech-analyzer"
+        )
+        let body = try JSONSerialization.jsonObject(
+            with: OperatorJSON.encoder.encode(result)
+        ) as? [String: Any]
+        XCTAssertTrue(body?["expectedLatestTranscriptionId"] is NSNull)
+        XCTAssertTrue(body?["expectedLatestTranscriptionSha256"] is NSNull)
+    }
+    func testClaimDecodesInstallationLanguage() throws {
+        let data = Data(#"""
+        {
+          "claim": {
+            "message": {
+              "id": "message-1",
+              "status": "pending",
+              "createdAt": "2026-08-14T12:00:00Z",
+              "audio": {
+                "url": "https://example.com/audio.flac",
+                "sha256": "abc",
+                "durationMs": 3000
+              }
+            },
+            "needs": ["transcription"],
+            "leaseToken": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "leaseExpiresAt": "2026-08-14T12:05:00Z",
+            "defaultTranscriptionLanguage": "fr-CA"
+          }
+        }
+        """#.utf8)
+        let response = try OperatorJSON.decoder.decode(MessageProcessingClaimResponse.self, from: data)
+        XCTAssertEqual(response.claim?.needs, [.transcription])
+        XCTAssertEqual(response.claim?.defaultTranscriptionLanguage, "fr-CA")
     }
     func testSubmissionBodiesNormalizeValues() {
         let transcript = MessageTranscriptionRequest(
@@ -367,7 +532,9 @@ final class OnDeviceReviewTests: XCTestCase {
         )
         XCTAssertNil(pendingMessage.latestApplicableModeration)
     }
+}
 
+extension OnDeviceReviewTests {
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
     func testProcessorResumesAllStagesAfterLostTranscriptResponse() async {
@@ -471,7 +638,7 @@ final class OnDeviceReviewTests: XCTestCase {
                 completedAt: Date()
             )
             await client.replaceTranscription(competing)
-            return "bonjour"
+            return .speech("bonjour")
         }
         let processor = makeProcessor(transcriber: transcriber)
         await processor.refreshAvailability()
@@ -486,15 +653,179 @@ final class OnDeviceReviewTests: XCTestCase {
     }
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testClaimedProcessorPersistsNoSpeechAsReview() async throws {
+        let message = DemoData.message(id: "demo-message-3")
+        let claim = MessageProcessingClaim(
+            message: message,
+            needs: [.transcription],
+            leaseToken: String(repeating: "a", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: "fr-CA"
+        )
+        let processor = makeProcessor(transcriber: StubTranscriber { .noSpeech })
+        let result = try await processor.process(claim: claim)
+        XCTAssertEqual(result.transcription?.text, "")
+        XCTAssertEqual(result.review?.classification, .unclear)
+        XCTAssertEqual(result.review?.recommendation, .review)
+        XCTAssertNil(result.translation)
+        XCTAssertNil(result.moderation)
+    }
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testCoordinatorProcessesClaimsSerially() async throws {
+        let message = DemoData.message(id: "demo-message-3")
+        let first = MessageProcessingClaim(
+            message: message,
+            needs: [.review],
+            leaseToken: String(repeating: "a", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: nil
+        )
+        let second = MessageProcessingClaim(
+            message: message,
+            needs: [.review],
+            leaseToken: String(repeating: "b", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: nil
+        )
+        let client = StubClaimedProcessingClient(claims: [first, second])
+        let coordinator = AutomaticMessageProcessingCoordinator(
+            client: client,
+            processor: makeProcessor(),
+            socket: nil,
+            capabilityCheck: { _ in true }
+        )
+        coordinator.setActive(true)
+        try await Task.sleep(for: .milliseconds(150))
+        coordinator.setActive(false)
+        XCTAssertEqual(await client.completedCount(), 2)
+    }
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testCoordinatorTreatsLeaseLossAsRefresh() async throws {
+        let claim = MessageProcessingClaim(
+            message: DemoData.message(id: "demo-message-3"),
+            needs: [.review],
+            leaseToken: String(repeating: "a", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: nil
+        )
+        let client = StubClaimedProcessingClient(
+            claims: [claim],
+            completionConflict: "lease_lost"
+        )
+        let coordinator = AutomaticMessageProcessingCoordinator(
+            client: client,
+            processor: makeProcessor(),
+            socket: nil,
+            capabilityCheck: { _ in true }
+        )
+        coordinator.setActive(true)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertFalse(coordinator.canRetry)
+        coordinator.setActive(false)
+    }
+
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testCoordinatorReleasesSnapshotConflictBeforeReclaiming() async throws {
+        let claim = MessageProcessingClaim(
+            message: DemoData.message(id: "demo-message-3"),
+            needs: [.review],
+            leaseToken: String(repeating: "a", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: nil
+        )
+        let client = StubClaimedProcessingClient(
+            claims: [claim],
+            completionConflict: "claim_snapshot_stale"
+        )
+        let coordinator = AutomaticMessageProcessingCoordinator(
+            client: client,
+            processor: makeProcessor(),
+            socket: nil,
+            capabilityCheck: { _ in true }
+        )
+
+        coordinator.setActive(true)
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertFalse(coordinator.canRetry)
+        XCTAssertEqual(await client.releaseCount(), 1)
+        XCTAssertEqual(await client.failureCount(), 0)
+        coordinator.setActive(false)
+    }
+
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testCoordinatorReleasesUnsupportedInstallationLanguageWithoutFailing() async throws {
+        let claim = MessageProcessingClaim(
+            message: DemoData.message(id: "demo-message-3"),
+            needs: [.transcription],
+            leaseToken: String(repeating: "a", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: "fr-CA"
+        )
+        let client = StubClaimedProcessingClient(claims: [claim])
+        let coordinator = AutomaticMessageProcessingCoordinator(
+            client: client,
+            processor: makeProcessor(availabilityCheck: { _ in false }),
+            socket: nil,
+            capabilityCheck: { _ in true }
+        )
+
+        coordinator.setActive(true)
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(coordinator.status, .paused)
+        XCTAssertEqual(await client.releaseCount(), 1)
+        XCTAssertEqual(await client.failureCount(), 0)
+    }
+
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testCoordinatorKeepsPausedStatusWhenFetchCancellationIsWrapped() async throws {
+        let claim = MessageProcessingClaim(
+            message: DemoData.message(id: "demo-message-3"),
+            needs: [.transcription],
+            leaseToken: String(repeating: "a", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: "fr-CA"
+        )
+        let client = StubClaimedProcessingClient(claims: [claim])
+        let coordinator = AutomaticMessageProcessingCoordinator(
+            client: client,
+            processor: makeProcessor(audioFetcher: WrappedCancellationAudioFetcher()),
+            socket: nil,
+            capabilityCheck: { _ in true }
+        )
+
+        coordinator.setActive(true)
+        for _ in 0..<10 where coordinator.currentMessageID == nil {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertNotNil(coordinator.currentMessageID)
+        coordinator.setActive(false)
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(coordinator.status, .paused)
+        XCTAssertEqual(await client.releaseCount(), 1)
+        XCTAssertEqual(await client.failureCount(), 0)
+    }
+
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
     private func makeProcessor(
-        transcriber: any AudioTranscribing = StubTranscriber { "bonjour" }
+        audioFetcher: any AudioFetching = StubAudioFetcher(),
+        transcriber: any AudioTranscribing = StubTranscriber { .speech("bonjour") },
+        availabilityCheck: @escaping @Sendable (Locale) async -> Bool = { _ in true }
     ) -> OnDeviceMessageProcessor {
         OnDeviceMessageProcessor(
-            audioFetcher: StubAudioFetcher(),
+            audioFetcher: audioFetcher,
             transcriber: transcriber,
             translator: StubTranslator(),
             moderator: StubModerator(),
-            availabilityCheck: { _ in true }
+            availabilityCheck: availabilityCheck
         )
     }
 }

@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  OnDeviceMessageProcessor.swift
 //  TelephoneBoothOperatorMobile
@@ -66,7 +67,7 @@ public final class OnDeviceMessageProcessor {
         case moderation
     }
 
-    private struct SourceSnapshot: Equatable {
+    struct SourceSnapshot: Equatable {
         let transcriptionId: String?
         let status: TranscriptionStatus?
         let text: String?
@@ -101,8 +102,8 @@ public final class OnDeviceMessageProcessor {
         var transcriptionId: String?
     }
 
-    public private(set) var stage: Stage = .checkingAvailability
-    public private(set) var isAvailable = false
+    public internal(set) var stage: Stage = .checkingAvailability
+    public internal(set) var isAvailable = false
 
     public var isRunning: Bool {
         switch stage {
@@ -121,11 +122,11 @@ public final class OnDeviceMessageProcessor {
         return false
     }
 
-    @ObservationIgnored private let audioFetcher: any AudioFetching
-    @ObservationIgnored private let transcriber: any AudioTranscribing
-    @ObservationIgnored private let translator: any TextTranslating
-    @ObservationIgnored private let moderator: any TextModerating
-    @ObservationIgnored private let availabilityCheck: @Sendable (Locale) async -> Bool
+    @ObservationIgnored let audioFetcher: any AudioFetching
+    @ObservationIgnored let transcriber: any AudioTranscribing
+    @ObservationIgnored let translator: any TextTranslating
+    @ObservationIgnored let moderator: any TextModerating
+    @ObservationIgnored let availabilityCheck: @Sendable (Locale) async -> Bool
     @ObservationIgnored private let logger = Logger(
         subsystem: "org.davidjensenius.TelephoneBoothOperatorMobile",
         category: "OnDeviceReview"
@@ -149,7 +150,9 @@ public final class OnDeviceMessageProcessor {
         self.moderator = moderator
         self.availabilityCheck = availabilityCheck
     }
+}
 
+extension OnDeviceMessageProcessor {
     public func refreshAvailability(sourceLanguage: String? = nil) async {
         availabilityGeneration += 1
         let requestGeneration = availabilityGeneration
@@ -198,7 +201,7 @@ public final class OnDeviceMessageProcessor {
                 generation: currentGeneration
             )
             stage = .fetchingAndTranscribing
-            let transcript = try await audioFetcher.withFetchedAudioFile(
+            let transcription = try await audioFetcher.withFetchedAudioFile(
                 url: currentMessage.audio.url,
                 expectedSHA256: currentMessage.audio.sha256,
                 maxBytes: 100 * 1024 * 1024
@@ -209,11 +212,11 @@ public final class OnDeviceMessageProcessor {
                 )
             }
             guard generation == currentGeneration else { return }
-            let trimmedTranscript = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmedTranscript.isEmpty else {
+            guard case .speech(let transcript) = transcription else {
                 fail("On-device transcription found no speech.")
                 return
             }
+            let trimmedTranscript = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
 
             stage = .translating
             let translation = try await translator.translate(
@@ -378,7 +381,7 @@ public final class OnDeviceMessageProcessor {
         value?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private static func sourceLanguageSelection(
+    static func sourceLanguageSelection(
         _ sourceLanguage: String?
     ) throws -> (language: String?, locale: Locale) {
         let language = PromptSafety.normalizedLanguageTag(sourceLanguage)
@@ -457,6 +460,360 @@ public final class OnDeviceMessageProcessor {
             return description
         }
         return "On-device processing failed. Try again."
+    }
+}
+
+public protocol MessageProcessingPersisting: Sendable {
+    func fetchMessageProcessingSummary() async throws -> MessageProcessingSummary
+    func claimMessageProcessing(
+        _ request: MessageProcessingClaimRequest
+    ) async throws -> MessageProcessingClaim?
+    func heartbeatMessageProcessing(
+        messageId: String,
+        request: MessageProcessingHeartbeatRequest
+    ) async throws -> MessageProcessingHeartbeatResponse
+    func releaseMessageProcessing(messageId: String, leaseToken: String) async throws
+    func failMessageProcessing(
+        messageId: String,
+        request: MessageProcessingFailRequest
+    ) async throws -> MessageProcessingFailResponse
+    func completeMessageProcessing(
+        messageId: String,
+        request: MessageProcessingCompleteRequest
+    ) async throws -> MessageProcessingCompleteResponse
+}
+
+extension OperatorClient: MessageProcessingPersisting {}
+
+@available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+@Observable
+@MainActor
+public final class AutomaticMessageProcessingCoordinator {
+    private enum ProcessingErrorAction {
+        case continueRunning
+        case stop
+    }
+
+    public enum Status: Equatable {
+        case idle
+        case processing(String)
+        case paused
+        case failed(String)
+
+        public var text: String {
+            switch self {
+            case .idle: return "Waiting for eligible recordings"
+            case .processing(let stage): return stage
+            case .paused: return "Paused while the app is inactive"
+            case .failed(let message): return message
+            }
+        }
+    }
+
+    public private(set) var status: Status = .idle
+    public private(set) var summary: MessageProcessingSummary?
+    public private(set) var currentMessageID: String?
+    public private(set) var currentInstallation: Installation?
+
+    public var isProcessing: Bool {
+        if case .processing = status { return true }
+        return false
+    }
+
+    public var canRetry: Bool {
+        if case .failed = status { return true }
+        return false
+    }
+
+    @ObservationIgnored private let client: any MessageProcessingPersisting
+    @ObservationIgnored private let processor: OnDeviceMessageProcessor
+    @ObservationIgnored private let socket: StatusSocket?
+    @ObservationIgnored private let capabilityCheck: @Sendable (Locale) async -> Bool
+    @ObservationIgnored private var workTask: Task<Void, Never>?
+    @ObservationIgnored private var heartbeatTask: Task<Void, Never>?
+    @ObservationIgnored private var socketTask: Task<Void, Never>?
+    @ObservationIgnored private var claim: MessageProcessingClaim?
+    @ObservationIgnored private var shouldRun = false
+    @ObservationIgnored private var restartAfterLeaseLoss = false
+
+    public init(
+        client: any MessageProcessingPersisting = OperatorClient.shared,
+        processor: OnDeviceMessageProcessor = OnDeviceMessageProcessor(),
+        socket: StatusSocket? = StatusSocket.shared,
+        capabilityCheck: @escaping @Sendable (Locale) async -> Bool = {
+            await OnDeviceCapability.supportsFullPipeline(locale: $0)
+        }
+    ) {
+        self.client = client
+        self.processor = processor
+        self.socket = socket
+        self.capabilityCheck = capabilityCheck
+    }
+
+    public func setActive(_ active: Bool) {
+        shouldRun = active
+        if active {
+            Task { [weak self] in
+                guard let self else { return }
+                let supported = await self.capabilityCheck(.current)
+                guard self.shouldRun else { return }
+                guard supported else {
+                    self.status = .failed("On-device message processing is unavailable on this device.")
+                    return
+                }
+                if case .paused = self.status { self.status = .idle }
+                self.startWorkIfNeeded()
+                self.startSocketIfNeeded()
+            }
+        } else {
+            pause()
+        }
+    }
+
+    public func retry() {
+        guard shouldRun else { return }
+        status = .idle
+        startWorkIfNeeded()
+    }
+
+    public func refresh() {
+        Task { [weak self] in
+            await self?.refreshSummary()
+        }
+    }
+
+    private func startWorkIfNeeded() {
+        guard workTask == nil || workTask?.isCancelled == true else { return }
+        workTask = Task { [weak self] in
+            await self?.run()
+        }
+    }
+
+    private func startSocketIfNeeded() {
+        guard let socket else { return }
+        guard socketTask == nil || socketTask?.isCancelled == true else { return }
+        socketTask = Task { [weak self] in
+            do {
+                for try await envelope in socket.subscribe() {
+                    guard !Task.isCancelled else { return }
+                    switch envelope {
+                    case .message, .work:
+                        await self?.refreshSummary()
+                    case .installation(let installation):
+                        self?.currentInstallation = installation.isActive ? installation : nil
+                        await self?.refreshSummary()
+                    case .status, .system, .unknown:
+                        break
+                    }
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                return
+            }
+        }
+    }
+
+    private func pause() {
+        workTask?.cancel()
+        workTask = nil
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
+        socketTask?.cancel()
+        socketTask = nil
+        restartAfterLeaseLoss = false
+        let leased = claim
+        claim = nil
+        currentMessageID = nil
+        status = .paused
+        if let leased {
+            Task { [self] in
+                await self.release(leased, reportingFailure: false)
+            }
+        }
+    }
+
+    private func run() async {
+        defer {
+            workTask = nil
+            if restartAfterLeaseLoss, shouldRun {
+                restartAfterLeaseLoss = false
+                startWorkIfNeeded()
+            }
+        }
+        while shouldRun && !Task.isCancelled {
+            await refreshSummary()
+            do {
+                guard let leased = try await client.claimMessageProcessing(.init()) else {
+                    status = .idle
+                    try await Task.sleep(for: .seconds(20))
+                    continue
+                }
+                guard shouldRun, !Task.isCancelled else {
+                    await release(leased)
+                    return
+                }
+                claim = leased
+                currentMessageID = leased.message.id
+                status = .processing(leased.needs.first?.displayName ?? "Processing")
+                startHeartbeat(for: leased)
+
+                let result = try await processor.process(claim: leased)
+                guard shouldRun,
+                      !Task.isCancelled,
+                      claim?.leaseToken == leased.leaseToken else {
+                    return
+                }
+                status = .processing("Saving results")
+                _ = try await client.completeMessageProcessing(
+                    messageId: leased.message.id,
+                    request: result
+                )
+                finishLease()
+            } catch is CancellationError {
+                return
+            } catch {
+                switch await handleProcessingError(error) {
+                case .continueRunning:
+                    continue
+                case .stop:
+                    return
+                }
+            }
+        }
+    }
+
+    private func handleProcessingError(_ error: any Error) async -> ProcessingErrorAction {
+        guard !Task.isCancelled, shouldRun else { return .stop }
+        let leased = claim
+        finishLease()
+        if isLeaseRefresh(error) {
+            if let leased {
+                await release(leased, reportingFailure: false)
+            }
+            status = .idle
+            return .continueRunning
+        }
+        if isUnsupportedCapability(error) {
+            shouldRun = false
+            status = .paused
+            if let leased {
+                await release(leased, reportingFailure: false)
+            }
+            return .stop
+        }
+        guard let leased else {
+            status = .failed(error.localizedDescription)
+            return .stop
+        }
+        do {
+            let result = try await client.failMessageProcessing(
+                messageId: leased.message.id,
+                request: MessageProcessingFailRequest(
+                    leaseToken: leased.leaseToken,
+                    errorCode: failureCode(for: error),
+                    errorMessage: error.localizedDescription
+                )
+            )
+            await refreshSummary()
+            status = result.terminal
+                ? .failed("Processing stopped after repeated failures.")
+                : .failed(error.localizedDescription)
+        } catch {
+            status = isLeaseRefresh(error) ? .idle : .failed(error.localizedDescription)
+        }
+        return .stop
+    }
+
+    private func startHeartbeat(for leased: MessageProcessingClaim) {
+        heartbeatTask?.cancel()
+        heartbeatTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(120))
+                    guard !Task.isCancelled,
+                          self?.claim?.leaseToken == leased.leaseToken else {
+                        return
+                    }
+                    _ = try await self?.client.heartbeatMessageProcessing(
+                        messageId: leased.message.id,
+                        request: MessageProcessingHeartbeatRequest(leaseToken: leased.leaseToken)
+                    )
+                } catch is CancellationError {
+                    return
+                } catch {
+                    guard self?.claim?.leaseToken == leased.leaseToken else { return }
+                    if self?.isLeaseRefresh(error) == true {
+                        self?.claim = nil
+                        self?.currentMessageID = nil
+                        self?.status = .idle
+                        self?.restartAfterLeaseLoss = true
+                        self?.workTask?.cancel()
+                    }
+                    return
+                }
+            }
+        }
+    }
+
+    private func finishLease() {
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
+        claim = nil
+        currentMessageID = nil
+    }
+
+    private func release(
+        _ leased: MessageProcessingClaim,
+        reportingFailure: Bool = true
+    ) async {
+        do {
+            try await client.releaseMessageProcessing(
+                messageId: leased.message.id,
+                leaseToken: leased.leaseToken
+            )
+        } catch {
+            if reportingFailure, !isLeaseRefresh(error) {
+                status = .failed(error.localizedDescription)
+            }
+        }
+        await refreshSummary()
+    }
+
+    private func refreshSummary() async {
+        do {
+            summary = try await client.fetchMessageProcessingSummary()
+        } catch {
+            if !isProcessing, shouldRun {
+                status = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    private func isLeaseRefresh(_ error: any Error) -> Bool {
+        guard case let OperatorError.httpError(status, body) = error, status == 409 else {
+            return false
+        }
+        return [
+            "lease_lost",
+            "stale_",
+            "claim_snapshot_stale",
+            "installation_ended",
+            "review_requires_no_speech"
+        ]
+            .contains { body.contains($0) }
+    }
+
+    private func isUnsupportedCapability(_ error: any Error) -> Bool {
+        guard let serviceError = error as? OnDeviceServiceError else { return false }
+        if case .unavailable = serviceError { return true }
+        return false
+    }
+
+    private func failureCode(for error: any Error) -> String {
+        if error is OnDeviceServiceError { return "on_device_unavailable" }
+        if error is AudioFetchError { return "audio_fetch_failed" }
+        return "on_device_processing_failed"
     }
 }
 

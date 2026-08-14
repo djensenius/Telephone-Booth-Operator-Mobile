@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  TVStatsView.swift
 //  TelephoneBoothOperatorMobile
@@ -16,6 +17,8 @@ import Charts
 
 struct TVStatsView: View {
     @State private var window: StatsWindow = .last7d
+    @State private var installationScope: InstallationScope = .current
+    @State private var installations: [Installation] = []
     @State private var overview: StatsOverview?
     @State private var errorMessage: String?
     @State private var isRefreshing = false
@@ -32,6 +35,7 @@ struct TVStatsView: View {
     var body: some View {
         TVScreen(title: "Stats", systemImage: "chart.bar.fill", accessory: { accessory }, content: {
             TVRangeSelector(window: $window)
+            TVInstallationSelector(scope: $installationScope, installations: installations)
 
             if let errorMessage {
                 TVBanner(message: errorMessage)
@@ -60,12 +64,22 @@ struct TVStatsView: View {
             overview = nil
             errorMessage = nil
         }
+        .onChange(of: installationScope) {
+            overview = nil
+            errorMessage = nil
+            refreshToken += 1
+            let token = refreshToken
+            Task { await refresh(window: window, scope: installationScope, token: token) }
+        }
         .autoRefresh(id: window) {
             refreshToken += 1
             let token = refreshToken
-            await refresh(window: window, token: token)
+            await refresh(window: window, scope: installationScope, token: token)
         }
         .boothStatusLive(liveStore)
+        .task {
+            installations = (try? await client.fetchInstallations()) ?? []
+        }
     }
 
     @ViewBuilder
@@ -87,13 +101,17 @@ struct TVStatsView: View {
     private func headline(_ overview: StatsOverview) -> some View {
         TVFocusCard {
             VStack(alignment: .leading, spacing: 24) {
-                TVCardHeader(title: window.displayName, systemImage: "sparkles")
+                TVCardHeader(
+                    title: "\(installationScopeName) · \(window.displayName)",
+                    systemImage: "sparkles"
+                )
                 LazyVGrid(
                     columns: Array(repeating: GridItem(.flexible(), spacing: 20), count: 3),
                     spacing: 20
                 ) {
                     TVStatTile(label: "Pickups", value: number(overview.pickupsHangups.pickups))
-                    TVStatTile(label: "Messages left", value: number(overview.messages.total))
+                    TVStatTile(label: "Approved messages", value: number(overview.messages.approvedCount))
+                    TVStatTile(label: "All recordings", value: number(overview.messages.allRecordingsCount))
                     TVStatTile(
                         label: "Completion",
                         value: StatsFormat.percentString(overview.completionRate)
@@ -182,8 +200,9 @@ struct TVStatsView: View {
     private func messagesCard(_ overview: StatsOverview) -> some View {
         TVFocusCard {
             VStack(alignment: .leading, spacing: 16) {
-                TVCardHeader(title: "Messages", systemImage: "tray.full.fill")
-                TVKeyValueRow(key: "Left", value: number(overview.messages.total))
+                TVCardHeader(title: "Recordings", systemImage: "tray.full.fill")
+                TVKeyValueRow(key: "Approved messages", value: number(overview.messages.approvedCount))
+                TVKeyValueRow(key: "All recordings", value: number(overview.messages.allRecordingsCount))
                 TVKeyValueRow(
                     key: "Avg duration",
                     value: StatsFormat.durationString(overview.messages.averageDurationMs)
@@ -282,7 +301,11 @@ struct TVStatsView: View {
 
     // MARK: Data
 
-    private func refresh(window requested: StatsWindow, token: Int) async {
+    private func refresh(
+        window requested: StatsWindow,
+        scope: InstallationScope = .current,
+        token: Int
+    ) async {
         isRefreshing = true
         defer {
             // Only the current active request clears the shared spinner flag.
@@ -292,7 +315,10 @@ struct TVStatsView: View {
             if token == refreshToken { isRefreshing = false }
         }
         do {
-            let result = try await client.fetchStatsOverview(window: requested)
+            let result = try await client.fetchStatsOverview(
+                selection: .window(requested),
+                installationScope: scope
+            )
             // Ignore results from a range selection that has since changed (the
             // `.task(id:)` was cancelled) so a late/cancelled completion never
             // overwrites the newly selected range or flashes a spurious error.
@@ -315,6 +341,17 @@ struct TVStatsView: View {
     private func number(_ value: Int) -> String {
         StatsFormat.numberFormatter.string(from: NSNumber(value: value)) ?? "0"
     }
+
+    private var installationScopeName: String {
+        switch installationScope {
+        case .current:
+            return "Current Installation"
+        case .all:
+            return "All Installations"
+        case .installation(let id):
+            return installations.first(where: { $0.id == id })?.name ?? "Historical Installation"
+        }
+    }
 }
 
 // MARK: - Range selector
@@ -333,9 +370,50 @@ private struct TVRangeSelector: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 22)
                 }
+
                 .buttonStyle(TVSegmentButtonStyle(isSelected: window == option))
                 .accessibilityAddTraits(window == option ? [.isSelected] : [])
             }
+        }
+    }
+}
+
+private struct TVInstallationSelector: View {
+    @Binding var scope: InstallationScope
+    let installations: [Installation]
+
+    var body: some View {
+        Menu {
+            Button("Current Installation") { scope = .current }
+            if !installations.isEmpty {
+                Divider()
+                ForEach(installations) { installation in
+                    Button(installation.name) {
+                        scope = installation.isActive
+                            ? .current
+                            : .installation(installation.id)
+                    }
+                }
+            }
+            Divider()
+            Button("All Installations") { scope = .all }
+        } label: {
+            Label(scopeTitle, systemImage: "building.2")
+                .font(.system(size: 28, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+        }
+        .buttonStyle(TVSegmentButtonStyle(isSelected: scope != .current))
+    }
+
+    private var scopeTitle: String {
+        switch scope {
+        case .current:
+            return "Current Installation"
+        case .all:
+            return "All Installations"
+        case .installation(let id):
+            return installations.first(where: { $0.id == id })?.name ?? "Historical Installation"
         }
     }
 }

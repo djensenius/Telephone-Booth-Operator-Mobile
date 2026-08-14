@@ -52,7 +52,9 @@ final class StatsOverviewTests: XCTestCase {
             ]
           },
           "messages": {
-            "total": 9,
+            "total": 6,
+            "approved": 6,
+            "allRecordings": 9,
             "byStatus": { "approved": 6, "pending": 2, "rejected": 1 },
             "averageDurationMs": 8500
           },
@@ -92,6 +94,8 @@ final class StatsOverviewTests: XCTestCase {
         XCTAssertEqual(overview.calls.outcomes["wild_new_outcome"], 1)
         XCTAssertEqual(overview.completionRate, 9.0 / 12.0)
         XCTAssertEqual(overview.messages.byStatus["approved"], 6)
+        XCTAssertEqual(overview.messages.approvedCount, 6)
+        XCTAssertEqual(overview.messages.allRecordingsCount, 9)
         XCTAssertEqual(overview.playback.totalPlaybacks, 17)
         XCTAssertEqual(overview.pickupsHangups.digitsDialed["5"], 5)
         XCTAssertEqual(overview.uploads.failureRate, 0.1)
@@ -178,6 +182,58 @@ final class StatsOverviewTests: XCTestCase {
         let overview = makeOverview(messages: messages)
         let ordered = overview.statusesInDisplayOrder()
         XCTAssertEqual(ordered.map(\.key), ["uploading", "pending", "approved", "rejected"])
+    }
+
+    func testMessageCountsFallBackForRollingDeployment() {
+        let messages = StatsOverview.Messages(
+            total: 5,
+            byStatus: ["approved": 5],
+            averageDurationMs: nil
+        )
+        XCTAssertEqual(messages.approvedCount, 5)
+        XCTAssertEqual(messages.allRecordingsCount, 5)
+    }
+
+    func testApprovedCountPrefersStatusForLegacyResponse() {
+        let messages = StatsOverview.Messages(
+            total: 9,
+            byStatus: ["approved": 6, "pending": 2, "rejected": 1],
+            averageDurationMs: nil
+        )
+
+        XCTAssertEqual(messages.approvedCount, 6)
+        XCTAssertEqual(messages.allRecordingsCount, 9)
+    }
+
+    func testInstallationScopeQueryValues() {
+        XCTAssertNil(InstallationScope.current.queryValue)
+        XCTAssertEqual(InstallationScope.all.queryValue, "all")
+        XCTAssertEqual(
+            InstallationScope.installation("era-1").queryValue,
+            "era-1"
+        )
+    }
+
+    func testInstallationDecodesWithoutLanguageDuringDeployment() throws {
+        let installation = try OperatorJSON.decoder.decode(
+            Installation.self,
+            from: Data(#"""
+            {
+              "id":"00000000-0000-4000-8000-000000000001",
+              "name":"Opening",
+              "notes":null,
+              "location":null,
+              "startedAt":"2026-08-14T12:00:00Z",
+              "endedAt":null,
+              "endedById":null,
+              "summary":null,
+              "createdAt":"2026-08-14T12:00:00Z",
+              "isActive":true
+            }
+            """#.utf8)
+        )
+        XCTAssertNil(installation.defaultTranscriptionLanguage)
+        XCTAssertTrue(installation.isActive)
     }
 
     func testDigitsDialedZeroFilledAlwaysHas10EntriesInOrder() {

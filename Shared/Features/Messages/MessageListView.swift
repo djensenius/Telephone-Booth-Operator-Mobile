@@ -53,6 +53,8 @@ public struct MessageListView: View {
     @State private var filter: MessageFilter = .all
     @State private var searchText = ""
     @State private var decidingMessageIds: Set<String> = []
+    @State private var deletingMessageIds: Set<String> = []
+    @State private var deleteCandidate: Message?
     @State private var refreshGeneration = 0
 
     private let client: OperatorClient
@@ -85,6 +87,23 @@ public struct MessageListView: View {
         .refreshableIfAvailable {
             await refresh()
         }
+        .confirmationDialog(
+            "Permanently delete this recording?",
+            isPresented: Binding(
+                get: { deleteCandidate != nil },
+                set: { if !$0 { deleteCandidate = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete recording", role: .destructive) {
+                if let deleteCandidate {
+                    Task { await delete(deleteCandidate) }
+                }
+            }
+            Button("Cancel", role: .cancel) { deleteCandidate = nil }
+        } message: {
+            Text("This cannot be undone. Reject keeps the recording; delete removes it permanently.")
+        }
     }
 
     private var list: some View {
@@ -99,6 +118,7 @@ public struct MessageListView: View {
                     MessageRow(
                         message: message,
                         isDeciding: decidingMessageIds.contains(message.id)
+                            || deletingMessageIds.contains(message.id)
                     )
                 }
                 .operatorListRowBackground()
@@ -112,7 +132,7 @@ public struct MessageListView: View {
                         .tint(Theme.Colors.success)
                     }
                 }
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     if message.canBeDecided, message.status != .rejected {
                         Button(role: .destructive) {
                             Task { await decide(message, as: .reject) }
@@ -120,14 +140,23 @@ public struct MessageListView: View {
                             Label("Reject", systemImage: "xmark.circle.fill")
                         }
                     }
+                    Button(role: .destructive) {
+                        deleteCandidate = message
+                    } label: {
+                        Label("Delete permanently", systemImage: "trash.fill")
+                    }
+                    .tint(message.recommendsPermanentDelete ? Theme.Colors.error : Theme.Colors.textSecondary)
                 }
             }
         }
         .operatorListStyle()
         .navigationDestination(for: String.self) { messageId in
-            MessageDetailView(messageId: messageId, client: client) { updated in
-                apply(updated)
-            }
+            MessageDetailView(
+                messageId: messageId,
+                client: client,
+                onMessageUpdate: { updated in apply(updated) },
+                onMessageDelete: { id in messages.removeAll { $0.id == id } }
+            )
         }
     }
 
@@ -211,6 +240,22 @@ public struct MessageListView: View {
         }
     }
 
+    private func delete(_ message: Message) async {
+        guard !deletingMessageIds.contains(message.id) else { return }
+        deleteCandidate = nil
+        deletingMessageIds.insert(message.id)
+        errorMessage = nil
+        defer { deletingMessageIds.remove(message.id) }
+        do {
+            try await client.deleteMessage(id: message.id)
+            messages.removeAll { $0.id == message.id }
+            await PendingMessagesStore.shared.refresh(using: client)
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription
+                ?? "Couldn't delete this recording."
+        }
+    }
+
     private func apply(_ updated: Message) {
         guard filter.includes(updated) else {
             messages.removeAll { $0.id == updated.id }
@@ -265,6 +310,14 @@ struct MessageRow: View {
                         .padding(.horizontal, Theme.Spacing.small)
                         .padding(.vertical, 3)
                         .background(color(for: rec).opacity(0.12), in: Capsule())
+                }
+                if message.recommendsPermanentDelete {
+                    Label("Delete recommended", systemImage: "trash.fill")
+                        .font(Theme.Fonts.caption.weight(.semibold))
+                        .foregroundStyle(Theme.Colors.error)
+                        .padding(.horizontal, Theme.Spacing.small)
+                        .padding(.vertical, 3)
+                        .background(Theme.Colors.error.opacity(0.12), in: Capsule())
                 }
             }
         }

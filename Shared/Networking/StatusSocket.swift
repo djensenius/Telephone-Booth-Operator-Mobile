@@ -18,6 +18,9 @@ public enum WsStatusEnvelope: Decodable, Sendable, Equatable {
     case status(BoothStatus)
     case system(BoothSystemSnapshotEnvelope)
     case message(Message)
+    case work(MessageProcessingWorkEnvelope)
+    case installation(Installation)
+    case unknown(String)
 
     private enum CodingKeys: String, CodingKey {
         case kind
@@ -27,20 +30,17 @@ public enum WsStatusEnvelope: Decodable, Sendable, Equatable {
         case receivedAt
         case version
         case message
-    }
-
-    private enum Kind: String, Decodable {
-        case status
-        case system
-        case message
+        case messageId
+        case needs
+        case installation
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        switch try container.decode(Kind.self, forKey: .kind) {
-        case .status:
+        switch try container.decode(String.self, forKey: .kind) {
+        case "status":
             self = .status(try container.decode(BoothStatus.self, forKey: .status))
-        case .system:
+        case "system":
             let envelope = BoothSystemSnapshotEnvelope(
                 boothId: try container.decode(String.self, forKey: .boothId),
                 snapshot: try container.decode(BoothSystemSnapshot.self, forKey: .snapshot),
@@ -48,9 +48,30 @@ public enum WsStatusEnvelope: Decodable, Sendable, Equatable {
                 version: try container.decodeIfPresent(String.self, forKey: .version)
             )
             self = .system(envelope)
-        case .message:
+        case "message":
             self = .message(try container.decode(Message.self, forKey: .message))
+        case "work":
+            self = .work(
+                MessageProcessingWorkEnvelope(
+                    messageId: try container.decode(String.self, forKey: .messageId),
+                    needs: try container.decode([MessageProcessingStep].self, forKey: .needs)
+                )
+            )
+        case "installation":
+            self = .installation(try container.decode(Installation.self, forKey: .installation))
+        default:
+            self = .unknown(try container.decode(String.self, forKey: .kind))
         }
+    }
+}
+
+public struct MessageProcessingWorkEnvelope: Decodable, Sendable, Equatable {
+    public let messageId: String
+    public let needs: [MessageProcessingStep]
+
+    public init(messageId: String, needs: [MessageProcessingStep]) {
+        self.messageId = messageId
+        self.needs = needs
     }
 }
 

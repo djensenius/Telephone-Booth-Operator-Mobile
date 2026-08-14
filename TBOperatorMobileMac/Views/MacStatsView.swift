@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  MacStatsView.swift
 //  TBOperatorMobileMac
@@ -22,6 +23,8 @@ struct MacStatsView: View {
     @State private var customEnd: Date = Date()
     @State private var endIsNow: Bool = true
     @State private var filters: [MetricFilter] = []
+    @State private var installationScope: InstallationScope = .current
+    @State private var installations: [Installation] = []
     @State private var overview: StatsOverview?
     @State private var errorMessage: String?
     @State private var isRefreshing = false
@@ -65,16 +68,27 @@ struct MacStatsView: View {
                 .frame(width: 260)
             }
             ToolbarItem(placement: .automatic) {
+                installationMenu
+            }
+            ToolbarItem(placement: .automatic) {
                 rangeMenu
             }
         }
         .autoRefresh(id: selection) { await refresh() }
-        .task { await loadFilters() }
+        .task {
+            await loadFilters()
+            await loadInstallations()
+        }
+        .onChange(of: installationScope) {
+            Task { await refresh() }
+        }
         .sheet(isPresented: $isPresentingCustom) {
             customRangeSheet
         }
     }
+}
 
+extension MacStatsView {
     // Drive the segmented picker from `selection` so a preset stays de-selected
     // while a custom range/filter is active — otherwise the picker would remain
     // stuck on its last preset and re-tapping it would fire no change.
@@ -97,6 +111,7 @@ struct MacStatsView: View {
                 ForEach(filters) { filter in
                     Button(filter.name) { apply(filter: filter) }
                 }
+
                 Divider()
                 Menu("Delete filter") {
                     ForEach(filters) { filter in
@@ -108,6 +123,26 @@ struct MacStatsView: View {
             }
         } label: {
             Label(selection.displayName, systemImage: "calendar")
+        }
+    }
+
+    private var installationMenu: some View {
+        Menu {
+            Button("Current Installation") { installationScope = .current }
+            if !installations.isEmpty {
+                Divider()
+                ForEach(installations) { installation in
+                    Button(installation.name) {
+                        installationScope = installation.isActive
+                            ? .current
+                            : .installation(installation.id)
+                    }
+                }
+            }
+            Divider()
+            Button("All Installations") { installationScope = .all }
+        } label: {
+            Label(installationScopeName, systemImage: "building.2")
         }
     }
 
@@ -155,6 +190,7 @@ struct MacStatsView: View {
         refreshGeneration += 1
         let generation = refreshGeneration
         let requestedSelection = selection
+        let requestedScope = installationScope
         isRefreshing = true
         defer {
             if generation == refreshGeneration {
@@ -162,7 +198,10 @@ struct MacStatsView: View {
             }
         }
         do {
-            let result = try await client.fetchStatsOverview(selection: requestedSelection)
+            let result = try await client.fetchStatsOverview(
+                selection: requestedSelection,
+                installationScope: requestedScope
+            )
             guard !Task.isCancelled, generation == refreshGeneration else { return }
             overview = result
             errorMessage = nil
@@ -174,6 +213,10 @@ struct MacStatsView: View {
 
     private func loadFilters() async {
         filters = (try? await client.fetchMetricFilters()) ?? []
+    }
+
+    private func loadInstallations() async {
+        installations = (try? await client.fetchInstallations()) ?? []
     }
 
     private func applyCustomRange() {
@@ -218,7 +261,9 @@ struct MacStatsView: View {
             errorMessage = "Couldn't delete filter: \(error.localizedDescription)"
         }
     }
+}
 
+extension MacStatsView {
     // MARK: - Summary metrics
 
     private func summaryGrid(_ overview: StatsOverview) -> some View {
@@ -227,7 +272,8 @@ struct MacStatsView: View {
             spacing: 12
         ) {
             MacMetricTile(label: "Pickups", value: num(overview.pickupsHangups.pickups))
-            MacMetricTile(label: "Messages left", value: num(overview.messages.total))
+            MacMetricTile(label: "Approved messages", value: num(overview.messages.approvedCount))
+            MacMetricTile(label: "All recordings", value: num(overview.messages.allRecordingsCount))
             MacMetricTile(label: "Completion", value: StatsFormat.percentString(overview.completionRate))
             MacMetricTile(label: "Booth playbacks", value: num(overview.playback.totalPlaybacks))
             MacMetricTile(label: "Last activity", value: StatsFormat.timeAgoString(overview.lastActivityAt))
@@ -275,9 +321,10 @@ struct MacStatsView: View {
     }
 
     private func messagesSection(_ overview: StatsOverview) -> some View {
-        GroupBox("Messages") {
+        GroupBox("Recordings") {
             VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-                LabeledContent("Left", value: num(overview.messages.total))
+                LabeledContent("Approved messages", value: num(overview.messages.approvedCount))
+                LabeledContent("All recordings", value: num(overview.messages.allRecordingsCount))
                 LabeledContent("Avg duration", value: StatsFormat.durationString(overview.messages.averageDurationMs))
                 LabeledContent("Booth playbacks", value: num(overview.playback.totalPlaybacks))
                 Divider()
@@ -443,6 +490,17 @@ struct MacStatsView: View {
             return "\(count) (\(StatsFormat.percentString(rate)))"
         }
         return count
+    }
+
+    private var installationScopeName: String {
+        switch installationScope {
+        case .current:
+            return "Current Installation"
+        case .all:
+            return "All Installations"
+        case .installation(let id):
+            return installations.first(where: { $0.id == id })?.name ?? "Historical Installation"
+        }
     }
 }
 

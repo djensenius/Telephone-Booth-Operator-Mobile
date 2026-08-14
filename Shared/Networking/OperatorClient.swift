@@ -35,6 +35,7 @@ public actor OperatorClient {
     /// UI routes can resolve a matching demo live-status store synchronously.
     nonisolated let demoMode: Bool
     var demoMessageOverrides: [String: Message] = [:]
+    var demoDeletedMessageIDs: Set<String> = []
 
     public init(config: AppConfig, auth: AuthManager, session: URLSession = .shared, demoMode: Bool = false) {
         self.config = config
@@ -263,11 +264,38 @@ public actor OperatorClient {
         try await request(method: "PUT", path: path, body: body, requireAuth: true)
     }
 
+    func patchJSON<Body: Encodable, Response: Decodable>(
+        _ path: String,
+        body: Body
+    ) async throws -> Response {
+        try await request(method: "PATCH", path: path, body: body, requireAuth: true)
+    }
+
     func delete(_ path: String) async throws {
+        try await requestNoContent(method: "DELETE", path: path, body: Optional<Data>.none)
+    }
+
+    func postNoContent<Body: Encodable>(_ path: String, body: Body) async throws {
+        try await requestNoContent(method: "POST", path: path, body: body)
+    }
+
+    private func requestNoContent<Body: Encodable>(
+        method: String,
+        path: String,
+        body: Body?
+    ) async throws {
         let url = await config.url(forPath: path)
         var request = URLRequest(url: url)
-        request.httpMethod = "DELETE"
+        request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let body {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            do {
+                request.httpBody = try OperatorJSON.encoder.encode(body)
+            } catch {
+                throw OperatorError.encoding(error)
+            }
+        }
         guard let header = await auth.authorizationHeader() else {
             throw OperatorError.unauthenticated
         }

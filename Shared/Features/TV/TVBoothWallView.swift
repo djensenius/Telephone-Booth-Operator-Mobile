@@ -153,7 +153,7 @@ struct TVBoothWallView: View {
                     .font(.system(size: 40))
                     .foregroundStyle(Theme.Colors.accent)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Recent messages")
+                    Text("Recent recordings")
                         .font(TVMetrics.Font.cardTitle)
                         .foregroundStyle(Theme.Colors.textPrimary)
                     Text(activitySubtitle)
@@ -195,7 +195,8 @@ struct TVBoothWallView: View {
                     spacing: 20
                 ) {
                     TVStatTile(label: "Pickups (7d)", value: "\(overview.pickupsHangups.pickups)")
-                    TVStatTile(label: "Messages left", value: "\(overview.messages.total)")
+                    TVStatTile(label: "Approved messages", value: "\(overview.messages.approvedCount)")
+                    TVStatTile(label: "All recordings", value: "\(overview.messages.allRecordingsCount)")
                     TVStatTile(label: "Playbacks", value: "\(overview.playback.totalPlaybacks)")
                     TVStatTile(label: "Completion", value: StatsFormat.percentString(overview.completionRate))
                 }

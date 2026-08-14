@@ -13,7 +13,7 @@ extension OperatorClient {
     ) async throws -> MessageList {
         if await usesDemoData {
             let messages = DemoData.messages.map { demoMessageOverrides[$0.id] ?? $0 }.filter { message in
-                status == nil || message.status == status
+                !demoDeletedMessageIDs.contains(message.id) && (status == nil || message.status == status)
             }
             return MessageList(items: Array(messages.prefix(limit)))
         }
@@ -26,7 +26,12 @@ extension OperatorClient {
     }
 
     public func fetchMessage(id: String) async throws -> Message {
-        if await usesDemoData { return demoMessageOverrides[id] ?? DemoData.message(id: id) }
+        if await usesDemoData {
+            guard !demoDeletedMessageIDs.contains(id) else {
+                throw OperatorError.httpError(status: 404, body: "not_found")
+            }
+            return demoMessageOverrides[id] ?? DemoData.message(id: id)
+        }
         return try await get("/v1/messages/\(id)")
     }
 
@@ -146,6 +151,74 @@ extension OperatorClient {
             return updated
         }
         return try await postJSON("/v1/messages/\(id)/decision", body: body)
+    }
+
+    /// `DELETE /v1/messages/{id}` — permanently removes a recording. This is
+    /// intentionally distinct from a human reject decision, which preserves
+    /// the recording and its audit history.
+    public func deleteMessage(id: String) async throws {
+        if await usesDemoData {
+            demoDeletedMessageIDs.insert(id)
+            demoMessageOverrides[id] = nil
+            return
+        }
+        try await delete("/v1/messages/\(id)")
+    }
+
+    public func fetchMessageProcessingSummary() async throws -> MessageProcessingSummary {
+        if await usesDemoData {
+            return MessageProcessingSummary(
+                queued: 0,
+                leased: 0,
+                terminal: 0,
+                needs: .init(transcription: 0, translation: 0, moderation: 0, review: 0),
+                generatedAt: Date()
+            )
+        }
+        return try await get("/v1/message-processing/summary")
+    }
+
+    public func claimMessageProcessing(
+        _ request: MessageProcessingClaimRequest = .init()
+    ) async throws -> MessageProcessingClaim? {
+        if await usesDemoData { return nil }
+        let response: MessageProcessingClaimResponse = try await postJSON(
+            "/v1/message-processing/claim",
+            body: request
+        )
+        return response.claim
+    }
+
+    public func heartbeatMessageProcessing(
+        messageId: String,
+        request: MessageProcessingHeartbeatRequest
+    ) async throws -> MessageProcessingHeartbeatResponse {
+        try await postJSON("/v1/message-processing/\(messageId)/heartbeat", body: request)
+    }
+
+    public func releaseMessageProcessing(
+        messageId: String,
+        leaseToken: String
+    ) async throws {
+        if await usesDemoData { return }
+        try await postNoContent(
+            "/v1/message-processing/\(messageId)/release",
+            body: MessageProcessingLeaseTokenRequest(leaseToken: leaseToken)
+        )
+    }
+
+    public func failMessageProcessing(
+        messageId: String,
+        request: MessageProcessingFailRequest
+    ) async throws -> MessageProcessingFailResponse {
+        try await postJSON("/v1/message-processing/\(messageId)/fail", body: request)
+    }
+
+    public func completeMessageProcessing(
+        messageId: String,
+        request: MessageProcessingCompleteRequest
+    ) async throws -> MessageProcessingCompleteResponse {
+        try await postJSON("/v1/message-processing/\(messageId)/complete", body: request)
     }
 
     private func applyDemoTranslation(

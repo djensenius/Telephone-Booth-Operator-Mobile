@@ -139,7 +139,10 @@ public struct AppleSpeechTranscriber: AudioTranscribing {
         self.defaultLocale = defaultLocale
     }
 
-    public func transcribe(audioFileURL: URL, language: String?) async throws -> String {
+    public func transcribe(
+        audioFileURL: URL,
+        language: String?
+    ) async throws -> AudioTranscriptionResult {
         guard SpeechTranscriber.isAvailable else {
             throw OnDeviceServiceError.unavailable(
                 "On-device speech transcription is not available on this device."
@@ -156,7 +159,8 @@ public struct AppleSpeechTranscriber: AudioTranscribing {
         do {
             let transcript = try await analyze(audioFileURL: audioFileURL, with: transcriber)
             await SpeechAssetReservations.shared.release(locale: locale)
-            return transcript
+            let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? .noSpeech : .speech(trimmed)
         } catch {
             await SpeechAssetReservations.shared.release(locale: locale)
             throw error
@@ -345,7 +349,7 @@ private enum FoundationModelsSupport {
         case .guardrailViolation, .refusal:
             return .badRequest("The on-device model declined to process this message.")
         case .unsupportedLanguageOrLocale:
-            return .badRequest("The message language is not supported by the on-device model.")
+            return .unavailable("The message language is not supported by the on-device model.")
         case .rateLimited, .concurrentRequests:
             return .timeout("The on-device model is busy. Try again.")
         case .assetsUnavailable:

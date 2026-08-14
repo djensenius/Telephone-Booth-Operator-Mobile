@@ -6,7 +6,15 @@
 import Foundation
 
 public protocol AudioTranscribing: Sendable {
-    func transcribe(audioFileURL: URL, language: String?) async throws -> String
+    func transcribe(
+        audioFileURL: URL,
+        language: String?
+    ) async throws -> AudioTranscriptionResult
+}
+
+public enum AudioTranscriptionResult: Sendable, Equatable {
+    case speech(String)
+    case noSpeech
 }
 
 public struct TranslationResult: Sendable, Equatable {
@@ -120,6 +128,14 @@ public enum PromptSafety {
 }
 
 public enum OnDeviceReviewLogic {
+    public static func noSpeechReview(durationMs: Int?) -> MessageProcessingReviewResult {
+        let isLikelyHangup = durationMs.map { $0 <= 3_000 } ?? false
+        return MessageProcessingReviewResult(
+            classification: isLikelyHangup ? .likelyHangup : .unclear,
+            recommendation: isLikelyHangup ? .delete : .review
+        )
+    }
+
     public static func translation(
         text: String,
         detectedSource: String?,
@@ -194,3 +210,209 @@ private extension Character {
     var isAsciiDigit: Bool { isASCII && isNumber }
     var isAsciiAlphanumeric: Bool { isAsciiLetter || isAsciiDigit }
 }
+
+#if !os(watchOS) && !os(tvOS) && canImport(Speech) && canImport(FoundationModels)
+private struct ClaimedProcessingResult {
+    var transcription: MessageProcessingTranscriptionResult?
+    var translation: MessageProcessingTranslationResult?
+    var moderation: MessageProcessingModerationResult?
+    var review: MessageProcessingReviewResult?
+    var text: String?
+    var language: String?
+
+    init(message: Message) {
+        text = message.latestTranscription?.text?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        language = message.latestTranscription?.language
+    }
+
+    var hasOutput: Bool {
+        transcription != nil || translation != nil || moderation != nil || review != nil
+    }
+}
+
+private struct ClaimedTranscriptionResult {
+    let transcription: MessageProcessingTranscriptionResult
+    let review: MessageProcessingReviewResult?
+    let text: String?
+    let language: String?
+}
+
+@available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+extension OnDeviceMessageProcessor {
+    public func process(claim: MessageProcessingClaim) async throws -> MessageProcessingCompleteRequest {
+        let needs = try Self.validatedProcessingNeeds(claim.needs)
+        var result = ClaimedProcessingResult(message: claim.message)
+
+        if needs.contains(.transcription) {
+            let transcription = try await processTranscription(claim)
+            result.transcription = transcription.transcription
+            result.review = transcription.review
+            if let text = transcription.text {
+                result.text = text
+                result.language = transcription.language
+            }
+        }
+
+        if needs.contains(.review) {
+            result.review = OnDeviceReviewLogic.noSpeechReview(durationMs: claim.message.audio.durationMs)
+        }
+        if needs.contains(.translation) {
+            result.translation = try await processTranslation(
+                claim,
+                text: result.text,
+                language: result.language
+            )
+        }
+        if needs.contains(.moderation) {
+            result.moderation = try await processModeration(
+                claim,
+                translatedText: result.translation?.translatedText,
+                text: result.text
+            )
+        }
+
+        guard result.hasOutput else {
+            throw OnDeviceServiceError.badRequest("The claimed message had no processable work.")
+        }
+        stage = .savingModeration
+        return MessageProcessingCompleteRequest(
+            leaseToken: claim.leaseToken,
+            transcription: result.transcription,
+            translation: result.translation,
+            moderation: result.moderation,
+            review: result.review
+        )
+    }
+
+    private func processTranscription(
+        _ claim: MessageProcessingClaim
+    ) async throws -> ClaimedTranscriptionResult {
+        let sourceLanguage = claim.defaultTranscriptionLanguage ?? Self.deviceLanguageTag()
+        let selection = try Self.claimSourceLanguageSelection(sourceLanguage)
+        stage = .checkingAvailability
+        isAvailable = await availabilityCheck(selection.locale)
+        guard isAvailable else {
+            throw OnDeviceServiceError.unavailable(
+                "The installation's transcription language is not supported on this device."
+            )
+        }
+        stage = .fetchingAndTranscribing
+        let audioResult = try await audioFetcher.withFetchedAudioFile(
+            url: claim.message.audio.url,
+            expectedSHA256: claim.message.audio.sha256,
+            maxBytes: 100 * 1024 * 1024
+        ) { [transcriber] fileURL in
+            try await transcriber.transcribe(audioFileURL: fileURL, language: selection.language)
+        }
+        let snapshot = SourceSnapshot(claim.message)
+        switch audioResult {
+        case .speech(let transcript):
+            let text = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else {
+                throw OnDeviceServiceError.badRequest("The speech service returned an invalid transcript.")
+            }
+            return ClaimedTranscriptionResult(
+                transcription: MessageProcessingTranscriptionResult(
+                    expectedLatestTranscriptionId: snapshot.transcriptionId,
+                    expectedLatestTranscriptionSha256: snapshot.sha256,
+                    text: text,
+                    language: selection.language,
+                    model: "apple-speech-analyzer"
+                ),
+                review: nil,
+                text: text,
+                language: selection.language
+            )
+        case .noSpeech:
+            return ClaimedTranscriptionResult(
+                transcription: MessageProcessingTranscriptionResult(
+                    expectedLatestTranscriptionId: snapshot.transcriptionId,
+                    expectedLatestTranscriptionSha256: snapshot.sha256,
+                    text: "",
+                    language: selection.language,
+                    model: "apple-speech-analyzer"
+                ),
+                review: OnDeviceReviewLogic.noSpeechReview(durationMs: claim.message.audio.durationMs),
+                text: nil,
+                language: nil
+            )
+        }
+    }
+
+    private func processTranslation(
+        _ claim: MessageProcessingClaim,
+        text: String?,
+        language: String?
+    ) async throws -> MessageProcessingTranslationResult {
+        guard let text, !text.isEmpty else {
+            throw OnDeviceServiceError.badRequest("The claimed message has no transcript to translate.")
+        }
+        stage = .translating
+        let translation = try await translator.translate(text, sourceLanguage: language)
+        guard !translation.translatedText.isEmpty else {
+            throw OnDeviceServiceError.badRequest("On-device translation produced no text.")
+        }
+        return MessageProcessingTranslationResult(
+            transcriptionId: claim.message.latestTranscription?.id,
+            expectedTranslationSha256: ReviewTextSnapshot.sha256(
+                claim.message.latestTranscription?.translationSnapshotText
+            ),
+            translatedText: translation.translatedText,
+            translatedLanguage: translation.targetLanguage,
+            model: translation.model
+        )
+    }
+
+    private func processModeration(
+        _ claim: MessageProcessingClaim,
+        translatedText: String?,
+        text: String?
+    ) async throws -> MessageProcessingModerationResult {
+        let input = translatedText
+            ?? claim.message.latestTranscription?.completedTranslation
+            ?? text
+        guard let input, !input.isEmpty else {
+            throw OnDeviceServiceError.badRequest("The claimed message has no text to review.")
+        }
+        stage = .moderating
+        let moderation = try await moderator.moderate(input)
+        return MessageProcessingModerationResult(
+            inputSha256: ReviewTextSnapshot.sha256(input),
+            flagged: moderation.flagged,
+            recommendation: moderation.recommendation,
+            maxScore: moderation.maxScore,
+            model: moderation.model
+        )
+    }
+
+    private static func validatedProcessingNeeds(
+        _ requestedSteps: [MessageProcessingStep]
+    ) throws -> Set<MessageProcessingStep> {
+        let needs = Set(requestedSteps)
+        guard !needs.isEmpty, !needs.contains(where: { step in
+            if case .unknown = step { return true }
+            return false
+        }) else {
+            throw OnDeviceServiceError.badRequest("The server requested an unsupported processing step.")
+        }
+        return needs
+    }
+
+    private static func claimSourceLanguageSelection(
+        _ sourceLanguage: String?
+    ) throws -> (language: String?, locale: Locale) {
+        do {
+            return try sourceLanguageSelection(sourceLanguage)
+        } catch {
+            throw OnDeviceServiceError.unavailable(
+                "The installation's transcription language is not supported on this device."
+            )
+        }
+    }
+
+    private static func deviceLanguageTag() -> String {
+        Locale.current.language.languageCode?.identifier ?? "en"
+    }
+}
+#endif

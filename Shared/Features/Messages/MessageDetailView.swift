@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  MessageDetailView.swift
 //  TelephoneBoothOperatorMobile
@@ -9,6 +10,7 @@
 #if !os(watchOS) && !os(tvOS)
 import SwiftUI
 public struct MessageDetailView: View {
+    @Environment(\.dismiss) private var dismiss
     public let messageId: String
     @State private var message: Message?
     @State private var transcriptions: [Transcription] = []
@@ -30,16 +32,21 @@ public struct MessageDetailView: View {
     @State private var translationCorrectionSHA256: String?
     @State private var savingCorrection = false
     @State private var usesDemoData = false
+    @State private var deleting = false
+    @State private var showDeleteConfirmation = false
     private let client: OperatorClient
     private let onMessageUpdate: (Message) -> Void
+    private let onMessageDelete: (String) -> Void
     public init(
         messageId: String,
         client: OperatorClient = .shared,
-        onMessageUpdate: @escaping (Message) -> Void = { _ in }
+        onMessageUpdate: @escaping (Message) -> Void = { _ in },
+        onMessageDelete: @escaping (String) -> Void = { _ in }
     ) {
         self.messageId = messageId
         self.client = client
         self.onMessageUpdate = onMessageUpdate
+        self.onMessageDelete = onMessageDelete
     }
     public var body: some View {
         ScrollView {
@@ -89,6 +96,18 @@ public struct MessageDetailView: View {
         }
         .refreshableIfAvailable {
             await load()
+        }
+        .confirmationDialog(
+            "Permanently delete this recording?",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete recording", role: .destructive) {
+                Task { await deleteMessage() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This cannot be undone. Reject keeps the recording; delete removes it permanently.")
         }
     }
     private func appleIntelligenceCard(_ message: Message) -> some View {
@@ -306,6 +325,21 @@ private extension MessageDetailView {
                         .foregroundStyle(Theme.Colors.textSecondary)
                 }
             }
+            if message.recommendsPermanentDelete {
+                Label(
+                    "Silence was classified as a likely hangup. Delete is recommended.",
+                    systemImage: "trash.fill"
+                )
+                .font(Theme.Fonts.bodySmall.weight(.semibold))
+                .foregroundStyle(Theme.Colors.error)
+            } else if message.reviewClassification == .unclear {
+                Label(
+                    "Silence needs human review before it is removed.",
+                    systemImage: "questionmark.circle"
+                )
+                .font(Theme.Fonts.bodySmall)
+                .foregroundStyle(Theme.Colors.warning)
+            }
             switch message.status {
             case .uploading, .received:
                 Text("A decision can be made once transcription and moderation have run.")
@@ -329,6 +363,22 @@ private extension MessageDetailView {
                 }
             case .unknown:
                 EmptyView()
+            }
+            Button {
+                showDeleteConfirmation = true
+            } label: {
+                Label(
+                    message.recommendsPermanentDelete ? "Delete recommended recording" : "Delete recording",
+                    systemImage: "trash.fill"
+                )
+                .font(Theme.Fonts.bodySmall.weight(.semibold))
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Theme.Colors.error)
+            .disabled(deciding || deleting)
+            if deleting {
+                ProgressView()
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -434,6 +484,21 @@ private extension MessageDetailView {
         } catch {
             let verb = decision == .approve ? "approve" : "reject"
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't \(verb) this message."
+        }
+    }
+    func deleteMessage() async {
+        guard !deleting else { return }
+        deleting = true
+        errorMessage = nil
+        defer { deleting = false }
+        do {
+            try await client.deleteMessage(id: messageId)
+            onMessageDelete(messageId)
+            await PendingMessagesStore.shared.refresh(using: client)
+            dismiss()
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription
+                ?? "Couldn't delete this recording."
         }
     }
     func saveTranscriptCorrection(_ current: Message) async {

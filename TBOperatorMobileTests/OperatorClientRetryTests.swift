@@ -129,6 +129,37 @@ final class OperatorClientRetryTests: XCTestCase {
         XCTAssertEqual(UnreachableURLProtocol.requestCount, 0,
                        "A signed-out status fetch must not reach the network")
     }
+
+    @MainActor
+    func testClaimMessageProcessingUsesLeaseEndpointAndContractBody() async throws {
+        let auth = AuthManager.shared
+        XCTAssertTrue(auth.storeTokens(
+            OIDCTokens(
+                accessToken: "claim-access-\(UUID().uuidString)",
+                refreshToken: "claim-refresh-\(UUID().uuidString)",
+                idToken: nil,
+                expiresIn: 3600,
+                tokenType: "Bearer"
+            )
+        ))
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [ClaimRequestURLProtocol.self]
+        let client = OperatorClient(
+            config: .shared,
+            auth: auth,
+            session: URLSession(configuration: config)
+        )
+        let claim = try await client.claimMessageProcessing(
+            MessageProcessingClaimRequest(capabilities: [.transcription, .review], leaseSeconds: 300)
+        )
+        XCTAssertEqual(claim?.defaultTranscriptionLanguage, "fr-CA")
+        XCTAssertEqual(ClaimRequestURLProtocol.path, "/v1/message-processing/claim")
+        let body = try XCTUnwrap(ClaimRequestURLProtocol.body)
+        let json = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+        XCTAssertEqual(json?["capabilities"] as? [String], ["transcription", "review"])
+        XCTAssertEqual(json?["leaseSeconds"] as? Int, 300)
+        auth.signOut()
+    }
 }
 
 // MARK: - URL protocol mocks
@@ -246,6 +277,7 @@ private final class FailingRefreshURLProtocol: URLProtocol {
             client?.urlProtocol(self, didFailWithError: URLError(.badURL))
             return
         }
+
         let body: Data
         let status: Int
         if url.path.hasSuffix("/token") {
@@ -255,12 +287,59 @@ private final class FailingRefreshURLProtocol: URLProtocol {
             status = 401
             body = Data("{\"error\":\"token_expired\"}".utf8)
         }
+
         let response = HTTPURLResponse(
             url: url,
             statusCode: status,
             httpVersion: "HTTP/1.1",
             headerFields: ["Content-Type": "application/json"]
         )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+}
+
+private final class ClaimRequestURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var path: String?
+    nonisolated(unsafe) static var body: Data?
+    private static let lock = NSLock()
+
+    override static func canInit(with request: URLRequest) -> Bool { true }
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func stopLoading() {}
+
+    override func startLoading() {
+        Self.lock.lock()
+        Self.path = request.url?.path
+        Self.body = request.httpBody
+        Self.lock.unlock()
+        let response = HTTPURLResponse(
+            url: request.url!,
+            statusCode: 200,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        let body = Data(#"""
+        {
+          "claim": {
+            "message": {
+              "id": "message-1",
+              "status": "pending",
+              "createdAt": "2026-08-14T12:00:00Z",
+              "audio": {
+                "url": "https://example.com/audio.flac",
+                "sha256": "abc",
+                "durationMs": 1200
+              }
+            },
+            "needs": ["transcription"],
+            "leaseToken": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "leaseExpiresAt": "2026-08-14T12:05:00Z",
+            "defaultTranscriptionLanguage": "fr-CA"
+          }
+        }
+        """#.utf8)
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: body)
         client?.urlProtocolDidFinishLoading(self)

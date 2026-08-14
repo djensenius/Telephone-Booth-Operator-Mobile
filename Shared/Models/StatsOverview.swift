@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  StatsOverview.swift
 //  TelephoneBoothOperatorMobile
@@ -133,15 +134,29 @@ public struct StatsOverview: Codable, Sendable, Hashable {
     }
 
     public struct Messages: Codable, Sendable, Hashable {
+        /// Retained for older server versions.
         public let total: Int
+        public let approved: Int?
+        public let allRecordings: Int?
         public let byStatus: [String: Int]
         public let averageDurationMs: Double?
 
-        public init(total: Int, byStatus: [String: Int], averageDurationMs: Double?) {
+        public init(
+            total: Int,
+            approved: Int? = nil,
+            allRecordings: Int? = nil,
+            byStatus: [String: Int],
+            averageDurationMs: Double?
+        ) {
             self.total = total
+            self.approved = approved
+            self.allRecordings = allRecordings
             self.byStatus = byStatus
             self.averageDurationMs = averageDurationMs
         }
+
+        public var approvedCount: Int { approved ?? byStatus["approved"] ?? total }
+        public var allRecordingsCount: Int { allRecordings ?? total }
     }
 
     public struct Playback: Codable, Sendable, Hashable {
@@ -295,6 +310,134 @@ public extension StatsOverview {
 
 public extension StatsOverview.Uploads {
     var total: Int { succeeded + failed }
+}
+
+public enum InstallationScope: Sendable, Hashable {
+    case current
+    case installation(String)
+    case all
+
+    public var queryValue: String? {
+        switch self {
+        case .current: return nil
+        case .installation(let id): return id
+        case .all: return "all"
+        }
+    }
+
+    public var displayName: String {
+        switch self {
+        case .current: return "Current Installation"
+        case .installation: return "Historical Installation"
+        case .all: return "All Installations"
+        }
+    }
+}
+
+public struct InstallationSummary: Codable, Sendable, Hashable {
+    public let calls: Int
+    public let messages: Int
+    public let allRecordings: Int?
+    public let byStatus: [String: Int]?
+    public let messagesApproved: Int?
+    public let messagesRejected: Int?
+    public let questions: Int
+    public let events: Int
+    public let recordedMs: Int
+    public let firstActivityAt: Date?
+    public let lastActivityAt: Date?
+
+    public init(
+        calls: Int,
+        messages: Int,
+        allRecordings: Int? = nil,
+        byStatus: [String: Int]? = nil,
+        messagesApproved: Int? = nil,
+        messagesRejected: Int? = nil,
+        questions: Int,
+        events: Int,
+        recordedMs: Int,
+        firstActivityAt: Date?,
+        lastActivityAt: Date?
+    ) {
+        self.calls = calls
+        self.messages = messages
+        self.allRecordings = allRecordings
+        self.byStatus = byStatus
+        self.messagesApproved = messagesApproved
+        self.messagesRejected = messagesRejected
+        self.questions = questions
+        self.events = events
+        self.recordedMs = recordedMs
+        self.firstActivityAt = firstActivityAt
+        self.lastActivityAt = lastActivityAt
+    }
+}
+
+public struct Installation: Codable, Sendable, Hashable, Identifiable {
+    public let id: String
+    public let name: String
+    public let notes: String?
+    public let location: String?
+    public let defaultTranscriptionLanguage: String?
+    public let startedAt: Date
+    public let endedAt: Date?
+    public let endedById: String?
+    public let summary: InstallationSummary?
+    public let createdAt: Date
+    public let isActive: Bool
+
+    public init(
+        id: String,
+        name: String,
+        notes: String?,
+        location: String?,
+        defaultTranscriptionLanguage: String? = nil,
+        startedAt: Date,
+        endedAt: Date?,
+        endedById: String?,
+        summary: InstallationSummary?,
+        createdAt: Date,
+        isActive: Bool
+    ) {
+        self.id = id
+        self.name = name
+        self.notes = notes
+        self.location = location
+        self.defaultTranscriptionLanguage = defaultTranscriptionLanguage
+        self.startedAt = startedAt
+        self.endedAt = endedAt
+        self.endedById = endedById
+        self.summary = summary
+        self.createdAt = createdAt
+        self.isActive = isActive
+    }
+}
+
+public struct InstallationList: Codable, Sendable, Hashable {
+    public let items: [Installation]
+
+    public init(items: [Installation]) {
+        self.items = items
+    }
+}
+
+public struct InstallationUpdateRequest: Codable, Sendable, Hashable {
+    public let defaultTranscriptionLanguage: String?
+
+    public init(defaultTranscriptionLanguage: String?) {
+        self.defaultTranscriptionLanguage = defaultTranscriptionLanguage?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case defaultTranscriptionLanguage
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(defaultTranscriptionLanguage, forKey: .defaultTranscriptionLanguage)
+    }
 }
 
 public extension StatsOverview.PickupsHangups {
