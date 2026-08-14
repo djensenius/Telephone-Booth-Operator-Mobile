@@ -59,10 +59,8 @@ public struct MessageListView: View {
     #if os(macOS)
     @State private var hoveredMessageId: String?
     #endif
-
     private let client: OperatorClient
     private let socket: StatusSocket
-
     public init(client: OperatorClient = .shared, socket: StatusSocket? = nil) {
         self.client = client
         self.socket = socket ?? (client.demoMode ? .demo : .shared)
@@ -253,7 +251,6 @@ public struct MessageListView: View {
     private func isPerformingAction(on message: Message) -> Bool {
         decidingMessageIds.contains(message.id) || deletingMessageIds.contains(message.id)
     }
-
     private var filterPicker: some View {
         Picker("Filter", selection: $filter) {
             ForEach(MessageFilter.allCases) { option in
