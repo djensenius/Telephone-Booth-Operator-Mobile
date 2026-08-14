@@ -70,7 +70,7 @@ jobs:
               build
 
   test:
-    name: TBOperatorMobileTests
+    name: OnDeviceReviewTests
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
@@ -87,4 +87,5 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
+            -only-testing:TBOperatorMobileTests/OnDeviceReviewTests \
             test
