@@ -231,6 +231,13 @@ private struct ClaimedProcessingResult {
     }
 }
 
+private struct ClaimedTranscriptionResult {
+    let transcription: MessageProcessingTranscriptionResult
+    let review: MessageProcessingReviewResult?
+    let text: String?
+    let language: String?
+}
+
 @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
 extension OnDeviceMessageProcessor {
     public func process(claim: MessageProcessingClaim) async throws -> MessageProcessingCompleteRequest {
@@ -280,12 +287,7 @@ extension OnDeviceMessageProcessor {
 
     private func processTranscription(
         _ claim: MessageProcessingClaim
-    ) async throws -> (
-        transcription: MessageProcessingTranscriptionResult,
-        review: MessageProcessingReviewResult?,
-        text: String?,
-        language: String?
-    ) {
+    ) async throws -> ClaimedTranscriptionResult {
         let sourceLanguage = claim.defaultTranscriptionLanguage ?? Self.deviceLanguageTag()
         let selection = try Self.claimSourceLanguageSelection(sourceLanguage)
         stage = .checkingAvailability
@@ -310,30 +312,30 @@ extension OnDeviceMessageProcessor {
             guard !text.isEmpty else {
                 throw OnDeviceServiceError.badRequest("The speech service returned an invalid transcript.")
             }
-            return (
-                MessageProcessingTranscriptionResult(
+            return ClaimedTranscriptionResult(
+                transcription: MessageProcessingTranscriptionResult(
                     expectedLatestTranscriptionId: snapshot.transcriptionId,
                     expectedLatestTranscriptionSha256: snapshot.sha256,
                     text: text,
                     language: selection.language,
                     model: "apple-speech-analyzer"
                 ),
-                nil,
-                text,
-                selection.language
+                review: nil,
+                text: text,
+                language: selection.language
             )
         case .noSpeech:
-            return (
-                MessageProcessingTranscriptionResult(
+            return ClaimedTranscriptionResult(
+                transcription: MessageProcessingTranscriptionResult(
                     expectedLatestTranscriptionId: snapshot.transcriptionId,
                     expectedLatestTranscriptionSha256: snapshot.sha256,
                     text: "",
                     language: selection.language,
                     model: "apple-speech-analyzer"
                 ),
-                OnDeviceReviewLogic.noSpeechReview(durationMs: claim.message.audio.durationMs),
-                nil,
-                nil
+                review: OnDeviceReviewLogic.noSpeechReview(durationMs: claim.message.audio.durationMs),
+                text: nil,
+                language: nil
             )
         }
     }
