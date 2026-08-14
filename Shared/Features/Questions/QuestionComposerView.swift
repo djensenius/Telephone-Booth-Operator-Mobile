@@ -81,6 +81,9 @@ struct QuestionComposerView: View {
                 handleImport(result)
             }
         }
+        #if os(macOS)
+        .frame(minWidth: 520, minHeight: 500)
+        #endif
         .interactiveDismissDisabled(isSubmitting)
     }
 
@@ -88,10 +91,43 @@ struct QuestionComposerView: View {
 
     private var promptSection: some View {
         Section("Prompt") {
-            TextField("What should the booth ask?", text: $prompt, axis: .vertical)
-                .lineLimit(2...5)
-                .textInputAutocapitalizationCompat()
+            promptEditor
         }
+    }
+
+    @ViewBuilder
+    private var promptEditor: some View {
+        #if os(macOS)
+        ZStack(alignment: .topLeading) {
+            if prompt.isEmpty {
+                Text("What should the booth ask?")
+                    .font(Theme.Fonts.bodyMedium)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .padding(.horizontal, Theme.Spacing.medium)
+                    .padding(.vertical, 12)
+                    .allowsHitTesting(false)
+            }
+            TextEditor(text: $prompt)
+                .font(Theme.Fonts.bodyMedium)
+                .foregroundStyle(Theme.Colors.textPrimary)
+                .textEditorStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .padding(Theme.Spacing.small)
+        }
+        .frame(minHeight: 110, maxHeight: 180)
+        .background(
+            Theme.Colors.elevatedBackground.opacity(0.72),
+            in: RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+                .stroke(Theme.Colors.textSecondary.opacity(0.22), lineWidth: 1)
+        }
+        #else
+        TextField("What should the booth ask?", text: $prompt, axis: .vertical)
+            .lineLimit(2...5)
+            .textInputAutocapitalizationCompat()
+        #endif
     }
 
     @ViewBuilder
