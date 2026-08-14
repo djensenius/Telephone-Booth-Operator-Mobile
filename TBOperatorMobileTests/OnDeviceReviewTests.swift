@@ -63,6 +63,50 @@ private struct StubModerator: TextModerating {
         )
     }
 }
+private actor ProcessingOrderRecorder {
+    enum Call: Equatable, Sendable {
+        case translation(String)
+        case moderation(String)
+    }
+
+    private var calls: [Call] = []
+
+    func record(_ call: Call) {
+        calls.append(call)
+    }
+
+    func recordedCalls() -> [Call] {
+        calls
+    }
+}
+private struct RecordingTranslator: TextTranslating {
+    let recorder: ProcessingOrderRecorder
+
+    func translate(_ input: String, sourceLanguage: String?) async throws -> TranslationResult {
+        await recorder.record(.translation(input))
+        return TranslationResult(
+            translatedText: "Translated: \(input)",
+            sourceLanguage: sourceLanguage,
+            targetLanguage: "en",
+            model: "apple-foundation-models"
+        )
+    }
+}
+private struct RecordingModerator: TextModerating {
+    let recorder: ProcessingOrderRecorder
+    let reasonSummary: String
+
+    func moderate(_ input: String) async throws -> ModerationVerdict {
+        await recorder.record(.moderation(input))
+        return ModerationVerdict(
+            flagged: false,
+            recommendation: .approve,
+            maxScore: 0.1,
+            model: "apple-foundation-models",
+            reasonSummary: reasonSummary
+        )
+    }
+}
 private enum StubFailure: Error {
     case requested
 }
@@ -175,7 +219,7 @@ private actor StubReviewClient: MessageReviewPersisting {
             recommendation: ModerationRecommendation(rawValue: body.recommendation),
             maxScore: body.maxScore,
             categories: nil,
-            reasonSummary: nil,
+            reasonSummary: body.reasonSummary,
             latencyMs: nil,
             error: nil,
             requestedById: DemoData.operatorProfile.id,
@@ -251,7 +295,7 @@ private actor StubClaimedProcessingClient: MessageProcessingPersisting {
         request: MessageProcessingFailRequest
     ) async throws -> MessageProcessingFailResponse {
         failedCount += 1
-        MessageProcessingFailResponse(succeeded: true, terminal: false)
+        return MessageProcessingFailResponse(succeeded: true, terminal: false)
     }
 
     func completeMessageProcessing(
@@ -324,6 +368,14 @@ final class OnDeviceReviewTests: XCTestCase {
             model: "test-model"
         )
         XCTAssertEqual(invalid.maxScore, 0)
+    }
+    func testInconclusiveModerationIsUnflaggedReview() {
+        let verdict = OnDeviceReviewLogic.inconclusiveModeration(model: "test-model")
+        XCTAssertFalse(verdict.flagged)
+        XCTAssertEqual(verdict.recommendation, .review)
+        XCTAssertEqual(verdict.maxScore, 0)
+        XCTAssertEqual(verdict.model, "test-model")
+        XCTAssertNotNil(verdict.reasonSummary)
     }
     func testNoSpeechAtThreeSecondsIsLikelyHangup() {
         let result = OnDeviceReviewLogic.noSpeechReview(durationMs: 3_000)
@@ -672,6 +724,58 @@ extension OnDeviceReviewTests {
     }
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testClaimedModerationGeneratesTranslationFirstWhenMissing() async throws {
+        let message = DemoData.message(id: "demo-message-3")
+        let sourceText = try XCTUnwrap(message.latestTranscription?.text)
+        let claim = MessageProcessingClaim(
+            message: message,
+            needs: [.moderation],
+            leaseToken: String(repeating: "a", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: nil
+        )
+        let recorder = ProcessingOrderRecorder()
+        let reason = "Generated after translation."
+        let processor = makeProcessor(
+            translator: RecordingTranslator(recorder: recorder),
+            moderator: RecordingModerator(recorder: recorder, reasonSummary: reason)
+        )
+
+        let result = try await processor.process(claim: claim)
+        let translatedText = "Translated: \(sourceText)"
+        let calls = await recorder.recordedCalls()
+
+        XCTAssertEqual(
+            calls,
+            [.translation(sourceText), .moderation(translatedText)]
+        )
+        XCTAssertEqual(result.translation?.translatedText, translatedText)
+        XCTAssertEqual(result.moderation?.reasonSummary, reason)
+        XCTAssertEqual(
+            result.moderation?.inputSha256,
+            ReviewTextSnapshot.sha256(translatedText)
+        )
+    }
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testManualProcessorPersistsModerationReason() async throws {
+        let message = DemoData.message(id: "demo-message-3")
+        let client = StubReviewClient(message: message)
+        let recorder = ProcessingOrderRecorder()
+        let reason = "Generated after translation."
+        let processor = makeProcessor(
+            translator: RecordingTranslator(recorder: recorder),
+            moderator: RecordingModerator(recorder: recorder, reasonSummary: reason)
+        )
+
+        await processor.refreshAvailability()
+        await processor.process(message: message, sourceLanguage: "en", client: client)
+        let saved = try await client.fetchMessage(id: message.id)
+
+        XCTAssertEqual(saved.latestApplicableModeration?.reasonSummary, reason)
+    }
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
     func testCoordinatorProcessesClaimsSerially() async throws {
         let message = DemoData.message(id: "demo-message-3")
         let first = MessageProcessingClaim(
@@ -698,7 +802,8 @@ extension OnDeviceReviewTests {
         coordinator.setActive(true)
         try await Task.sleep(for: .milliseconds(150))
         coordinator.setActive(false)
-        XCTAssertEqual(await client.completedCount(), 2)
+        let completedCount = await client.completedCount()
+        XCTAssertEqual(completedCount, 2)
     }
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
@@ -751,8 +856,10 @@ extension OnDeviceReviewTests {
         try await Task.sleep(for: .milliseconds(100))
 
         XCTAssertFalse(coordinator.canRetry)
-        XCTAssertEqual(await client.releaseCount(), 1)
-        XCTAssertEqual(await client.failureCount(), 0)
+        let releaseCount = await client.releaseCount()
+        let failureCount = await client.failureCount()
+        XCTAssertEqual(releaseCount, 1)
+        XCTAssertEqual(failureCount, 0)
         coordinator.setActive(false)
     }
 
@@ -778,8 +885,10 @@ extension OnDeviceReviewTests {
         try await Task.sleep(for: .milliseconds(100))
 
         XCTAssertEqual(coordinator.status, .paused)
-        XCTAssertEqual(await client.releaseCount(), 1)
-        XCTAssertEqual(await client.failureCount(), 0)
+        let releaseCount = await client.releaseCount()
+        let failureCount = await client.failureCount()
+        XCTAssertEqual(releaseCount, 1)
+        XCTAssertEqual(failureCount, 0)
     }
 
     @MainActor
@@ -809,8 +918,10 @@ extension OnDeviceReviewTests {
         try await Task.sleep(for: .milliseconds(100))
 
         XCTAssertEqual(coordinator.status, .paused)
-        XCTAssertEqual(await client.releaseCount(), 1)
-        XCTAssertEqual(await client.failureCount(), 0)
+        let releaseCount = await client.releaseCount()
+        let failureCount = await client.failureCount()
+        XCTAssertEqual(releaseCount, 1)
+        XCTAssertEqual(failureCount, 0)
     }
 
     @MainActor
@@ -818,13 +929,15 @@ extension OnDeviceReviewTests {
     private func makeProcessor(
         audioFetcher: any AudioFetching = StubAudioFetcher(),
         transcriber: any AudioTranscribing = StubTranscriber { .speech("bonjour") },
+        translator: any TextTranslating = StubTranslator(),
+        moderator: any TextModerating = StubModerator(),
         availabilityCheck: @escaping @Sendable (Locale) async -> Bool = { _ in true }
     ) -> OnDeviceMessageProcessor {
         OnDeviceMessageProcessor(
             audioFetcher: audioFetcher,
             transcriber: transcriber,
-            translator: StubTranslator(),
-            moderator: StubModerator(),
+            translator: translator,
+            moderator: moderator,
             availabilityCheck: availabilityCheck
         )
     }

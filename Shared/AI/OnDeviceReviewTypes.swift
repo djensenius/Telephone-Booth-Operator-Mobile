@@ -33,6 +33,21 @@ public struct ModerationVerdict: Sendable, Equatable {
     public let recommendation: ModerationRecommendation
     public let maxScore: Double
     public let model: String
+    public let reasonSummary: String?
+
+    public init(
+        flagged: Bool,
+        recommendation: ModerationRecommendation,
+        maxScore: Double,
+        model: String,
+        reasonSummary: String? = nil
+    ) {
+        self.flagged = flagged
+        self.recommendation = recommendation
+        self.maxScore = maxScore
+        self.model = model
+        self.reasonSummary = reasonSummary
+    }
 }
 
 public protocol TextModerating: Sendable {
@@ -174,6 +189,19 @@ public enum OnDeviceReviewLogic {
         )
     }
 
+    /// A verdict for text the on-device model would not classify. The message is
+    /// neither flagged nor scored, because nothing was actually judged — it is
+    /// only routed to a person.
+    public static func inconclusiveModeration(model: String) -> ModerationVerdict {
+        ModerationVerdict(
+            flagged: false,
+            recommendation: .review,
+            maxScore: 0,
+            model: model,
+            reasonSummary: "The on-device model would not classify this message, so it needs a human review."
+        )
+    }
+
     private static func normalizedSource(_ value: String?) -> String? {
         PromptSafety.normalizedLanguageTag(value)?.lowercased()
     }
@@ -257,7 +285,13 @@ extension OnDeviceMessageProcessor {
         if needs.contains(.review) {
             result.review = OnDeviceReviewLogic.noSpeechReview(durationMs: claim.message.audio.durationMs)
         }
-        if needs.contains(.translation) {
+        let hasCurrentTranslation = !needs.contains(.transcription)
+            && claim.message.latestTranscription?.completedTranslation != nil
+        // English moderation claims can omit `.translation`, while the manual
+        // path always translates before reviewing. Keep both paths on the same
+        // Foundation Models sequence when no current translation exists.
+        if needs.contains(.translation)
+            || needs.contains(.moderation) && !hasCurrentTranslation {
             result.translation = try await processTranslation(
                 claim,
                 text: result.text,
@@ -382,6 +416,7 @@ extension OnDeviceMessageProcessor {
             flagged: moderation.flagged,
             recommendation: moderation.recommendation,
             maxScore: moderation.maxScore,
+            reasonSummary: moderation.reasonSummary,
             model: moderation.model
         )
     }

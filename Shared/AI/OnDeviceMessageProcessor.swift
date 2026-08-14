@@ -322,6 +322,7 @@ extension OnDeviceMessageProcessor {
                 flagged: pending.moderation.flagged,
                 recommendation: pending.moderation.recommendation,
                 maxScore: pending.moderation.maxScore,
+                reasonSummary: pending.moderation.reasonSummary,
                 model: pending.moderation.model
             )
             _ = try await client.submitModeration(
@@ -523,6 +524,10 @@ public final class AutomaticMessageProcessingCoordinator {
     public var canRetry: Bool {
         if case .failed = status { return true }
         return false
+    }
+
+    public var shouldPresentStatus: Bool {
+        isProcessing || canRetry || summary?.queued ?? 0 > 0
     }
 
     @ObservationIgnored private let client: any MessageProcessingPersisting
