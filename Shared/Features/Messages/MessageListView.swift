@@ -460,9 +460,9 @@ private extension Message {
     }
 
     var isAwaitingTranscript: Bool {
-        status == .uploading || status == .received || latestTranscription?.status == .pending
+        if let transcription = latestTranscription { return transcription.status == .pending }
+        return status == .uploading || status == .received
     }
-
     func matchesSearch(_ searchText: String) -> Bool {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return true }
