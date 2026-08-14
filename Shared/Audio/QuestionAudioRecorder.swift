@@ -2,10 +2,8 @@
 //  QuestionAudioRecorder.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Records a question prompt from the device microphone to a temporary
-//  PCM file. The recording is later transcoded to FLAC by
-//  `QuestionAudioEncoder` so the record and import paths share one
-//  upload pipeline.
+//  Records operator-managed audio from the device microphone to a temporary
+//  PCM file. Questions and instructions share the same FLAC upload pipeline.
 //
 
 #if !os(watchOS) && !os(tvOS)
@@ -16,7 +14,7 @@ import Observation
 
 @MainActor
 @Observable
-public final class QuestionAudioRecorder: NSObject, AVAudioRecorderDelegate {
+public final class OperatorAudioRecorder: NSObject, AVAudioRecorderDelegate {
     public enum RecorderState: Equatable {
         case idle
         case recording
@@ -40,7 +38,7 @@ public final class QuestionAudioRecorder: NSObject, AVAudioRecorderDelegate {
     @discardableResult
     public func start() async -> Bool {
         guard await requestPermission() else {
-            state = .failed("Microphone access is required to record a question.")
+            state = .failed("Microphone access is required to record booth audio.")
             return false
         }
 
@@ -56,7 +54,7 @@ public final class QuestionAudioRecorder: NSObject, AVAudioRecorderDelegate {
         #endif
 
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("question-rec-\(UUID().uuidString).caf")
+            .appendingPathComponent("operator-audio-\(UUID().uuidString).caf")
         let settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatLinearPCM,
             AVSampleRateKey: 44_100.0,

@@ -2,8 +2,8 @@
 //  Upload.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Wire types for the two-step audio upload flow shared by messages and
-//  questions: request a short-lived Azure blob SAS slot, PUT the FLAC
+//  Wire types for the two-step audio upload flow shared by messages,
+//  questions, and instructions: request a short-lived Azure blob SAS slot, PUT the FLAC
 //  bytes to it, then reference the returned `audioFileId` when creating
 //  the owning record.
 //
@@ -25,8 +25,8 @@ public struct UploadSasRequest: Codable, Sendable, Equatable {
     }
 }
 
-/// `POST /v1/uploads/sas` response. `audioFileId` is only present for
-/// `question-audio` uploads (the server pre-creates the `File` row).
+/// `POST /v1/uploads/sas` response. `audioFileId` is present for prompt
+/// audio uploads where the server pre-creates the `File` row.
 public struct UploadSlot: Codable, Sendable, Equatable {
     public let uploadUrl: URL
     public let blobName: String
