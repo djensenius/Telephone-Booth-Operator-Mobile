@@ -489,6 +489,11 @@ extension OperatorClient: MessageProcessingPersisting {}
 @Observable
 @MainActor
 public final class AutomaticMessageProcessingCoordinator {
+    private enum ProcessingErrorAction {
+        case continueRunning
+        case stop
+    }
+
     public enum Status: Equatable {
         case idle
         case processing(String)
@@ -668,49 +673,56 @@ public final class AutomaticMessageProcessingCoordinator {
             } catch is CancellationError {
                 return
             } catch {
-                guard !Task.isCancelled, shouldRun else { return }
-                let leased = claim
-                finishLease()
-                if isLeaseRefresh(error) {
-                    if let leased {
-                        await release(leased, reportingFailure: false)
-                    }
-                    status = .idle
+                switch await handleProcessingError(error) {
+                case .continueRunning:
                     continue
-                }
-                if isUnsupportedCapability(error) {
-                    shouldRun = false
-                    status = .paused
-                    if let leased {
-                        await release(leased, reportingFailure: false)
-                    }
+                case .stop:
                     return
                 }
-                if let leased {
-                    do {
-                        let result = try await client.failMessageProcessing(
-                            messageId: leased.message.id,
-                            request: MessageProcessingFailRequest(
-                                leaseToken: leased.leaseToken,
-                                errorCode: failureCode(for: error),
-                                errorMessage: error.localizedDescription
-                            )
-                        )
-                        await refreshSummary()
-                        status = .failed(
-                            result.terminal
-                                ? "Processing stopped after repeated failures."
-                                : error.localizedDescription
-                        )
-                    } catch {
-                        status = isLeaseRefresh(error) ? .idle : .failed(error.localizedDescription)
-                    }
-                } else {
-                    status = .failed(error.localizedDescription)
-                }
-                return
             }
         }
+    }
+
+    private func handleProcessingError(_ error: any Error) async -> ProcessingErrorAction {
+        guard !Task.isCancelled, shouldRun else { return .stop }
+        let leased = claim
+        finishLease()
+        if isLeaseRefresh(error) {
+            if let leased {
+                await release(leased, reportingFailure: false)
+            }
+            status = .idle
+            return .continueRunning
+        }
+        if isUnsupportedCapability(error) {
+            shouldRun = false
+            status = .paused
+            if let leased {
+                await release(leased, reportingFailure: false)
+            }
+            return .stop
+        }
+        guard let leased else {
+            status = .failed(error.localizedDescription)
+            return .stop
+        }
+        do {
+            let result = try await client.failMessageProcessing(
+                messageId: leased.message.id,
+                request: MessageProcessingFailRequest(
+                    leaseToken: leased.leaseToken,
+                    errorCode: failureCode(for: error),
+                    errorMessage: error.localizedDescription
+                )
+            )
+            await refreshSummary()
+            status = result.terminal
+                ? .failed("Processing stopped after repeated failures.")
+                : .failed(error.localizedDescription)
+        } catch {
+            status = isLeaseRefresh(error) ? .idle : .failed(error.localizedDescription)
+        }
+        return .stop
     }
 
     private func startHeartbeat(for leased: MessageProcessingClaim) {

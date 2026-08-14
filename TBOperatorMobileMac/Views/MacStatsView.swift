@@ -1,4 +1,4 @@
-// swiftlint:disable file_length type_body_length
+// swiftlint:disable file_length
 //
 //  MacStatsView.swift
 //  TBOperatorMobileMac
@@ -86,7 +86,9 @@ struct MacStatsView: View {
             customRangeSheet
         }
     }
+}
 
+extension MacStatsView {
     // Drive the segmented picker from `selection` so a preset stays de-selected
     // while a custom range/filter is active — otherwise the picker would remain
     // stuck on its last preset and re-tapping it would fire no change.
@@ -259,7 +261,9 @@ struct MacStatsView: View {
             errorMessage = "Couldn't delete filter: \(error.localizedDescription)"
         }
     }
+}
 
+extension MacStatsView {
     // MARK: - Summary metrics
 
     private func summaryGrid(_ overview: StatsOverview) -> some View {

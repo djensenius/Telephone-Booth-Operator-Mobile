@@ -1,4 +1,4 @@
-// swiftlint:disable file_length type_body_length
+// swiftlint:disable file_length
 //
 //  OnDeviceReviewTests.swift
 //  TBOperatorMobileTests
@@ -532,7 +532,9 @@ final class OnDeviceReviewTests: XCTestCase {
         )
         XCTAssertNil(pendingMessage.latestApplicableModeration)
     }
+}
 
+extension OnDeviceReviewTests {
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
     func testProcessorResumesAllStagesAfterLostTranscriptResponse() async {

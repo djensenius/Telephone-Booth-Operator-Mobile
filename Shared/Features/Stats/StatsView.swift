@@ -512,7 +512,6 @@ private struct StatsInstallationScopePicker: View {
                                 : .installation(installation.id)
                         }
                     }
-                    #endif
                 }
                 Divider()
                 Button("All Installations") { scope = .all }
@@ -540,6 +539,7 @@ private struct StatsInstallationScopePicker: View {
         }
     }
 }
+#endif
 
 #Preview {
     StatsView(client: .demo)
