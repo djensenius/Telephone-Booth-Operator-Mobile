@@ -117,4 +117,17 @@ final class PendingMessagesTests: XCTestCase {
         XCTAssertFalse(pending.items.contains { $0.id == "demo-message-3" })
         XCTAssertTrue(rejected.items.contains { $0.id == "demo-message-3" })
     }
+
+    func testDemoDeleteRemovesMessageInsteadOfRejectingIt() async throws {
+        let client = OperatorClient(config: .shared, auth: .shared, demoMode: true)
+        try await client.deleteMessage(id: "demo-message-3")
+        let all = try await client.fetchMessages()
+        XCTAssertFalse(all.items.contains { $0.id == "demo-message-3" })
+        do {
+            _ = try await client.fetchMessage(id: "demo-message-3")
+            XCTFail("Deleted messages must not be fetchable")
+        } catch let OperatorError.httpError(status, _) {
+            XCTAssertEqual(status, 404)
+        }
+    }
 }

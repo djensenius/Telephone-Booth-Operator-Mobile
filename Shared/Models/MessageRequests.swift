@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  MessageRequests.swift
 //  TelephoneBoothOperatorMobile
@@ -227,4 +228,331 @@ public struct MessageModerationRequest: Codable, Sendable, Equatable {
         }
         return value
     }
+}
+
+public enum MessageProcessingStep: Codable, Sendable, Hashable {
+    case transcription
+    case translation
+    case moderation
+    case review
+    case unknown(String)
+
+    public var rawValue: String {
+        switch self {
+        case .transcription: return "transcription"
+        case .translation: return "translation"
+        case .moderation: return "moderation"
+        case .review: return "review"
+        case .unknown(let value): return value
+        }
+    }
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "transcription": self = .transcription
+        case "translation": self = .translation
+        case "moderation": self = .moderation
+        case "review": self = .review
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        try self.init(rawValue: decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+
+    public var displayName: String {
+        switch self {
+        case .transcription: return "Transcribing"
+        case .translation: return "Translating"
+        case .moderation: return "Reviewing"
+        case .review: return "Classifying silence"
+        case .unknown(let value): return value
+        }
+    }
+}
+
+public struct MessageProcessingClaimRequest: Codable, Sendable, Equatable {
+    public let capabilities: [MessageProcessingStep]
+    public let leaseSeconds: Int
+
+    public init(
+        capabilities: [MessageProcessingStep] = [.transcription, .translation, .moderation, .review],
+        leaseSeconds: Int = 300
+    ) {
+        self.capabilities = capabilities
+        self.leaseSeconds = min(max(leaseSeconds, 30), 900)
+    }
+}
+
+public struct MessageProcessingClaim: Codable, Sendable, Equatable {
+    public let message: Message
+    public let needs: [MessageProcessingStep]
+    public let leaseToken: String
+    public let leaseExpiresAt: Date
+    public let defaultTranscriptionLanguage: String?
+
+    public init(
+        message: Message,
+        needs: [MessageProcessingStep],
+        leaseToken: String,
+        leaseExpiresAt: Date,
+        defaultTranscriptionLanguage: String?
+    ) {
+        self.message = message
+        self.needs = needs
+        self.leaseToken = leaseToken
+        self.leaseExpiresAt = leaseExpiresAt
+        self.defaultTranscriptionLanguage = defaultTranscriptionLanguage
+    }
+}
+
+public struct MessageProcessingClaimResponse: Codable, Sendable, Equatable {
+    public let claim: MessageProcessingClaim?
+
+    public init(claim: MessageProcessingClaim?) {
+        self.claim = claim
+    }
+}
+
+public struct MessageProcessingSummary: Codable, Sendable, Equatable {
+    public struct Needs: Codable, Sendable, Equatable {
+        public let transcription: Int
+        public let translation: Int
+        public let moderation: Int
+        public let review: Int
+
+        public init(transcription: Int, translation: Int, moderation: Int, review: Int) {
+            self.transcription = transcription
+            self.translation = translation
+            self.moderation = moderation
+            self.review = review
+        }
+
+        public var total: Int {
+            transcription + translation + moderation + review
+        }
+    }
+
+    public let queued: Int
+    public let leased: Int
+    public let terminal: Int
+    public let needs: Needs
+    public let generatedAt: Date
+
+    public init(queued: Int, leased: Int, terminal: Int, needs: Needs, generatedAt: Date) {
+        self.queued = queued
+        self.leased = leased
+        self.terminal = terminal
+        self.needs = needs
+        self.generatedAt = generatedAt
+    }
+}
+
+public struct MessageProcessingTranscriptionResult: Codable, Sendable, Equatable {
+    public let expectedLatestTranscriptionId: String?
+    public let expectedLatestTranscriptionSha256: String?
+    public let text: String
+    public let language: String?
+    public let model: String?
+
+    public init(
+        expectedLatestTranscriptionId: String?,
+        expectedLatestTranscriptionSha256: String?,
+        text: String,
+        language: String?,
+        model: String?
+    ) {
+        self.expectedLatestTranscriptionId = expectedLatestTranscriptionId
+        self.expectedLatestTranscriptionSha256 = expectedLatestTranscriptionSha256
+        self.text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.language = language?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.model = model?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case expectedLatestTranscriptionId
+        case expectedLatestTranscriptionSha256
+        case text
+        case language
+        case model
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if let expectedLatestTranscriptionId {
+            try container.encode(expectedLatestTranscriptionId, forKey: .expectedLatestTranscriptionId)
+        } else {
+            try container.encodeNil(forKey: .expectedLatestTranscriptionId)
+        }
+        if let expectedLatestTranscriptionSha256 {
+            try container.encode(expectedLatestTranscriptionSha256, forKey: .expectedLatestTranscriptionSha256)
+        } else {
+            try container.encodeNil(forKey: .expectedLatestTranscriptionSha256)
+        }
+        try container.encode(text, forKey: .text)
+        try container.encodeIfPresent(language, forKey: .language)
+        try container.encodeIfPresent(model, forKey: .model)
+    }
+}
+
+public struct MessageProcessingTranslationResult: Codable, Sendable, Equatable {
+    public let transcriptionId: String?
+    public let expectedTranslationSha256: String?
+    public let translatedText: String
+    public let translatedLanguage: String?
+    public let model: String?
+
+    public init(
+        transcriptionId: String?,
+        expectedTranslationSha256: String?,
+        translatedText: String,
+        translatedLanguage: String?,
+        model: String?
+    ) {
+        self.transcriptionId = transcriptionId
+        self.expectedTranslationSha256 = expectedTranslationSha256
+        self.translatedText = translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.translatedLanguage = translatedLanguage?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.model = model?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case transcriptionId
+        case expectedTranslationSha256
+        case translatedText
+        case translatedLanguage
+        case model
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(transcriptionId, forKey: .transcriptionId)
+        if let expectedTranslationSha256 {
+            try container.encode(expectedTranslationSha256, forKey: .expectedTranslationSha256)
+        } else {
+            try container.encodeNil(forKey: .expectedTranslationSha256)
+        }
+        try container.encode(translatedText, forKey: .translatedText)
+        try container.encodeIfPresent(translatedLanguage, forKey: .translatedLanguage)
+        try container.encodeIfPresent(model, forKey: .model)
+    }
+}
+
+public struct MessageProcessingModerationResult: Codable, Sendable, Equatable {
+    public let inputSha256: String?
+    public let flagged: Bool
+    public let recommendation: ModerationRecommendation
+    public let maxScore: Double
+    public let categories: [String: Double]?
+    public let reasonSummary: String?
+    public let model: String?
+
+    public init(
+        inputSha256: String?,
+        flagged: Bool,
+        recommendation: ModerationRecommendation,
+        maxScore: Double,
+        categories: [String: Double]? = nil,
+        reasonSummary: String? = nil,
+        model: String?
+    ) {
+        self.inputSha256 = inputSha256
+        self.flagged = flagged
+        self.recommendation = recommendation
+        self.maxScore = min(max(maxScore.isFinite ? maxScore : 0, 0), 1)
+        self.categories = categories
+        self.reasonSummary = reasonSummary?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.model = model?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+public struct MessageProcessingReviewResult: Codable, Sendable, Equatable {
+    public let classification: MessageReviewClassification
+    public let recommendation: MessageReviewRecommendation
+
+    public init(
+        classification: MessageReviewClassification,
+        recommendation: MessageReviewRecommendation
+    ) {
+        self.classification = classification
+        self.recommendation = recommendation
+    }
+}
+
+public struct MessageProcessingCompleteRequest: Codable, Sendable, Equatable {
+    public let leaseToken: String
+    public let transcription: MessageProcessingTranscriptionResult?
+    public let translation: MessageProcessingTranslationResult?
+    public let moderation: MessageProcessingModerationResult?
+    public let review: MessageProcessingReviewResult?
+
+    public init(
+        leaseToken: String,
+        transcription: MessageProcessingTranscriptionResult? = nil,
+        translation: MessageProcessingTranslationResult? = nil,
+        moderation: MessageProcessingModerationResult? = nil,
+        review: MessageProcessingReviewResult? = nil
+    ) {
+        self.leaseToken = leaseToken
+        self.transcription = transcription
+        self.translation = translation
+        self.moderation = moderation
+        self.review = review
+    }
+}
+
+public struct MessageProcessingCompleteResponse: Codable, Sendable, Equatable {
+    public let message: Message
+    public let needs: [MessageProcessingStep]
+
+    public init(message: Message, needs: [MessageProcessingStep]) {
+        self.message = message
+        self.needs = needs
+    }
+}
+
+public struct MessageProcessingHeartbeatRequest: Codable, Sendable, Equatable {
+    public let leaseToken: String
+    public let leaseSeconds: Int
+
+    public init(leaseToken: String, leaseSeconds: Int = 300) {
+        self.leaseToken = leaseToken
+        self.leaseSeconds = min(max(leaseSeconds, 30), 900)
+    }
+}
+
+public struct MessageProcessingLeaseTokenRequest: Codable, Sendable, Equatable {
+    public let leaseToken: String
+
+    public init(leaseToken: String) {
+        self.leaseToken = leaseToken
+    }
+}
+
+public struct MessageProcessingFailRequest: Codable, Sendable, Equatable {
+    public let leaseToken: String
+    public let errorCode: String
+    public let errorMessage: String?
+
+    public init(leaseToken: String, errorCode: String, errorMessage: String? = nil) {
+        self.leaseToken = leaseToken
+        self.errorCode = errorCode
+        self.errorMessage = errorMessage?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+public struct MessageProcessingHeartbeatResponse: Codable, Sendable, Equatable {
+    public let ok: Bool
+    public let leaseExpiresAt: Date
+}
+
+public struct MessageProcessingFailResponse: Codable, Sendable, Equatable {
+    public let ok: Bool
+    public let terminal: Bool
 }

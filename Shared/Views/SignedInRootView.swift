@@ -159,6 +159,9 @@ private struct OperatorShell: View {
         .environment(currentUser)
         .task { pending.startPolling(using: client) }
         .task { currentUser.start() }
+        #if !os(tvOS) && canImport(Speech) && canImport(FoundationModels)
+        .automaticMessageProcessing(client: client)
+        #endif
         #if os(tvOS)
         .tvScreensaver(
             enabled: config.tvScreensaverEnabled,
@@ -186,6 +189,98 @@ private struct OperatorShell: View {
         #else
         StatsView(client: client)
         #endif
+    }
+}
+#endif
+
+#if !os(watchOS) && !os(tvOS) && canImport(Speech) && canImport(FoundationModels)
+private extension View {
+    @ViewBuilder
+    func automaticMessageProcessing(client: OperatorClient) -> some View {
+        if #available(macOS 26.0, iOS 26.0, visionOS 26.0, *) {
+            overlay(alignment: .bottom) {
+                AutomaticMessageProcessingLifecycle(client: client)
+            }
+        } else {
+            self
+        }
+    }
+}
+
+@available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+private struct AutomaticMessageProcessingLifecycle: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var coordinator: AutomaticMessageProcessingCoordinator
+
+    init(client: OperatorClient) {
+        _coordinator = State(initialValue: AutomaticMessageProcessingCoordinator(client: client))
+    }
+
+    var body: some View {
+        MessageProcessingQueueStatus(coordinator: coordinator)
+            .task {
+                coordinator.setActive(scenePhase == .active)
+            }
+            .onChange(of: scenePhase) {
+                coordinator.setActive(scenePhase == .active)
+            }
+            .onDisappear {
+                coordinator.setActive(false)
+            }
+    }
+}
+
+@available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+private struct MessageProcessingQueueStatus: View {
+    let coordinator: AutomaticMessageProcessingCoordinator
+
+    var body: some View {
+        let summary = coordinator.summary
+        if coordinator.isProcessing || coordinator.canRetry || summary?.queued ?? 0 > 0 {
+            HStack(spacing: Theme.Spacing.small) {
+                if coordinator.isProcessing {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: coordinator.canRetry
+                        ? "exclamationmark.triangle.fill"
+                        : "tray.and.arrow.down.fill")
+                    .foregroundStyle(coordinator.canRetry ? Theme.Colors.error : Theme.Colors.accent)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Messages · \(scopeText(summary))")
+                        .font(Theme.Fonts.caption.weight(.semibold))
+                        .foregroundStyle(Theme.Colors.textPrimary)
+                    Text(coordinator.status.text)
+                        .font(Theme.Fonts.caption)
+                        .foregroundStyle(
+                            coordinator.canRetry ? Theme.Colors.error : Theme.Colors.textSecondary
+                        )
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                if coordinator.canRetry {
+                    Button("Retry") {
+                        coordinator.retry()
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Theme.Colors.accent)
+                    .font(Theme.Fonts.caption.weight(.semibold))
+                }
+            }
+            .padding(.horizontal, Theme.Spacing.medium)
+            .padding(.vertical, Theme.Spacing.small)
+            .frame(maxWidth: 520)
+            .glassCardBackground()
+            .padding(.horizontal, Theme.Spacing.medium)
+            .padding(.bottom, Theme.Spacing.small)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func scopeText(_ summary: MessageProcessingSummary?) -> String {
+        guard let summary else { return "checking queue" }
+        let remaining = summary.queued + summary.leased
+        return "\(remaining) remaining"
     }
 }
 #endif

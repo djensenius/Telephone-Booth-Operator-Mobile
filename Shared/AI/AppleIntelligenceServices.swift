@@ -139,7 +139,10 @@ public struct AppleSpeechTranscriber: AudioTranscribing {
         self.defaultLocale = defaultLocale
     }
 
-    public func transcribe(audioFileURL: URL, language: String?) async throws -> String {
+    public func transcribe(
+        audioFileURL: URL,
+        language: String?
+    ) async throws -> AudioTranscriptionResult {
         guard SpeechTranscriber.isAvailable else {
             throw OnDeviceServiceError.unavailable(
                 "On-device speech transcription is not available on this device."
@@ -156,7 +159,8 @@ public struct AppleSpeechTranscriber: AudioTranscribing {
         do {
             let transcript = try await analyze(audioFileURL: audioFileURL, with: transcriber)
             await SpeechAssetReservations.shared.release(locale: locale)
-            return transcript
+            let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? .noSpeech : .speech(trimmed)
         } catch {
             await SpeechAssetReservations.shared.release(locale: locale)
             throw error

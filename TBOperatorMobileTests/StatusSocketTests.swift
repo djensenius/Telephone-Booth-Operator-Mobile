@@ -85,6 +85,55 @@ final class StatusSocketTests: XCTestCase {
         XCTAssertEqual(message.audio.durationMs, 1200)
     }
 
+    func testDecodeWorkAndInstallationEnvelopes() throws {
+        let work = try OperatorJSON.decoder.decode(
+            WsStatusEnvelope.self,
+            from: Data(#"{"kind":"work","messageId":"message-1","needs":["translation","moderation"]}"#.utf8)
+        )
+        guard case .work(let workEnvelope) = work else {
+            return XCTFail("Expected work envelope")
+        }
+        XCTAssertEqual(workEnvelope.messageId, "message-1")
+        XCTAssertEqual(workEnvelope.needs, [.translation, .moderation])
+
+        let installation = try OperatorJSON.decoder.decode(
+            WsStatusEnvelope.self,
+            from: Data(#"""
+            {
+              "kind":"installation",
+              "installation":{
+                "id":"00000000-0000-4000-8000-000000000001",
+                "name":"Opening",
+                "notes":null,
+                "location":null,
+                "defaultTranscriptionLanguage":"fr-CA",
+                "startedAt":"2026-08-14T12:00:00Z",
+                "endedAt":null,
+                "endedById":null,
+                "summary":null,
+                "createdAt":"2026-08-14T12:00:00Z",
+                "isActive":true
+              }
+            }
+            """#.utf8)
+        )
+        guard case .installation(let installed) = installation else {
+            return XCTFail("Expected installation envelope")
+        }
+        XCTAssertEqual(installed.defaultTranscriptionLanguage, "fr-CA")
+    }
+
+    func testUnknownEnvelopeKindIsDeliveredWithoutBreakingSocket() throws {
+        let envelope = try OperatorJSON.decoder.decode(
+            WsStatusEnvelope.self,
+            from: Data(#"{"kind":"future_message","payload":true}"#.utf8)
+        )
+        guard case .unknown(let kind) = envelope else {
+            return XCTFail("Expected unknown envelope")
+        }
+        XCTAssertEqual(kind, "future_message")
+    }
+
     func testWebSocketURLDerivation() throws {
         XCTAssertEqual(
             try StatusSocket.webSocketURL(from: URL(string: "https://api.telephonebooth.io")!).absoluteString,

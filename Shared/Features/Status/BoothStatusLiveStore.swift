@@ -262,6 +262,8 @@ public final class BoothStatusLiveStore {
             writeWidgetSnapshotIfPossible()
         case .message:
             break
+        case .work, .installation, .unknown:
+            break
         }
     }
 

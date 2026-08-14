@@ -46,6 +46,13 @@
   SpeechAnalyzer, translate to English with Foundation Models, and generate an
   advisory moderation recommendation. The app then persists those results
   through the Operator API; it does not call the Transcription HTTP service.
+- While an eligible app scene is active, its automatic processor claims one
+  `/v1/message-processing` lease at a time, heartbeats it, and submits only
+  the server-requested missing steps. It releases work on backgrounding and
+  treats lease loss or stale results as a refresh, so several devices can
+  safely share the same installation queue. Silent recordings are classified
+  conservatively for human review; a delete recommendation never deletes a
+  recording without the operator's confirmed action.
 - Mobile clients authenticate with **OIDC Authorization Code + PKCE**
   directly against Authentik (no embedded webview, no cookie session).
 - The operator API gains an additive bearer middleware (PR 1 in the

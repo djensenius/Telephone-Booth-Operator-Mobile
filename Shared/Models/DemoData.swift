@@ -1,3 +1,4 @@
+// swiftlint:disable file_length type_body_length
 //
 //  DemoData.swift
 //  TelephoneBoothOperatorMobile
@@ -48,6 +49,44 @@ public enum DemoData {
         realtime: StatsSummary.Realtime(wsClients: 4),
         generatedAt: now
     )
+
+    public static let installations: [Installation] = [
+        Installation(
+            id: "00000000-0000-4000-8000-000000000001",
+            name: "Current Installation",
+            notes: "Demo installation",
+            location: "Telephone booth",
+            defaultTranscriptionLanguage: "en",
+            startedAt: now.addingTimeInterval(-7 * 24 * 60 * 60),
+            endedAt: nil,
+            endedById: nil,
+            summary: nil,
+            createdAt: now.addingTimeInterval(-7 * 24 * 60 * 60),
+            isActive: true
+        ),
+        Installation(
+            id: "00000000-0000-4000-8000-000000000002",
+            name: "Opening Weekend",
+            notes: nil,
+            location: "Telephone booth",
+            defaultTranscriptionLanguage: "fr-CA",
+            startedAt: now.addingTimeInterval(-21 * 24 * 60 * 60),
+            endedAt: now.addingTimeInterval(-14 * 24 * 60 * 60),
+            endedById: operatorProfile.id,
+            summary: InstallationSummary(
+                calls: 42,
+                messages: 18,
+                allRecordings: 27,
+                questions: 3,
+                events: 210,
+                recordedMs: 1_020_000,
+                firstActivityAt: now.addingTimeInterval(-21 * 24 * 60 * 60),
+                lastActivityAt: now.addingTimeInterval(-14 * 24 * 60 * 60)
+            ),
+            createdAt: now.addingTimeInterval(-21 * 24 * 60 * 60),
+            isActive: false
+        )
+    ]
 
     /// A fixture shifted from the fixed `now` anchor onto `reference`.
     public static func rebased(_ status: BoothStatus, to reference: Date = Date()) -> BoothStatus {
@@ -300,7 +339,9 @@ public enum DemoData {
                 ]
             ),
             messages: StatsOverview.Messages(
-                total: 87,
+                total: 66,
+                approved: 66,
+                allRecordings: 87,
                 byStatus: ["received": 14, "pending": 3, "approved": 66, "rejected": 4],
                 averageDurationMs: 39_000
             ),

@@ -1,3 +1,4 @@
+// swiftlint:disable file_length type_body_length
 //
 //  StatsView.swift
 //  TelephoneBoothOperatorMobile
@@ -17,6 +18,8 @@ import Charts
 public struct StatsView: View {
     @State private var selection: StatsRangeSelection = .default
     @State private var filters: [MetricFilter] = []
+    @State private var installationScope: InstallationScope = .current
+    @State private var installations: [Installation] = []
     @State private var overview: StatsOverview?
     @State private var errorMessage: String?
     @State private var controlsError: String?
@@ -32,6 +35,10 @@ public struct StatsView: View {
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.large) {
+                StatsInstallationScopePicker(
+                    scope: $installationScope,
+                    installations: installations
+                )
                 StatsRangeControls(
                     selection: $selection,
                     filters: filters,
@@ -64,7 +71,13 @@ public struct StatsView: View {
         }
         .background(Theme.Colors.background)
         .autoRefresh(id: selection) { await refresh() }
-        .task { await loadFilters() }
+        .task {
+            await loadFilters()
+            await loadInstallations()
+        }
+        .onChange(of: installationScope) {
+            Task { await refresh() }
+        }
         .refreshableIfAvailable { await refresh() }
     }
 
@@ -72,6 +85,7 @@ public struct StatsView: View {
         refreshGeneration += 1
         let generation = refreshGeneration
         let requestedSelection = selection
+        let requestedScope = installationScope
         isRefreshing = true
         defer {
             if generation == refreshGeneration {
@@ -79,7 +93,10 @@ public struct StatsView: View {
             }
         }
         do {
-            let result = try await client.fetchStatsOverview(selection: requestedSelection)
+            let result = try await client.fetchStatsOverview(
+                selection: requestedSelection,
+                installationScope: requestedScope
+            )
             guard !Task.isCancelled, generation == refreshGeneration else { return }
             overview = result
             errorMessage = nil
@@ -95,6 +112,14 @@ public struct StatsView: View {
             controlsError = nil
         } catch {
             controlsError = "Couldn't load saved filters: \(error.localizedDescription)"
+        }
+    }
+
+    private func loadInstallations() async {
+        do {
+            installations = try await client.fetchInstallations()
+        } catch {
+            controlsError = "Couldn't load installations: \(error.localizedDescription)"
         }
     }
 
@@ -127,14 +152,19 @@ public struct StatsView: View {
     private func headlineCard(overview: StatsOverview) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
             SectionHeader(text: selection.displayName)
+            Text(scopeName)
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(Theme.Colors.textSecondary)
             HStack(spacing: Theme.Spacing.small) {
                 StatsSummaryTile(
                     label: "Pickups",
                     value: numberFormatter.string(from: NSNumber(value: overview.pickupsHangups.pickups)) ?? "0"
                 )
                 StatsSummaryTile(
-                    label: "Messages left",
-                    value: numberFormatter.string(from: NSNumber(value: overview.messages.total)) ?? "0"
+                    label: "Approved messages",
+                    value: numberFormatter.string(
+                        from: NSNumber(value: overview.messages.approvedCount)
+                    ) ?? "0"
                 )
                 StatsSummaryTile(
                     label: "Completion",
@@ -142,6 +172,12 @@ public struct StatsView: View {
                 )
             }
             HStack(spacing: Theme.Spacing.small) {
+                StatsSummaryTile(
+                    label: "All recordings",
+                    value: numberFormatter.string(
+                        from: NSNumber(value: overview.messages.allRecordingsCount)
+                    ) ?? "0"
+                )
                 StatsSummaryTile(
                     label: "Booth playbacks",
                     value: numberFormatter.string(from: NSNumber(value: overview.playback.totalPlaybacks)) ?? "0"
@@ -260,10 +296,18 @@ public struct StatsView: View {
 
     private func messagesCard(overview: StatsOverview) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-            SectionHeader(text: "Messages")
+            SectionHeader(text: "Recordings")
             StatRow(
-                label: "Left",
-                value: numberFormatter.string(from: NSNumber(value: overview.messages.total)) ?? "0"
+                label: "Approved messages",
+                value: numberFormatter.string(
+                    from: NSNumber(value: overview.messages.approvedCount)
+                ) ?? "0"
+            )
+            StatRow(
+                label: "All recordings",
+                value: numberFormatter.string(
+                    from: NSNumber(value: overview.messages.allRecordingsCount)
+                ) ?? "0"
             )
             StatRow(
                 label: "Avg duration",
@@ -429,6 +473,63 @@ public struct StatsView: View {
 
     private func shortDateLabel(_ isoDay: String) -> String {
         StatsFormat.shortDateLabel(isoDay)
+    }
+
+    private var scopeName: String {
+        switch installationScope {
+        case .current:
+            return "Current Installation"
+        case .all:
+            return "All Installations"
+        case .installation(let id):
+            return installations.first(where: { $0.id == id })?.name ?? "Historical Installation"
+        }
+    }
+}
+
+private struct StatsInstallationScopePicker: View {
+    @Binding var scope: InstallationScope
+    let installations: [Installation]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+            SectionHeader(text: "Installation")
+            Menu {
+                Button("Current Installation") { scope = .current }
+                if !installations.isEmpty {
+                    Divider()
+                    ForEach(installations) { installation in
+                        Button(installation.name) {
+                            scope = installation.isActive
+                                ? .current
+                                : .installation(installation.id)
+                        }
+                    }
+                }
+                Divider()
+                Button("All Installations") { scope = .all }
+            } label: {
+                Label(scopeTitle, systemImage: "building.2")
+                    .font(Theme.Fonts.bodySmall.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.bordered)
+            .tint(Theme.Colors.accent)
+        }
+        .padding(Theme.Spacing.medium)
+        .frame(maxWidth: .infinity)
+        .glassCardBackground()
+    }
+
+    private var scopeTitle: String {
+        switch scope {
+        case .current:
+            return "Current Installation"
+        case .all:
+            return "All Installations"
+        case .installation(let id):
+            return installations.first(where: { $0.id == id })?.name ?? "Historical Installation"
+        }
     }
 }
 

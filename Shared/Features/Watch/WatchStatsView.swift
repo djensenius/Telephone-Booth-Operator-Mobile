@@ -30,7 +30,8 @@ struct WatchStatsView: View {
                 }
                 if let overview {
                     tile(label: "Pickups (24h)", value: "\(overview.pickupsHangups.pickups)")
-                    tile(label: "Messages left", value: "\(overview.messages.total)")
+                    tile(label: "Approved messages", value: "\(overview.messages.approvedCount)")
+                    tile(label: "All recordings", value: "\(overview.messages.allRecordingsCount)")
                     tile(label: "Completion", value: percent(overview.completionRate))
                     tile(label: "Playbacks", value: "\(overview.playback.totalPlaybacks)")
                     tile(label: "Last activity", value: timeAgo(overview.lastActivityAt))
