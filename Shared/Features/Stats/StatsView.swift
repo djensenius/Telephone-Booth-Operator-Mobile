@@ -1,4 +1,4 @@
-// swiftlint:disable file_length type_body_length
+// swiftlint:disable file_length
 //
 //  StatsView.swift
 //  TelephoneBoothOperatorMobile
@@ -35,10 +35,12 @@ public struct StatsView: View {
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.large) {
+                #if !os(watchOS)
                 StatsInstallationScopePicker(
                     scope: $installationScope,
                     installations: installations
                 )
+                #endif
                 StatsRangeControls(
                     selection: $selection,
                     filters: filters,
@@ -80,7 +82,9 @@ public struct StatsView: View {
         }
         .refreshableIfAvailable { await refresh() }
     }
+}
 
+extension StatsView {
     private func refresh() async {
         refreshGeneration += 1
         let generation = refreshGeneration
@@ -345,7 +349,9 @@ public struct StatsView: View {
             }
         }
     }
+}
 
+extension StatsView {
     // MARK: - Hourly
 
     private func hourlyCard(overview: StatsOverview) -> some View {
@@ -487,6 +493,7 @@ public struct StatsView: View {
     }
 }
 
+#if !os(watchOS)
 private struct StatsInstallationScopePicker: View {
     @Binding var scope: InstallationScope
     let installations: [Installation]
@@ -505,6 +512,7 @@ private struct StatsInstallationScopePicker: View {
                                 : .installation(installation.id)
                         }
                     }
+                    #endif
                 }
                 Divider()
                 Button("All Installations") { scope = .all }

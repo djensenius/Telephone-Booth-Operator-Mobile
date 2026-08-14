@@ -1,4 +1,4 @@
-// swiftlint:disable file_length type_body_length
+// swiftlint:disable file_length
 //
 //  DemoData.swift
 //  TelephoneBoothOperatorMobile
@@ -8,7 +8,6 @@ import Foundation
 
 /// Shared, deterministic sample payloads for SwiftUI previews and App Review demo mode.
 public enum DemoData {
-    // swiftlint:disable:previous type_body_length
     public static let now = Date(timeIntervalSince1970: 1_779_800_000)
 
     /// When the demo session started, resolved once on first use. Fixtures are
@@ -301,7 +300,9 @@ public enum DemoData {
         receivedAt: now.addingTimeInterval(-18),
         version: "demo"
     )
+}
 
+public extension DemoData {
     public static func statsOverview(window: StatsWindow) -> StatsOverview {
         let rangeStart: Date?
         switch window {

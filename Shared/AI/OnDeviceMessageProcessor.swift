@@ -1,4 +1,4 @@
-// swiftlint:disable file_length type_body_length
+// swiftlint:disable file_length
 //
 //  OnDeviceMessageProcessor.swift
 //  TelephoneBoothOperatorMobile
@@ -150,7 +150,9 @@ public final class OnDeviceMessageProcessor {
         self.moderator = moderator
         self.availabilityCheck = availabilityCheck
     }
+}
 
+extension OnDeviceMessageProcessor {
     public func refreshAvailability(sourceLanguage: String? = nil) async {
         availabilityGeneration += 1
         let requestGeneration = availabilityGeneration
@@ -620,8 +622,8 @@ public final class AutomaticMessageProcessingCoordinator {
         currentMessageID = nil
         status = .paused
         if let leased {
-            Task { [weak self] in
-                await self?.release(leased)
+            Task { [self] in
+                await self.release(leased, reportingFailure: false)
             }
         }
     }
@@ -666,11 +668,23 @@ public final class AutomaticMessageProcessingCoordinator {
             } catch is CancellationError {
                 return
             } catch {
+                guard !Task.isCancelled, shouldRun else { return }
                 let leased = claim
                 finishLease()
                 if isLeaseRefresh(error) {
+                    if let leased {
+                        await release(leased, reportingFailure: false)
+                    }
                     status = .idle
                     continue
+                }
+                if isUnsupportedCapability(error) {
+                    shouldRun = false
+                    status = .paused
+                    if let leased {
+                        await release(leased, reportingFailure: false)
+                    }
+                    return
                 }
                 if let leased {
                     do {
@@ -737,14 +751,17 @@ public final class AutomaticMessageProcessingCoordinator {
         currentMessageID = nil
     }
 
-    private func release(_ leased: MessageProcessingClaim) async {
+    private func release(
+        _ leased: MessageProcessingClaim,
+        reportingFailure: Bool = true
+    ) async {
         do {
             try await client.releaseMessageProcessing(
                 messageId: leased.message.id,
                 leaseToken: leased.leaseToken
             )
         } catch {
-            if !isLeaseRefresh(error) {
+            if reportingFailure, !isLeaseRefresh(error) {
                 status = .failed(error.localizedDescription)
             }
         }
@@ -765,8 +782,20 @@ public final class AutomaticMessageProcessingCoordinator {
         guard case let OperatorError.httpError(status, body) = error, status == 409 else {
             return false
         }
-        return ["lease_lost", "stale_", "installation_ended", "review_requires_no_speech"]
+        return [
+            "lease_lost",
+            "stale_",
+            "claim_snapshot_stale",
+            "installation_ended",
+            "review_requires_no_speech"
+        ]
             .contains { body.contains($0) }
+    }
+
+    private func isUnsupportedCapability(_ error: any Error) -> Bool {
+        guard let serviceError = error as? OnDeviceServiceError else { return false }
+        if case .unavailable = serviceError { return true }
+        return false
     }
 
     private func failureCode(for error: any Error) -> String {

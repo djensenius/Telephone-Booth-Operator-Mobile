@@ -233,7 +233,14 @@ extension OnDeviceMessageProcessor {
 
         if needs.contains(.transcription) {
             let sourceLanguage = claim.defaultTranscriptionLanguage ?? Self.deviceLanguageTag()
-            let selection = try Self.sourceLanguageSelection(sourceLanguage)
+            let selection: (language: String?, locale: Locale)
+            do {
+                selection = try Self.sourceLanguageSelection(sourceLanguage)
+            } catch {
+                throw OnDeviceServiceError.unavailable(
+                    "The installation's transcription language is not supported on this device."
+                )
+            }
             stage = .checkingAvailability
             isAvailable = await availabilityCheck(selection.locale)
             guard isAvailable else {

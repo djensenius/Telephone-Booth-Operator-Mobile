@@ -17,6 +17,23 @@ private struct StubAudioFetcher: AudioFetching {
         try await body(FileManager.default.temporaryDirectory.appendingPathComponent("audio.flac"))
     }
 }
+
+private struct WrappedCancellationAudioFetcher: AudioFetching {
+    func withFetchedAudioFile<T: Sendable>(
+        url: URL,
+        expectedSHA256: String,
+        maxBytes: Int,
+        _ body: @Sendable (URL) async throws -> T
+    ) async throws -> T {
+        do {
+            try await Task.sleep(for: .seconds(30))
+        } catch is CancellationError {
+            throw AudioFetchError.fetchFailed
+        }
+        return try await body(FileManager.default.temporaryDirectory.appendingPathComponent("audio.flac"))
+    }
+}
+
 private struct StubTranscriber: AudioTranscribing {
     let operation: @Sendable () async throws -> AudioTranscriptionResult
     func transcribe(
@@ -188,12 +205,14 @@ private actor StubReviewClient: MessageReviewPersisting {
 
 private actor StubClaimedProcessingClient: MessageProcessingPersisting {
     private var claims: [MessageProcessingClaim]
-    private let returnsLeaseLoss: Bool
+    private let completionConflict: String?
     private(set) var completedRequests: [MessageProcessingCompleteRequest] = []
+    private var releasedCount = 0
+    private var failedCount = 0
 
-    init(claims: [MessageProcessingClaim], returnsLeaseLoss: Bool = false) {
+    init(claims: [MessageProcessingClaim], completionConflict: String? = nil) {
         self.claims = claims
-        self.returnsLeaseLoss = returnsLeaseLoss
+        self.completionConflict = completionConflict
     }
 
     func fetchMessageProcessingSummary() async throws -> MessageProcessingSummary {
@@ -217,24 +236,33 @@ private actor StubClaimedProcessingClient: MessageProcessingPersisting {
         messageId: String,
         request: MessageProcessingHeartbeatRequest
     ) async throws -> MessageProcessingHeartbeatResponse {
-        MessageProcessingHeartbeatResponse(ok: true, leaseExpiresAt: Date().addingTimeInterval(300))
+        MessageProcessingHeartbeatResponse(
+            succeeded: true,
+            leaseExpiresAt: Date().addingTimeInterval(300)
+        )
     }
 
-    func releaseMessageProcessing(messageId: String, leaseToken: String) async throws {}
+    func releaseMessageProcessing(messageId: String, leaseToken: String) async throws {
+        releasedCount += 1
+    }
 
     func failMessageProcessing(
         messageId: String,
         request: MessageProcessingFailRequest
     ) async throws -> MessageProcessingFailResponse {
-        MessageProcessingFailResponse(ok: true, terminal: false)
+        failedCount += 1
+        MessageProcessingFailResponse(succeeded: true, terminal: false)
     }
 
     func completeMessageProcessing(
         messageId: String,
         request: MessageProcessingCompleteRequest
     ) async throws -> MessageProcessingCompleteResponse {
-        if returnsLeaseLoss {
-            throw OperatorError.httpError(status: 409, body: #"{"error":"lease_lost"}"#)
+        if let completionConflict {
+            throw OperatorError.httpError(
+                status: 409,
+                body: #"{"error":"\#(completionConflict)"}"#
+            )
         }
         completedRequests.append(request)
         return MessageProcessingCompleteResponse(
@@ -245,6 +273,14 @@ private actor StubClaimedProcessingClient: MessageProcessingPersisting {
 
     func completedCount() -> Int {
         completedRequests.count
+    }
+
+    func releaseCount() -> Int {
+        releasedCount
+    }
+
+    func failureCount() -> Int {
+        failedCount
     }
 }
 
@@ -674,7 +710,7 @@ final class OnDeviceReviewTests: XCTestCase {
         )
         let client = StubClaimedProcessingClient(
             claims: [claim],
-            returnsLeaseLoss: true
+            completionConflict: "lease_lost"
         )
         let coordinator = AutomaticMessageProcessingCoordinator(
             client: client,
@@ -687,17 +723,107 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertFalse(coordinator.canRetry)
         coordinator.setActive(false)
     }
+
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testCoordinatorReleasesSnapshotConflictBeforeReclaiming() async throws {
+        let claim = MessageProcessingClaim(
+            message: DemoData.message(id: "demo-message-3"),
+            needs: [.review],
+            leaseToken: String(repeating: "a", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: nil
+        )
+        let client = StubClaimedProcessingClient(
+            claims: [claim],
+            completionConflict: "claim_snapshot_stale"
+        )
+        let coordinator = AutomaticMessageProcessingCoordinator(
+            client: client,
+            processor: makeProcessor(),
+            socket: nil,
+            capabilityCheck: { _ in true }
+        )
+
+        coordinator.setActive(true)
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertFalse(coordinator.canRetry)
+        XCTAssertEqual(await client.releaseCount(), 1)
+        XCTAssertEqual(await client.failureCount(), 0)
+        coordinator.setActive(false)
+    }
+
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testCoordinatorReleasesUnsupportedInstallationLanguageWithoutFailing() async throws {
+        let claim = MessageProcessingClaim(
+            message: DemoData.message(id: "demo-message-3"),
+            needs: [.transcription],
+            leaseToken: String(repeating: "a", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: "fr-CA"
+        )
+        let client = StubClaimedProcessingClient(claims: [claim])
+        let coordinator = AutomaticMessageProcessingCoordinator(
+            client: client,
+            processor: makeProcessor(availabilityCheck: { _ in false }),
+            socket: nil,
+            capabilityCheck: { _ in true }
+        )
+
+        coordinator.setActive(true)
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(coordinator.status, .paused)
+        XCTAssertEqual(await client.releaseCount(), 1)
+        XCTAssertEqual(await client.failureCount(), 0)
+    }
+
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testCoordinatorKeepsPausedStatusWhenFetchCancellationIsWrapped() async throws {
+        let claim = MessageProcessingClaim(
+            message: DemoData.message(id: "demo-message-3"),
+            needs: [.transcription],
+            leaseToken: String(repeating: "a", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: "fr-CA"
+        )
+        let client = StubClaimedProcessingClient(claims: [claim])
+        let coordinator = AutomaticMessageProcessingCoordinator(
+            client: client,
+            processor: makeProcessor(audioFetcher: WrappedCancellationAudioFetcher()),
+            socket: nil,
+            capabilityCheck: { _ in true }
+        )
+
+        coordinator.setActive(true)
+        for _ in 0..<10 where coordinator.currentMessageID == nil {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertNotNil(coordinator.currentMessageID)
+        coordinator.setActive(false)
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(coordinator.status, .paused)
+        XCTAssertEqual(await client.releaseCount(), 1)
+        XCTAssertEqual(await client.failureCount(), 0)
+    }
+
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
     private func makeProcessor(
-        transcriber: any AudioTranscribing = StubTranscriber { .speech("bonjour") }
+        audioFetcher: any AudioFetching = StubAudioFetcher(),
+        transcriber: any AudioTranscribing = StubTranscriber { .speech("bonjour") },
+        availabilityCheck: @escaping @Sendable (Locale) async -> Bool = { _ in true }
     ) -> OnDeviceMessageProcessor {
         OnDeviceMessageProcessor(
-            audioFetcher: StubAudioFetcher(),
+            audioFetcher: audioFetcher,
             transcriber: transcriber,
             translator: StubTranslator(),
             moderator: StubModerator(),
-            availabilityCheck: { _ in true }
+            availabilityCheck: availabilityCheck
         )
     }
 }

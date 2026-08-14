@@ -548,11 +548,21 @@ public struct MessageProcessingFailRequest: Codable, Sendable, Equatable {
 }
 
 public struct MessageProcessingHeartbeatResponse: Codable, Sendable, Equatable {
-    public let ok: Bool
+    public let succeeded: Bool
     public let leaseExpiresAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case succeeded = "ok"
+        case leaseExpiresAt
+    }
 }
 
 public struct MessageProcessingFailResponse: Codable, Sendable, Equatable {
-    public let ok: Bool
+    public let succeeded: Bool
     public let terminal: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case succeeded = "ok"
+        case terminal
+    }
 }

@@ -194,6 +194,17 @@ final class StatsOverviewTests: XCTestCase {
         XCTAssertEqual(messages.allRecordingsCount, 5)
     }
 
+    func testApprovedCountPrefersStatusForLegacyResponse() {
+        let messages = StatsOverview.Messages(
+            total: 9,
+            byStatus: ["approved": 6, "pending": 2, "rejected": 1],
+            averageDurationMs: nil
+        )
+
+        XCTAssertEqual(messages.approvedCount, 6)
+        XCTAssertEqual(messages.allRecordingsCount, 9)
+    }
+
     func testInstallationScopeQueryValues() {
         XCTAssertNil(InstallationScope.current.queryValue)
         XCTAssertEqual(InstallationScope.all.queryValue, "all")

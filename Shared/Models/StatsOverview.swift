@@ -134,8 +134,7 @@ public struct StatsOverview: Codable, Sendable, Hashable {
     }
 
     public struct Messages: Codable, Sendable, Hashable {
-        /// Retained for older server versions. It has the same approved,
-        /// operator-playable meaning as `approved`.
+        /// Retained for older server versions.
         public let total: Int
         public let approved: Int?
         public let allRecordings: Int?
@@ -156,7 +155,7 @@ public struct StatsOverview: Codable, Sendable, Hashable {
             self.averageDurationMs = averageDurationMs
         }
 
-        public var approvedCount: Int { approved ?? total }
+        public var approvedCount: Int { approved ?? byStatus["approved"] ?? total }
         public var allRecordingsCount: Int { allRecordings ?? total }
     }
 

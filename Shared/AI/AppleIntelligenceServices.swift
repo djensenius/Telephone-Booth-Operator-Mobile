@@ -349,7 +349,7 @@ private enum FoundationModelsSupport {
         case .guardrailViolation, .refusal:
             return .badRequest("The on-device model declined to process this message.")
         case .unsupportedLanguageOrLocale:
-            return .badRequest("The message language is not supported by the on-device model.")
+            return .unavailable("The message language is not supported by the on-device model.")
         case .rateLimited, .concurrentRequests:
             return .timeout("The on-device model is busy. Try again.")
         case .assetsUnavailable:
