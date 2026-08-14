@@ -402,6 +402,11 @@ private struct InstructionDescriptionEditor: View {
             Form {
                 TextField("Description", text: $description, axis: .vertical)
                     .lineLimit(2...5)
+                    .onChange(of: description) { _, value in
+                        if value.count > Instruction.descriptionMaxLength {
+                            description = String(value.prefix(Instruction.descriptionMaxLength))
+                        }
+                    }
                 if let errorMessage {
                     BannerView(message: errorMessage, kind: .error)
                 }

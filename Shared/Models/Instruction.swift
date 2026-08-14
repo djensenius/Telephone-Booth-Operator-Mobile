@@ -43,6 +43,8 @@ public enum InstructionStatus: Codable, Sendable, Hashable {
 }
 
 public struct Instruction: Codable, Sendable, Equatable, Identifiable {
+    public static let descriptionMaxLength = 280
+
     public let id: String
     public let description: String?
     public let status: InstructionStatus
@@ -91,5 +93,23 @@ public struct InstructionUpdate: Codable, Sendable, Equatable {
 
     public init(description: String?) {
         self.description = description
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case description
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if let description {
+            try container.encode(description, forKey: .description)
+        } else {
+            try container.encodeNil(forKey: .description)
+        }
     }
 }

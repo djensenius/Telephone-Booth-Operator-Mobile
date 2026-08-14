@@ -43,6 +43,11 @@ struct InstructionComposerView: View {
                 Section("Description") {
                     TextField("What does this recording explain?", text: $description, axis: .vertical)
                         .lineLimit(2...5)
+                        .onChange(of: description) { _, value in
+                            if value.count > Instruction.descriptionMaxLength {
+                                description = String(value.prefix(Instruction.descriptionMaxLength))
+                            }
+                        }
                 }
                 audioSection
                 Section {
