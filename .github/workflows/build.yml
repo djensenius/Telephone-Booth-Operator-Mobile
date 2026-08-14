@@ -70,7 +70,7 @@ jobs:
               build
 
   test:
-    name: OnDeviceReviewTests
+    name: FocusedUnitTests
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
@@ -88,4 +88,6 @@ jobs:
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             -only-testing:TBOperatorMobileTests/OnDeviceReviewTests \
+            -only-testing:TBOperatorMobileTests/PendingMessagesTests \
+            -only-testing:TBOperatorMobileTests/QuestionAudioEncoderTests \
             test

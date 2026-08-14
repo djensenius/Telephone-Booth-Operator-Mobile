@@ -75,7 +75,7 @@ struct QuestionComposerView: View {
             }
             .fileImporter(
                 isPresented: $isImporting,
-                allowedContentTypes: [.audio],
+                allowedContentTypes: [.audio, .aiff],
                 allowsMultipleSelection: false
             ) { result in
                 handleImport(result)
