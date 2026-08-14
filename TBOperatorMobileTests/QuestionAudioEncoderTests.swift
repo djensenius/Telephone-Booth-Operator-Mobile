@@ -44,7 +44,7 @@ final class QuestionAudioEncoderTests: XCTestCase {
 
         buffer.frameLength = frameCount
         for frame in 0..<Int(frameCount) {
-            samples[frame] = sin(2 * .pi * 440 * Double(frame) / sampleRate) * 0.25
+            samples[frame] = frame.isMultiple(of: 20) ? 0.25 : -0.25
         }
         try file.write(from: buffer)
     }
