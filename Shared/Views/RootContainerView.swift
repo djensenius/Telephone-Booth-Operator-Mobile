@@ -79,7 +79,11 @@ public struct RootContainerView: View {
         #endif
         .task {
             guard !effectiveDemoMode else { return }
+            let wasAlreadySignedIn = AuthManager.shared.authState == .signedIn
             await AuthManager.shared.validateSessionOnLaunch()
+            if wasAlreadySignedIn, AuthManager.shared.authState == .signedIn {
+                await NotificationManager.shared.synchronizeRegistrationIfAuthorized()
+            }
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard !effectiveDemoMode else { return }

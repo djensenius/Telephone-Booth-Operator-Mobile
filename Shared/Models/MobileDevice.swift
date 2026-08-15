@@ -7,10 +7,6 @@
 
 import Foundation
 
-#if os(iOS)
-import UIKit
-#endif
-
 public enum MobileDevicePlatform: Codable, Sendable, Hashable {
     case ios
     case ipados
@@ -55,7 +51,12 @@ public enum MobileDevicePlatform: Codable, Sendable, Hashable {
         try container.encode(rawValue)
     }
 
-    /// The platform string for the current device.
+    public static func iOS(isPad: Bool) -> MobileDevicePlatform {
+        isPad ? .ipados : .ios
+    }
+
+    /// The platform string for the currently compiled target. iOS callers
+    /// with access to the runtime interface idiom should use `iOS(isPad:)`.
     public static var current: MobileDevicePlatform {
         #if os(visionOS)
         return .visionos
@@ -65,8 +66,6 @@ public enum MobileDevicePlatform: Codable, Sendable, Hashable {
         return .tvos
         #elseif os(macOS)
         return .macos
-        #elseif os(iOS)
-        return UIDevice.current.userInterfaceIdiom == .pad ? .ipados : .ios
         #else
         return .ios
         #endif

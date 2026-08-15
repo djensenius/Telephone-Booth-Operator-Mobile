@@ -38,11 +38,14 @@ final class NotificationTests: XCTestCase {
         XCTAssertEqual(current, .tvos)
         #elseif os(visionOS)
         XCTAssertEqual(current, .visionos)
-        #elseif os(iOS)
-        XCTAssertTrue(current == .ios || current == .ipados)
         #else
         XCTAssertEqual(current, .ios)
         #endif
+    }
+
+    func testIOSPlatformMappingDistinguishesIPad() {
+        XCTAssertEqual(MobileDevicePlatform.iOS(isPad: false), .ios)
+        XCTAssertEqual(MobileDevicePlatform.iOS(isPad: true), .ipados)
     }
 
     func testNotificationPayloadRoutesToMessageDetail() {

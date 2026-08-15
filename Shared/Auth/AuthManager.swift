@@ -243,6 +243,7 @@ public final class AuthManager {
         restoreRetryTask?.cancel()
         restoreRetryTask = nil
         sessionRestoreFailed = false
+        NotificationManager.shared.resetForSignOut()
         deleteKeychainItem(account: "oidc_access_token")
         deleteKeychainItem(account: "oidc_refresh_token")
         deleteKeychainItem(account: "oidc_token_expiry")
