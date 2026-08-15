@@ -346,7 +346,7 @@ public struct QuestionsView: View {
             try await client.deleteQuestion(id: question.id)
             if filter == .all || filter == .archived {
                 // The retired question still belongs in this filter — refetch.
-                await loadFirstPage()
+                await refreshLoadedPages()
             } else {
                 questions.removeAll { $0.id == question.id }
             }
