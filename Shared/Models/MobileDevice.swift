@@ -7,6 +7,10 @@
 
 import Foundation
 
+#if os(iOS)
+import UIKit
+#endif
+
 public enum MobileDevicePlatform: Codable, Sendable, Hashable {
     case ios
     case ipados
@@ -51,10 +55,7 @@ public enum MobileDevicePlatform: Codable, Sendable, Hashable {
         try container.encode(rawValue)
     }
 
-    /// The platform string for the currently-compiled target. Distinguishing
-    /// iPhone vs iPad is done at runtime by callers; this returns `ios` on
-    /// both iPhone and iPad builds and lets the caller upgrade to `ipados`
-    /// where appropriate.
+    /// The platform string for the current device.
     public static var current: MobileDevicePlatform {
         #if os(visionOS)
         return .visionos
@@ -64,6 +65,8 @@ public enum MobileDevicePlatform: Codable, Sendable, Hashable {
         return .tvos
         #elseif os(macOS)
         return .macos
+        #elseif os(iOS)
+        return UIDevice.current.userInterfaceIdiom == .pad ? .ipados : .ios
         #else
         return .ios
         #endif

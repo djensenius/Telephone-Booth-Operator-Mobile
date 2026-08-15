@@ -38,9 +38,35 @@ final class NotificationTests: XCTestCase {
         XCTAssertEqual(current, .tvos)
         #elseif os(visionOS)
         XCTAssertEqual(current, .visionos)
+        #elseif os(iOS)
+        XCTAssertTrue(current == .ios || current == .ipados)
         #else
         XCTAssertEqual(current, .ios)
         #endif
+    }
+
+    func testNotificationPayloadRoutesToMessageDetail() {
+        let target = NotificationManager.navigationTarget(
+            categoryIdentifier: "BOOTH_MESSAGE",
+            userInfo: ["messageId": "message-123"]
+        )
+        XCTAssertEqual(target, .messages(messageId: "message-123"))
+    }
+
+    func testNotificationPayloadRoutesToSessionDetail() {
+        let target = NotificationManager.navigationTarget(
+            categoryIdentifier: "BOOTH_CALL",
+            userInfo: ["session_id": "session-123"]
+        )
+        XCTAssertEqual(target, .session(id: "session-123"))
+    }
+
+    func testModerationQueueNotificationRoutesToMessagesList() {
+        let target = NotificationManager.navigationTarget(
+            categoryIdentifier: "BOOTH_MESSAGE",
+            userInfo: ["awaitingModeration": 12, "threshold": 10]
+        )
+        XCTAssertEqual(target, .messages(messageId: nil))
     }
 
     func testRegisterMobileDeviceRequestEncodesAsExpected() throws {

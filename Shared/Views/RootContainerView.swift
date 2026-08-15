@@ -93,8 +93,11 @@ public struct RootContainerView: View {
             }
         }
         .onChange(of: auth.authState) { _, newState in
-            guard newState == .signedOut else { return }
-            PendingMessagesStore.shared.stopPolling()
+            if newState == .signedIn {
+                Task { await NotificationManager.shared.synchronizeRegistrationIfAuthorized() }
+            } else if newState == .signedOut {
+                PendingMessagesStore.shared.stopPolling()
+            }
         }
     }
 
@@ -136,7 +139,7 @@ private struct SessionRestoreView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 Button("Sign Out", role: .destructive) {
-                    AuthManager.shared.signOut()
+                    Task { await AuthManager.shared.signOutRevokingNotifications() }
                 }
                 .buttonStyle(.borderless)
             } else {

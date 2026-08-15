@@ -38,6 +38,11 @@ public enum NotificationAuthorizationState: Equatable, Sendable {
     case provisional
 }
 
+public enum NotificationNavigationTarget: Equatable, Sendable {
+    case messages(messageId: String?)
+    case session(id: String)
+}
+
 @MainActor
 @Observable
 public final class NotificationManager {
@@ -49,6 +54,7 @@ public final class NotificationManager {
     public private(set) var preferences: MobileDevicePreferences
     public private(set) var lastError: String?
     public private(set) var isWorking: Bool = false
+    public private(set) var navigationTarget: NotificationNavigationTarget?
 
     private let defaults: UserDefaults
     private let client: OperatorClient
@@ -64,6 +70,15 @@ public final class NotificationManager {
         static let deviceId = "notifications.deviceId"
         static let apnsToken = "notifications.apnsToken"
         static let preferences = "notifications.preferences"
+    }
+
+    private enum Category {
+        static let call = "BOOTH_CALL"
+        static let message = "BOOTH_MESSAGE"
+    }
+
+    private enum Action {
+        static let view = "VIEW_DETAILS"
     }
 
     public init(
@@ -95,12 +110,52 @@ public final class NotificationManager {
                 .requestAuthorization(options: [.alert, .badge, .sound])
             await refreshAuthorizationStatus()
             if granted {
+                Self.registerNotificationCategories()
                 registerForRemoteNotifications()
             }
         } catch {
             lastError = error.localizedDescription
             logger.error("authorization request failed: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /// Refreshes APNs registration after launch or sign-in. Apple can rotate
+    /// device tokens, so registration must not depend solely on the Settings
+    /// button having been tapped during an earlier install.
+    public func synchronizeRegistrationIfAuthorized() async {
+        #if os(tvOS)
+        return
+        #else
+        await refreshAuthorizationStatus()
+        guard authorizationState == .authorized || authorizationState == .provisional else {
+            return
+        }
+        Self.registerNotificationCategories()
+        registerForRemoteNotifications()
+        #endif
+    }
+
+    /// Revokes the server-side device while the bearer token is still
+    /// available, then removes the local APNs registration.
+    public func revokeForSignOut() async {
+        syncTask?.cancel()
+        syncTask = nil
+        pendingPreferences = nil
+
+        if let id = deviceId {
+            isWorking = true
+            defer { isWorking = false }
+            do {
+                try await client.revokeDevice(id: id)
+                lastError = nil
+            } catch {
+                lastError = error.localizedDescription
+                logger.error("sign-out revokeDevice failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+
+        clearLocalRegistration()
+        unregisterForRemoteNotifications()
     }
 
     public func disableNotifications() async {
@@ -131,6 +186,54 @@ public final class NotificationManager {
     public func tokenRegistrationFailed(error: Error) {
         lastError = error.localizedDescription
         logger.error("APNs registration failed: \(error.localizedDescription, privacy: .public)")
+    }
+
+    public func route(to target: NotificationNavigationTarget) {
+        navigationTarget = target
+    }
+
+    public func clearNavigationTarget() {
+        navigationTarget = nil
+    }
+
+    public nonisolated static func navigationTarget(
+        categoryIdentifier: String,
+        userInfo: [AnyHashable: Any]
+    ) -> NotificationNavigationTarget? {
+        if let messageId = stringValue(for: ["messageId", "message_id"], in: userInfo) {
+            return .messages(messageId: messageId)
+        }
+        if let sessionId = stringValue(for: ["sessionId", "session_id"], in: userInfo) {
+            return .session(id: sessionId)
+        }
+
+        switch categoryIdentifier {
+        case Category.message:
+            return .messages(messageId: nil)
+        default:
+            return nil
+        }
+    }
+
+    public nonisolated static func registerNotificationCategories() {
+        let viewAction = UNNotificationAction(
+            identifier: Action.view,
+            title: "View Details",
+            options: [.foreground]
+        )
+        let categories = [
+            UNNotificationCategory(
+                identifier: Category.call,
+                actions: [viewAction],
+                intentIdentifiers: []
+            ),
+            UNNotificationCategory(
+                identifier: Category.message,
+                actions: [viewAction],
+                intentIdentifiers: []
+            )
+        ]
+        UNUserNotificationCenter.current().setNotificationCategories(Set(categories))
     }
 
     /// Retries server registration using the persisted APNs token.
@@ -275,6 +378,18 @@ public final class NotificationManager {
         #elseif canImport(AppKit)
         NSApplication.shared.unregisterForRemoteNotifications()
         #endif
+    }
+
+    private nonisolated static func stringValue(
+        for keys: [String],
+        in userInfo: [AnyHashable: Any]
+    ) -> String? {
+        for key in keys {
+            if let value = userInfo[key] as? String, !value.isEmpty {
+                return value
+            }
+        }
+        return nil
     }
 
     private static func deviceName() -> String? {

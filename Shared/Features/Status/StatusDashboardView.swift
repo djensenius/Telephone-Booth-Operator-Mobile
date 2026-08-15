@@ -134,7 +134,7 @@ public struct StatusDashboardView: View {
                     }
                 } else {
                     Button(role: .destructive) {
-                        auth.signOut()
+                        Task { await auth.signOutRevokingNotifications() }
                     } label: {
                         Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
                     }

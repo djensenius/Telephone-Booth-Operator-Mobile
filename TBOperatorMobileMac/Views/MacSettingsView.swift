@@ -84,7 +84,7 @@ private struct AuthenticationSettingsPane: View {
             if auth.isSignedIn {
                 Section {
                     Button(role: .destructive) {
-                        auth.signOut()
+                        Task { await auth.signOutRevokingNotifications() }
                     } label: {
                         Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
                     }

@@ -53,9 +53,11 @@ private struct OperatorShell: View {
     let client: OperatorClient
     let eventStream: EventStream
     @State private var pending = PendingMessagesStore.shared
+    @State private var notifications = NotificationManager.shared
     @State private var currentUser: CurrentUserStore
     @State private var selection: OperatorTab
     @State private var messagePath: [String]
+    @State private var sessionPath: [String] = []
     #if os(tvOS)
     @State private var config = AppConfig.shared
     #endif
@@ -93,7 +95,7 @@ private struct OperatorShell: View {
 
             #if !os(tvOS)
             Tab("Sessions", systemImage: "phone.connection.fill", value: .sessions) {
-                NavigationStack {
+                NavigationStack(path: $sessionPath) {
                     SessionListView(client: client).navigationTitle("Sessions")
                 }
                 .automaticRefreshEnabled(selection == .sessions)
@@ -166,6 +168,10 @@ private struct OperatorShell: View {
         .environment(currentUser)
         .task { pending.startPolling(using: client) }
         .task { currentUser.start() }
+        .task { handleNotificationTarget() }
+        .onChange(of: notifications.navigationTarget) {
+            handleNotificationTarget()
+        }
         #if !os(tvOS) && canImport(Speech) && canImport(FoundationModels)
         .automaticMessageProcessing(client: client)
         #endif
@@ -196,6 +202,19 @@ private struct OperatorShell: View {
         #else
         StatsView(client: client)
         #endif
+    }
+
+    private func handleNotificationTarget() {
+        guard let target = notifications.navigationTarget else { return }
+        switch target {
+        case .messages(let messageId):
+            selection = .messages
+            messagePath = messageId.map { [$0] } ?? []
+        case .session(let id):
+            selection = .sessions
+            sessionPath = [id]
+        }
+        notifications.clearNavigationTarget()
     }
 }
 #endif

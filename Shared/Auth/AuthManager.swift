@@ -250,6 +250,11 @@ public final class AuthManager {
         logger.info("Signed out")
     }
 
+    public func signOutRevokingNotifications() async {
+        await NotificationManager.shared.revokeForSignOut()
+        signOut()
+    }
+
     /// Marks the session as signed-in. Used by other auth flows (e.g.
     /// device authorization grant) that live in extensions but can't
     /// touch the `private(set)` setter directly.
