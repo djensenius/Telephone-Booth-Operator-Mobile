@@ -7,7 +7,7 @@ import AVFoundation
 import XCTest
 @testable import TBOperatorMobile
 
-final class OperatorAudioEncoderTests: XCTestCase {
+final class QuestionAudioEncoderTests: XCTestCase {
     func testInstructionStatusPreservesUnknownValues() throws {
         let data = Data(#""scheduled""#.utf8)
         let status = try JSONDecoder().decode(InstructionStatus.self, from: data)

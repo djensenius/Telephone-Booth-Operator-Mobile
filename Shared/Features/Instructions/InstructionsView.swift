@@ -44,6 +44,7 @@ public struct InstructionsView: View {
     @State private var editing: Instruction?
     @State private var pendingDelete: Instruction?
     @State private var generation = 0
+    @State private var loadedPageCount = 0
 
     private let client: OperatorClient
     private let pageSize: Int
@@ -105,7 +106,7 @@ public struct InstructionsView: View {
             Text("The booth will stop choosing this clip from the active instruction pool.")
         }
         .autoRefresh {
-            await loadFirstPage()
+            await refreshLoadedPages()
         }
         .onChange(of: filter) { _, _ in
             Task { await loadFirstPage() }
@@ -223,11 +224,50 @@ public struct InstructionsView: View {
             guard requested == generation else { return }
             instructions = page.items
             nextCursor = page.nextCursor
+            loadedPageCount = 1
             loadState = nextCursor == nil ? .done : .idle
         } catch {
             guard requested == generation else { return }
             errorMessage = error.localizedDescription
             loadState = .idle
+        }
+    }
+
+    private func refreshLoadedPages() async {
+        guard loadState != .loadingInitial, loadState != .loadingMore else { return }
+        generation += 1
+        let requested = generation
+        let pageCount = max(loadedPageCount, 1)
+        let status = filter.status
+        loadState = .loadingInitial
+        do {
+            let refreshed = try await reloadLoadedPages(
+                pageCount: pageCount,
+                isCurrent: { requested == generation },
+                fetchPage: { cursor in
+                    let page = try await client.fetchInstructions(
+                        cursor: cursor,
+                        limit: pageSize,
+                        status: status
+                    )
+                    return (page.items, page.nextCursor)
+                }
+            )
+            guard requested == generation else { return }
+            guard !Task.isCancelled else {
+                loadState = nextCursor == nil ? .done : .idle
+                return
+            }
+            instructions = refreshed.items
+            nextCursor = refreshed.nextCursor
+            loadedPageCount = refreshed.pageCount
+            errorMessage = nil
+            loadState = nextCursor == nil ? .done : .idle
+        } catch {
+            guard requested == generation else { return }
+            loadState = nextCursor == nil ? .done : .idle
+            guard !Task.isCancelled else { return }
+            errorMessage = error.localizedDescription
         }
     }
 
@@ -244,6 +284,7 @@ public struct InstructionsView: View {
             guard requested == generation else { return }
             instructions.append(contentsOf: page.items)
             nextCursor = page.nextCursor
+            loadedPageCount += 1
             loadState = nextCursor == nil ? .done : .idle
         } catch {
             guard requested == generation else { return }

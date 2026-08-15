@@ -31,6 +31,7 @@ struct InstructionComposerView: View {
     @State private var submitError: String?
     @State private var isImporting = false
     @State private var recorder = OperatorAudioRecorder()
+    @State private var transcodeTask: Task<Void, Never>?
 
     init(client: OperatorClient, onCreated: @escaping (Instruction) -> Void) {
         self.client = client
@@ -72,7 +73,7 @@ struct InstructionComposerView: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") { cancel() }
                         .disabled(isSubmitting)
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -95,7 +96,11 @@ struct InstructionComposerView: View {
         #if os(macOS)
         .frame(minWidth: 520, minHeight: 500)
         #endif
-        .interactiveDismissDisabled(isSubmitting)
+        .interactiveDismissDisabled(isSubmitting || stage == .recording || stage == .processing)
+        .onDisappear {
+            transcodeTask?.cancel()
+            cleanup()
+        }
     }
 
     @ViewBuilder
@@ -187,16 +192,23 @@ struct InstructionComposerView: View {
             stage = .failed("Recording was empty.")
             return
         }
-        await transcode(source: url, removeSource: true)
+        beginTranscode(source: url, removeSource: true)
     }
 
     private func handleImport(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
             guard let url = urls.first else { return }
-            Task { await transcode(source: url, removeSource: false) }
+            beginTranscode(source: url, removeSource: false)
         case .failure(let error):
             stage = .failed(error.localizedDescription)
+        }
+    }
+
+    private func beginTranscode(source: URL, removeSource: Bool) {
+        transcodeTask?.cancel()
+        transcodeTask = Task {
+            await transcode(source: source, removeSource: removeSource)
         }
     }
 
@@ -204,8 +216,14 @@ struct InstructionComposerView: View {
         stage = .processing
         defer { if removeSource { try? FileManager.default.removeItem(at: source) } }
         do {
-            stage = .ready(try await OperatorAudioEncoder.encodeToFLAC(source: source))
+            let file = try await OperatorAudioEncoder.encodeToFLAC(source: source)
+            if Task.isCancelled {
+                try? FileManager.default.removeItem(at: file.url)
+                return
+            }
+            stage = .ready(file)
         } catch {
+            guard !Task.isCancelled else { return }
             stage = .failed(error.localizedDescription)
         }
     }
@@ -213,6 +231,20 @@ struct InstructionComposerView: View {
     private func discardAudio(_ file: OperatorAudioFile) {
         try? FileManager.default.removeItem(at: file.url)
         recorder.reset()
+        stage = .empty
+    }
+
+    private func cancel() {
+        transcodeTask?.cancel()
+        cleanup()
+        dismiss()
+    }
+
+    private func cleanup() {
+        recorder.reset()
+        if case .ready(let file) = stage {
+            try? FileManager.default.removeItem(at: file.url)
+        }
         stage = .empty
     }
 
