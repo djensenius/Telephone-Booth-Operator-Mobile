@@ -14,6 +14,7 @@ struct TBOperatorMobileMacApp: App {
             MacRootView()
         }
         .windowResizability(.contentMinSize)
+        .windowToolbarStyle(.unified(showsTitle: true))
         .commands {
             SidebarCommands()
         }

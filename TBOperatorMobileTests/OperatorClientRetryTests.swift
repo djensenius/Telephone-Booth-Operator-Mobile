@@ -160,6 +160,14 @@ final class OperatorClientRetryTests: XCTestCase {
         XCTAssertEqual(json?["leaseSeconds"] as? Int, 300)
         auth.signOut()
     }
+
+    @MainActor
+    func testAllQuestionsFilterUsesAnyStatusQuery() {
+        let query = QuestionsView.QuestionFilter.all.query
+
+        XCTAssertEqual(query, .all)
+        XCTAssertEqual(query.statusQueryValue, "any")
+    }
 }
 
 // MARK: - URL protocol mocks

@@ -30,12 +30,12 @@ public struct QuestionsView: View {
             }
         }
 
-        var status: QuestionStatus? {
+        var query: QuestionListFilter {
             switch self {
-            case .all: return nil
-            case .draft: return .draft
-            case .active: return .active
-            case .archived: return .archived
+            case .all: return .all
+            case .draft: return .status(.draft)
+            case .active: return .status(.active)
+            case .archived: return .status(.archived)
             }
         }
     }
@@ -241,7 +241,7 @@ public struct QuestionsView: View {
     private func handleCreated(_ created: Question) {
         actionError = nil
         // Show the new question if it belongs in the current filter.
-        if filter.status == nil || filter.status == created.status {
+        if filter == .all || filter.query == .status(created.status) {
             questions.insert(created, at: 0)
         }
     }
@@ -249,10 +249,11 @@ public struct QuestionsView: View {
     private func loadFirstPage() async {
         generation += 1
         let requested = generation
+        let selectedFilter = filter
         loadState = .loadingInitial
         errorMessage = nil
         do {
-            let page = try await client.fetchQuestions(cursor: nil, limit: pageSize, status: filter.status)
+            let page = try await client.fetchQuestions(cursor: nil, limit: pageSize, filter: selectedFilter.query)
             guard requested == generation else { return }
             questions = page.items
             nextCursor = page.nextCursor
@@ -270,18 +271,14 @@ public struct QuestionsView: View {
         generation += 1
         let requested = generation
         let pageCount = max(loadedPageCount, 1)
-        let status = filter.status
+        let query = filter.query
         loadState = .loadingInitial
         do {
             let refreshed = try await reloadLoadedPages(
                 pageCount: pageCount,
                 isCurrent: { requested == generation },
                 fetchPage: { cursor in
-                    let page = try await client.fetchQuestions(
-                        cursor: cursor,
-                        limit: pageSize,
-                        status: status
-                    )
+                    let page = try await client.fetchQuestions(cursor: cursor, limit: pageSize, filter: query)
                     return (page.items, page.nextCursor)
                 }
             )
@@ -306,10 +303,11 @@ public struct QuestionsView: View {
     private func loadMore() async {
         guard let cursor = nextCursor, loadState == .idle else { return }
         let requested = generation
+        let selectedFilter = filter
         loadState = .loadingMore
         errorMessage = nil
         do {
-            let page = try await client.fetchQuestions(cursor: cursor, limit: pageSize, status: filter.status)
+            let page = try await client.fetchQuestions(cursor: cursor, limit: pageSize, filter: selectedFilter.query)
             guard requested == generation else { return }
             questions.append(contentsOf: page.items)
             nextCursor = page.nextCursor
@@ -346,9 +344,9 @@ public struct QuestionsView: View {
         actionError = nil
         do {
             try await client.deleteQuestion(id: question.id)
-            if filter == .archived {
-                // The retired question now belongs in this filter — refetch.
-                await loadFirstPage()
+            if filter == .all || filter == .archived {
+                // The retired question still belongs in this filter — refetch.
+                await refreshLoadedPages()
             } else {
                 questions.removeAll { $0.id == question.id }
             }
@@ -358,7 +356,7 @@ public struct QuestionsView: View {
     }
 
     private func applyUpdate(_ updated: Question) {
-        if filter.status != nil && filter.status != updated.status {
+        if filter != .all && filter.query != .status(updated.status) {
             // No longer matches the active filter — drop it from the list.
             questions.removeAll { $0.id == updated.id }
             return

@@ -15,24 +15,44 @@ private let uploadsLogger = Logger(
     category: "OperatorClient.Uploads"
 )
 
+public enum QuestionListFilter: Sendable, Equatable {
+    case nonArchived
+    case all
+    case status(QuestionStatus)
+
+    var statusQueryValue: String? {
+        switch self {
+        case .nonArchived: return nil
+        case .all: return "any"
+        case .status(let status): return status.rawValue
+        }
+    }
+}
+
 extension OperatorClient {
     /// `GET /v1/questions` — paged questions, newest first. By default the
-    /// operator returns drafts + active (hiding archived); pass `status`
-    /// to filter to a single lifecycle state.
+    /// operator returns drafts + active (hiding archived).
     public func fetchQuestions(
         cursor: String? = nil,
         limit: Int = 50,
-        status: QuestionStatus? = nil
+        filter: QuestionListFilter = .nonArchived
     ) async throws -> QuestionList {
         if await usesDemoData {
-            let filtered = status == nil
-                ? DemoData.questions
-                : DemoData.questions.filter { $0.status == status }
+            let filtered = switch filter {
+            case .nonArchived:
+                DemoData.questions.filter { $0.status != .archived }
+            case .all:
+                DemoData.questions
+            case .status(let status):
+                DemoData.questions.filter { $0.status == status }
+            }
             return QuestionList(items: Array(filtered.prefix(limit)), nextCursor: nil)
         }
         var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
         if let cursor { items.append(URLQueryItem(name: "cursor", value: cursor)) }
-        if let status { items.append(URLQueryItem(name: "status", value: status.rawValue)) }
+        if let status = filter.statusQueryValue {
+            items.append(URLQueryItem(name: "status", value: status))
+        }
         return try await get("/v1/questions", query: items)
     }
 
