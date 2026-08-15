@@ -243,11 +243,17 @@ public final class AuthManager {
         restoreRetryTask?.cancel()
         restoreRetryTask = nil
         sessionRestoreFailed = false
+        NotificationManager.shared.resetForSignOut()
         deleteKeychainItem(account: "oidc_access_token")
         deleteKeychainItem(account: "oidc_refresh_token")
         deleteKeychainItem(account: "oidc_token_expiry")
         authState = .signedOut
         logger.info("Signed out")
+    }
+
+    public func signOutRevokingNotifications() async {
+        await NotificationManager.shared.revokeForSignOut()
+        signOut()
     }
 
     /// Marks the session as signed-in. Used by other auth flows (e.g.

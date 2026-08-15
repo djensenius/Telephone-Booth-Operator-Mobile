@@ -43,6 +43,35 @@ final class NotificationTests: XCTestCase {
         #endif
     }
 
+    func testIOSPlatformMappingDistinguishesIPad() {
+        XCTAssertEqual(MobileDevicePlatform.iOS(isPad: false), .ios)
+        XCTAssertEqual(MobileDevicePlatform.iOS(isPad: true), .ipados)
+    }
+
+    func testNotificationPayloadRoutesToMessageDetail() {
+        let target = NotificationManager.navigationTarget(
+            categoryIdentifier: "BOOTH_MESSAGE",
+            userInfo: ["messageId": "message-123"]
+        )
+        XCTAssertEqual(target, .messages(messageId: "message-123"))
+    }
+
+    func testNotificationPayloadRoutesToSessionDetail() {
+        let target = NotificationManager.navigationTarget(
+            categoryIdentifier: "BOOTH_CALL",
+            userInfo: ["session_id": "session-123"]
+        )
+        XCTAssertEqual(target, .session(id: "session-123"))
+    }
+
+    func testModerationQueueNotificationRoutesToMessagesList() {
+        let target = NotificationManager.navigationTarget(
+            categoryIdentifier: "BOOTH_MESSAGE",
+            userInfo: ["awaitingModeration": 12, "threshold": 10]
+        )
+        XCTAssertEqual(target, .messages(messageId: nil))
+    }
+
     func testRegisterMobileDeviceRequestEncodesAsExpected() throws {
         let req = RegisterMobileDeviceRequest(
             apnsToken: String(repeating: "a", count: 64),

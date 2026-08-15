@@ -79,7 +79,11 @@ public struct RootContainerView: View {
         #endif
         .task {
             guard !effectiveDemoMode else { return }
+            let wasAlreadySignedIn = AuthManager.shared.authState == .signedIn
             await AuthManager.shared.validateSessionOnLaunch()
+            if wasAlreadySignedIn, AuthManager.shared.authState == .signedIn {
+                await NotificationManager.shared.synchronizeRegistrationIfAuthorized()
+            }
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard !effectiveDemoMode else { return }
@@ -93,8 +97,11 @@ public struct RootContainerView: View {
             }
         }
         .onChange(of: auth.authState) { _, newState in
-            guard newState == .signedOut else { return }
-            PendingMessagesStore.shared.stopPolling()
+            if newState == .signedIn {
+                Task { await NotificationManager.shared.synchronizeRegistrationIfAuthorized() }
+            } else if newState == .signedOut {
+                PendingMessagesStore.shared.stopPolling()
+            }
         }
     }
 
@@ -136,7 +143,7 @@ private struct SessionRestoreView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 Button("Sign Out", role: .destructive) {
-                    AuthManager.shared.signOut()
+                    Task { await AuthManager.shared.signOutRevokingNotifications() }
                 }
                 .buttonStyle(.borderless)
             } else {

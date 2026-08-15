@@ -22,6 +22,7 @@ public final class TBOperatorAppDelegate: NSObject, UIApplicationDelegate, UNUse
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        NotificationManager.registerNotificationCategories()
         #if os(iOS)
         Task { @MainActor in WatchAuthSync.shared.activate() }
         #endif
@@ -59,6 +60,13 @@ public final class TBOperatorAppDelegate: NSObject, UIApplicationDelegate, UNUse
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
+        let content = response.notification.request.content
+        if let target = NotificationManager.navigationTarget(
+            categoryIdentifier: content.categoryIdentifier,
+            userInfo: content.userInfo
+        ) {
+            await NotificationManager.shared.route(to: target)
+        }
         await PendingMessagesStore.shared.refresh(using: .shared)
     }
     #endif
@@ -71,6 +79,7 @@ import AppKit
 public final class TBOperatorMacAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     public func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
+        NotificationManager.registerNotificationCategories()
     }
 
     public func application(
@@ -103,6 +112,13 @@ public final class TBOperatorMacAppDelegate: NSObject, NSApplicationDelegate, UN
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
+        let content = response.notification.request.content
+        if let target = NotificationManager.navigationTarget(
+            categoryIdentifier: content.categoryIdentifier,
+            userInfo: content.userInfo
+        ) {
+            await NotificationManager.shared.route(to: target)
+        }
         await PendingMessagesStore.shared.refresh(using: .shared)
     }
 }
@@ -114,6 +130,7 @@ import WatchKit
 public final class TBOperatorWatchAppDelegate: NSObject, WKApplicationDelegate, UNUserNotificationCenterDelegate {
     public func applicationDidFinishLaunching() {
         UNUserNotificationCenter.current().delegate = self
+        NotificationManager.registerNotificationCategories()
         Task { @MainActor in WatchAuthSync.shared.activate() }
     }
 

@@ -138,8 +138,10 @@ public struct SettingsView: View {
                     #endif
                     Section {
                         Button(role: .destructive) {
-                            auth.signOut()
-                            dismiss()
+                            Task {
+                                await auth.signOutRevokingNotifications()
+                                dismiss()
+                            }
                         } label: {
                             Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
                         }

@@ -38,6 +38,11 @@ public enum NotificationAuthorizationState: Equatable, Sendable {
     case provisional
 }
 
+public enum NotificationNavigationTarget: Equatable, Sendable {
+    case messages(messageId: String?)
+    case session(id: String)
+}
+
 @MainActor
 @Observable
 public final class NotificationManager {
@@ -49,6 +54,7 @@ public final class NotificationManager {
     public private(set) var preferences: MobileDevicePreferences
     public private(set) var lastError: String?
     public private(set) var isWorking: Bool = false
+    public private(set) var navigationTarget: NotificationNavigationTarget?
 
     private let defaults: UserDefaults
     private let client: OperatorClient
@@ -57,6 +63,9 @@ public final class NotificationManager {
     private var pendingPreferences: MobileDevicePreferences?
     /// The active debounce-then-send pipeline; ensures only one flight at a time.
     private var syncTask: Task<Void, Never>?
+    private var registrationTask: Task<Void, Never>?
+    private var registrationGeneration: UInt = 0
+    private var registrationEnabled = false
     /// Debounce interval for coalescing rapid preference changes.
     private let debounceInterval: Duration
 
@@ -64,6 +73,15 @@ public final class NotificationManager {
         static let deviceId = "notifications.deviceId"
         static let apnsToken = "notifications.apnsToken"
         static let preferences = "notifications.preferences"
+    }
+
+    private enum Category {
+        static let call = "BOOTH_CALL"
+        static let message = "BOOTH_MESSAGE"
+    }
+
+    private enum Action {
+        static let view = "VIEW_DETAILS"
     }
 
     public init(
@@ -95,6 +113,8 @@ public final class NotificationManager {
                 .requestAuthorization(options: [.alert, .badge, .sound])
             await refreshAuthorizationStatus()
             if granted {
+                registrationEnabled = true
+                Self.registerNotificationCategories()
                 registerForRemoteNotifications()
             }
         } catch {
@@ -103,9 +123,50 @@ public final class NotificationManager {
         }
     }
 
+    /// Refreshes APNs registration after launch or sign-in. Apple can rotate
+    /// device tokens, so registration must not depend solely on the Settings
+    /// button having been tapped during an earlier install.
+    public func synchronizeRegistrationIfAuthorized() async {
+        #if os(tvOS)
+        return
+        #else
+        await refreshAuthorizationStatus()
+        guard authorizationState == .authorized || authorizationState == .provisional else {
+            return
+        }
+        registrationEnabled = true
+        Self.registerNotificationCategories()
+        registerForRemoteNotifications()
+        #endif
+    }
+
+    /// Revokes the server-side device while the bearer token is still
+    /// available, then removes the local APNs registration.
+    public func revokeForSignOut() async {
+        navigationTarget = nil
+        await stopRegistrationWork()
+
+        if let id = deviceId {
+            isWorking = true
+            defer { isWorking = false }
+            do {
+                try await client.revokeDevice(id: id)
+                lastError = nil
+            } catch {
+                lastError = error.localizedDescription
+                logger.error("sign-out revokeDevice failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+
+        clearLocalRegistration()
+        unregisterForRemoteNotifications()
+    }
+
     public func disableNotifications() async {
+        await stopRegistrationWork()
         guard let id = deviceId else {
             clearLocalRegistration()
+            unregisterForRemoteNotifications()
             return
         }
         isWorking = true
@@ -122,10 +183,11 @@ public final class NotificationManager {
     }
 
     public func tokenRegistered(rawData: Data) async {
+        guard registrationEnabled else { return }
         let hex = rawData.map { String(format: "%02x", $0) }.joined()
         apnsToken = hex
         defaults.set(hex, forKey: Keys.apnsToken)
-        await syncRegistrationWithServer(token: hex)
+        await startRegistration(token: hex)
     }
 
     public func tokenRegistrationFailed(error: Error) {
@@ -133,11 +195,75 @@ public final class NotificationManager {
         logger.error("APNs registration failed: \(error.localizedDescription, privacy: .public)")
     }
 
+    public func route(to target: NotificationNavigationTarget) {
+        navigationTarget = target
+    }
+
+    public func clearNavigationTarget() {
+        navigationTarget = nil
+    }
+
+    public func resetForSignOut() {
+        registrationEnabled = false
+        registrationGeneration &+= 1
+        registrationTask?.cancel()
+        registrationTask = nil
+        syncTask?.cancel()
+        syncTask = nil
+        pendingPreferences = nil
+        navigationTarget = nil
+        clearLocalRegistration()
+        unregisterForRemoteNotifications()
+    }
+
+    public nonisolated static func navigationTarget(
+        categoryIdentifier: String,
+        userInfo: [AnyHashable: Any]
+    ) -> NotificationNavigationTarget? {
+        if let messageId = stringValue(for: ["messageId", "message_id"], in: userInfo) {
+            return .messages(messageId: messageId)
+        }
+        if let sessionId = stringValue(for: ["sessionId", "session_id"], in: userInfo) {
+            return .session(id: sessionId)
+        }
+
+        switch categoryIdentifier {
+        case Category.message:
+            return .messages(messageId: nil)
+        default:
+            return nil
+        }
+    }
+
+    public nonisolated static func registerNotificationCategories() {
+        #if !os(tvOS)
+        let viewAction = UNNotificationAction(
+            identifier: Action.view,
+            title: "View Details",
+            options: [.foreground]
+        )
+        let categories = [
+            UNNotificationCategory(
+                identifier: Category.call,
+                actions: [viewAction],
+                intentIdentifiers: []
+            ),
+            UNNotificationCategory(
+                identifier: Category.message,
+                actions: [viewAction],
+                intentIdentifiers: []
+            )
+        ]
+        UNUserNotificationCenter.current().setNotificationCategories(Set(categories))
+        #endif
+    }
+
     /// Retries server registration using the persisted APNs token.
     /// Use when the token exists but a previous `registerDevice` call failed.
     public func retryServerRegistration() async {
         guard let token = apnsToken else { return }
-        await syncRegistrationWithServer(token: token)
+        registrationEnabled = true
+        await startRegistration(token: token)
     }
 
     public func updatePreference(
@@ -211,24 +337,63 @@ public final class NotificationManager {
         }
     }
 
-    private func syncRegistrationWithServer(token: String) async {
+    private func startRegistration(token: String) async {
+        registrationGeneration &+= 1
+        let generation = registrationGeneration
+        registrationTask?.cancel()
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.syncRegistrationWithServer(token: token, generation: generation)
+        }
+        registrationTask = task
+        await task.value
+        if generation == registrationGeneration {
+            registrationTask = nil
+        }
+    }
+
+    private func stopRegistrationWork() async {
+        registrationEnabled = false
+        registrationGeneration &+= 1
+        registrationTask?.cancel()
+        if let registrationTask {
+            await registrationTask.value
+        }
+        registrationTask = nil
+        syncTask?.cancel()
+        syncTask = nil
+        pendingPreferences = nil
+    }
+
+    private func syncRegistrationWithServer(token: String, generation: UInt) async {
         isWorking = true
         defer { isWorking = false }
         do {
             let device = try await client.registerDevice(
                 RegisterMobileDeviceRequest(
                     apnsToken: token,
-                    platform: .current,
+                    platform: Self.currentPlatform(),
                     deviceName: Self.deviceName(),
                     preferences: preferences
                 )
             )
+            guard registrationEnabled, generation == registrationGeneration else {
+                do {
+                    try await client.revokeDevice(id: device.id)
+                } catch {
+                    logger.warning(
+                        "stale registration revoke failed: \(error.localizedDescription, privacy: .public)"
+                    )
+                }
+                return
+            }
             deviceId = device.id
             defaults.set(device.id, forKey: Keys.deviceId)
             preferences = device.preferences
             persistPreferences(device.preferences)
             lastError = nil
         } catch {
+            guard registrationEnabled, generation == registrationGeneration else { return }
             lastError = error.localizedDescription
             logger.error("registerDevice failed: \(error.localizedDescription, privacy: .public)")
         }
@@ -274,6 +439,26 @@ public final class NotificationManager {
         UIApplication.shared.unregisterForRemoteNotifications()
         #elseif canImport(AppKit)
         NSApplication.shared.unregisterForRemoteNotifications()
+        #endif
+    }
+
+    private nonisolated static func stringValue(
+        for keys: [String],
+        in userInfo: [AnyHashable: Any]
+    ) -> String? {
+        for key in keys {
+            if let value = userInfo[key] as? String, !value.isEmpty {
+                return value
+            }
+        }
+        return nil
+    }
+
+    private static func currentPlatform() -> MobileDevicePlatform {
+        #if os(iOS)
+        return .iOS(isPad: UIDevice.current.userInterfaceIdiom == .pad)
+        #else
+        return .current
         #endif
     }
 

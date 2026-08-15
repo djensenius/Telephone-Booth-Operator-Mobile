@@ -51,10 +51,12 @@ public enum MobileDevicePlatform: Codable, Sendable, Hashable {
         try container.encode(rawValue)
     }
 
-    /// The platform string for the currently-compiled target. Distinguishing
-    /// iPhone vs iPad is done at runtime by callers; this returns `ios` on
-    /// both iPhone and iPad builds and lets the caller upgrade to `ipados`
-    /// where appropriate.
+    public static func iOS(isPad: Bool) -> MobileDevicePlatform {
+        isPad ? .ipados : .ios
+    }
+
+    /// The platform string for the currently compiled target. iOS callers
+    /// with access to the runtime interface idiom should use `iOS(isPad:)`.
     public static var current: MobileDevicePlatform {
         #if os(visionOS)
         return .visionos
