@@ -11,6 +11,17 @@ struct MacRootView: View {
     var body: some View {
         RootContainerView(demoMode: demoMode)
             .frame(minWidth: 760, minHeight: 480)
+            .containerBackground(for: .window) {
+                ZStack {
+                    Theme.Colors.background
+                    RadialGradient(
+                        colors: [Theme.Colors.accent.opacity(0.08), .clear],
+                        center: .topLeading,
+                        startRadius: 0,
+                        endRadius: 560
+                    )
+                }
+            }
     }
 }
 
