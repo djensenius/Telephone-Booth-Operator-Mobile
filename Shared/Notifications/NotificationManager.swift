@@ -216,6 +216,7 @@ public final class NotificationManager {
     }
 
     public nonisolated static func registerNotificationCategories() {
+        #if !os(tvOS)
         let viewAction = UNNotificationAction(
             identifier: Action.view,
             title: "View Details",
@@ -234,6 +235,7 @@ public final class NotificationManager {
             )
         ]
         UNUserNotificationCenter.current().setNotificationCategories(Set(categories))
+        #endif
     }
 
     /// Retries server registration using the persisted APNs token.
