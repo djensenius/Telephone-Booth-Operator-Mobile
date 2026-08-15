@@ -8,13 +8,30 @@ import XCTest
 @testable import TBOperatorMobile
 
 final class QuestionAudioEncoderTests: XCTestCase {
+    func testInstructionStatusPreservesUnknownValues() throws {
+        let data = Data(#""scheduled""#.utf8)
+        let status = try JSONDecoder().decode(InstructionStatus.self, from: data)
+
+        XCTAssertEqual(status, .unknown("scheduled"))
+        XCTAssertEqual(try JSONEncoder().encode(status), data)
+    }
+
+    func testInstructionUpdateEncodesNullDescription() throws {
+        let data = try JSONEncoder().encode(InstructionUpdate(description: nil))
+        let object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+
+        XCTAssertTrue(object["description"] is NSNull)
+    }
+
     func testEncodesAIFFileToFLAC() async throws {
         let source = FileManager.default.temporaryDirectory
             .appendingPathComponent("question-\(UUID().uuidString).aif")
         defer { try? FileManager.default.removeItem(at: source) }
 
         try writeAIF(to: source)
-        let encoded = try await QuestionAudioEncoder.encodeToFLAC(source: source)
+        let encoded = try await OperatorAudioEncoder.encodeToFLAC(source: source)
         defer { try? FileManager.default.removeItem(at: encoded.url) }
 
         XCTAssertEqual(encoded.url.pathExtension, "flac")

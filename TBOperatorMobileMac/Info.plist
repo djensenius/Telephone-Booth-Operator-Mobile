@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Record question prompts for the booth.</string>
+	<string>Record question prompts and instruction clips for the booth.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Transcribe message audio for review on this Mac.</string>
 	<key>CFBundleDevelopmentRegion</key>

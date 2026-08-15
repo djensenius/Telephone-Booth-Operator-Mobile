@@ -1,11 +1,9 @@
 //
-//  QuestionComposerView.swift
+//  InstructionComposerView.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Sheet for creating a new booth question. The operator records a prompt
-//  or imports an audio file; it is transcoded to FLAC, uploaded to the
-//  operator's SAS slot, and the question is created (optionally published
-//  immediately).
+//  Records or imports an instruction clip, transcodes it to FLAC, uploads
+//  it, and creates a new instruction in the global pool.
 //
 
 #if !os(watchOS) && !os(tvOS)
@@ -13,7 +11,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-struct QuestionComposerView: View {
+struct InstructionComposerView: View {
     enum AudioStage: Equatable {
         case empty
         case recording
@@ -23,19 +21,19 @@ struct QuestionComposerView: View {
     }
 
     private let client: OperatorClient
-    private let onCreated: (Question) -> Void
+    private let onCreated: (Instruction) -> Void
 
     @Environment(\.dismiss) private var dismiss
-
-    @State private var prompt: String = ""
-    @State private var publishImmediately = true
+    @State private var description = ""
+    @State private var activateImmediately = true
     @State private var stage: AudioStage = .empty
     @State private var isSubmitting = false
     @State private var submitError: String?
     @State private var isImporting = false
     @State private var recorder = OperatorAudioRecorder()
+    @State private var transcodeTask: Task<Void, Never>?
 
-    init(client: OperatorClient, onCreated: @escaping (Question) -> Void) {
+    init(client: OperatorClient, onCreated: @escaping (Instruction) -> Void) {
         self.client = client
         self.onCreated = onCreated
     }
@@ -43,25 +41,39 @@ struct QuestionComposerView: View {
     var body: some View {
         NavigationStack {
             Form {
-                promptSection
+                Section("Description") {
+                    TextField("What does this recording explain?", text: $description, axis: .vertical)
+                        .lineLimit(2...5)
+                        .onChange(of: description) { _, value in
+                            if value.count > Instruction.descriptionMaxLength {
+                                description = String(value.prefix(Instruction.descriptionMaxLength))
+                            }
+                        }
+                }
                 audioSection
-                publishSection
+                Section {
+                    Toggle("Activate immediately", isOn: $activateImmediately)
+                } footer: {
+                    Text(
+                        activateImmediately
+                            ? "The booth can choose this clip as soon as it is uploaded."
+                            : "The clip stays inactive until you activate it."
+                    )
+                }
                 if let submitError {
                     Section {
                         BannerView(message: submitError, kind: .error)
-                            .listRowInsets(EdgeInsets())
-                            .listRowBackground(Color.clear)
                     }
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("New Question")
+            .navigationTitle("New Instruction")
             #if os(iOS) || os(visionOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") { cancel() }
                         .disabled(isSubmitting)
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -84,50 +96,11 @@ struct QuestionComposerView: View {
         #if os(macOS)
         .frame(minWidth: 520, minHeight: 500)
         #endif
-        .interactiveDismissDisabled(isSubmitting)
-    }
-
-    // MARK: - Sections
-
-    private var promptSection: some View {
-        Section("Prompt") {
-            promptEditor
+        .interactiveDismissDisabled(isSubmitting || stage == .recording || stage == .processing)
+        .onDisappear {
+            transcodeTask?.cancel()
+            cleanup()
         }
-    }
-
-    @ViewBuilder
-    private var promptEditor: some View {
-        #if os(macOS)
-        ZStack(alignment: .topLeading) {
-            if prompt.isEmpty {
-                Text("What should the booth ask?")
-                    .font(Theme.Fonts.bodyMedium)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-                    .padding(.horizontal, Theme.Spacing.medium)
-                    .padding(.vertical, 12)
-                    .allowsHitTesting(false)
-            }
-            TextEditor(text: $prompt)
-                .font(Theme.Fonts.bodyMedium)
-                .foregroundStyle(Theme.Colors.textPrimary)
-                .textEditorStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .padding(Theme.Spacing.small)
-        }
-        .frame(minHeight: 110, maxHeight: 180)
-        .background(
-            Theme.Colors.elevatedBackground.opacity(0.72),
-            in: RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
-                .stroke(Theme.Colors.textSecondary.opacity(0.22), lineWidth: 1)
-        }
-        #else
-        TextField("What should the booth ask?", text: $prompt, axis: .vertical)
-            .lineLimit(2...5)
-            .textInputAutocapitalizationCompat()
-        #endif
     }
 
     @ViewBuilder
@@ -140,7 +113,11 @@ struct QuestionComposerView: View {
                         .font(Theme.Fonts.bodySmall)
                         .foregroundStyle(Theme.Colors.error)
                 }
-                recordButton
+                Button {
+                    Task { await startRecording() }
+                } label: {
+                    Label("Record", systemImage: "mic.fill")
+                }
                 Button {
                     isImporting = true
                 } label: {
@@ -150,10 +127,8 @@ struct QuestionComposerView: View {
                 HStack {
                     Image(systemName: "waveform")
                         .foregroundStyle(Theme.Colors.error)
-                        .symbolEffectPulse()
                     Text(recordingTime)
                         .font(Theme.Fonts.bodyMedium.monospacedDigit())
-                        .foregroundStyle(Theme.Colors.textPrimary)
                     Spacer()
                     Button("Stop") { Task { await stopRecording() } }
                         .buttonStyle(.borderedProminent)
@@ -163,8 +138,6 @@ struct QuestionComposerView: View {
                 HStack {
                     ProgressView()
                     Text("Preparing audio…")
-                        .font(Theme.Fonts.bodyMedium)
-                        .foregroundStyle(Theme.Colors.textSecondary)
                 }
             case .ready(let file):
                 readyAudio(file)
@@ -176,11 +149,9 @@ struct QuestionComposerView: View {
     private func readyAudio(_ file: OperatorAudioFile) -> some View {
         if let duration = DurationFormatter.shortString(milliseconds: file.durationMs) {
             Label("Ready · \(duration)", systemImage: "checkmark.circle.fill")
-                .font(Theme.Fonts.bodyMedium)
                 .foregroundStyle(Theme.Colors.success)
         } else {
             Label("Ready", systemImage: "checkmark.circle.fill")
-                .font(Theme.Fonts.bodyMedium)
                 .foregroundStyle(Theme.Colors.success)
         }
         AudioPlayerView(
@@ -193,29 +164,9 @@ struct QuestionComposerView: View {
         }
     }
 
-    private var recordButton: some View {
-        Button {
-            Task { await startRecording() }
-        } label: {
-            Label("Record", systemImage: "mic.fill")
-        }
-    }
-
-    private var publishSection: some View {
-        Section {
-            Toggle("Publish immediately", isOn: $publishImmediately)
-        } footer: {
-            Text(publishImmediately
-                 ? "The question becomes active and can be offered to callers right away."
-                 : "The question is saved as a draft until you activate it.")
-        }
-    }
-
-    // MARK: - Derived
-
     private var canSubmit: Bool {
-        guard case .ready = stage else { return false }
-        return !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if case .ready = stage { return true }
+        return false
     }
 
     private var recordingTime: String {
@@ -223,18 +174,16 @@ struct QuestionComposerView: View {
         return String(format: "%01d:%02d", total / 60, total % 60)
     }
 
-    // MARK: - Audio actions
-
     private func startRecording() async {
         submitError = nil
         stage = .recording
-        let started = await recorder.start()
-        if !started {
+        guard await recorder.start() else {
             if case .failed(let message) = recorder.state {
                 stage = .failed(message)
             } else {
                 stage = .failed("Couldn't start recording.")
             }
+            return
         }
     }
 
@@ -243,29 +192,39 @@ struct QuestionComposerView: View {
             stage = .failed("Recording was empty.")
             return
         }
-        await transcode(source: url, removeSource: true)
+        beginTranscode(source: url, removeSource: true)
     }
 
     private func handleImport(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
             guard let url = urls.first else { return }
-            Task { await transcode(source: url, removeSource: false) }
+            beginTranscode(source: url, removeSource: false)
         case .failure(let error):
             stage = .failed(error.localizedDescription)
         }
     }
 
+    private func beginTranscode(source: URL, removeSource: Bool) {
+        transcodeTask?.cancel()
+        transcodeTask = Task {
+            await transcode(source: source, removeSource: removeSource)
+        }
+    }
+
     private func transcode(source: URL, removeSource: Bool) async {
         stage = .processing
-        // Recorded captures live in a temp file we own, so remove them once
-        // we're done transcoding whether or not encoding succeeded.
         defer { if removeSource { try? FileManager.default.removeItem(at: source) } }
         do {
             let file = try await OperatorAudioEncoder.encodeToFLAC(source: source)
+            if Task.isCancelled {
+                try? FileManager.default.removeItem(at: file.url)
+                return
+            }
             stage = .ready(file)
         } catch {
-            stage = .failed((error as? LocalizedError)?.errorDescription ?? "Couldn't prepare the audio.")
+            guard !Task.isCancelled else { return }
+            stage = .failed(error.localizedDescription)
         }
     }
 
@@ -275,68 +234,55 @@ struct QuestionComposerView: View {
         stage = .empty
     }
 
-    // MARK: - Submit
+    private func cancel() {
+        transcodeTask?.cancel()
+        cleanup()
+        dismiss()
+    }
+
+    private func cleanup() {
+        recorder.reset()
+        if case .ready(let file) = stage {
+            try? FileManager.default.removeItem(at: file.url)
+        }
+        stage = .empty
+    }
 
     private func submit() async {
         guard case .ready(let file) = stage else { return }
-        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedPrompt.isEmpty else { return }
-
         isSubmitting = true
         submitError = nil
         do {
             let slot = try await client.requestUploadSlot(
-                kind: "question-audio",
+                kind: "instruction-audio",
                 sha256: file.sha256,
                 sizeBytes: file.sizeBytes
             )
             guard let audioFileId = slot.audioFileId else {
-                throw QuestionComposerError.missingAudioFileId
+                throw InstructionComposerError.missingAudioFileId
             }
             try await client.uploadAudioBlob(to: slot.uploadUrl, data: file.data)
-            let created = try await client.createQuestion(
-                prompt: trimmedPrompt,
+            let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
+            let created = try await client.createInstruction(
+                description: trimmed.isEmpty ? nil : trimmed,
                 audioFileId: audioFileId,
-                status: publishImmediately ? .active : .draft
+                status: activateImmediately ? .active : .inactive
             )
             try? FileManager.default.removeItem(at: file.url)
             onCreated(created)
             dismiss()
         } catch {
-            submitError = (error as? LocalizedError)?.errorDescription ?? "Couldn't create the question."
+            submitError = error.localizedDescription
             isSubmitting = false
         }
     }
 }
 
-private enum QuestionComposerError: LocalizedError {
+private enum InstructionComposerError: LocalizedError {
     case missingAudioFileId
 
     var errorDescription: String? {
-        switch self {
-        case .missingAudioFileId:
-            return "The server didn't return an audio reference. Please try again."
-        }
-    }
-}
-
-private extension View {
-    @ViewBuilder
-    func textInputAutocapitalizationCompat() -> some View {
-        #if os(iOS) || os(visionOS)
-        self.textInputAutocapitalization(.sentences)
-        #else
-        self
-        #endif
-    }
-
-    @ViewBuilder
-    func symbolEffectPulse() -> some View {
-        if #available(iOS 17.0, macOS 14.0, visionOS 1.0, *) {
-            self.symbolEffect(.pulse, options: .repeating)
-        } else {
-            self
-        }
+        "The server didn't return an audio reference. Please try again."
     }
 }
 

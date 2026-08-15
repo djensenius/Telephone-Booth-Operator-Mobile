@@ -44,7 +44,7 @@ public struct SignedInRootView: View {
 /// Stable identifiers for the signed-in tabs, used to drive selection and to
 /// let screenshot automation open a specific tab via `-uiScreenshotTab`.
 private enum OperatorTab: String, Hashable {
-    case dashboard, stats, sessions, messages, events, questions, audit, system, settings
+    case dashboard, stats, sessions, messages, events, questions, instructions, audit, system, settings
 }
 
 /// Unified, platform-adaptive signed-in shell. One `TabView` plus
@@ -122,9 +122,16 @@ private struct OperatorShell: View {
                 .automaticRefreshEnabled(selection == .questions)
             }
 
-            // The trail is admin-only server-side; hiding the tab keeps a
-            // non-admin from tapping into a guaranteed 403.
             if currentUser.isAdmin {
+                Tab("Instructions", systemImage: "phone.badge.waveform", value: .instructions) {
+                    NavigationStack {
+                        InstructionsView(client: client).navigationTitle("Instructions")
+                    }
+                    .automaticRefreshEnabled(selection == .instructions)
+                }
+
+                // The trail is admin-only server-side; hiding the tab keeps a
+                // non-admin from tapping into a guaranteed 403.
                 Tab("Audit", systemImage: "list.bullet.rectangle.portrait", value: .audit) {
                     NavigationStack {
                         AuditLogView(client: client).navigationTitle("Audit")

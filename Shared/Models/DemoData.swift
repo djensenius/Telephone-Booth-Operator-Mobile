@@ -226,6 +226,31 @@ public enum DemoData {
         )
     ]
 
+    public static let instructions: [Instruction] = [
+        Instruction(
+            id: "demo-instruction-1",
+            description: "Welcome and dialing instructions",
+            status: .active,
+            createdAt: now.addingTimeInterval(-5 * 24 * 60 * 60),
+            audio: AudioRef(
+                url: URL(string: "https://example.invalid/instruction-1.flac")!,
+                sha256: String(repeating: "6", count: 64),
+                durationMs: 18_000
+            )
+        ),
+        Instruction(
+            id: "demo-instruction-2",
+            description: "Alternate bilingual greeting",
+            status: .inactive,
+            createdAt: now.addingTimeInterval(-3 * 24 * 60 * 60),
+            audio: AudioRef(
+                url: URL(string: "https://example.invalid/instruction-2.flac")!,
+                sha256: String(repeating: "7", count: 64),
+                durationMs: 21_000
+            )
+        )
+    ]
+
     public static let events: [BoothEventRecord] = [
         event(id: "demo-event-5", type: .recordingStarted, minutesAgo: 1, sessionId: "demo-session-3"),
         event(id: "demo-event-4", type: .digitDialed, minutesAgo: 2, sessionId: "demo-session-3"),

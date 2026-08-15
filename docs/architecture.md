@@ -28,7 +28,7 @@
 ┌──────────────────────────────────────────────────────────────────┐
 │ Telephone-Booth-Operator (existing API)                           │
 │   /v1/status, /v1/sessions, /v1/messages, /v1/questions,          │
-│   /v1/events(/stream), /v1/system, /v1/ws/status                  │
+│   /v1/instructions, /v1/events(/stream), /v1/system, /v1/ws/status │
 │   + (added in operator PR 1) Authentik bearer middleware          │
 │   + (added in operator PR 9) /v1/devices for APNs registration    │
 └──────────────────────────────────────────────────────────────────┘
