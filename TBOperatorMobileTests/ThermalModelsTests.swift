@@ -362,7 +362,7 @@ final class ThermalModelsTests: XCTestCase {
 
     @MainActor
     func testCurrentWeatherLoadsForSelectionAndClearsWhenSelectionChanges() async {
-        let now = Date(timeIntervalSince1970: 1_779_800_120)
+        let now = DemoData.sessionAnchor.addingTimeInterval(120)
         let model = ThermalsViewModel(client: .demo, now: { now })
         await model.refreshCurrent()
         await model.refreshHistory()

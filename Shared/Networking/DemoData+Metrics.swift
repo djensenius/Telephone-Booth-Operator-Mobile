@@ -41,8 +41,8 @@ public extension DemoData {
             relativeHumidityPercent: 67,
             cloudCoverPercent: 0,
             condition: .clearSky,
-            observedAt: now.addingTimeInterval(-60),
-            fetchedAt: now.addingTimeInterval(-30)
+            observedAt: sessionAnchor.addingTimeInterval(-60),
+            fetchedAt: sessionAnchor.addingTimeInterval(-30)
         )
     }
 
