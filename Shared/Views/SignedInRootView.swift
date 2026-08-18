@@ -43,8 +43,70 @@ public struct SignedInRootView: View {
 #if !os(watchOS)
 /// Stable identifiers for the signed-in tabs, used to drive selection and to
 /// let screenshot automation open a specific tab via `-uiScreenshotTab`.
-private enum OperatorTab: String, Hashable {
-    case dashboard, stats, thermals, sessions, messages, events, questions, instructions, audit, system, settings
+enum OperatorTab: String, Hashable {
+    case dashboard, stats, sessions, messages, thermals, events, questions, instructions, audit, system, settings
+
+    var title: String {
+        switch self {
+        case .dashboard: return "Dashboard"
+        case .stats: return "Stats"
+        case .sessions: return "Sessions"
+        case .messages: return "Messages"
+        case .thermals: return "Thermals"
+        case .events: return "Events"
+        case .questions: return "Questions"
+        case .instructions: return "Instructions"
+        case .audit: return "Audit"
+        case .system: return "System"
+        case .settings: return "Settings"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .dashboard: return "gauge.with.dots.needle.bottom.50percent"
+        case .stats: return "chart.bar.fill"
+        case .sessions: return "phone.connection.fill"
+        case .messages: return "tray.full"
+        case .thermals: return "thermometer.variable.and.figure"
+        case .events: return "antenna.radiowaves.left.and.right"
+        case .questions: return "questionmark.bubble"
+        case .instructions: return "phone.badge.waveform"
+        case .audit: return "list.bullet.rectangle.portrait"
+        case .system: return "cpu"
+        case .settings: return "gearshape"
+        }
+    }
+
+    static func sharedNavigationOrder(
+        isAdmin: Bool,
+        includesSettings: Bool
+    ) -> [OperatorTab] {
+        var tabs: [OperatorTab] = [
+            .dashboard,
+            .stats,
+            .sessions,
+            .messages,
+            .thermals,
+            .events,
+            .questions
+        ]
+        if isAdmin {
+            tabs.append(contentsOf: [.instructions, .audit])
+        }
+        tabs.append(.system)
+        if includesSettings {
+            tabs.append(.settings)
+        }
+        return tabs
+    }
+
+    static let televisionNavigationOrder: [OperatorTab] = [
+        .dashboard,
+        .stats,
+        .system,
+        .settings
+    ]
 }
 
 /// Unified, platform-adaptive signed-in shell. One `TabView` plus
@@ -75,99 +137,18 @@ private struct OperatorShell: View {
 
     var body: some View {
         TabView(selection: $selection) {
-            Tab("Dashboard", systemImage: "gauge.with.dots.needle.bottom.50percent", value: .dashboard) {
-                dashboardTab
-                    .automaticRefreshEnabled(selection == .dashboard)
-            }
-
-            Tab("Stats", systemImage: "chart.bar.fill", value: .stats) {
-                Group {
-                    #if os(tvOS)
-                    TVStatsView(client: client)
-                    #else
-                    NavigationStack {
-                        statsView.navigationTitle("Stats")
-                    }
-                    #endif
+            ForEach(visibleTabs, id: \.self) { tab in
+                #if os(tvOS)
+                Tab(tab.title, systemImage: tab.systemImage, value: tab) {
+                    tabContent(for: tab)
                 }
-                .automaticRefreshEnabled(selection == .stats)
-            }
-
-            #if !os(tvOS)
-            Tab("Thermals", systemImage: "thermometer.variable.and.figure", value: .thermals) {
-                NavigationStack {
-                    ThermalsView(client: client).navigationTitle("Thermals")
+                #else
+                Tab(tab.title, systemImage: tab.systemImage, value: tab) {
+                    tabContent(for: tab)
                 }
-                .automaticRefreshEnabled(selection == .thermals)
+                .badge(tab == .messages ? pending.pendingCount : 0)
+                #endif
             }
-
-            Tab("Sessions", systemImage: "phone.connection.fill", value: .sessions) {
-                NavigationStack(path: $sessionPath) {
-                    SessionListView(client: client).navigationTitle("Sessions")
-                }
-                .automaticRefreshEnabled(selection == .sessions)
-            }
-
-            Tab("Messages", systemImage: "tray.full", value: .messages) {
-                NavigationStack(path: $messagePath) {
-                    MessageListView(client: client).navigationTitle("Messages")
-                }
-                .automaticRefreshEnabled(selection == .messages)
-            }
-            .badge(pending.pendingCount)
-
-            Tab("Events", systemImage: "antenna.radiowaves.left.and.right", value: .events) {
-                NavigationStack {
-                    EventsFeedView(client: client, stream: eventStream).navigationTitle("Events")
-                }
-                .automaticRefreshEnabled(selection == .events)
-            }
-
-            Tab("Questions", systemImage: "questionmark.bubble", value: .questions) {
-                NavigationStack {
-                    QuestionsView(client: client, isAdmin: currentUser.isAdmin)
-                        .navigationTitle("Questions")
-                }
-                .automaticRefreshEnabled(selection == .questions)
-            }
-
-            if currentUser.isAdmin {
-                Tab("Instructions", systemImage: "phone.badge.waveform", value: .instructions) {
-                    NavigationStack {
-                        InstructionsView(client: client).navigationTitle("Instructions")
-                    }
-                    .automaticRefreshEnabled(selection == .instructions)
-                }
-
-                // The trail is admin-only server-side; hiding the tab keeps a
-                // non-admin from tapping into a guaranteed 403.
-                Tab("Audit", systemImage: "list.bullet.rectangle.portrait", value: .audit) {
-                    NavigationStack {
-                        AuditLogView(client: client).navigationTitle("Audit")
-                    }
-                    .automaticRefreshEnabled(selection == .audit)
-                }
-            }
-            #endif
-
-            Tab("System", systemImage: "cpu", value: .system) {
-                Group {
-                    #if os(tvOS)
-                    TVSystemView(client: client)
-                    #else
-                    NavigationStack {
-                        SystemView(client: client).navigationTitle("System")
-                    }
-                    #endif
-                }
-                .automaticRefreshEnabled(selection == .system)
-            }
-
-            #if !os(macOS)
-            Tab("Settings", systemImage: "gearshape", value: .settings) {
-                SettingsView(isModal: false)
-            }
-            #endif
         }
         .tabViewStyle(.sidebarAdaptable)
         .tint(Theme.Colors.accent)
@@ -187,6 +168,128 @@ private struct OperatorShell: View {
             enabled: config.tvScreensaverEnabled,
             idleSeconds: config.tvScreensaverIdleSeconds,
             client: client
+        )
+        #endif
+    }
+
+    @ViewBuilder
+    private func tabContent(for tab: OperatorTab) -> some View {
+        #if os(tvOS)
+        televisionTabContent(for: tab)
+        #else
+        switch tab {
+        case .dashboard, .stats, .system, .settings:
+            shellTabContent(for: tab)
+        default:
+            workflowTabContent(for: tab)
+        }
+        #endif
+    }
+
+    #if os(tvOS)
+    @ViewBuilder
+    private func televisionTabContent(for tab: OperatorTab) -> some View {
+        switch tab {
+        case .dashboard:
+            dashboardTab
+                .automaticRefreshEnabled(selection == .dashboard)
+        case .stats:
+            TVStatsView(client: client)
+                .automaticRefreshEnabled(selection == .stats)
+        case .system:
+            TVSystemView(client: client)
+                .automaticRefreshEnabled(selection == .system)
+        case .settings:
+            SettingsView(isModal: false)
+        default:
+            EmptyView()
+        }
+    }
+    #else
+    @ViewBuilder
+    private func shellTabContent(for tab: OperatorTab) -> some View {
+        switch tab {
+        case .dashboard:
+            dashboardTab
+                .automaticRefreshEnabled(selection == .dashboard)
+        case .stats:
+            NavigationStack {
+                statsView.navigationTitle("Stats")
+            }
+            .automaticRefreshEnabled(selection == .stats)
+        case .system:
+            NavigationStack {
+                SystemView(client: client).navigationTitle("System")
+            }
+            .automaticRefreshEnabled(selection == .system)
+        case .settings:
+            #if os(macOS)
+            EmptyView()
+            #else
+            SettingsView(isModal: false)
+            #endif
+        default:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private func workflowTabContent(for tab: OperatorTab) -> some View {
+        switch tab {
+        case .sessions:
+            NavigationStack(path: $sessionPath) {
+                SessionListView(client: client).navigationTitle("Sessions")
+            }
+            .automaticRefreshEnabled(selection == .sessions)
+        case .messages:
+            NavigationStack(path: $messagePath) {
+                MessageListView(client: client).navigationTitle("Messages")
+            }
+            .automaticRefreshEnabled(selection == .messages)
+        case .thermals:
+            NavigationStack {
+                ThermalsView(client: client).navigationTitle("Thermals")
+            }
+            .automaticRefreshEnabled(selection == .thermals)
+        case .events:
+            NavigationStack {
+                EventsFeedView(client: client, stream: eventStream).navigationTitle("Events")
+            }
+            .automaticRefreshEnabled(selection == .events)
+        case .questions:
+            NavigationStack {
+                QuestionsView(client: client, isAdmin: currentUser.isAdmin)
+                    .navigationTitle("Questions")
+            }
+            .automaticRefreshEnabled(selection == .questions)
+        case .instructions:
+            NavigationStack {
+                InstructionsView(client: client).navigationTitle("Instructions")
+            }
+            .automaticRefreshEnabled(selection == .instructions)
+        case .audit:
+            NavigationStack {
+                AuditLogView(client: client).navigationTitle("Audit")
+            }
+            .automaticRefreshEnabled(selection == .audit)
+        default:
+            EmptyView()
+        }
+    }
+    #endif
+
+    private var visibleTabs: [OperatorTab] {
+        #if os(tvOS)
+        return OperatorTab.televisionNavigationOrder
+        #elseif os(macOS)
+        return OperatorTab.sharedNavigationOrder(
+            isAdmin: currentUser.isAdmin,
+            includesSettings: false
+        )
+        #else
+        return OperatorTab.sharedNavigationOrder(
+            isAdmin: currentUser.isAdmin,
+            includesSettings: true
         )
         #endif
     }

@@ -28,18 +28,24 @@ final class ThermalsViewModel {
     var selectedSourceId = ""
     var range: ThermalRangePreset = .default
     private(set) var history: ThermalHistoryResponse?
+    private(set) var historyRange: ClosedRange<Date>?
     private(set) var currentError: String?
     private(set) var historyError: String?
     private(set) var isLoadingCurrent = false
     private(set) var isLoadingHistory = false
 
     @ObservationIgnored private let client: OperatorClient
+    @ObservationIgnored private let now: @Sendable () -> Date
     @ObservationIgnored private var historyGeneration = 0
     @ObservationIgnored private var loadedSelectionId: String?
     @ObservationIgnored private var loadedRange: ThermalRangePreset?
 
-    init(client: OperatorClient) {
+    init(
+        client: OperatorClient,
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) {
         self.client = client
+        self.now = now
     }
 
     var sourceOptions: [ThermalSourceOption] {
@@ -130,8 +136,14 @@ final class ThermalsViewModel {
         let generation = historyGeneration
         let requestedSelectionId = selectedSourceId
         let requestedRange = range
+        let requestedQuery = requestedRange.query(
+            boothId: selectedSource.boothId,
+            componentId: selectedComponentEnvelope?.source.componentId,
+            now: now()
+        )
         if loadedSelectionId != requestedSelectionId || loadedRange != requestedRange {
             history = nil
+            historyRange = nil
             historyError = nil
         }
         isLoadingHistory = true
@@ -142,12 +154,7 @@ final class ThermalsViewModel {
         }
 
         do {
-            let result = try await client.fetchThermalHistory(
-                query: requestedRange.query(
-                    boothId: selectedSource.boothId,
-                    componentId: selectedComponentEnvelope?.source.componentId
-                )
-            )
+            let result = try await client.fetchThermalHistory(query: requestedQuery)
             guard !Task.isCancelled,
                   generation == historyGeneration,
                   selectedSourceId == requestedSelectionId,
@@ -155,6 +162,7 @@ final class ThermalsViewModel {
                 return
             }
             history = result
+            historyRange = requestedQuery.from...requestedQuery.end
             loadedSelectionId = requestedSelectionId
             loadedRange = requestedRange
             historyError = nil
@@ -223,6 +231,7 @@ final class ThermalsViewModel {
     private func clearHistory() {
         historyGeneration += 1
         history = nil
+        historyRange = nil
         historyError = nil
         loadedSelectionId = nil
         loadedRange = nil

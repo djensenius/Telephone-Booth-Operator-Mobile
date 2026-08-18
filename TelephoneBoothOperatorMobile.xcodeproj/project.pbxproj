@@ -510,6 +510,7 @@
 		D177370581A9B32153A7A68D /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD213C066A1ED5C88C257364 /* LoginView.swift */; };
 		D1D0BE1787938D7FD05317B9 /* EventStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D1BD55A2C9AE62BE0E78BA0 /* EventStream.swift */; };
 		D24A1E2BED7441D99B36AD86 /* Message+Moderation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23B416AA36D203E683186FB4 /* Message+Moderation.swift */; };
+		D279E15232E636978687B122 /* NavigationOrderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39195A629967B57A7AF6A5DA /* NavigationOrderTests.swift */; };
 		D3315CEFA94B7D2C36D66C47 /* StatsRangeSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE66B898CC6A1F9C1ABD431C /* StatsRangeSelection.swift */; };
 		D347C34E4778469948166D38 /* BoothStatusLiveStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E95B37CFE5471F2A73BEA65 /* BoothStatusLiveStore.swift */; };
 		D388611A15BE964597996D56 /* OperatorClient+Audit.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8CF711AC89A26010A958E2F /* OperatorClient+Audit.swift */; };
@@ -751,6 +752,7 @@
 		349B96C3446415F54195F0B8 /* TVStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVStatsView.swift; sourceTree = "<group>"; };
 		34D73B167F953852612B6C9E /* WatchHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHomeView.swift; sourceTree = "<group>"; };
 		37087EC6949DE3BAE1DFF056 /* RootContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootContainerView.swift; sourceTree = "<group>"; };
+		39195A629967B57A7AF6A5DA /* NavigationOrderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationOrderTests.swift; sourceTree = "<group>"; };
 		3D1F53A3DCA7F785BCD6F748 /* OperatorClient+Questions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OperatorClient+Questions.swift"; sourceTree = "<group>"; };
 		3F32320D1B4D3C7451CD0810 /* ThermalHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalHistory.swift; sourceTree = "<group>"; };
 		40625CD545E668C2C4B504AF /* OperatorClientRetryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperatorClientRetryTests.swift; sourceTree = "<group>"; };
@@ -919,6 +921,7 @@
 				A3927268F17F105948D1EEB6 /* BoothSystemSnapshotTests.swift */,
 				9CD9DDE3D8BCDE0B477C7475 /* EventStreamTests.swift */,
 				D2A3907C3F55C792DA6D5DC3 /* IDTokenValidatorTests.swift */,
+				39195A629967B57A7AF6A5DA /* NavigationOrderTests.swift */,
 				435BF82B0A74BD00A4B073F2 /* NotificationTests.swift */,
 				A656FC85633AF2B813476502 /* OnDeviceAudioFetcherTests.swift */,
 				E10A7A362240B310BF2B7BC8 /* OnDeviceReviewTests.swift */,
@@ -2214,6 +2217,7 @@
 				4C1407A8E627B4F24A100CDF /* BoothSystemSnapshotTests.swift in Sources */,
 				730A9E1DC7AF671AF03E61BB /* EventStreamTests.swift in Sources */,
 				0D22073568FBC9379AD4D926 /* IDTokenValidatorTests.swift in Sources */,
+				D279E15232E636978687B122 /* NavigationOrderTests.swift in Sources */,
 				884D83CA01F406FABA0EF9E1 /* NotificationTests.swift in Sources */,
 				B18940415C807151C9D65A5B /* OnDeviceAudioFetcherTests.swift in Sources */,
 				4F24C9C6E96A37867C5E5F5D /* OnDeviceReviewTests.swift in Sources */,
@@ -2583,7 +2587,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 9JALHNGRBQ;
@@ -2600,7 +2604,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.4.1;
+				MARKETING_VERSION = 0.4.2;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -2990,7 +2994,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 9JALHNGRBQ;
@@ -3013,7 +3017,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.4.1;
+				MARKETING_VERSION = 0.4.2;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
