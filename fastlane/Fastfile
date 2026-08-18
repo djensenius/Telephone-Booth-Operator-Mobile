@@ -1,3 +1,5 @@
+require "shellwords"
+
 default_platform(:ios)
 
 API_KEY = {
@@ -5,6 +7,15 @@ API_KEY = {
   issuer_id: "69a6de7e-a5f5-47e3-e053-5b8c7c11a4d1",
   key_filepath: File.expand_path("~/.appstoreconnect/AuthKey_XP65R4N5A2.p8")
 }
+
+# gym forwards the API key during export, but the archive command needs these
+# arguments explicitly so managed signing does not depend on an Xcode account.
+XCODE_AUTH_ARGS = [
+  "-allowProvisioningUpdates",
+  "-authenticationKeyPath #{Shellwords.escape(API_KEY[:key_filepath])}",
+  "-authenticationKeyID #{Shellwords.escape(API_KEY[:key_id])}",
+  "-authenticationKeyIssuerID #{Shellwords.escape(API_KEY[:issuer_id])}"
+].join(" ").freeze
 
 APP_NAME           = "Telephone Booth Operator"
 APP_SKU            = "tb-operator-mobile"
@@ -182,7 +193,7 @@ platform :ios do
       project: "TelephoneBoothOperatorMobile.xcodeproj",
       scheme: "TBOperatorMobile",
       export_method: "app-store",
-      xcargs: "-allowProvisioningUpdates"
+      xcargs: XCODE_AUTH_ARGS
     )
     upload_to_testflight(
       skip_waiting_for_build_processing: true,
@@ -262,7 +273,7 @@ platform :mac do
       project: "TelephoneBoothOperatorMobile.xcodeproj",
       scheme: "TBOperatorMobileMac",
       export_method: "app-store",
-      xcargs: "-allowProvisioningUpdates"
+      xcargs: XCODE_AUTH_ARGS
     )
     upload_to_testflight(
       skip_waiting_for_build_processing: true,
