@@ -26,6 +26,7 @@ public final class BoothStatusLiveStore {
     public private(set) var status: BoothStatus?
     public private(set) var history: [BoothStatus] = []
     public private(set) var systemEnvelope: BoothSystemSnapshotEnvelope?
+    public private(set) var componentSources: [SystemComponentCurrentEnvelope] = []
     public private(set) var stats: StatsSummary?
     public private(set) var connection: ConnectionState = .offline
     public private(set) var lastError: String?
@@ -147,6 +148,7 @@ public final class BoothStatusLiveStore {
                 // cached — whether the seed failed or simply returned empty
                 // before the booth first reported — until one arrives.
                 if systemEnvelope == nil { await refreshSystem() }
+                await refreshComponents()
             }
             isInitialSeed = false
             do {
@@ -175,11 +177,13 @@ public final class BoothStatusLiveStore {
         async let statusResult = attempt { try await client.fetchBoothStatus() }
         async let historyResult = attempt { try await client.fetchStatusHistory(limit: 200) }
         async let systemResult = attempt { try await client.fetchCurrentSystemEnvelope() }
+        async let componentsResult = attempt { try await client.fetchCurrentSystemComponents() }
         async let statsResult = attempt { try await client.fetchStatsSummary() }
 
         let newStatus = await statusResult
         let newHistory = await historyResult
         let newSystem = await systemResult
+        let newComponents = await componentsResult
         let newStats = await statsResult
 
         // Apply each successful result independently so one failing endpoint
@@ -189,10 +193,11 @@ public final class BoothStatusLiveStore {
         if let newHistory { mergeHistory(newHistory.items) }
         if let newStatus { apply(status: newStatus) }
         applySystemResult(newSystem)
+        if let newComponents { componentSources = newComponents }
         if let newStats { applyStats(newStats) }
 
         let anySuccess = newStatus != nil || newHistory != nil
-            || newSystem != nil || newStats != nil
+            || newSystem != nil || newComponents != nil || newStats != nil
         if newStatus == nil {
             // Only a failed *current status* request signals degraded status;
             // other successful results above are still applied.
@@ -250,6 +255,14 @@ public final class BoothStatusLiveStore {
         let client = self.client
         let result = await attempt { try await client.fetchCurrentSystemEnvelope() }
         applySystemResult(result)
+    }
+
+    private func refreshComponents() async {
+        if demoMode || config.isDemoMode { return }
+        let client = self.client
+        if let sources = await attempt({ try await client.fetchCurrentSystemComponents() }) {
+            componentSources = sources
+        }
     }
 
     private func apply(_ envelope: WsStatusEnvelope) {
@@ -441,6 +454,7 @@ public final class BoothStatusLiveStore {
         status = DemoData.liveStatus(now: demoNow)
         history = DemoData.rebasedHistory()
         systemEnvelope = DemoData.systemEnvelope
+        componentSources = DemoData.systemComponentSources
         let demoStats = DemoData.rebasedStats(to: demoNow)
         stats = demoStats
         connection = .polling

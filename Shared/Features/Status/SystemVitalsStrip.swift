@@ -10,7 +10,7 @@
 //
 //  This view is platform-portable and never fetches anything itself —
 //  callers (StatusDashboardView, SystemView) pass in the latest cached
-//  snapshot.
+//  snapshot plus the matching router component temperature.
 //
 
 import SwiftUI
@@ -18,17 +18,28 @@ import SwiftUI
 public struct SystemVitalsStrip: View {
     public let snapshot: BoothSystemSnapshot?
     public let receivedAt: Date?
+    public let componentSources: [SystemComponentCurrentEnvelope]
+    public let boothId: String?
 
-    public init(snapshot: BoothSystemSnapshot?, receivedAt: Date? = nil) {
+    public init(
+        snapshot: BoothSystemSnapshot?,
+        receivedAt: Date? = nil,
+        componentSources: [SystemComponentCurrentEnvelope] = [],
+        boothId: String? = nil
+    ) {
         self.snapshot = snapshot
         self.receivedAt = receivedAt
+        self.componentSources = componentSources
+        self.boothId = boothId
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            SectionHeader(text: "Live vitals")
-            tilesGrid
-            footer
+        TimelineView(.periodic(from: .now, by: 5)) { context in
+            VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+                SectionHeader(text: "Live vitals")
+                tilesGrid(now: context.date)
+                footer
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Spacing.large)
@@ -38,13 +49,23 @@ public struct SystemVitalsStrip: View {
     }
 
     @ViewBuilder
-    private var tilesGrid: some View {
+    private func tilesGrid(now: Date) -> some View {
+        let routerBatteryTemperatureCelsius = SystemVitals.routerBatteryTemperature(
+            in: componentSources,
+            boothId: boothId,
+            now: now
+        )
         let columns = [GridItem(.adaptive(minimum: 110), spacing: Theme.Spacing.small)]
         LazyVGrid(columns: columns, alignment: .leading, spacing: Theme.Spacing.small) {
             VitalTile(
                 label: "CPU temp",
                 value: temperatureValue,
                 severity: SystemVitals.temperatureSeverity(snapshot?.cpuTemperatureCelsius)
+            )
+            VitalTile(
+                label: "Router batt",
+                value: SystemVitals.formatTemperature(routerBatteryTemperatureCelsius),
+                severity: SystemVitals.temperatureSeverity(routerBatteryTemperatureCelsius)
             )
             VitalTile(label: "CPU", value: cpuValue, severity: .nominal)
             VitalTile(
@@ -92,8 +113,7 @@ public struct SystemVitalsStrip: View {
     }
 
     private var temperatureValue: String {
-        guard let temp = snapshot?.cpuTemperatureCelsius else { return "—" }
-        return String(format: "%.1f°C", temp)
+        SystemVitals.formatTemperature(snapshot?.cpuTemperatureCelsius)
     }
 
     private var cpuValue: String {
@@ -257,6 +277,9 @@ private struct VitalTile: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(severity.tint.opacity(severity == .nominal ? 0.08 : 0.18))
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(label))
+        .accessibilityValue(Text(value))
     }
 }
 
@@ -305,6 +328,47 @@ public enum SystemVitals {
     public static func formatNumber(_ value: Double?, fractionDigits: Int = 2) -> String {
         guard let value else { return "—" }
         return String(format: "%.\(fractionDigits)f", value)
+    }
+
+    public static func formatTemperature(_ value: Double?) -> String {
+        guard let value, value.isFinite else { return "—" }
+        return String(format: "%.1f°C", value)
+    }
+
+    public static func routerBatteryTemperature(
+        in sources: [SystemComponentCurrentEnvelope],
+        boothId: String?,
+        now: Date = Date()
+    ) -> Double? {
+        guard let boothId = boothId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !boothId.isEmpty else {
+            return nil
+        }
+        return sources
+            .filter { $0.source.boothId == boothId && $0.source.isRouter }
+            .sorted(by: componentSourceOrder)
+            .compactMap { envelope in
+                guard let freshnessDate = envelope.freshnessDate,
+                      now.timeIntervalSince(freshnessDate) <= 5 * 60 else {
+                    return nil
+                }
+                return envelope.latestSnapshot?.battery?.temperatureCelsius
+            }
+            .first(where: \.isFinite)
+    }
+
+    private static func componentSourceOrder(
+        _ lhs: SystemComponentCurrentEnvelope,
+        _ rhs: SystemComponentCurrentEnvelope
+    ) -> Bool {
+        if lhs.source.isRouter != rhs.source.isRouter {
+            return lhs.source.isRouter
+        }
+        let nameOrder = lhs.source.effectiveDisplayName.localizedCaseInsensitiveCompare(
+            rhs.source.effectiveDisplayName
+        )
+        if nameOrder != .orderedSame { return nameOrder == .orderedAscending }
+        return lhs.id < rhs.id
     }
 
     public static func formatPercent(_ ratio: Double?) -> String {
