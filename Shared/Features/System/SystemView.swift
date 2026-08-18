@@ -26,10 +26,8 @@ public struct SystemView: View {
                     SystemVitalsStrip(
                         snapshot: envelope.snapshot,
                         receivedAt: envelope.receivedAt,
-                        routerBatteryTemperatureCelsius: SystemVitals.routerBatteryTemperature(
-                            in: liveStore.componentSources,
-                            boothId: envelope.boothId
-                        )
+                        componentSources: liveStore.componentSources,
+                        boothId: envelope.boothId
                     )
                     SystemHostCard(
                         boothId: envelope.boothId,

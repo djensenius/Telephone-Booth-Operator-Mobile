@@ -18,23 +18,28 @@ import SwiftUI
 public struct SystemVitalsStrip: View {
     public let snapshot: BoothSystemSnapshot?
     public let receivedAt: Date?
-    public let routerBatteryTemperatureCelsius: Double?
+    public let componentSources: [SystemComponentCurrentEnvelope]
+    public let boothId: String?
 
     public init(
         snapshot: BoothSystemSnapshot?,
         receivedAt: Date? = nil,
-        routerBatteryTemperatureCelsius: Double? = nil
+        componentSources: [SystemComponentCurrentEnvelope] = [],
+        boothId: String? = nil
     ) {
         self.snapshot = snapshot
         self.receivedAt = receivedAt
-        self.routerBatteryTemperatureCelsius = routerBatteryTemperatureCelsius
+        self.componentSources = componentSources
+        self.boothId = boothId
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            SectionHeader(text: "Live vitals")
-            tilesGrid
-            footer
+        TimelineView(.periodic(from: .now, by: 5)) { context in
+            VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+                SectionHeader(text: "Live vitals")
+                tilesGrid(now: context.date)
+                footer
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Spacing.large)
@@ -44,7 +49,12 @@ public struct SystemVitalsStrip: View {
     }
 
     @ViewBuilder
-    private var tilesGrid: some View {
+    private func tilesGrid(now: Date) -> some View {
+        let routerBatteryTemperatureCelsius = SystemVitals.routerBatteryTemperature(
+            in: componentSources,
+            boothId: boothId,
+            now: now
+        )
         let columns = [GridItem(.adaptive(minimum: 110), spacing: Theme.Spacing.small)]
         LazyVGrid(columns: columns, alignment: .leading, spacing: Theme.Spacing.small) {
             VitalTile(
