@@ -33,6 +33,19 @@ public extension DemoData {
         )
     ]
 
+    static func currentWeather(boothId: String) -> CurrentWeather {
+        CurrentWeather(
+            boothId: boothId,
+            source: "open_meteo",
+            temperatureCelsius: 22.2,
+            relativeHumidityPercent: 67,
+            cloudCoverPercent: 0,
+            condition: .clearSky,
+            observedAt: now.addingTimeInterval(-60),
+            fetchedAt: now.addingTimeInterval(-30)
+        )
+    }
+
     static let metricFilters: [MetricFilter] = [
         MetricFilter(
             id: "11111111-2222-3333-4444-555555555555",

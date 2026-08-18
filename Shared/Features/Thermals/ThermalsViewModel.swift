@@ -25,18 +25,29 @@ struct ThermalSourceOption: Sendable, Hashable, Identifiable {
 final class ThermalsViewModel {
     var componentSources: [SystemComponentCurrentEnvelope] = []
     var systemEnvelopes: [BoothSystemSnapshotEnvelope] = []
-    var selectedSourceId = ""
+    var selectedSourceId = "" {
+        didSet {
+            if oldValue != selectedSourceId {
+                clearHistory()
+                clearCurrentWeather()
+            }
+        }
+    }
     var range: ThermalRangePreset = .default
     private(set) var history: ThermalHistoryResponse?
     private(set) var historyRange: ClosedRange<Date>?
+    private(set) var currentWeather: CurrentWeather?
     private(set) var currentError: String?
+    private(set) var currentWeatherError: String?
     private(set) var historyError: String?
     private(set) var isLoadingCurrent = false
+    private(set) var isLoadingCurrentWeather = false
     private(set) var isLoadingHistory = false
 
     @ObservationIgnored private let client: OperatorClient
     @ObservationIgnored private let now: @Sendable () -> Date
     @ObservationIgnored private var historyGeneration = 0
+    @ObservationIgnored private var weatherGeneration = 0
     @ObservationIgnored private var loadedSelectionId: String?
     @ObservationIgnored private var loadedRange: ThermalRangePreset?
 
@@ -46,6 +57,12 @@ final class ThermalsViewModel {
     ) {
         self.client = client
         self.now = now
+    }
+
+    var currentWeatherFooter: String {
+        currentWeather?.freshnessLabel(now: now()) ?? (
+            isLoadingCurrentWeather ? "Refreshing current weather…" : "Awaiting current weather"
+        )
     }
 
     var sourceOptions: [ThermalSourceOption] {
@@ -127,6 +144,43 @@ final class ThermalsViewModel {
         currentError = messages.isEmpty ? nil : messages.joined(separator: " ")
     }
 
+    func refreshCurrentWeather() async {
+        guard let selectedSource else {
+            clearCurrentWeather()
+            return
+        }
+        weatherGeneration += 1
+        let generation = weatherGeneration
+        let requestedSelectionId = selectedSourceId
+        let requestedBoothId = selectedSource.boothId
+        isLoadingCurrentWeather = true
+        defer {
+            if generation == weatherGeneration {
+                isLoadingCurrentWeather = false
+            }
+        }
+
+        do {
+            let result = try await client.fetchCurrentWeather(boothId: requestedBoothId)
+            guard !Task.isCancelled,
+                  generation == weatherGeneration,
+                  selectedSourceId == requestedSelectionId,
+                  self.selectedSource?.boothId == requestedBoothId else {
+                return
+            }
+            currentWeather = result
+            currentWeatherError = nil
+        } catch {
+            guard !Task.isCancelled,
+                  generation == weatherGeneration,
+                  selectedSourceId == requestedSelectionId,
+                  self.selectedSource?.boothId == requestedBoothId else {
+                return
+            }
+            currentWeatherError = Self.errorMessage(prefix: "Current weather", error: error)
+        }
+    }
+
     func refreshHistory() async {
         guard let selectedSource else {
             clearHistory()
@@ -167,7 +221,12 @@ final class ThermalsViewModel {
             loadedRange = requestedRange
             historyError = nil
         } catch {
-            guard !Task.isCancelled, generation == historyGeneration else { return }
+            guard !Task.isCancelled,
+                  generation == historyGeneration,
+                  selectedSourceId == requestedSelectionId,
+                  range == requestedRange else {
+                return
+            }
             historyError = Self.errorMessage(prefix: "Thermal history", error: error)
         }
     }
@@ -192,6 +251,7 @@ final class ThermalsViewModel {
         guard !options.isEmpty else {
             selectedSourceId = ""
             clearHistory()
+            clearCurrentWeather()
             return
         }
         if options.contains(where: { $0.id == selectedSourceId }) { return }
@@ -236,6 +296,13 @@ final class ThermalsViewModel {
         loadedSelectionId = nil
         loadedRange = nil
         isLoadingHistory = false
+    }
+
+    private func clearCurrentWeather() {
+        weatherGeneration += 1
+        currentWeather = nil
+        currentWeatherError = nil
+        isLoadingCurrentWeather = false
     }
 }
 #endif

@@ -28,6 +28,15 @@ enum ThermalEndpoint {
         queryItems: []
     )
 
+    static func currentWeather(boothId: String) throws -> ThermalEndpointRequest {
+        let normalizedBoothId = boothId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedBoothId.isEmpty else { throw OperatorError.invalidURL }
+        return ThermalEndpointRequest(
+            path: "/v1/system/weather/current",
+            queryItems: [URLQueryItem(name: "boothId", value: normalizedBoothId)]
+        )
+    }
+
     static func history(query: ThermalHistoryQuery) throws -> ThermalEndpointRequest {
         guard !query.boothId.isEmpty else { throw OperatorError.invalidURL }
         return ThermalEndpointRequest(
@@ -169,6 +178,21 @@ public extension OperatorClient {
                 stepSeconds: stepSeconds
             )
         )
+    }
+
+    /// `GET /v1/system/weather/current?boothId=…` — latest outdoor weather
+    /// reading for one booth. A 404 means the operator has no current weather
+    /// reading, rather than a failed thermal request.
+    func fetchCurrentWeather(boothId: String) async throws -> CurrentWeather? {
+        let endpoint = try ThermalEndpoint.currentWeather(boothId: boothId)
+        if await usesDemoData {
+            return DemoData.currentWeather(boothId: boothId)
+        }
+        do {
+            return try await get(endpoint.path, query: endpoint.queryItems)
+        } catch let OperatorError.httpError(status, _) where status == 404 {
+            return nil
+        }
     }
 
     private static func componentSourceOrder(

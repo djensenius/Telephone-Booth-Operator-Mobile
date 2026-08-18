@@ -13,6 +13,140 @@ public enum ThermalMetricName {
     public static let routerZone = "glinet_thermal_temperature_celsius"
 }
 
+public enum CurrentWeatherCondition: Codable, Sendable, Equatable, Hashable {
+    case clearSky
+    case mainlyClear
+    case partlyCloudy
+    case overcast
+    case fog
+    case rimeFog
+    case drizzle
+    case freezingDrizzle
+    case rain
+    case freezingRain
+    case snowfall
+    case snowGrains
+    case rainShowers
+    case snowShowers
+    case thunderstorm
+    case thunderstormWithHail
+    case unknown(String)
+
+    public var rawValue: String {
+        switch self {
+        case .clearSky: return "clear_sky"
+        case .mainlyClear: return "mainly_clear"
+        case .partlyCloudy: return "partly_cloudy"
+        case .overcast: return "overcast"
+        case .fog: return "fog"
+        case .rimeFog: return "rime_fog"
+        case .drizzle: return "drizzle"
+        case .freezingDrizzle: return "freezing_drizzle"
+        case .rain: return "rain"
+        case .freezingRain: return "freezing_rain"
+        case .snowfall: return "snowfall"
+        case .snowGrains: return "snow_grains"
+        case .rainShowers: return "rain_showers"
+        case .snowShowers: return "snow_showers"
+        case .thunderstorm: return "thunderstorm"
+        case .thunderstormWithHail: return "thunderstorm_with_hail"
+        case .unknown(let value): return value
+        }
+    }
+
+    // Keep every API contract value visible here so condition formatting and
+    // Codable round-tripping remain explicit.
+    // swiftlint:disable:next cyclomatic_complexity
+    public init(rawValue: String) {
+        switch rawValue {
+        case "clear_sky": self = .clearSky
+        case "mainly_clear": self = .mainlyClear
+        case "partly_cloudy": self = .partlyCloudy
+        case "overcast": self = .overcast
+        case "fog": self = .fog
+        case "rime_fog": self = .rimeFog
+        case "drizzle": self = .drizzle
+        case "freezing_drizzle": self = .freezingDrizzle
+        case "rain": self = .rain
+        case "freezing_rain": self = .freezingRain
+        case "snowfall": self = .snowfall
+        case "snow_grains": self = .snowGrains
+        case "rain_showers": self = .rainShowers
+        case "snow_showers": self = .snowShowers
+        case "thunderstorm": self = .thunderstorm
+        case "thunderstorm_with_hail": self = .thunderstormWithHail
+        case "unknown": self = .unknown("unknown")
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        self.init(rawValue: try container.decode(String.self))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+
+    public var displayName: String {
+        rawValue.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+}
+
+public struct CurrentWeather: Codable, Sendable, Equatable {
+    public let boothId: String
+    public let source: String
+    public let temperatureCelsius: Double
+    public let relativeHumidityPercent: Double
+    public let cloudCoverPercent: Double
+    public let condition: CurrentWeatherCondition
+    public let observedAt: Date
+    public let fetchedAt: Date
+
+    public init(
+        boothId: String,
+        source: String,
+        temperatureCelsius: Double,
+        relativeHumidityPercent: Double,
+        cloudCoverPercent: Double,
+        condition: CurrentWeatherCondition,
+        observedAt: Date,
+        fetchedAt: Date
+    ) {
+        self.boothId = boothId
+        self.source = source
+        self.temperatureCelsius = temperatureCelsius
+        self.relativeHumidityPercent = relativeHumidityPercent
+        self.cloudCoverPercent = cloudCoverPercent
+        self.condition = condition
+        self.observedAt = observedAt
+        self.fetchedAt = fetchedAt
+    }
+
+    public func freshnessLabel(now: Date = Date()) -> String {
+        "Fetched \(Self.ageLabel(for: fetchedAt, now: now)) · "
+            + "observed \(Self.ageLabel(for: observedAt, now: now))"
+    }
+
+    private static func ageLabel(for date: Date, now: Date) -> String {
+        let seconds = now.timeIntervalSince(date)
+        if seconds < 0 {
+            return "in \(durationLabel(seconds: -seconds))"
+        }
+        return seconds < 60 ? "just now" : "\(durationLabel(seconds: seconds)) ago"
+    }
+
+    private static func durationLabel(seconds: TimeInterval) -> String {
+        let minutes = Int(seconds / 60)
+        if minutes < 60 { return "\(max(1, minutes))m" }
+        let hours = minutes / 60
+        if hours < 24 { return "\(hours)h" }
+        return "\(hours / 24)d"
+    }
+}
+
 public enum ThermalSeriesKind: Sendable, Equatable, Hashable {
     case piCPU
     case routerBattery
