@@ -18,8 +18,9 @@ final class ThermalModelsTests: XCTestCase {
               "kind": "router",
               "prometheusJob": "glinet",
               "prometheusInstance": "10.0.0.1",
+              "capturedAt": "2026-08-18T04:00:00Z",
+              "receivedAt": "2026-08-18T04:00:00.125Z",
               "latestSnapshot": {
-                "receivedAt": "2026-08-18T04:00:00.125Z",
                 "battery": {"temperatureCelsius": 42.5},
                 "thermalZones": [
                   {"name": "CPU", "temperatureCelsius": 55.2},
@@ -44,6 +45,8 @@ final class ThermalModelsTests: XCTestCase {
         XCTAssertEqual(envelope.latestSnapshot?.battery?.temperatureCelsius, 42.5)
         XCTAssertEqual(envelope.latestSnapshot?.thermalZones.map(\.name), ["CPU", "Wi-Fi", "2"])
         XCTAssertEqual(envelope.latestSnapshot?.hottestThermalZone?.name, "CPU")
+        XCTAssertEqual(envelope.freshnessDate, envelope.capturedAt)
+        XCTAssertNotNil(envelope.receivedAt)
     }
 
     func testCurrentComponentListDecodesNestedSourcesAndZoneMap() throws {
@@ -188,6 +191,7 @@ final class ThermalModelsTests: XCTestCase {
         let later = Date(timeIntervalSince1970: 1_787_003_600)
         let query = ThermalHistoryQuery(
             boothId: " booth-a ",
+            componentId: " router/a ",
             from: later,
             end: earlier,
             stepSeconds: 2
@@ -201,6 +205,7 @@ final class ThermalModelsTests: XCTestCase {
             Dictionary(uniqueKeysWithValues: query.queryItems.map { ($0.name, $0.value) }),
             [
                 "boothId": "booth-a",
+                "componentId": "router/a",
                 "from": OperatorJSON.iso8601String(from: earlier),
                 "to": OperatorJSON.iso8601String(from: later),
                 "stepSeconds": "15"
@@ -229,6 +234,7 @@ final class ThermalModelsTests: XCTestCase {
             43.25
         )
         XCTAssertNil(SystemVitals.routerBatteryTemperature(in: sources, boothId: "missing"))
+        XCTAssertNil(SystemVitals.routerBatteryTemperature(in: sources, boothId: nil))
         XCTAssertEqual(SystemVitals.formatTemperature(43.25), "43.2°C")
         XCTAssertEqual(SystemVitals.formatTemperature(nil), "—")
         XCTAssertEqual(SystemVitals.formatTemperature(.infinity), "—")

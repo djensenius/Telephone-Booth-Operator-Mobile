@@ -133,11 +133,7 @@ public struct SystemComponentThermalZone: Codable, Sendable, Equatable, Hashable
     public var id: String { name }
 
     private static func firstNonEmpty(_ values: [String?]) -> String? {
-        values.compactMap { value in
-            guard let value, !value.isEmpty else { return nil }
-            return value
-        }
-        .first
+        values.lazy.compactMap { $0 }.first(where: { !$0.isEmpty })
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -253,13 +249,19 @@ public struct SystemComponentSnapshot: Codable, Sendable, Equatable {
 public struct SystemComponentCurrentEnvelope: Codable, Sendable, Equatable, Identifiable {
     public let source: SystemComponentSource
     public let latestSnapshot: SystemComponentSnapshot?
+    public let capturedAt: Date?
+    public let receivedAt: Date?
 
     public init(
         source: SystemComponentSource,
-        latestSnapshot: SystemComponentSnapshot?
+        latestSnapshot: SystemComponentSnapshot?,
+        capturedAt: Date? = nil,
+        receivedAt: Date? = nil
     ) {
         self.source = source
         self.latestSnapshot = latestSnapshot
+        self.capturedAt = capturedAt
+        self.receivedAt = receivedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -281,21 +283,44 @@ public struct SystemComponentCurrentEnvelope: Codable, Sendable, Equatable, Iden
             SystemComponentSnapshot.self,
             forKey: .latestSnapshot
         )) ?? (try? container.decode(SystemComponentSnapshot.self, forKey: .snapshot))
+        capturedAt = Self.decodeDate(from: container, forKey: .capturedAt)
+        receivedAt = Self.decodeDate(from: container, forKey: .receivedAt)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(source, forKey: .source)
         try container.encodeIfPresent(latestSnapshot, forKey: .latestSnapshot)
+        try container.encodeIfPresent(capturedAt, forKey: .capturedAt)
+        try container.encodeIfPresent(receivedAt, forKey: .receivedAt)
     }
 
     public var id: String { source.id }
+
+    public var freshnessDate: Date? {
+        capturedAt ?? receivedAt ?? latestSnapshot?.receivedAt
+    }
+
+    private static func decodeDate(
+        from container: KeyedDecodingContainer<CodingKeys>,
+        forKey key: CodingKeys
+    ) -> Date? {
+        if let date = try? container.decode(Date.self, forKey: key) {
+            return date
+        }
+        if let seconds = container.flexibleDouble(forKey: key) {
+            return Date(timeIntervalSince1970: seconds)
+        }
+        return nil
+    }
 
     private enum CodingKeys: String, CodingKey {
         case source
         case component
         case latestSnapshot
         case snapshot
+        case capturedAt
+        case receivedAt
     }
 }
 

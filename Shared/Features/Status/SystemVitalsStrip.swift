@@ -329,13 +329,12 @@ public enum SystemVitals {
         in sources: [SystemComponentCurrentEnvelope],
         boothId: String?
     ) -> Double? {
-        let candidates: [SystemComponentCurrentEnvelope]
-        if let boothId {
-            candidates = sources.filter { $0.source.boothId == boothId }
-        } else {
-            candidates = sources
+        guard let boothId = boothId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !boothId.isEmpty else {
+            return nil
         }
-        return candidates
+        return sources
+            .filter { $0.source.boothId == boothId }
             .sorted(by: componentSourceOrder)
             .compactMap(\.latestSnapshot?.battery?.temperatureCelsius)
             .first(where: \.isFinite)

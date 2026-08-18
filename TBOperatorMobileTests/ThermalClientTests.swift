@@ -21,6 +21,7 @@ final class ThermalClientTests: XCTestCase {
         let end = Date(timeIntervalSince1970: 1_787_054_400)
         let query = ThermalHistoryQuery(
             boothId: "booth id/with spaces",
+            componentId: "router/main",
             from: from,
             end: end,
             stepSeconds: 1
@@ -35,6 +36,7 @@ final class ThermalClientTests: XCTestCase {
 
         XCTAssertEqual(url.path, "/base/v1/system/thermals/history")
         XCTAssertEqual(values["boothId"], "booth id/with spaces")
+        XCTAssertEqual(values["componentId"], "router/main")
         XCTAssertEqual(values["from"], OperatorJSON.iso8601String(from: from))
         XCTAssertEqual(values["to"], OperatorJSON.iso8601String(from: end))
         XCTAssertEqual(values["stepSeconds"], "15")

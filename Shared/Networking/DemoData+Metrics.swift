@@ -22,13 +22,14 @@ public extension DemoData {
                 prometheusInstance: "booth-router"
             ),
             latestSnapshot: SystemComponentSnapshot(
-                receivedAt: now.addingTimeInterval(-20),
                 battery: .init(temperatureCelsius: 42.8),
                 thermalZones: [
                     .init(name: "CPU", temperatureCelsius: 51.4),
                     .init(name: "Wi-Fi", temperatureCelsius: 47.9)
                 ]
-            )
+            ),
+            capturedAt: now.addingTimeInterval(-25),
+            receivedAt: now.addingTimeInterval(-20)
         )
     ]
 

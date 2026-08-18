@@ -41,29 +41,38 @@ public struct ThermalHistoryQuery: Sendable, Hashable {
     public static let minimumStepSeconds = 15
 
     public let boothId: String
+    public let componentId: String?
     public let from: Date
     public let end: Date
     public let stepSeconds: Int
 
     public init(
         boothId: String,
+        componentId: String? = nil,
         from: Date,
         end: Date,
         stepSeconds: Int
     ) {
         self.boothId = boothId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedComponentId = componentId?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        self.componentId = trimmedComponentId?.isEmpty == false ? trimmedComponentId : nil
         self.from = min(from, end)
         self.end = max(from, end)
         self.stepSeconds = max(Self.minimumStepSeconds, stepSeconds)
     }
 
     public var queryItems: [URLQueryItem] {
-        [
+        var items = [
             URLQueryItem(name: "boothId", value: boothId),
             URLQueryItem(name: "from", value: OperatorJSON.iso8601String(from: from)),
             URLQueryItem(name: "to", value: OperatorJSON.iso8601String(from: end)),
             URLQueryItem(name: "stepSeconds", value: String(stepSeconds))
         ]
+        if let componentId {
+            items.insert(URLQueryItem(name: "componentId", value: componentId), at: 1)
+        }
+        return items
     }
 }
 
@@ -104,9 +113,14 @@ public enum ThermalRangePreset: String, CaseIterable, Sendable, Hashable, Identi
         }
     }
 
-    public func query(boothId: String, now: Date = Date()) -> ThermalHistoryQuery {
+    public func query(
+        boothId: String,
+        componentId: String? = nil,
+        now: Date = Date()
+    ) -> ThermalHistoryQuery {
         ThermalHistoryQuery(
             boothId: boothId,
+            componentId: componentId,
             from: now.addingTimeInterval(-duration),
             end: now,
             stepSeconds: stepSeconds

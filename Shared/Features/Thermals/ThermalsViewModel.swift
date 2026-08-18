@@ -85,10 +85,19 @@ final class ThermalsViewModel {
     }
 
     var currentFooter: String {
-        guard let updatedAt = latestCurrentDate else {
+        let piUpdatedAt = selectedSystemEnvelope?.receivedAt
+        let routerUpdatedAt = selectedComponentEnvelope?.freshnessDate
+        switch (piUpdatedAt, routerUpdatedAt) {
+        case (.some(let piDate), .some(let routerDate)):
+            return "Pi updated \(Self.formattedTime(piDate)) · "
+                + "Router updated \(Self.formattedTime(routerDate))"
+        case (.some(let piDate), .none):
+            return "Pi updated \(Self.formattedTime(piDate))"
+        case (.none, .some(let routerDate)):
+            return "Router updated \(Self.formattedTime(routerDate))"
+        case (.none, .none):
             return isLoadingCurrent ? "Refreshing current readings…" : "Awaiting current readings"
         }
-        return "Updated " + updatedAt.formatted(date: .omitted, time: .standard)
     }
 
     func refreshCurrent() async {
@@ -131,7 +140,10 @@ final class ThermalsViewModel {
 
         do {
             let result = try await client.fetchThermalHistory(
-                query: requestedRange.query(boothId: selectedSource.boothId)
+                query: requestedRange.query(
+                    boothId: selectedSource.boothId,
+                    componentId: selectedComponentEnvelope?.source.componentId
+                )
             )
             guard !Task.isCancelled,
                   generation == historyGeneration,
@@ -162,12 +174,6 @@ final class ThermalsViewModel {
             return componentSources.first(where: { $0.id == componentEnvelopeId })
         }
         return componentSources.first(where: { $0.source.boothId == selectedSource.boothId })
-    }
-
-    private var latestCurrentDate: Date? {
-        [selectedSystemEnvelope?.receivedAt, selectedComponentEnvelope?.latestSnapshot?.receivedAt]
-            .compactMap(\.self)
-            .max()
     }
 
     private func normalizeSelection(preferredBooth: String?) {
@@ -204,6 +210,10 @@ final class ThermalsViewModel {
             return "\(prefix) unavailable while offline."
         }
         return "\(prefix) couldn't load: \(error.localizedDescription)"
+    }
+
+    private static func formattedTime(_ date: Date) -> String {
+        date.formatted(date: .omitted, time: .standard)
     }
 }
 #endif

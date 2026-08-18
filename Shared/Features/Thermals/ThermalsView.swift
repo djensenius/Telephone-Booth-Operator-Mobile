@@ -39,10 +39,13 @@ public struct ThermalsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Theme.Colors.background)
-        .task {
+        .autoRefresh(every: .seconds(5)) {
             await model.refreshCurrent()
         }
-        .task(id: ThermalHistoryTaskID(sourceId: model.selectedSourceId, range: model.range)) {
+        .autoRefresh(
+            id: ThermalHistoryTaskID(sourceId: model.selectedSourceId, range: model.range),
+            every: .seconds(60)
+        ) {
             await model.refreshHistory()
         }
         .refreshable {
