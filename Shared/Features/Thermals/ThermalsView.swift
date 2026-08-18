@@ -190,7 +190,11 @@ public struct ThermalsView: View {
                 ProgressView()
             }
         } else if let history = model.history {
-            ThermalHistoryCharts(history: history, range: model.range)
+            ThermalHistoryCharts(
+                history: history,
+                range: model.range,
+                xDomain: model.historyRange ?? (history.from...history.end)
+            )
         } else if let historyError = model.historyError {
             ThermalStateCard(
                 icon: "wifi.slash",

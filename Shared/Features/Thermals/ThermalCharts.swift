@@ -13,6 +13,7 @@ import SwiftUI
 struct ThermalHistoryCharts: View {
     let history: ThermalHistoryResponse
     let range: ThermalRangePreset
+    let xDomain: ClosedRange<Date>
 
     private var chartData: ThermalChartData {
         ThermalChartData(history: history)
@@ -25,6 +26,7 @@ struct ThermalHistoryCharts: View {
                 subtitle: "\(history.source.effectiveDisplayName) · \(range.displayName)",
                 series: chartData.series,
                 range: range,
+                xDomain: xDomain,
                 emptyMessage: "No supported thermal series were returned in this range.",
                 height: 250
             )
@@ -34,6 +36,7 @@ struct ThermalHistoryCharts: View {
                 subtitle: latestLabel(chartData.piCPU),
                 series: chartData.piCPU,
                 range: range,
+                xDomain: xDomain,
                 emptyMessage: "No Pi CPU temperature data in this range.",
                 isInitiallyExpanded: true,
                 paletteOffset: 0
@@ -44,6 +47,7 @@ struct ThermalHistoryCharts: View {
                 subtitle: latestLabel(chartData.routerBattery),
                 series: chartData.routerBattery,
                 range: range,
+                xDomain: xDomain,
                 emptyMessage: "No router battery temperature data in this range.",
                 isInitiallyExpanded: true,
                 paletteOffset: 1
@@ -55,6 +59,7 @@ struct ThermalHistoryCharts: View {
                     subtitle: "No zone series",
                     series: [],
                     range: range,
+                    xDomain: xDomain,
                     emptyMessage: "No router thermal-zone data in this range.",
                     isInitiallyExpanded: false,
                     paletteOffset: 2
@@ -66,6 +71,7 @@ struct ThermalHistoryCharts: View {
                         subtitle: latestLabel([zone]),
                         series: [zone],
                         range: range,
+                        xDomain: xDomain,
                         emptyMessage: "No samples were returned for this router zone.",
                         isInitiallyExpanded: false,
                         paletteOffset: index + 2
@@ -90,6 +96,7 @@ private struct ThermalSensorDisclosure: View {
     let subtitle: String
     let series: [ThermalChartSeries]
     let range: ThermalRangePreset
+    let xDomain: ClosedRange<Date>
     let emptyMessage: String
     let paletteOffset: Int
 
@@ -100,6 +107,7 @@ private struct ThermalSensorDisclosure: View {
         subtitle: String,
         series: [ThermalChartSeries],
         range: ThermalRangePreset,
+        xDomain: ClosedRange<Date>,
         emptyMessage: String,
         isInitiallyExpanded: Bool,
         paletteOffset: Int
@@ -108,6 +116,7 @@ private struct ThermalSensorDisclosure: View {
         self.subtitle = subtitle
         self.series = series
         self.range = range
+        self.xDomain = xDomain
         self.emptyMessage = emptyMessage
         self.paletteOffset = paletteOffset
         _isExpanded = State(initialValue: isInitiallyExpanded)
@@ -118,6 +127,7 @@ private struct ThermalSensorDisclosure: View {
             ThermalLineChart(
                 series: series,
                 range: range,
+                xDomain: xDomain,
                 emptyMessage: emptyMessage,
                 height: 210,
                 paletteOffset: paletteOffset
@@ -146,6 +156,7 @@ private struct ThermalChartCard: View {
     let subtitle: String
     let series: [ThermalChartSeries]
     let range: ThermalRangePreset
+    let xDomain: ClosedRange<Date>
     let emptyMessage: String
     let height: CGFloat
 
@@ -160,6 +171,7 @@ private struct ThermalChartCard: View {
             ThermalLineChart(
                 series: series,
                 range: range,
+                xDomain: xDomain,
                 emptyMessage: emptyMessage,
                 height: height,
                 paletteOffset: 0
@@ -174,6 +186,7 @@ private struct ThermalChartCard: View {
 private struct ThermalLineChart: View {
     let series: [ThermalChartSeries]
     let range: ThermalRangePreset
+    let xDomain: ClosedRange<Date>
     let emptyMessage: String
     let height: CGFloat
     let paletteOffset: Int
@@ -216,6 +229,7 @@ private struct ThermalLineChart: View {
                     }
                 }
                 .frame(height: height)
+                .chartXScale(domain: xDomain)
                 .chartYScale(domain: yDomain)
                 .chartXAxis {
                     AxisMarks(values: .automatic(desiredCount: 5)) { value in

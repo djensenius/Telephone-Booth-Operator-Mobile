@@ -43,8 +43,9 @@ public struct SignedInRootView: View {
 #if !os(watchOS)
 /// Stable identifiers for the signed-in tabs, used to drive selection and to
 /// let screenshot automation open a specific tab via `-uiScreenshotTab`.
-private enum OperatorTab: String, Hashable {
-    case dashboard, stats, thermals, sessions, messages, events, questions, instructions, audit, system, settings
+/// Declaration order is the shared navigation order.
+enum OperatorTab: String, CaseIterable, Hashable {
+    case dashboard, stats, sessions, messages, thermals, events, questions, instructions, audit, system, settings
 }
 
 /// Unified, platform-adaptive signed-in shell. One `TabView` plus
@@ -94,13 +95,6 @@ private struct OperatorShell: View {
             }
 
             #if !os(tvOS)
-            Tab("Thermals", systemImage: "thermometer.variable.and.figure", value: .thermals) {
-                NavigationStack {
-                    ThermalsView(client: client).navigationTitle("Thermals")
-                }
-                .automaticRefreshEnabled(selection == .thermals)
-            }
-
             Tab("Sessions", systemImage: "phone.connection.fill", value: .sessions) {
                 NavigationStack(path: $sessionPath) {
                     SessionListView(client: client).navigationTitle("Sessions")
@@ -115,6 +109,13 @@ private struct OperatorShell: View {
                 .automaticRefreshEnabled(selection == .messages)
             }
             .badge(pending.pendingCount)
+
+            Tab("Thermals", systemImage: "thermometer.variable.and.figure", value: .thermals) {
+                NavigationStack {
+                    ThermalsView(client: client).navigationTitle("Thermals")
+                }
+                .automaticRefreshEnabled(selection == .thermals)
+            }
 
             Tab("Events", systemImage: "antenna.radiowaves.left.and.right", value: .events) {
                 NavigationStack {

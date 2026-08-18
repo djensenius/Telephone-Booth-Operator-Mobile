@@ -213,14 +213,31 @@ final class ThermalModelsTests: XCTestCase {
         )
     }
 
-    func testDefaultRangeIsTwentyFourHours() {
-        let now = Date(timeIntervalSince1970: 1_787_003_600)
+    func testDefaultRangeUsesExactRollingTwentyFourHourBounds() {
+        let now = Date(timeIntervalSince1970: 1_787_003_600.375)
         let query = ThermalRangePreset.default.query(boothId: "booth-a", now: now)
 
         XCTAssertEqual(ThermalRangePreset.default, .last24Hours)
         XCTAssertEqual(query.end, now)
         XCTAssertEqual(query.from, now.addingTimeInterval(-24 * 60 * 60))
         XCTAssertEqual(query.stepSeconds, 300)
+    }
+
+    @MainActor
+    func testHistoryRangeUsesInjectedCurrentInstant() async throws {
+        let now = Date(timeIntervalSince1970: 1_787_003_600.375)
+        let model = ThermalsViewModel(client: .demo, now: { now })
+
+        await model.refreshCurrent()
+        await model.refreshHistory()
+
+        let historyRange = try XCTUnwrap(model.historyRange)
+        XCTAssertEqual(historyRange.lowerBound, now.addingTimeInterval(-24 * 60 * 60))
+        XCTAssertEqual(historyRange.upperBound, now)
+        XCTAssertEqual(
+            historyRange.upperBound.timeIntervalSince(historyRange.lowerBound),
+            24 * 60 * 60
+        )
     }
 
     func testLiveVitalsRouterTemperatureMatchesBoothAndFormatsMissingData() {
