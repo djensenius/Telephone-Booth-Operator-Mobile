@@ -298,7 +298,7 @@ public struct SystemComponentCurrentEnvelope: Codable, Sendable, Equatable, Iden
     public var id: String { source.id }
 
     public var freshnessDate: Date? {
-        capturedAt ?? receivedAt ?? latestSnapshot?.receivedAt
+        receivedAt ?? capturedAt ?? latestSnapshot?.receivedAt
     }
 
     private static func decodeDate(

@@ -45,7 +45,7 @@ final class ThermalModelsTests: XCTestCase {
         XCTAssertEqual(envelope.latestSnapshot?.battery?.temperatureCelsius, 42.5)
         XCTAssertEqual(envelope.latestSnapshot?.thermalZones.map(\.name), ["CPU", "Wi-Fi", "2"])
         XCTAssertEqual(envelope.latestSnapshot?.hottestThermalZone?.name, "CPU")
-        XCTAssertEqual(envelope.freshnessDate, envelope.capturedAt)
+        XCTAssertEqual(envelope.freshnessDate, envelope.receivedAt)
         XCTAssertNotNil(envelope.receivedAt)
     }
 
