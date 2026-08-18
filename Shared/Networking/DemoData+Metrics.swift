@@ -11,6 +11,27 @@
 import Foundation
 
 public extension DemoData {
+    static let systemComponentSources: [SystemComponentCurrentEnvelope] = [
+        SystemComponentCurrentEnvelope(
+            source: SystemComponentSource(
+                boothId: boothId,
+                componentId: "glinet-router",
+                displayName: "Booth router",
+                kind: "router",
+                prometheusJob: "glinet",
+                prometheusInstance: "booth-router"
+            ),
+            latestSnapshot: SystemComponentSnapshot(
+                receivedAt: now.addingTimeInterval(-20),
+                battery: .init(temperatureCelsius: 42.8),
+                thermalZones: [
+                    .init(name: "CPU", temperatureCelsius: 51.4),
+                    .init(name: "Wi-Fi", temperatureCelsius: 47.9)
+                ]
+            )
+        )
+    ]
+
     static let metricFilters: [MetricFilter] = [
         MetricFilter(
             id: "11111111-2222-3333-4444-555555555555",
@@ -56,5 +77,53 @@ public extension DemoData {
                 boothBreakdown: base.boothBreakdown
             )
         }
+    }
+
+    static func thermalHistory(query: ThermalHistoryQuery) -> ThermalHistoryResponse {
+        let duration = max(1, query.end.timeIntervalSince(query.from))
+        let requestedCount = Int(duration / Double(query.stepSeconds)) + 1
+        let sampleCount = min(240, max(2, requestedCount))
+        let sampleInterval = duration / Double(sampleCount - 1)
+
+        func points(base: Double, amplitude: Double, phase: Double) -> [ThermalHistoryPoint] {
+            (0..<sampleCount).map { index in
+                let progress = Double(index) / Double(sampleCount - 1)
+                let wave = sin(progress * .pi * 4 + phase)
+                let timestamp = query.from.timeIntervalSince1970 + Double(index) * sampleInterval
+                return ThermalHistoryPoint(
+                    timestamp: timestamp,
+                    value: base + amplitude * wave
+                )
+            }
+        }
+
+        let source = systemComponentSources[0].source
+        return ThermalHistoryResponse(
+            boothId: query.boothId,
+            source: source,
+            from: query.from,
+            end: query.end,
+            stepSeconds: query.stepSeconds,
+            series: [
+                ThermalHistorySeries(
+                    metric: ThermalMetricName.piCPU,
+                    points: points(base: 49, amplitude: 4.5, phase: 0)
+                ),
+                ThermalHistorySeries(
+                    metric: ThermalMetricName.routerBattery,
+                    points: points(base: 42, amplitude: 1.8, phase: 0.6)
+                ),
+                ThermalHistorySeries(
+                    metric: ThermalMetricName.routerZone,
+                    labels: ["type": "CPU", "zone": "thermal_zone0"],
+                    points: points(base: 52, amplitude: 3.8, phase: 1.1)
+                ),
+                ThermalHistorySeries(
+                    metric: ThermalMetricName.routerZone,
+                    labels: ["type": "Wi-Fi", "zone": "thermal_zone1"],
+                    points: points(base: 47, amplitude: 2.3, phase: 1.8)
+                )
+            ]
+        )
     }
 }

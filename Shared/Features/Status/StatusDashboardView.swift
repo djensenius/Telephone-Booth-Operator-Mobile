@@ -37,7 +37,11 @@ public struct StatusDashboardView: View {
                 statsCard
                 SystemVitalsStrip(
                     snapshot: liveStore.systemEnvelope?.snapshot,
-                    receivedAt: liveStore.systemEnvelope?.receivedAt
+                    receivedAt: liveStore.systemEnvelope?.receivedAt,
+                    routerBatteryTemperatureCelsius: SystemVitals.routerBatteryTemperature(
+                        in: liveStore.componentSources,
+                        boothId: liveStore.systemEnvelope?.boothId
+                    )
                 )
                 #if !os(watchOS) && !os(tvOS)
                 if canShowChart {

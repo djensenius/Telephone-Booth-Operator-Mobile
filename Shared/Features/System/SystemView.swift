@@ -23,7 +23,14 @@ public struct SystemView: View {
                     BannerView(message: errorMessage, kind: .error)
                 }
                 if let envelope = liveStore.systemEnvelope {
-                    SystemVitalsStrip(snapshot: envelope.snapshot, receivedAt: envelope.receivedAt)
+                    SystemVitalsStrip(
+                        snapshot: envelope.snapshot,
+                        receivedAt: envelope.receivedAt,
+                        routerBatteryTemperatureCelsius: SystemVitals.routerBatteryTemperature(
+                            in: liveStore.componentSources,
+                            boothId: envelope.boothId
+                        )
+                    )
                     SystemHostCard(
                         boothId: envelope.boothId,
                         snapshot: envelope.snapshot,

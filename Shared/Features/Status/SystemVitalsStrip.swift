@@ -10,7 +10,7 @@
 //
 //  This view is platform-portable and never fetches anything itself —
 //  callers (StatusDashboardView, SystemView) pass in the latest cached
-//  snapshot.
+//  snapshot plus the matching router component temperature.
 //
 
 import SwiftUI
@@ -18,10 +18,16 @@ import SwiftUI
 public struct SystemVitalsStrip: View {
     public let snapshot: BoothSystemSnapshot?
     public let receivedAt: Date?
+    public let routerBatteryTemperatureCelsius: Double?
 
-    public init(snapshot: BoothSystemSnapshot?, receivedAt: Date? = nil) {
+    public init(
+        snapshot: BoothSystemSnapshot?,
+        receivedAt: Date? = nil,
+        routerBatteryTemperatureCelsius: Double? = nil
+    ) {
         self.snapshot = snapshot
         self.receivedAt = receivedAt
+        self.routerBatteryTemperatureCelsius = routerBatteryTemperatureCelsius
     }
 
     public var body: some View {
@@ -45,6 +51,11 @@ public struct SystemVitalsStrip: View {
                 label: "CPU temp",
                 value: temperatureValue,
                 severity: SystemVitals.temperatureSeverity(snapshot?.cpuTemperatureCelsius)
+            )
+            VitalTile(
+                label: "Router batt",
+                value: SystemVitals.formatTemperature(routerBatteryTemperatureCelsius),
+                severity: SystemVitals.temperatureSeverity(routerBatteryTemperatureCelsius)
             )
             VitalTile(label: "CPU", value: cpuValue, severity: .nominal)
             VitalTile(
@@ -92,8 +103,7 @@ public struct SystemVitalsStrip: View {
     }
 
     private var temperatureValue: String {
-        guard let temp = snapshot?.cpuTemperatureCelsius else { return "—" }
-        return String(format: "%.1f°C", temp)
+        SystemVitals.formatTemperature(snapshot?.cpuTemperatureCelsius)
     }
 
     private var cpuValue: String {
@@ -257,6 +267,9 @@ private struct VitalTile: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(severity.tint.opacity(severity == .nominal ? 0.08 : 0.18))
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(label))
+        .accessibilityValue(Text(value))
     }
 }
 
@@ -305,6 +318,41 @@ public enum SystemVitals {
     public static func formatNumber(_ value: Double?, fractionDigits: Int = 2) -> String {
         guard let value else { return "—" }
         return String(format: "%.\(fractionDigits)f", value)
+    }
+
+    public static func formatTemperature(_ value: Double?) -> String {
+        guard let value, value.isFinite else { return "—" }
+        return String(format: "%.1f°C", value)
+    }
+
+    public static func routerBatteryTemperature(
+        in sources: [SystemComponentCurrentEnvelope],
+        boothId: String?
+    ) -> Double? {
+        let candidates: [SystemComponentCurrentEnvelope]
+        if let boothId {
+            candidates = sources.filter { $0.source.boothId == boothId }
+        } else {
+            candidates = sources
+        }
+        return candidates
+            .sorted(by: componentSourceOrder)
+            .compactMap(\.latestSnapshot?.battery?.temperatureCelsius)
+            .first(where: \.isFinite)
+    }
+
+    private static func componentSourceOrder(
+        _ lhs: SystemComponentCurrentEnvelope,
+        _ rhs: SystemComponentCurrentEnvelope
+    ) -> Bool {
+        if lhs.source.isRouter != rhs.source.isRouter {
+            return lhs.source.isRouter
+        }
+        let nameOrder = lhs.source.effectiveDisplayName.localizedCaseInsensitiveCompare(
+            rhs.source.effectiveDisplayName
+        )
+        if nameOrder != .orderedSame { return nameOrder == .orderedAscending }
+        return lhs.id < rhs.id
     }
 
     public static func formatPercent(_ ratio: Double?) -> String {
