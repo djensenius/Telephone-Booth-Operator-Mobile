@@ -327,7 +327,8 @@ public enum SystemVitals {
 
     public static func routerBatteryTemperature(
         in sources: [SystemComponentCurrentEnvelope],
-        boothId: String?
+        boothId: String?,
+        now: Date = Date()
     ) -> Double? {
         guard let boothId = boothId?.trimmingCharacters(in: .whitespacesAndNewlines),
               !boothId.isEmpty else {
@@ -336,7 +337,13 @@ public enum SystemVitals {
         return sources
             .filter { $0.source.boothId == boothId && $0.source.isRouter }
             .sorted(by: componentSourceOrder)
-            .compactMap(\.latestSnapshot?.battery?.temperatureCelsius)
+            .compactMap { envelope in
+                guard let freshnessDate = envelope.freshnessDate,
+                      now.timeIntervalSince(freshnessDate) <= 5 * 60 else {
+                    return nil
+                }
+                return envelope.latestSnapshot?.battery?.temperatureCelsius
+            }
             .first(where: \.isFinite)
     }
 

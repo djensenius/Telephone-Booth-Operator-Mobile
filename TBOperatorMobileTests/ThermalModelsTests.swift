@@ -224,17 +224,34 @@ final class ThermalModelsTests: XCTestCase {
     }
 
     func testLiveVitalsRouterTemperatureMatchesBoothAndFormatsMissingData() {
+        let now = Date(timeIntervalSince1970: 1_787_003_600)
         let sources = [
-            makeComponent(boothId: "booth-b", name: "B router", temperature: 51),
-            makeComponent(boothId: "booth-a", name: "A router", temperature: 43.25)
+            makeComponent(
+                boothId: "booth-b",
+                name: "B router",
+                receivedAt: now.addingTimeInterval(-20),
+                temperature: 51
+            ),
+            makeComponent(
+                boothId: "booth-a",
+                name: "A router",
+                receivedAt: now.addingTimeInterval(-30),
+                temperature: 43.25
+            )
         ]
 
         XCTAssertEqual(
-            SystemVitals.routerBatteryTemperature(in: sources, boothId: "booth-a"),
+            SystemVitals.routerBatteryTemperature(
+                in: sources,
+                boothId: "booth-a",
+                now: now
+            ),
             43.25
         )
-        XCTAssertNil(SystemVitals.routerBatteryTemperature(in: sources, boothId: "missing"))
-        XCTAssertNil(SystemVitals.routerBatteryTemperature(in: sources, boothId: nil))
+        XCTAssertNil(
+            SystemVitals.routerBatteryTemperature(in: sources, boothId: "missing", now: now)
+        )
+        XCTAssertNil(SystemVitals.routerBatteryTemperature(in: sources, boothId: nil, now: now))
         XCTAssertNil(
             SystemVitals.routerBatteryTemperature(
                 in: [
@@ -243,10 +260,26 @@ final class ThermalModelsTests: XCTestCase {
                         name: "UPS",
                         kind: "ups",
                         prometheusJob: "power",
+                        receivedAt: now,
                         temperature: 60
                     )
                 ],
-                boothId: "booth-a"
+                boothId: "booth-a",
+                now: now
+            )
+        )
+        XCTAssertNil(
+            SystemVitals.routerBatteryTemperature(
+                in: [
+                    makeComponent(
+                        boothId: "booth-a",
+                        name: "Stale router",
+                        receivedAt: now.addingTimeInterval(-301),
+                        temperature: 60
+                    )
+                ],
+                boothId: "booth-a",
+                now: now
             )
         )
         XCTAssertEqual(SystemVitals.formatTemperature(43.25), "43.2°C")
@@ -276,6 +309,7 @@ final class ThermalModelsTests: XCTestCase {
         name: String,
         kind: String = "router",
         prometheusJob: String = "glinet",
+        receivedAt: Date? = nil,
         temperature: Double?
     ) -> SystemComponentCurrentEnvelope {
         SystemComponentCurrentEnvelope(
@@ -289,7 +323,9 @@ final class ThermalModelsTests: XCTestCase {
             ),
             latestSnapshot: SystemComponentSnapshot(
                 battery: .init(temperatureCelsius: temperature)
-            )
+            ),
+            capturedAt: receivedAt,
+            receivedAt: receivedAt
         )
     }
 }
