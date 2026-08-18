@@ -122,7 +122,10 @@ final class ThermalsViewModel {
     }
 
     func refreshHistory() async {
-        guard let selectedSource else { return }
+        guard let selectedSource else {
+            clearHistory()
+            return
+        }
         historyGeneration += 1
         let generation = historyGeneration
         let requestedSelectionId = selectedSourceId
@@ -180,6 +183,7 @@ final class ThermalsViewModel {
         let options = sourceOptions
         guard !options.isEmpty else {
             selectedSourceId = ""
+            clearHistory()
             return
         }
         if options.contains(where: { $0.id == selectedSourceId }) { return }
@@ -214,6 +218,15 @@ final class ThermalsViewModel {
 
     private static func formattedTime(_ date: Date) -> String {
         date.formatted(date: .omitted, time: .standard)
+    }
+
+    private func clearHistory() {
+        historyGeneration += 1
+        history = nil
+        historyError = nil
+        loadedSelectionId = nil
+        loadedRange = nil
+        isLoadingHistory = false
     }
 }
 #endif

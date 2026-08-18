@@ -334,7 +334,7 @@ public enum SystemVitals {
             return nil
         }
         return sources
-            .filter { $0.source.boothId == boothId }
+            .filter { $0.source.boothId == boothId && $0.source.isRouter }
             .sorted(by: componentSourceOrder)
             .compactMap(\.latestSnapshot?.battery?.temperatureCelsius)
             .first(where: \.isFinite)

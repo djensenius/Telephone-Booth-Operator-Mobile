@@ -235,23 +235,56 @@ final class ThermalModelsTests: XCTestCase {
         )
         XCTAssertNil(SystemVitals.routerBatteryTemperature(in: sources, boothId: "missing"))
         XCTAssertNil(SystemVitals.routerBatteryTemperature(in: sources, boothId: nil))
+        XCTAssertNil(
+            SystemVitals.routerBatteryTemperature(
+                in: [
+                    makeComponent(
+                        boothId: "booth-a",
+                        name: "UPS",
+                        kind: "ups",
+                        prometheusJob: "power",
+                        temperature: 60
+                    )
+                ],
+                boothId: "booth-a"
+            )
+        )
         XCTAssertEqual(SystemVitals.formatTemperature(43.25), "43.2°C")
         XCTAssertEqual(SystemVitals.formatTemperature(nil), "—")
         XCTAssertEqual(SystemVitals.formatTemperature(.infinity), "—")
     }
 
+    @MainActor
+    func testMissingSelectionClearsLoadedHistory() async {
+        let model = ThermalsViewModel(client: .demo)
+        await model.refreshCurrent()
+        await model.refreshHistory()
+        XCTAssertNotNil(model.history)
+
+        model.componentSources = []
+        model.systemEnvelopes = []
+        model.selectedSourceId = ""
+        await model.refreshHistory()
+
+        XCTAssertNil(model.history)
+        XCTAssertNil(model.historyError)
+        XCTAssertFalse(model.isLoadingHistory)
+    }
+
     private func makeComponent(
         boothId: String,
         name: String,
+        kind: String = "router",
+        prometheusJob: String = "glinet",
         temperature: Double?
     ) -> SystemComponentCurrentEnvelope {
         SystemComponentCurrentEnvelope(
             source: SystemComponentSource(
                 boothId: boothId,
-                componentId: "\(boothId)-router",
+                componentId: "\(boothId)-\(kind)",
                 displayName: name,
-                kind: "router",
-                prometheusJob: "glinet",
+                kind: kind,
+                prometheusJob: prometheusJob,
                 prometheusInstance: boothId
             ),
             latestSnapshot: SystemComponentSnapshot(
