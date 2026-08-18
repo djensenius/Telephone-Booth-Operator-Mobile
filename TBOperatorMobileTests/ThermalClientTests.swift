@@ -16,6 +16,27 @@ final class ThermalClientTests: XCTestCase {
         XCTAssertEqual(url.absoluteString, "https://operator.example/v1/system/components/current")
     }
 
+    func testCurrentWeatherEndpointBuildsExpectedURLAndQuery() throws {
+        let request = try ThermalEndpoint.currentWeather(boothId: " booth id/01 ")
+        let url = try request.url(relativeTo: URL(string: "https://operator.example")!)
+        let queryItems = try XCTUnwrap(
+            URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
+        )
+
+        XCTAssertEqual(request.path, "/v1/system/weather/current")
+        XCTAssertEqual(queryItems.map(\.name), ["boothId"])
+        XCTAssertEqual(queryItems.first?.value, "booth id/01")
+        XCTAssertEqual(url.path, "/v1/system/weather/current")
+    }
+
+    func testCurrentWeatherEndpointRejectsBlankBooth() {
+        XCTAssertThrowsError(try ThermalEndpoint.currentWeather(boothId: "  ")) { error in
+            guard case OperatorError.invalidURL = error else {
+                return XCTFail("Expected OperatorError.invalidURL, got \(error)")
+            }
+        }
+    }
+
     func testThermalHistoryEndpointBuildsExpectedURLAndQuery() throws {
         let from = Date(timeIntervalSince1970: 1_786_968_000)
         let end = Date(timeIntervalSince1970: 1_787_054_400)

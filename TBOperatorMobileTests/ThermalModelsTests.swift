@@ -130,6 +130,45 @@ final class ThermalModelsTests: XCTestCase {
         XCTAssertEqual(response.series.first?.kind, .piCPU)
     }
 
+    func testCurrentWeatherContractDecodesAndFormatsConditionAndFreshness() throws {
+        let json = """
+        {
+          "boothId": "booth-01",
+          "source": "open_meteo",
+          "temperatureCelsius": 22.2,
+          "relativeHumidityPercent": 67,
+          "cloudCoverPercent": 0,
+          "condition": "partly_cloudy",
+          "observedAt": "2026-08-18T14:30:00.000Z",
+          "fetchedAt": "2026-08-18T14:31:00.000Z"
+        }
+        """
+        let weather = try OperatorJSON.decoder.decode(
+            CurrentWeather.self,
+            from: Data(json.utf8)
+        )
+        let now = Date(timeIntervalSince1970: weather.fetchedAt.timeIntervalSince1970 + 120)
+
+        XCTAssertEqual(weather.boothId, "booth-01")
+        XCTAssertEqual(weather.temperatureCelsius, 22.2)
+        XCTAssertEqual(weather.relativeHumidityPercent, 67)
+        XCTAssertEqual(weather.cloudCoverPercent, 0)
+        XCTAssertEqual(weather.condition, .partlyCloudy)
+        XCTAssertEqual(weather.condition.displayName, "Partly Cloudy")
+        XCTAssertEqual(weather.freshnessLabel(now: now), "Fetched 2m ago · observed 3m ago")
+    }
+
+    func testCurrentWeatherConditionPreservesUnknownRawValues() throws {
+        let condition = try JSONDecoder().decode(
+            CurrentWeatherCondition.self,
+            from: Data("\"future_weather\"".utf8)
+        )
+
+        XCTAssertEqual(condition, .unknown("future_weather"))
+        XCTAssertEqual(condition.rawValue, "future_weather")
+        XCTAssertEqual(condition.displayName, "Future Weather")
+    }
+
     func testSeriesClassificationOrderingAndChartPointNormalization() {
         let input = [
             ThermalHistorySeries(
@@ -319,6 +358,33 @@ final class ThermalModelsTests: XCTestCase {
         XCTAssertNil(model.history)
         XCTAssertNil(model.historyError)
         XCTAssertFalse(model.isLoadingHistory)
+    }
+
+    @MainActor
+    func testCurrentWeatherLoadsForSelectionAndClearsWhenSelectionChanges() async {
+        let now = DemoData.sessionAnchor.addingTimeInterval(120)
+        let model = ThermalsViewModel(client: .demo, now: { now })
+        await model.refreshCurrent()
+        await model.refreshHistory()
+        await model.refreshCurrentWeather()
+
+        XCTAssertNotNil(model.history)
+        XCTAssertEqual(model.currentWeather?.boothId, model.selectedSource?.boothId)
+        XCTAssertEqual(model.currentWeather?.condition, .clearSky)
+        XCTAssertEqual(model.currentWeatherFooter, "Fetched 2m ago · observed 3m ago")
+
+        XCTAssertNotNil(model.currentWeather)
+        model.componentSources.append(
+            makeComponent(boothId: "booth-second", name: "Second router", temperature: nil)
+        )
+        model.selectedSourceId = "component:booth-second::booth-second-router"
+
+        XCTAssertNil(model.history)
+        XCTAssertNil(model.historyError)
+        XCTAssertNil(model.currentWeather)
+        XCTAssertNil(model.currentWeatherError)
+        await model.refreshCurrentWeather()
+        XCTAssertEqual(model.currentWeather?.boothId, "booth-second")
     }
 
     private func makeComponent(

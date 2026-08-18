@@ -5,6 +5,7 @@
 //  Fleet-aware current thermal readings and historical charts.
 //
 
+import Foundation
 import Observation
 import SwiftUI
 
@@ -28,6 +29,7 @@ public struct ThermalsView: View {
                 } else {
                     controlsCard
                     currentReadingsCard
+                    currentWeatherContent
                 }
 
                 if let historyError = model.historyError, model.history != nil {
@@ -43,6 +45,15 @@ public struct ThermalsView: View {
             await model.refreshCurrent()
         }
         .autoRefresh(
+            id: CurrentWeatherTaskID(
+                sourceId: model.selectedSourceId,
+                boothId: model.selectedSource?.boothId
+            ),
+            every: .seconds(60)
+        ) {
+            await model.refreshCurrentWeather()
+        }
+        .autoRefresh(
             id: ThermalHistoryTaskID(sourceId: model.selectedSourceId, range: model.range),
             every: .seconds(60)
         ) {
@@ -50,6 +61,7 @@ public struct ThermalsView: View {
         }
         .refreshable {
             await model.refreshCurrent()
+            await model.refreshCurrentWeather()
             await model.refreshHistory()
         }
     }
@@ -180,6 +192,41 @@ public struct ThermalsView: View {
     }
 
     @ViewBuilder
+    private var currentWeatherContent: some View {
+        if let weather = model.currentWeather {
+            CurrentWeatherCard(
+                weather: weather,
+                isRefreshing: model.isLoadingCurrentWeather,
+                freshnessLabel: model.currentWeatherFooter
+            )
+            if let error = model.currentWeatherError {
+                BannerView(message: error, kind: .error)
+            }
+        } else if model.isLoadingCurrentWeather {
+            ThermalStateCard(
+                icon: "cloud.sun",
+                title: "Loading current weather",
+                message: "Checking the latest outdoor conditions for this booth."
+            ) {
+                ProgressView()
+            }
+        } else {
+            ThermalStateCard(
+                icon: "cloud.sun.rain",
+                title: "Current weather unavailable",
+                message: model.currentWeatherError
+                    ?? "No current weather reading is available for this booth."
+            ) {
+                Button("Try Again") {
+                    Task { await model.refreshCurrentWeather() }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.Colors.accent)
+            }
+        }
+    }
+
+    @ViewBuilder
     private var historyContent: some View {
         if model.isLoadingHistory, model.history == nil {
             ThermalStateCard(
@@ -214,6 +261,93 @@ public struct ThermalsView: View {
                 message: "No temperature series were returned for this source and range."
             )
         }
+    }
+}
+
+private struct CurrentWeatherCard: View {
+    let weather: CurrentWeather
+    let isRefreshing: Bool
+    let freshnessLabel: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
+            HStack(alignment: .firstTextBaseline) {
+                SectionHeader(text: "Current weather")
+                Spacer(minLength: 0)
+                if isRefreshing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel("Refreshing current weather")
+                }
+            }
+
+            let columns = [GridItem(.adaptive(minimum: 145), spacing: Theme.Spacing.small)]
+            LazyVGrid(columns: columns, spacing: Theme.Spacing.small) {
+                CurrentWeatherTile(
+                    label: "Outdoor temperature",
+                    value: SystemVitals.formatTemperature(weather.temperatureCelsius),
+                    detail: "Air temperature"
+                )
+                CurrentWeatherTile(
+                    label: "Relative humidity",
+                    value: Self.percentLabel(weather.relativeHumidityPercent),
+                    detail: "Relative humidity"
+                )
+                CurrentWeatherTile(
+                    label: "Condition",
+                    value: weather.condition.displayName,
+                    detail: weather.source.replacingOccurrences(of: "_", with: " ").capitalized
+                )
+                CurrentWeatherTile(
+                    label: "Cloud cover",
+                    value: Self.percentLabel(weather.cloudCoverPercent),
+                    detail: "Sky coverage"
+                )
+            }
+
+            Text(freshnessLabel)
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(Theme.Colors.textSecondary)
+        }
+        .padding(Theme.Spacing.large)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCardBackground()
+    }
+
+    private static func percentLabel(_ value: Double) -> String {
+        "\(value.formatted(.number.precision(.fractionLength(0))))%"
+    }
+}
+
+private struct CurrentWeatherTile: View {
+    let label: String
+    let value: String
+    let detail: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label.uppercased())
+                .font(Theme.Fonts.caption.weight(.semibold))
+                .foregroundStyle(Theme.Colors.textSecondary)
+            Text(value)
+                .font(Theme.Fonts.headerLarge().monospacedDigit())
+                .foregroundStyle(Theme.Colors.info)
+                .lineLimit(2)
+                .minimumScaleFactor(0.7)
+            Text(detail)
+                .font(Theme.Fonts.caption)
+                .foregroundStyle(Theme.Colors.textSecondary)
+                .lineLimit(2)
+        }
+        .padding(Theme.Spacing.medium)
+        .frame(maxWidth: .infinity, minHeight: 98, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Theme.Colors.info.opacity(0.08))
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue("\(value), \(detail)")
     }
 }
 
@@ -299,5 +433,10 @@ extension ThermalStateCard where Accessory == EmptyView {
 private struct ThermalHistoryTaskID: Equatable {
     let sourceId: String
     let range: ThermalRangePreset
+}
+
+private struct CurrentWeatherTaskID: Equatable {
+    let sourceId: String
+    let boothId: String?
 }
 #endif
