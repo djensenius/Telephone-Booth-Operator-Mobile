@@ -218,6 +218,28 @@ final class BoothSystemSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.throttlingFlags, [])
     }
 
+    func testOverallSystemSeverityCombinesDashboardSignals() {
+        let nominal = BoothSystemSnapshot(
+            cpu: .init(physicalCores: 4, loadAvg1m: 0.4),
+            temperatureCelsius: 48.5,
+            memory: .init(totalBytes: 4_000, usedBytes: 1_500),
+            tailscale: .init(connected: true),
+            throttling: .init(throttled: false)
+        )
+        XCTAssertEqual(SystemVitals.overallSeverity(snapshot: nominal), .nominal)
+        XCTAssertEqual(
+            SystemVitals.overallSeverity(snapshot: nominal, routerTemperature: 65),
+            .warn
+        )
+        XCTAssertEqual(
+            SystemVitals.overallSeverity(snapshot: nominal, telemetryIsStale: true),
+            .warn
+        )
+
+        let disconnected = BoothSystemSnapshot(tailscale: .init(connected: false))
+        XCTAssertEqual(SystemVitals.overallSeverity(snapshot: disconnected), .crit)
+    }
+
     func testFanCommandDoesNotImplyMeasuredRotationWithoutTachometer() {
         let fan = BoothSystemSnapshot.FanStats(
             commandedOn: true,

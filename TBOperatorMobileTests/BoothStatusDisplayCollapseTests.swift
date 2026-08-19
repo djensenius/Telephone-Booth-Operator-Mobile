@@ -66,4 +66,23 @@ final class BoothStatusDisplayCollapseTests: XCTestCase {
 
         XCTAssertEqual(history.map(\.state), [.idle, .recording, .idle])
     }
+
+    func testCompactStatusDurationFormatting() {
+        XCTAssertEqual(
+            DurationFormatter.compactString(from: now, to: now.addingTimeInterval(42)),
+            "42s"
+        )
+        XCTAssertEqual(
+            DurationFormatter.compactString(from: now, to: now.addingTimeInterval(3_840)),
+            "1h 4m"
+        )
+        XCTAssertEqual(
+            DurationFormatter.compactString(from: now, to: now.addingTimeInterval(93_600)),
+            "1d 2h"
+        )
+        XCTAssertEqual(
+            DurationFormatter.compactString(from: now, to: now.addingTimeInterval(-60)),
+            "0s"
+        )
+    }
 }

@@ -300,7 +300,13 @@ private struct OperatorShell: View {
         TVBoothWallView(client: client)
         #else
         NavigationStack {
+            #if os(iOS)
+            StatusDashboardView(client: client)
+                .navigationTitle("Dashboard")
+                .navigationBarTitleDisplayMode(.inline)
+            #else
             StatusDashboardView(client: client).navigationTitle("Dashboard")
+            #endif
         }
         #endif
     }
