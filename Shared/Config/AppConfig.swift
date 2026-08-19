@@ -276,7 +276,7 @@ public final class AppConfig {
     }
 }
 
-public enum AppConfigError: Error, LocalizedError {
+public enum AppConfigError: Error, LocalizedError, Equatable {
     case invalidURL
     case httpsRequired
     case unsafeURLComponent(String)

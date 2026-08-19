@@ -128,20 +128,3 @@ final class AppConfigSecurityTests: XCTestCase {
     }
     #endif
 }
-
-// MARK: - Equatable conformance for test assertions
-
-extension AppConfigError: Equatable {
-    public static func == (lhs: AppConfigError, rhs: AppConfigError) -> Bool {
-        switch (lhs, rhs) {
-        case (.invalidURL, .invalidURL): return true
-        case (.httpsRequired, .httpsRequired): return true
-        case (.unsafeHost, .unsafeHost): return true
-        case (.unsafeURLComponent(let lhsC), .unsafeURLComponent(let rhsC)):
-            return lhsC == rhsC
-        case (.untrustedHost(let lhsH), .untrustedHost(let rhsH)):
-            return lhsH == rhsH
-        default: return false
-        }
-    }
-}
