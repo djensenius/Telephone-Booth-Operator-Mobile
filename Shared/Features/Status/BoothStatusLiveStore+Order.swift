@@ -8,7 +8,56 @@
 
 import Foundation
 
+struct CallsTodayRefresh: Sendable {
+    let stats: StatsSummary?
+    let sessions: [CallSession]?
+    let dayStartedAt: Date
+}
+
 extension BoothStatusLiveStore {
+
+    func fetchSummaryAndSessions() async -> CallsTodayRefresh {
+        let client = self.client
+        let localDayStartedAt = Calendar.current.startOfDay(for: Date())
+        prepareCallsToday(for: localDayStartedAt)
+        async let statsResult = attempt { try await client.fetchStatsSummary() }
+        async let sessionsResult = attempt {
+            try await client.fetchSessions(startedOnOrAfter: localDayStartedAt)
+        }
+
+        let newStats = await statsResult
+        var newSessions = await sessionsResult
+        let dayStartedAt = newStats?.dayStartedAt ?? localDayStartedAt
+        if dayStartedAt != localDayStartedAt {
+            prepareCallsToday(for: dayStartedAt)
+            newSessions = await attempt {
+                try await client.fetchSessions(startedOnOrAfter: dayStartedAt)
+            }
+        }
+        return CallsTodayRefresh(
+            stats: newStats,
+            sessions: newSessions,
+            dayStartedAt: dayStartedAt
+        )
+    }
+
+    func prepareCallsToday(for dayStartedAt: Date) {
+        guard callsTodayStartedAt != dayStartedAt else { return }
+        callsTodayStartedAt = dayStartedAt
+        callsTodaySessions = []
+        hasLoadedCallsToday = false
+    }
+
+    func apply(_ summary: CallsTodayRefresh) {
+        prepareCallsToday(for: summary.dayStartedAt)
+        if let newStats = summary.stats {
+            applyStats(newStats)
+        }
+        if let sessions = summary.sessions {
+            callsTodaySessions = sessions
+            hasLoadedCallsToday = true
+        }
+    }
 
     /// Cache order: oldest first, by booth timestamp, then by the operator's
     /// insertion order for reports of the same instant.

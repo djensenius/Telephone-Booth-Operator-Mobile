@@ -14,6 +14,8 @@ public struct StatsSummary: Codable, Sendable, Hashable {
     public let calls: Calls
     public let realtime: Realtime
     public let generatedAt: Date
+    public let dayStartedAt: Date?
+    public let timeZone: String?
 
     public struct Messages: Codable, Sendable, Hashable {
         public let pending: Int
@@ -55,13 +57,17 @@ public struct StatsSummary: Codable, Sendable, Hashable {
         messages: Messages,
         calls: Calls,
         realtime: Realtime,
-        generatedAt: Date
+        generatedAt: Date,
+        dayStartedAt: Date? = nil,
+        timeZone: String? = nil
     ) {
         self.booth = booth
         self.messages = messages
         self.calls = calls
         self.realtime = realtime
         self.generatedAt = generatedAt
+        self.dayStartedAt = dayStartedAt
+        self.timeZone = timeZone
     }
 }
 
@@ -75,6 +81,8 @@ public extension StatsSummary {
         messages: Messages(pending: 2, awaitingModeration: 2, receivedToday: 7, latestId: nil),
         calls: Calls(today: 4, inProgress: 0),
         realtime: Realtime(wsClients: 1),
-        generatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        generatedAt: Date(timeIntervalSince1970: 1_700_000_000),
+        dayStartedAt: nil,
+        timeZone: nil
     )
 }

@@ -36,58 +36,86 @@ final class BoothStatusDisplayCollapseTests: XCTestCase {
         XCTAssertEqual(rows.collapsingRepeats().map(\.id), [1, 2, 3])
     }
 
-    func testActivityCallsGroupAdjacentCallStates() {
-        let rows = [
-            BoothStatus(state: .idle, updatedAt: now),
-            BoothStatus(
-                state: .dialing,
-                updatedAt: now.addingTimeInterval(10),
-                firstSeenAt: now.addingTimeInterval(5)
-            ),
-            BoothStatus(
-                state: .playingQuestion,
-                updatedAt: now.addingTimeInterval(25),
-                firstSeenAt: now.addingTimeInterval(10)
-            ),
-            BoothStatus(
-                state: .recording,
-                updatedAt: now.addingTimeInterval(70),
-                firstSeenAt: now.addingTimeInterval(25)
-            ),
-            BoothStatus(state: .idle, updatedAt: now.addingTimeInterval(75))
+    func testCallsTodaySeriesUsesRealSessionsOnceAndOrdersSteps() {
+        let dayStartedAt = now
+        let through = now.addingTimeInterval(100)
+        let sessions = [
+            session(id: "b", startedAt: now.addingTimeInterval(20)),
+            session(id: "a", startedAt: now.addingTimeInterval(10)),
+            session(id: "c", startedAt: now.addingTimeInterval(20)),
+            session(id: "a", startedAt: now.addingTimeInterval(30)),
+            session(id: "old", startedAt: now.addingTimeInterval(-1)),
+            session(id: "future", startedAt: now.addingTimeInterval(101))
         ]
 
-        let calls = rows.activityCalls()
+        let series = CallsTodaySeries(
+            sessions: sessions,
+            dayStartedAt: dayStartedAt,
+            now: through
+        )
 
-        XCTAssertEqual(calls.count, 1)
-        XCTAssertEqual(calls[0].startedAt, now.addingTimeInterval(5))
-        XCTAssertEqual(calls[0].lastObservedAt, now.addingTimeInterval(75))
-        XCTAssertEqual(calls[0].duration(at: now.addingTimeInterval(100)), 70)
-        XCTAssertFalse(calls[0].isInProgress)
+        XCTAssertEqual(series.total, 3)
+        XCTAssertEqual(series.points.map(\.date), [
+            dayStartedAt,
+            now.addingTimeInterval(10),
+            now.addingTimeInterval(20),
+            through
+        ])
+        XCTAssertEqual(series.points.map(\.count), [0, 1, 3, 3])
     }
 
-    func testActivityCallsPreserveInstantCallAndMarkCurrentCallLive() {
-        let rows = [
-            BoothStatus(state: .idle, updatedAt: now),
-            BoothStatus(state: .recording, updatedAt: now),
-            BoothStatus(state: .idle, updatedAt: now),
-            BoothStatus(
-                state: .recording,
-                updatedAt: now.addingTimeInterval(15),
-                firstSeenAt: now.addingTimeInterval(10)
-            )
-        ]
+    func testCallsTodaySeriesIncludesExactMidnightAndHandlesNoCalls() {
+        let through = now.addingTimeInterval(60)
+        let midnight = CallsTodaySeries(
+            sessions: [session(id: "midnight", startedAt: now)],
+            dayStartedAt: now,
+            now: through
+        )
+        let empty = CallsTodaySeries(
+            sessions: [session(id: "before", startedAt: now.addingTimeInterval(-0.001))],
+            dayStartedAt: now,
+            now: through
+        )
 
-        let calls = rows.activityCalls()
-        let cappedCalls = rows.activityCalls(finalRunIsInProgress: false)
+        XCTAssertEqual(midnight.total, 1)
+        XCTAssertEqual(midnight.points.map(\.count), [1, 1])
+        XCTAssertEqual(empty.total, 0)
+        XCTAssertEqual(empty.points.map(\.count), [0, 0])
+        XCTAssertEqual(empty.yAxisValues, [0, 1])
+    }
 
-        XCTAssertEqual(calls.count, 2)
-        XCTAssertEqual(calls[0].duration(at: now.addingTimeInterval(40)), 0)
-        XCTAssertFalse(calls[0].isInProgress)
-        XCTAssertEqual(calls[1].duration(at: now.addingTimeInterval(40)), 30)
-        XCTAssertTrue(calls[1].isInProgress)
-        XCTAssertEqual(cappedCalls[1].duration(at: now.addingTimeInterval(40)), 5)
-        XCTAssertFalse(cappedCalls[1].isInProgress)
+    func testCallsTodayPaginationStopsAfterCrossingDayBoundary() {
+        var pages = CallsTodayPageAccumulator(dayStartedAt: now)
+        let firstCursor = pages.append(SessionListPage(
+            items: [
+                session(id: "newest", startedAt: now.addingTimeInterval(20)),
+                session(id: "middle", startedAt: now.addingTimeInterval(10))
+            ],
+            nextCursor: "page-2"
+        ))
+        let secondCursor = pages.append(SessionListPage(
+            items: [
+                session(id: "midnight", startedAt: now),
+                session(id: "yesterday", startedAt: now.addingTimeInterval(-1))
+            ],
+            nextCursor: "page-3"
+        ))
+
+        XCTAssertEqual(firstCursor, "page-2")
+        XCTAssertNil(secondCursor)
+        XCTAssertEqual(pages.orderedSessions.map(\.id), ["midnight", "middle", "newest"])
+    }
+
+    func testDemoCallsTodayCountMatchesSummary() throws {
+        let summary = DemoData.rebasedStats(to: DemoData.sessionAnchor)
+        let start = try XCTUnwrap(summary.dayStartedAt)
+        let series = CallsTodaySeries(
+            sessions: DemoData.rebasedSessions(),
+            dayStartedAt: start,
+            now: DemoData.sessionAnchor
+        )
+
+        XCTAssertEqual(series.total, summary.calls.today)
     }
 
     func testIdLessRunReturningAfterATransitionIsKept() {
@@ -138,5 +166,47 @@ final class BoothStatusDisplayCollapseTests: XCTestCase {
             DurationFormatter.compactString(from: now, to: now.addingTimeInterval(-60)),
             "0s"
         )
+    }
+
+    private func session(id: String, startedAt: Date) -> CallSession {
+        CallSession(
+            id: id,
+            boothId: "booth",
+            bootId: "boot",
+            startedAt: startedAt,
+            endedAt: nil,
+            digitsDialed: nil,
+            outcome: nil,
+            recordingId: nil,
+            durationMs: nil
+        )
+    }
+}
+
+final class StatsSummaryDayBoundaryTests: XCTestCase {
+
+    func testDayBoundaryMetadataRoundTripsAndRemainsOptional() throws {
+        let dayStartedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let summary = StatsSummary(
+            booth: BoothStatus(state: .idle, updatedAt: dayStartedAt),
+            messages: StatsSummary.Messages(
+                pending: 0,
+                receivedToday: 0,
+                latestId: nil
+            ),
+            calls: StatsSummary.Calls(today: 0, inProgress: 0),
+            realtime: StatsSummary.Realtime(wsClients: 0),
+            generatedAt: dayStartedAt,
+            dayStartedAt: dayStartedAt,
+            timeZone: "America/Toronto"
+        )
+
+        let data = try OperatorJSON.encoder.encode(summary)
+        let decoded = try OperatorJSON.decoder.decode(StatsSummary.self, from: data)
+
+        XCTAssertEqual(decoded.dayStartedAt, dayStartedAt)
+        XCTAssertEqual(decoded.timeZone, "America/Toronto")
+        XCTAssertNil(StatsSummary.placeholder.dayStartedAt)
+        XCTAssertNil(StatsSummary.placeholder.timeZone)
     }
 }

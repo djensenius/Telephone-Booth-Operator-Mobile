@@ -157,72 +157,83 @@ struct TVSpotlightCard: View {
     }
 }
 
-struct TVRecentCallsCard: View {
-    let items: [BoothStatus]
-    let latestStatusAt: Date?
-    let connection: BoothStatusLiveStore.ConnectionState
+struct TVCallsTodayCard: View {
+    let sessions: [CallSession]
+    let dayStartedAt: Date?
+    let isLoaded: Bool
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 10)) { context in
-            let calls = items.activityCalls(
-                finalRunIsInProgress: connection.confirmsFreshStatus(
-                    lastStatusAt: latestStatusAt,
-                    now: context.date
-                )
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            let series = CallsTodaySeries(
+                sessions: sessions,
+                dayStartedAt: dayStartedAt
+                    ?? Calendar.current.startOfDay(for: context.date),
+                now: context.date
             )
             TVFocusCard {
                 VStack(alignment: .leading, spacing: 22) {
                     HStack(alignment: .top, spacing: 24) {
                         VStack(alignment: .leading, spacing: 6) {
                             TVCardHeader(
-                                title: "Recent calls",
+                                title: "Calls today",
                                 systemImage: "phone.fill"
                             )
-                            Text(summary(calls: calls, at: context.date))
+                            Text(summary(for: series))
                                 .font(TVMetrics.Font.body)
                                 .foregroundStyle(Theme.Colors.textSecondary)
                         }
                         Spacer(minLength: 20)
-                        Label("Height shows duration", systemImage: "clock")
+                        Label("Cumulative total", systemImage: "chart.line.uptrend.xyaxis")
                             .font(TVMetrics.Font.caption)
                             .foregroundStyle(Theme.Colors.textPrimary)
                     }
 
-                    if calls.isEmpty {
-                        Text("No calls in this window")
+                    if !isLoaded {
+                        ProgressView("Loading calls...")
                             .font(TVMetrics.Font.body)
                             .foregroundStyle(Theme.Colors.textSecondary)
-                            .frame(maxWidth: .infinity, minHeight: 180)
+                            .frame(maxWidth: .infinity, minHeight: 230)
+                    } else if series.total == 0 {
+                        Text("No calls since midnight")
+                            .font(TVMetrics.Font.body)
+                            .foregroundStyle(Theme.Colors.textSecondary)
+                            .frame(maxWidth: .infinity, minHeight: 230)
                     } else {
-                        recentCallsChart(calls: calls, now: context.date)
+                        callsTodayChart(series)
                     }
                 }
             }
         }
     }
 
-    private func recentCallsChart(calls: [BoothActivityCall], now: Date) -> some View {
+    private func callsTodayChart(_ series: CallsTodaySeries) -> some View {
         Chart {
-            ForEach(calls) { call in
-                BarMark(
-                    x: .value("Call started", call.startedAt),
-                    y: .value("Duration", durationMinutes(for: call, at: now)),
-                    width: .fixed(5)
+            ForEach(series.points) { point in
+                LineMark(
+                    x: .value("Time", point.date),
+                    y: .value("Calls", point.count)
                 )
-                .foregroundStyle(Theme.Colors.accent.opacity(call.isInProgress ? 0.82 : 0.38))
-                .cornerRadius(3)
-
-                PointMark(
-                    x: .value("Call started", call.startedAt),
-                    y: .value("Duration", durationMinutes(for: call, at: now))
-                )
-                .symbolSize(call.isInProgress ? 180 : 110)
+                .interpolationMethod(.stepEnd)
+                .lineStyle(StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
                 .foregroundStyle(Theme.Colors.accent)
+            }
+            if let endpoint = series.points.last {
+                PointMark(
+                    x: .value("Time", endpoint.date),
+                    y: .value("Calls", endpoint.count)
+                )
+                .symbolSize(170)
+                .foregroundStyle(Theme.Colors.accent)
+                .annotation(position: .topLeading) {
+                    Text("\(series.total)")
+                        .font(TVMetrics.Font.body.monospacedDigit().weight(.bold))
+                        .foregroundStyle(Theme.Colors.accent)
+                }
             }
         }
         .frame(height: 230)
-        .chartXScale(domain: timeDomain)
-        .chartYScale(domain: 0...durationCeiling(calls: calls, at: now))
+        .chartXScale(domain: series.dayStartedAt...xAxisEnd(for: series))
+        .chartYScale(domain: 0...max(1, series.total + 1))
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 6)) { value in
                 AxisGridLine()
@@ -237,12 +248,12 @@ struct TVRecentCallsCard: View {
             }
         }
         .chartYAxis {
-            AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
+            AxisMarks(position: .leading, values: series.yAxisValues) { value in
                 AxisGridLine()
                     .foregroundStyle(Theme.Colors.textSecondary.opacity(0.12))
                 AxisValueLabel {
-                    if let minutes = value.as(Double.self) {
-                        Text(durationAxisLabel(minutes))
+                    if let count = value.as(Int.self) {
+                        Text("\(count)")
                             .font(TVMetrics.Font.caption)
                             .foregroundStyle(Theme.Colors.textSecondary)
                     }
@@ -254,56 +265,16 @@ struct TVRecentCallsCard: View {
                 .background(Theme.Colors.background.opacity(0.42))
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
-        .accessibilityLabel(Text("Recent calls by start time and duration"))
+        .accessibilityLabel(Text("Cumulative calls today"))
+        .accessibilityValue(Text("\(series.total) calls since midnight"))
     }
 
-    private var timeDomain: ClosedRange<Date> {
-        let start = items.first?.heldSince ?? Date()
-        let observedEnd = items.last?.updatedAt ?? start
-        let end = Swift.max(observedEnd, start.addingTimeInterval(60))
-        let padding = max(30, end.timeIntervalSince(start) * 0.015)
-        return start.addingTimeInterval(-padding)...end.addingTimeInterval(padding)
+    private func summary(for series: CallsTodaySeries) -> String {
+        "\(series.total) \(series.total == 1 ? "call" : "calls") since midnight"
     }
 
-    private func summary(calls: [BoothActivityCall], at date: Date) -> String {
-        guard let first = items.first, let last = items.last else {
-            return "No recent status yet"
-        }
-        let span = DurationFormatter.compactString(
-            from: first.heldSince,
-            to: last.updatedAt
-        )
-        guard !calls.isEmpty else { return "Quiet across \(span)" }
-        let completed = calls.filter { !$0.isInProgress }
-        let countLabel = "\(calls.count) \(calls.count == 1 ? "call" : "calls")"
-        let liveLabel = calls.contains(where: \.isInProgress) ? " · live now" : ""
-        guard !completed.isEmpty else { return countLabel + liveLabel }
-        let average = completed.reduce(0) { $0 + $1.duration(at: date) }
-            / Double(completed.count)
-        return "\(countLabel) · \(compactDuration(average)) average\(liveLabel)"
-    }
-
-    private func durationCeiling(calls: [BoothActivityCall], at date: Date) -> Double {
-        max(1, calls.map { durationMinutes(for: $0, at: date) }.max() ?? 1) * 1.16
-    }
-
-    private func durationMinutes(for call: BoothActivityCall, at date: Date) -> Double {
-        max(call.duration(at: date) / 60, 0.05)
-    }
-
-    private func durationAxisLabel(_ minutes: Double) -> String {
-        guard minutes > 0 else { return "0" }
-        if minutes < 1 { return "<1m" }
-        if minutes < 60 { return "\(Int(minutes.rounded()))m" }
-        return "\(Int((minutes / 60).rounded()))h"
-    }
-
-    private func compactDuration(_ seconds: TimeInterval) -> String {
-        let start = Date(timeIntervalSinceReferenceDate: 0)
-        return DurationFormatter.compactString(
-            from: start,
-            to: start.addingTimeInterval(seconds)
-        )
+    private func xAxisEnd(for series: CallsTodaySeries) -> Date {
+        max(series.through, series.dayStartedAt.addingTimeInterval(60))
     }
 }
 

@@ -126,3 +126,94 @@ public struct SessionListPage: Codable, Sendable, Equatable {
         self.nextCursor = nextCursor
     }
 }
+
+public struct CallsTodayPoint: Identifiable, Sendable, Equatable {
+    public let id: Int
+    public let date: Date
+    public let count: Int
+}
+
+public struct CallsTodaySeries: Sendable, Equatable {
+    public let points: [CallsTodayPoint]
+    public let total: Int
+    public let dayStartedAt: Date
+    public let through: Date
+
+    public init(
+        sessions: [CallSession],
+        dayStartedAt: Date,
+        now: Date = Date()
+    ) {
+        let through = max(dayStartedAt, now)
+        var seenIDs = Set<String>()
+        let starts = sessions
+            .filter {
+                $0.startedAt >= dayStartedAt
+                    && $0.startedAt <= through
+                    && seenIDs.insert($0.id).inserted
+            }
+            .sorted {
+                if $0.startedAt == $1.startedAt {
+                    return $0.id < $1.id
+                }
+                return $0.startedAt < $1.startedAt
+            }
+
+        var values = [(date: dayStartedAt, count: 0)]
+        for session in starts {
+            let nextCount = values.last.map { $0.count + 1 } ?? 1
+            if values.last?.date == session.startedAt {
+                values[values.count - 1].count = nextCount
+            } else {
+                values.append((session.startedAt, nextCount))
+            }
+        }
+
+        if values.last?.date != through {
+            values.append((through, values.last?.count ?? 0))
+        }
+
+        self.points = values.enumerated().map { index, value in
+            CallsTodayPoint(id: index, date: value.date, count: value.count)
+        }
+        self.total = starts.count
+        self.dayStartedAt = dayStartedAt
+        self.through = through
+    }
+
+    public var yAxisValues: [Int] {
+        guard total > 0 else { return [0, 1] }
+        let step = max(1, Int(ceil(Double(total) / 4)))
+        var values = Array(stride(from: 0, through: total, by: step))
+        if values.last != total {
+            values.append(total)
+        }
+        return values
+    }
+}
+
+struct CallsTodayPageAccumulator: Sendable {
+    let dayStartedAt: Date
+    private(set) var sessions: [CallSession] = []
+
+    mutating func append(_ page: SessionListPage) -> String? {
+        sessions.append(contentsOf: page.items.filter { $0.startedAt >= dayStartedAt })
+        guard
+            let nextCursor = page.nextCursor,
+            let oldestSession = page.items.last,
+            oldestSession.startedAt >= dayStartedAt
+        else {
+            return nil
+        }
+        return nextCursor
+    }
+
+    var orderedSessions: [CallSession] {
+        sessions.sorted {
+            if $0.startedAt == $1.startedAt {
+                return $0.id < $1.id
+            }
+            return $0.startedAt < $1.startedAt
+        }
+    }
+}
