@@ -3,8 +3,8 @@
 //  TelephoneBoothOperatorMobile
 //
 //  Paged list of call sessions from `/v1/sessions`. Tapping a row opens
-//  the detail view with the full event timeline. Not shown on watchOS
-//  (PR 7 will tailor a glance for the watch) or tvOS (PR 8 booth wall).
+//  the detail view with the full event timeline. watchOS uses a compact
+//  dashboard, while tvOS uses the focus-friendly `TVSessionsView`.
 //
 
 #if !os(watchOS) && !os(tvOS)

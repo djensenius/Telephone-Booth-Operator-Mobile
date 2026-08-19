@@ -175,6 +175,88 @@ struct TVFocusCard<Content: View>: View {
     }
 }
 
+/// Button treatment matching `TVFocusCard`, used for tappable cards such as
+/// session navigation rows.
+struct TVCardButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        CardButtonBody(configuration: configuration)
+    }
+
+    private struct CardButtonBody: View {
+        let configuration: Configuration
+        @Environment(\.isFocused) private var isFocused
+
+        var body: some View {
+            configuration.label
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(TVMetrics.cardPadding)
+                .foregroundStyle(Theme.Colors.textPrimary)
+                .background(
+                    RoundedRectangle(
+                        cornerRadius: TVMetrics.cardCornerRadius,
+                        style: .continuous
+                    )
+                    .fill(Theme.Colors.elevatedBackground.opacity(isFocused ? 1 : 0.6))
+                )
+                .overlay(
+                    RoundedRectangle(
+                        cornerRadius: TVMetrics.cardCornerRadius,
+                        style: .continuous
+                    )
+                    .strokeBorder(
+                        Theme.Colors.accent.opacity(isFocused ? 0.9 : 0),
+                        lineWidth: 4
+                    )
+                )
+                .shadow(
+                    color: Color.black.opacity(isFocused ? 0.55 : 0.25),
+                    radius: isFocused ? 34 : 12,
+                    x: 0,
+                    y: isFocused ? 20 : 8
+                )
+                .scaleEffect(isFocused ? 1.015 : configuration.isPressed ? 0.99 : 1)
+                .animation(.easeOut(duration: 0.18), value: isFocused)
+                .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+        }
+    }
+}
+
+/// Selected/focused pill treatment shared by TV range and menu controls.
+struct TVSegmentButtonStyle: ButtonStyle {
+    let isSelected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        SegmentBody(configuration: configuration, isSelected: isSelected)
+    }
+
+    private struct SegmentBody: View {
+        let configuration: Configuration
+        let isSelected: Bool
+        @Environment(\.isFocused) private var isFocused
+
+        var body: some View {
+            configuration.label
+                .foregroundStyle(isSelected ? Color.black : Theme.Colors.textPrimary)
+                .background(Capsule().fill(fill))
+                .overlay(
+                    Capsule().strokeBorder(
+                        Theme.Colors.accent.opacity(isFocused ? 1 : 0),
+                        lineWidth: 4
+                    )
+                )
+                .scaleEffect(isFocused ? 1.06 : 1)
+                .animation(.easeOut(duration: 0.16), value: isFocused)
+                .animation(.easeOut(duration: 0.16), value: isSelected)
+        }
+
+        private var fill: Color {
+            if isSelected { return Theme.Colors.accent }
+            if isFocused { return Theme.Colors.elevatedBackground }
+            return Theme.Colors.elevatedBackground.opacity(0.6)
+        }
+    }
+}
+
 /// Card section heading (icon + title).
 struct TVCardHeader: View {
     let title: String
@@ -311,6 +393,43 @@ struct TVCardGrid<Content: View>: View {
             spacing: TVMetrics.cardSpacing
         ) {
             content()
+        }
+    }
+}
+
+extension BoothEventType {
+    var tvSymbol: String {
+        switch self {
+        case .callStarted: "phone.arrow.up.right"
+        case .callEnded: "phone.down"
+        case .digitDialed: "number"
+        case .stateTransition: "arrow.right.circle"
+        case .recordingStarted: "record.circle"
+        case .recordingStopped: "stop.circle"
+        case .uploadStarted: "arrow.up.circle"
+        case .uploadCompleted: "checkmark.circle"
+        case .uploadFailed: "xmark.circle"
+        case .gpioEdge: "bolt"
+        case .audioDeviceChange: "speaker.wave.2"
+        case .operatorRequest: "person.crop.circle.badge.questionmark"
+        case .operatorResponse: "person.crop.circle.badge.checkmark"
+        case .error: "exclamationmark.triangle.fill"
+        case .log: "doc.text"
+        case .systemSample: "waveform.path.ecg"
+        case .unknown: "dot.circle"
+        }
+    }
+
+    var tvTint: Color {
+        switch self {
+        case .error, .uploadFailed:
+            Theme.Colors.error
+        case .uploadCompleted, .callEnded:
+            Theme.Colors.success
+        case .callStarted, .recordingStarted, .uploadStarted:
+            Theme.Colors.accent
+        default:
+            Theme.Colors.textSecondary
         }
     }
 }

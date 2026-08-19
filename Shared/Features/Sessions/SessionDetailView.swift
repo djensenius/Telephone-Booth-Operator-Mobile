@@ -3,8 +3,8 @@
 //  TelephoneBoothOperatorMobile
 //
 //  Single call session with its ordered event timeline. Available on
-//  iOS / iPadOS / macOS / visionOS. watchOS + tvOS get tailored
-//  experiences in later PRs.
+//  iOS / iPadOS / macOS / visionOS. tvOS uses `TVSessionDetailView`;
+//  watchOS keeps its compact dashboard.
 //
 
 #if !os(watchOS) && !os(tvOS)

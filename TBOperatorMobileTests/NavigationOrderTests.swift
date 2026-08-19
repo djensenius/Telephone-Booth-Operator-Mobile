@@ -73,8 +73,12 @@ final class NavigationOrderTests: XCTestCase {
 
     func testTelevisionNavigationOrderRemainsReadOnly() {
         XCTAssertEqual(
-            OperatorTab.televisionNavigationOrder,
-            [.dashboard, .stats, .system, .settings]
+            OperatorTab.televisionNavigationOrder(isAdmin: false),
+            [.dashboard, .stats, .sessions, .thermals, .events, .system, .settings]
+        )
+        XCTAssertEqual(
+            OperatorTab.televisionNavigationOrder(isAdmin: true),
+            [.dashboard, .stats, .sessions, .thermals, .events, .audit, .system, .settings]
         )
     }
 
