@@ -252,7 +252,7 @@ final class StatsOverviewTests: XCTestCase {
     }
 
     @MainActor
-    func testFetchStatsOverviewRecoversDigitsFromPaginatedEvents() async throws {
+    func testFetchStatsOverviewRecoversDigitsAndKeepsOverviewWhenRecoveryFails() async throws {
         let appConfig = AppConfig.shared
         let previousDemoMode = appConfig.isDemoMode
         appConfig.isDemoMode = false
@@ -309,6 +309,18 @@ final class StatsOverviewTests: XCTestCase {
             resolvingAgainstBaseURL: false
         )?.queryItems)
         XCTAssertTrue(secondQuery.contains(URLQueryItem(name: "cursor", value: "next-page")))
+
+        StatsDigitRecoveryURLProtocol.failEventRequests()
+        let fallback = try await client.fetchStatsOverview(
+            selection: .window(.last7d),
+            installationScope: .installation("installation-1")
+        )
+        XCTAssertEqual(fallback.calls.total, 2)
+        XCTAssertEqual(fallback.pickupsHangups.digitsDialed.values.reduce(0, +), 0)
+        XCTAssertEqual(
+            StatsDigitRecoveryURLProtocol.capturedURLs().filter { $0.path == "/v1/events" }.count,
+            3
+        )
     }
 
     func testCompletionRateAndQuietForSeconds() {
@@ -372,11 +384,19 @@ final class StatsOverviewTests: XCTestCase {
 
 private final class StatsDigitRecoveryURLProtocol: URLProtocol {
     nonisolated(unsafe) private static var requests: [URL] = []
+    nonisolated(unsafe) private static var shouldFailEventRequests = false
     private static let lock = NSLock()
 
     static func reset() {
         lock.lock()
         requests = []
+        shouldFailEventRequests = false
+        lock.unlock()
+    }
+
+    static func failEventRequests() {
+        lock.lock()
+        shouldFailEventRequests = true
         lock.unlock()
     }
 
@@ -400,17 +420,25 @@ private final class StatsDigitRecoveryURLProtocol: URLProtocol {
         Self.lock.unlock()
 
         let body: String
+        let statusCode: Int
         switch url.path {
         case "/v1/stats/overview":
             body = Self.overviewResponse
+            statusCode = 200
         case "/v1/events":
-            let cursor = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-                .queryItems?
-                .first(where: { $0.name == "cursor" })?
-                .value
-            body = cursor == nil
-                ? Self.firstEventPage
-                : #"{"items":[{"payload":{"digit":0}},{"payload":{"digit":5}}],"nextCursor":null}"#
+            if Self.eventRequestsShouldFail() {
+                body = #"{"error":"temporarily_unavailable"}"#
+                statusCode = 503
+            } else {
+                let cursor = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                    .queryItems?
+                    .first(where: { $0.name == "cursor" })?
+                    .value
+                body = cursor == nil
+                    ? Self.firstEventPage
+                    : #"{"items":[{"payload":{"digit":0}},{"payload":{"digit":5}}],"nextCursor":null}"#
+                statusCode = 200
+            }
         default:
             client?.urlProtocol(self, didFailWithError: URLError(.resourceUnavailable))
             return
@@ -418,7 +446,7 @@ private final class StatsDigitRecoveryURLProtocol: URLProtocol {
 
         guard let response = HTTPURLResponse(
             url: url,
-            statusCode: 200,
+            statusCode: statusCode,
             httpVersion: nil,
             headerFields: ["Content-Type": "application/json"]
         ) else {
@@ -430,49 +458,42 @@ private final class StatsDigitRecoveryURLProtocol: URLProtocol {
         client?.urlProtocolDidFinishLoading(self)
     }
 
-    private static let firstEventPage = #"""
-    {
-      "items": [
-        { "payload": { "digit": 1 } },
-        { "payload": { "digit": 1 } },
-        { "payload": { "digit": 5 } }
-      ],
-      "nextCursor": "next-page"
+    private static func eventRequestsShouldFail() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return shouldFailEventRequests
     }
+
+    private static let firstEventPage = #"""
+    { "items": [
+        { "payload": { "digit": 1 } }, { "payload": { "digit": 1 } },
+        { "payload": { "digit": 5 } }, {}, { "payload": null },
+        { "payload": "invalid" }, { "payload": { "digit": "1" } },
+        { "payload": { "digit": 12 } }
+      ], "nextCursor": "next-page" }
     """#
 
     private static let overviewResponse = #"""
     {
-      "window": "7d",
-      "rangeStart": "2026-08-12T12:00:00Z",
-      "rangeEnd": "2026-08-19T12:00:00Z",
-      "generatedAt": "2026-08-19T12:00:00Z",
+      "window": "7d", "rangeStart": "2026-08-12T12:00:00Z",
+      "rangeEnd": "2026-08-19T12:00:00Z", "generatedAt": "2026-08-19T12:00:00Z",
       "timezone": "UTC",
       "calls": {
-        "total": 2,
-        "completed": 1,
-        "inProgress": 0,
-        "averageDurationMs": null,
-        "longestDurationMs": null,
-        "outcomes": { "recording_completed": 1 },
-        "perDay": []
+        "total": 2, "completed": 1, "inProgress": 0,
+        "averageDurationMs": null, "longestDurationMs": null,
+        "outcomes": { "recording_completed": 1 }, "perDay": []
       },
       "messages": { "total": 0, "byStatus": {}, "averageDurationMs": null },
       "playback": { "totalPlaybacks": 0 },
       "pickupsHangups": {
-        "pickups": 2,
-        "hangups": 2,
-        "digitsDialed": {
-          "0": 0, "1": 0, "2": 0, "3": 0, "4": 0,
-          "5": 0, "6": 0, "7": 0, "8": 0, "9": 0
-        }
+        "pickups": 2, "hangups": 2,
+        "digitsDialed": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0,
+          "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 }
       },
       "uploads": { "succeeded": 0, "failed": 0, "failureRate": null },
-      "topQuestions": [],
-      "hourly": [],
+      "topQuestions": [], "hourly": [],
       "busiest": { "hour": null, "dayOfWeek": null },
-      "lastActivityAt": null,
-      "boothBreakdown": []
+      "lastActivityAt": null, "boothBreakdown": []
     }
     """#
 }

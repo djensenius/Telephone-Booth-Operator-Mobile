@@ -7,6 +7,12 @@
 //
 
 import Foundation
+import os
+
+private let metricsLogger = Logger(
+    subsystem: "org.davidjensenius.TelephoneBoothOperatorMobile",
+    category: "OperatorClient.Metrics"
+)
 
 public extension OperatorClient {
     /// `GET /v1/stats/overview` for an arbitrary selection — a preset window
@@ -22,10 +28,20 @@ public extension OperatorClient {
             query.append(URLQueryItem(name: "installationId", value: installationID))
         }
         let overview: StatsOverview = try await get("/v1/stats/overview", query: query)
-        return try await recoveringDialedDigits(
-            in: overview,
-            installationScope: installationScope
-        )
+        do {
+            return try await recoveringDialedDigits(
+                in: overview,
+                installationScope: installationScope
+            )
+        } catch let error as OperatorError {
+            if Task.isCancelled || error.isCancellation {
+                throw CancellationError()
+            }
+            metricsLogger.warning(
+                "Dialed-digit recovery unavailable: \(String(describing: type(of: error)), privacy: .public)"
+            )
+            return overview
+        }
     }
 
     /// `GET /v1/installations` — all eras, newest first, for the stats scope
@@ -138,21 +154,34 @@ private struct DialedDigitEventPage: Decodable, Sendable {
 }
 
 private struct DialedDigitEvent: Decodable, Sendable {
-    let payload: Payload
+    let digit: Int?
 
-    struct Payload: Decodable, Sendable {
-        let digit: Int
+    private enum CodingKeys: String, CodingKey {
+        case payload
+    }
+
+    private enum PayloadCodingKeys: String, CodingKey {
+        case digit
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        guard let payload = try? container.nestedContainer(
+            keyedBy: PayloadCodingKeys.self,
+            forKey: .payload
+        ) else {
+            digit = nil
+            return
+        }
+        digit = try? payload.decode(Int.self, forKey: .digit)
     }
 }
 
 private enum DialedDigitEventError: LocalizedError {
-    case invalidDigit(Int)
     case repeatedCursor(String)
 
     var errorDescription: String? {
         switch self {
-        case .invalidDigit(let digit):
-            return "Digit event contained an out-of-range value: \(digit)."
         case .repeatedCursor(let cursor):
             return "Digit event pagination repeated cursor \(cursor)."
         }
@@ -209,10 +238,7 @@ private extension OperatorClient {
 
             let page: DialedDigitEventPage = try await get("/v1/events", query: query)
             for event in page.items {
-                let digit = event.payload.digit
-                guard (0...9).contains(digit) else {
-                    throw OperatorError.decoding(DialedDigitEventError.invalidDigit(digit))
-                }
+                guard let digit = event.digit, (0...9).contains(digit) else { continue }
                 counts[String(digit), default: 0] += 1
             }
 
@@ -223,6 +249,14 @@ private extension OperatorClient {
         } while cursor != nil
 
         return counts
+    }
+}
+
+private extension OperatorError {
+    var isCancellation: Bool {
+        guard case .transport(let error) = self else { return false }
+        if error is CancellationError { return true }
+        return (error as? URLError)?.code == .cancelled
     }
 }
 
