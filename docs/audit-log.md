@@ -16,8 +16,10 @@ in the operator repo; this page covers only the mobile side.
 
 ## The Audit tab
 
-`Shared/Features/Audit/AuditLogView.swift`, shown on iOS, iPadOS, macOS and
-visionOS. It is not built for watchOS or tvOS, which have no admin workflow.
+`Shared/Features/Audit/AuditLogView.swift` is shown on iOS, iPadOS, macOS and
+visionOS. tvOS uses the read-only, focus-friendly
+`Shared/Features/TV/TVAuditView.swift`. watchOS does not expose the admin
+workflow.
 
 Each row answers the three questions the trail exists for — who, from where,
 and when — plus the outcome:

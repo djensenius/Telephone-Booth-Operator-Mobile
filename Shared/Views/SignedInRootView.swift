@@ -4,16 +4,11 @@
 //
 //  Signed-in shell shown after a successful sign-in.
 //
-//  - watchOS keeps its bespoke vertical-paging dashboard.
-//  - Every other platform shares a single `TabView` rendered with
-//    `.tabViewStyle(.sidebarAdaptable)`, so each one gets its native
-//    presentation automatically: a source-list sidebar on macOS, an
-//    adaptive sidebar/tab bar on iPadOS, a bottom bar on iPhone, a top bar
-//    on tvOS, and an ornament on visionOS.
-//  - Settings is a tab everywhere except macOS, where it lives in the
-//    standard app menu (⌘, → `MacSettingsView`).
-//  - tvOS only surfaces the read-only screens that exist on that platform
-//    (Dashboard booth wall, Stats, System) plus Settings.
+//  - watchOS keeps its bespoke dashboard; every other platform shares an
+//    adaptive sidebar `TabView`.
+//  - Settings uses the standard app menu on macOS and a tab elsewhere.
+//  - tvOS surfaces focus-friendly, read-only dashboards for booth status,
+//    stats, sessions, thermals, events, audit history, and system health.
 //
 
 import SwiftUI
@@ -101,12 +96,13 @@ enum OperatorTab: String, Hashable {
         return tabs
     }
 
-    static let televisionNavigationOrder: [OperatorTab] = [
-        .dashboard,
-        .stats,
-        .system,
-        .settings
-    ]
+    static func televisionNavigationOrder(isAdmin: Bool) -> [OperatorTab] {
+        var tabs: [OperatorTab] = [
+            .dashboard, .stats, .sessions, .thermals, .events
+        ]
+        if isAdmin { tabs.append(.audit) }
+        return tabs + [.system, .settings]
+    }
 }
 
 /// Unified, platform-adaptive signed-in shell. One `TabView` plus
@@ -196,6 +192,21 @@ private struct OperatorShell: View {
         case .stats:
             TVStatsView(client: client)
                 .automaticRefreshEnabled(selection == .stats)
+        case .sessions:
+            NavigationStack(path: $sessionPath) {
+                TVSessionsView(client: client)
+                    .navigationDestination(for: String.self) { sessionId in
+                        TVSessionDetailView(sessionId: sessionId, client: client)
+                    }
+            }
+            .automaticRefreshEnabled(selection == .sessions)
+        case .thermals:
+            TVThermalsView(client: client).automaticRefreshEnabled(selection == .thermals)
+        case .events:
+            TVEventsView(client: client, stream: eventStream)
+                .automaticRefreshEnabled(selection == .events)
+        case .audit:
+            TVAuditView(client: client).automaticRefreshEnabled(selection == .audit)
         case .system:
             TVSystemView(client: client)
                 .automaticRefreshEnabled(selection == .system)
@@ -280,7 +291,7 @@ private struct OperatorShell: View {
 
     private var visibleTabs: [OperatorTab] {
         #if os(tvOS)
-        return OperatorTab.televisionNavigationOrder
+        return OperatorTab.televisionNavigationOrder(isAdmin: currentUser.isAdmin)
         #elseif os(macOS)
         return OperatorTab.sharedNavigationOrder(
             isAdmin: currentUser.isAdmin,
