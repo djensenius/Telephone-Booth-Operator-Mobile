@@ -244,4 +244,11 @@ public extension Array where Element == BoothStatus {
             )
         }
     }
+
+    internal func instantTransitionLane(at index: Int) -> Double {
+        let timestamp = self[index].heldSince
+        let ties = indices.filter { self[$0].heldSince == timestamp && self[$0].updatedAt <= timestamp }
+        let order = ties.firstIndex(of: index) ?? 0
+        return Double(order + 1) / Double(Swift.max(ties.count, 1) + 1)
+    }
 }

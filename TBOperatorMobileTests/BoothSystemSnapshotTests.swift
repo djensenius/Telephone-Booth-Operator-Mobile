@@ -218,6 +218,46 @@ final class BoothSystemSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.throttlingFlags, [])
     }
 
+    func testOverallSystemSeverityCombinesDashboardSignals() {
+        let empty = BoothSystemSnapshot()
+        XCTAssertNil(SystemVitals.overallSeverity(snapshot: empty))
+        XCTAssertNil(SystemVitals.overallSeverity(snapshot: empty, telemetryIsStale: true))
+        XCTAssertEqual(
+            SystemVitals.overallSeverity(snapshot: empty, routerTemperature: 65),
+            .warn
+        )
+
+        let nominal = BoothSystemSnapshot(
+            cpu: .init(physicalCores: 4, loadAvg1m: 0.4),
+            temperatureCelsius: 48.5,
+            memory: .init(totalBytes: 4_000, usedBytes: 1_500),
+            tailscale: .init(connected: true),
+            throttling: .init(throttled: false)
+        )
+        XCTAssertEqual(SystemVitals.overallSeverity(snapshot: nominal), .nominal)
+        XCTAssertEqual(
+            SystemVitals.overallSeverity(snapshot: nominal, routerTemperature: 65),
+            .warn
+        )
+        XCTAssertEqual(
+            SystemVitals.overallSeverity(snapshot: nominal, telemetryIsStale: true),
+            .warn
+        )
+
+        let disconnected = BoothSystemSnapshot(tailscale: .init(connected: false))
+        XCTAssertEqual(SystemVitals.overallSeverity(snapshot: disconnected), .crit)
+    }
+
+    func testDemoSystemTelemetryRebasesOntoReferenceClock() {
+        let reference = Date(timeIntervalSince1970: 2_000_000_000)
+        let envelope = DemoData.rebasedSystemEnvelope(to: reference)
+        let component = DemoData.rebasedSystemComponentSources(to: reference)[0]
+
+        XCTAssertEqual(envelope.receivedAt, reference.addingTimeInterval(-18))
+        XCTAssertEqual(component.capturedAt, reference.addingTimeInterval(-25))
+        XCTAssertEqual(component.receivedAt, reference.addingTimeInterval(-20))
+    }
+
     func testFanCommandDoesNotImplyMeasuredRotationWithoutTachometer() {
         let fan = BoothSystemSnapshot.FanStats(
             commandedOn: true,

@@ -244,7 +244,7 @@ public var operatorFilterPlacement: ToolbarItemPlacement {
 
 /// Severity levels matching the operator web `BoothStatusBadge`
 /// thresholds (fresh < 60 s, warning 60 s – 5 min, offline > 5 min).
-public enum BoothStalenessLevel: Sendable {
+public enum BoothStalenessLevel: Sendable, Equatable {
     case fresh
     case warning
     case offline
@@ -253,6 +253,16 @@ public enum BoothStalenessLevel: Sendable {
 public enum BoothStalenessThresholds {
     public static let warningSeconds: TimeInterval = 60
     public static let offlineSeconds: TimeInterval = 300
+}
+
+extension BoothStatusLiveStore.ConnectionState {
+    var dashboardEmptyStatusMessage: String {
+        switch self {
+        case .connecting: return "Connecting to the booth..."
+        case .live, .polling: return "Waiting for booth status..."
+        case .offline: return "Booth status unavailable"
+        }
+    }
 }
 
 /// Pure function for unit testing — given a `lastStatusAt` and the

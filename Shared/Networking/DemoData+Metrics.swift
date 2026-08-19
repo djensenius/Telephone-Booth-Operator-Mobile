@@ -33,6 +33,27 @@ public extension DemoData {
         )
     ]
 
+    static func rebasedSystemComponentSources(
+        to reference: Date = Date()
+    ) -> [SystemComponentCurrentEnvelope] {
+        let offset = reference.timeIntervalSince(now)
+        return systemComponentSources.map { envelope in
+            let snapshot = envelope.latestSnapshot.map {
+                SystemComponentSnapshot(
+                    receivedAt: $0.receivedAt?.addingTimeInterval(offset),
+                    battery: $0.battery,
+                    thermalZones: $0.thermalZones
+                )
+            }
+            return SystemComponentCurrentEnvelope(
+                source: envelope.source,
+                latestSnapshot: snapshot,
+                capturedAt: envelope.capturedAt?.addingTimeInterval(offset),
+                receivedAt: envelope.receivedAt?.addingTimeInterval(offset)
+            )
+        }
+    }
+
     static func currentWeather(boothId: String) -> CurrentWeather {
         CurrentWeather(
             boothId: boothId,

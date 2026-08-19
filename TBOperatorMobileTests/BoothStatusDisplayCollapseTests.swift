@@ -36,6 +36,18 @@ final class BoothStatusDisplayCollapseTests: XCTestCase {
         XCTAssertEqual(rows.collapsingRepeats().map(\.id), [1, 2, 3])
     }
 
+    func testInstantActivityMarksPreserveTransitionOrder() {
+        let rows = [
+            BoothStatus(state: .idle, updatedAt: now),
+            BoothStatus(state: .recording, updatedAt: now),
+            BoothStatus(state: .idle, updatedAt: now)
+        ]
+
+        let lanes = rows.indices.map { rows.instantTransitionLane(at: $0) }
+
+        XCTAssertEqual(lanes, [0.25, 0.5, 0.75])
+    }
+
     func testIdLessRunReturningAfterATransitionIsKept() {
         // A collapsed operator that sends no row id: idle, a blip of recording,
         // idle again, all inside one booth millisecond.
@@ -65,5 +77,24 @@ final class BoothStatusDisplayCollapseTests: XCTestCase {
         let history = BoothStatusLiveStore.merging([blip, earlier], into: [earlier, blip, latest])
 
         XCTAssertEqual(history.map(\.state), [.idle, .recording, .idle])
+    }
+
+    func testCompactStatusDurationFormatting() {
+        XCTAssertEqual(
+            DurationFormatter.compactString(from: now, to: now.addingTimeInterval(42)),
+            "42s"
+        )
+        XCTAssertEqual(
+            DurationFormatter.compactString(from: now, to: now.addingTimeInterval(3_840)),
+            "1h 4m"
+        )
+        XCTAssertEqual(
+            DurationFormatter.compactString(from: now, to: now.addingTimeInterval(93_600)),
+            "1d 2h"
+        )
+        XCTAssertEqual(
+            DurationFormatter.compactString(from: now, to: now.addingTimeInterval(-60)),
+            "0s"
+        )
     }
 }

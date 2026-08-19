@@ -2,15 +2,8 @@
 //  SignedInRootView.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Signed-in shell shown after a successful sign-in.
+//  Signed-in shell with platform-appropriate dashboard and navigation.
 //
-//  - watchOS keeps its bespoke dashboard; every other platform shares an
-//    adaptive sidebar `TabView`.
-//  - Settings uses the standard app menu on macOS and a tab elsewhere.
-//  - tvOS surfaces focus-friendly, read-only dashboards for booth status,
-//    stats, sessions, thermals, events, audit history, and system health.
-//
-
 import SwiftUI
 
 public struct SignedInRootView: View {
@@ -312,6 +305,9 @@ private struct OperatorShell: View {
         #else
         NavigationStack {
             StatusDashboardView(client: client).navigationTitle("Dashboard")
+            #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+            #endif
         }
         #endif
     }

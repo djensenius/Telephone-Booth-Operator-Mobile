@@ -15,29 +15,47 @@
 
 import SwiftUI
 
+public enum SystemVitalsPresentation: Sendable, Equatable {
+    case full
+    case summary
+}
+
 public struct SystemVitalsStrip: View {
     public let snapshot: BoothSystemSnapshot?
     public let receivedAt: Date?
     public let componentSources: [SystemComponentCurrentEnvelope]
     public let boothId: String?
+    public let presentation: SystemVitalsPresentation
 
     public init(
         snapshot: BoothSystemSnapshot?,
         receivedAt: Date? = nil,
         componentSources: [SystemComponentCurrentEnvelope] = [],
-        boothId: String? = nil
+        boothId: String? = nil,
+        presentation: SystemVitalsPresentation = .full
     ) {
         self.snapshot = snapshot
         self.receivedAt = receivedAt
         self.componentSources = componentSources
         self.boothId = boothId
+        self.presentation = presentation
     }
 
     public var body: some View {
         TimelineView(.periodic(from: .now, by: 5)) { context in
             VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-                SectionHeader(text: "Live vitals")
-                tilesGrid(now: context.date)
+                HStack {
+                    SectionHeader(text: presentation == .summary ? "System health" : "Live vitals")
+                    if presentation == .summary {
+                        Spacer(minLength: Theme.Spacing.small)
+                        healthBadge(now: context.date)
+                    }
+                }
+                if presentation == .summary {
+                    summaryTiles(now: context.date)
+                } else {
+                    tilesGrid(now: context.date)
+                }
                 footer
             }
         }
@@ -45,7 +63,68 @@ public struct SystemVitalsStrip: View {
         .padding(Theme.Spacing.large)
         .glassCardBackground()
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(Text("Live booth vitals"))
+        .accessibilityLabel(Text(presentation == .summary ? "System health" : "Live booth vitals"))
+    }
+
+    private func summaryTiles(now: Date) -> some View {
+        let routerTemperature = SystemVitals.routerBatteryTemperature(
+            in: componentSources,
+            boothId: boothId,
+            now: now
+        )
+        return HStack(spacing: Theme.Spacing.small) {
+            VitalTile(
+                label: "CPU temp",
+                value: temperatureValue,
+                severity: SystemVitals.temperatureSeverity(snapshot?.cpuTemperatureCelsius)
+            )
+            VitalTile(
+                label: "Router batt",
+                value: SystemVitals.formatTemperature(routerTemperature),
+                severity: SystemVitals.temperatureSeverity(routerTemperature)
+            )
+            VitalTile(
+                label: "Memory",
+                value: SystemVitals.formatPercent(snapshot?.memoryUsedRatio),
+                severity: SystemVitals.memorySeverity(snapshot?.memoryUsedRatio)
+            )
+        }
+    }
+
+    private func healthBadge(now: Date) -> some View {
+        let severity = healthSeverity(now: now)
+        let label: String
+        let symbol: String
+        switch severity {
+        case .none:
+            (label, symbol) = ("Waiting", "wave.3.right.circle")
+        case .nominal:
+            (label, symbol) = ("Nominal", "checkmark.circle.fill")
+        case .warn:
+            (label, symbol) = ("Check", "exclamationmark.triangle.fill")
+        case .crit:
+            (label, symbol) = ("Attention", "xmark.octagon.fill")
+        }
+        return Label(label, systemImage: symbol)
+            .font(Theme.Fonts.caption.weight(.semibold))
+            .foregroundStyle(severity?.tint ?? Theme.Colors.info)
+    }
+
+    private func healthSeverity(now: Date) -> SystemVitals.Severity? {
+        guard let snapshot else { return nil }
+        let routerTemperature = SystemVitals.routerBatteryTemperature(
+            in: componentSources,
+            boothId: boothId,
+            now: now
+        )
+        let telemetryIsStale = receivedAt.map {
+            now.timeIntervalSince($0) >= BoothStalenessThresholds.offlineSeconds
+        } ?? false
+        return SystemVitals.overallSeverity(
+            snapshot: snapshot,
+            routerTemperature: routerTemperature,
+            telemetryIsStale: telemetryIsStale
+        )
     }
 
     @ViewBuilder
@@ -322,6 +401,29 @@ public enum SystemVitals {
         let reference = Double(cores ?? 1)
         if value >= reference * 2 { return .crit }
         if value >= reference { return .warn }
+        return .nominal
+    }
+
+    public static func overallSeverity(
+        snapshot: BoothSystemSnapshot,
+        routerTemperature: Double? = nil,
+        telemetryIsStale: Bool = false
+    ) -> Severity? {
+        let hasNumericSignal = [snapshot.cpuTemperatureCelsius, routerTemperature,
+            snapshot.memoryUsedRatio, snapshot.loadAverage1m].contains { $0?.isFinite == true }
+        guard hasNumericSignal || snapshot.tailscaleConnected != nil ||
+            snapshot.throttlingFlags != nil else { return nil }
+        var severities = [
+            temperatureSeverity(snapshot.cpuTemperatureCelsius),
+            temperatureSeverity(routerTemperature),
+            memorySeverity(snapshot.memoryUsedRatio),
+            loadSeverity(snapshot.loadAverage1m, cores: snapshot.cpuCoreCount)
+        ]
+        if snapshot.tailscaleConnected == false { severities.append(.crit) }
+        if let flags = snapshot.throttlingFlags, !flags.isEmpty { severities.append(.warn) }
+        if telemetryIsStale { severities.append(.warn) }
+        if severities.contains(.crit) { return .crit }
+        if severities.contains(.warn) { return .warn }
         return .nominal
     }
 

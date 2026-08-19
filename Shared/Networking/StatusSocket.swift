@@ -271,8 +271,9 @@ extension DemoData {
         AsyncThrowingStream { continuation in
             let task = Task {
                 while !Task.isCancelled {
-                    continuation.yield(.status(boothStatus))
-                    continuation.yield(.system(systemEnvelope))
+                    let reference = Date()
+                    continuation.yield(.status(liveStatus(now: reference)))
+                    continuation.yield(.system(rebasedSystemEnvelope(to: reference)))
                     try? await Task.sleep(for: .seconds(5))
                 }
                 continuation.finish()

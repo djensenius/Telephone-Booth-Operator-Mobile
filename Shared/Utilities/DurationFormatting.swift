@@ -23,4 +23,15 @@ public enum DurationFormatter {
         }
         return "\(seconds)s"
     }
+
+    /// Compact elapsed time for live status surfaces, including hours and days.
+    public static func compactString(from start: Date, to end: Date) -> String {
+        let seconds = max(0, Int(end.timeIntervalSince(start)))
+        if seconds < 60 { return "\(seconds)s" }
+        let minutes = seconds / 60
+        if minutes < 60 { return "\(minutes)m" }
+        let hours = minutes / 60
+        if hours < 24 { return "\(hours)h \(minutes % 60)m" }
+        return "\(hours / 24)d \(hours % 24)h"
+    }
 }

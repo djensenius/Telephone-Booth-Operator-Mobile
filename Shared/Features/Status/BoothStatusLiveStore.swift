@@ -453,8 +453,8 @@ public final class BoothStatusLiveStore {
         let demoNow = Date()
         status = DemoData.liveStatus(now: demoNow)
         history = DemoData.rebasedHistory()
-        systemEnvelope = DemoData.systemEnvelope
-        componentSources = DemoData.systemComponentSources
+        systemEnvelope = DemoData.rebasedSystemEnvelope(to: demoNow)
+        componentSources = DemoData.rebasedSystemComponentSources(to: demoNow)
         let demoStats = DemoData.rebasedStats(to: demoNow)
         stats = demoStats
         connection = .polling
