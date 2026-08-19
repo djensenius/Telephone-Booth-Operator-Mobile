@@ -21,7 +21,11 @@ public extension OperatorClient {
         if let installationID = installationScope.queryValue {
             query.append(URLQueryItem(name: "installationId", value: installationID))
         }
-        return try await get("/v1/stats/overview", query: query)
+        let overview: StatsOverview = try await get("/v1/stats/overview", query: query)
+        return try await recoveringDialedDigits(
+            in: overview,
+            installationScope: installationScope
+        )
     }
 
     /// `GET /v1/installations` — all eras, newest first, for the stats scope
@@ -126,4 +130,124 @@ public extension OperatorClient {
 /// Envelope for `GET /v1/stats/filters`, which returns `{ "items": [...] }`.
 private struct MetricFilterList: Decodable {
     let items: [MetricFilter]
+}
+
+private struct DialedDigitEventPage: Decodable, Sendable {
+    let items: [DialedDigitEvent]
+    let nextCursor: String?
+}
+
+private struct DialedDigitEvent: Decodable, Sendable {
+    let payload: Payload
+
+    struct Payload: Decodable, Sendable {
+        let digit: Int
+    }
+}
+
+private enum DialedDigitEventError: LocalizedError {
+    case invalidDigit(Int)
+    case repeatedCursor(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidDigit(let digit):
+            return "Digit event contained an out-of-range value: \(digit)."
+        case .repeatedCursor(let cursor):
+            return "Digit event pagination repeated cursor \(cursor)."
+        }
+    }
+}
+
+private extension OperatorClient {
+    /// Some operator versions aggregate this field from `CallSession.digitsDialed`,
+    /// while booth clients report the actual values as `digit_dialed` events.
+    /// Recover only an empty aggregate so a corrected server remains authoritative.
+    func recoveringDialedDigits(
+        in overview: StatsOverview,
+        installationScope: InstallationScope
+    ) async throws -> StatsOverview {
+        let hasCalls = overview.pickupsHangups.pickups > 0 || overview.pickupsHangups.hangups > 0
+        let hasReportedDigits = overview.pickupsHangups.digitsDialed.values.contains { $0 > 0 }
+        guard hasCalls, !hasReportedDigits else { return overview }
+
+        let digitsDialed = try await fetchDialedDigitEventCounts(
+            since: overview.rangeStart,
+            until: overview.rangeEnd,
+            installationScope: installationScope
+        )
+        guard digitsDialed.values.contains(where: { $0 > 0 }) else { return overview }
+        return overview.replacingDialedDigits(with: digitsDialed)
+    }
+
+    func fetchDialedDigitEventCounts(
+        since: Date?,
+        until: Date,
+        installationScope: InstallationScope
+    ) async throws -> [String: Int] {
+        var counts = Dictionary(uniqueKeysWithValues: (0...9).map { (String($0), 0) })
+        var cursor: String?
+        var seenCursors: Set<String> = []
+
+        repeat {
+            var query = [
+                URLQueryItem(name: "type", value: BoothEventType.digitDialed.rawValue),
+                URLQueryItem(name: "until", value: OperatorJSON.iso8601String(from: until)),
+                URLQueryItem(name: "limit", value: "500")
+            ]
+            if let since {
+                query.append(
+                    URLQueryItem(name: "since", value: OperatorJSON.iso8601String(from: since))
+                )
+            }
+            if let installationID = installationScope.queryValue {
+                query.append(URLQueryItem(name: "installationId", value: installationID))
+            }
+            if let cursor {
+                query.append(URLQueryItem(name: "cursor", value: cursor))
+            }
+
+            let page: DialedDigitEventPage = try await get("/v1/events", query: query)
+            for event in page.items {
+                let digit = event.payload.digit
+                guard (0...9).contains(digit) else {
+                    throw OperatorError.decoding(DialedDigitEventError.invalidDigit(digit))
+                }
+                counts[String(digit), default: 0] += 1
+            }
+
+            cursor = page.nextCursor
+            if let cursor, !seenCursors.insert(cursor).inserted {
+                throw OperatorError.decoding(DialedDigitEventError.repeatedCursor(cursor))
+            }
+        } while cursor != nil
+
+        return counts
+    }
+}
+
+private extension StatsOverview {
+    func replacingDialedDigits(with digitsDialed: [String: Int]) -> StatsOverview {
+        StatsOverview(
+            window: window,
+            rangeStart: rangeStart,
+            rangeEnd: rangeEnd,
+            generatedAt: generatedAt,
+            timezone: timezone,
+            calls: calls,
+            messages: messages,
+            playback: playback,
+            pickupsHangups: PickupsHangups(
+                pickups: pickupsHangups.pickups,
+                hangups: pickupsHangups.hangups,
+                digitsDialed: digitsDialed
+            ),
+            uploads: uploads,
+            topQuestions: topQuestions,
+            hourly: hourly,
+            busiest: busiest,
+            lastActivityAt: lastActivityAt,
+            boothBreakdown: boothBreakdown
+        )
+    }
 }

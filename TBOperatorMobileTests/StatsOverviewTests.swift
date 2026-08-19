@@ -251,6 +251,66 @@ final class StatsOverviewTests: XCTestCase {
         XCTAssertEqual(digits[0].count, 0)
     }
 
+    @MainActor
+    func testFetchStatsOverviewRecoversDigitsFromPaginatedEvents() async throws {
+        let appConfig = AppConfig.shared
+        let previousDemoMode = appConfig.isDemoMode
+        appConfig.isDemoMode = false
+        defer { appConfig.isDemoMode = previousDemoMode }
+
+        let auth = AuthManager.shared
+        auth.signOut()
+        XCTAssertTrue(auth.storeTokens(
+            OIDCTokens(
+                accessToken: "stats-access-\(UUID().uuidString)",
+                refreshToken: "stats-refresh-\(UUID().uuidString)",
+                idToken: nil,
+                expiresIn: 3_600,
+                tokenType: "Bearer"
+            )
+        ))
+        defer { auth.signOut() }
+
+        StatsDigitRecoveryURLProtocol.reset()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StatsDigitRecoveryURLProtocol.self]
+        let client = OperatorClient(
+            config: appConfig,
+            auth: auth,
+            session: URLSession(configuration: configuration)
+        )
+
+        let overview = try await client.fetchStatsOverview(
+            selection: .window(.last7d),
+            installationScope: .installation("installation-1")
+        )
+
+        XCTAssertEqual(overview.pickupsHangups.digitsDialed["0"], 1)
+        XCTAssertEqual(overview.pickupsHangups.digitsDialed["1"], 2)
+        XCTAssertEqual(overview.pickupsHangups.digitsDialed["5"], 2)
+        XCTAssertEqual(overview.pickupsHangups.digitsDialed["9"], 0)
+
+        let requests = StatsDigitRecoveryURLProtocol.capturedURLs()
+        XCTAssertEqual(requests.filter { $0.path == "/v1/stats/overview" }.count, 1)
+        let eventRequests = requests.filter { $0.path == "/v1/events" }
+        XCTAssertEqual(eventRequests.count, 2)
+        let firstEventRequest = try XCTUnwrap(eventRequests.first)
+        let firstQuery = try XCTUnwrap(URLComponents(
+            url: firstEventRequest,
+            resolvingAgainstBaseURL: false
+        )?.queryItems)
+        XCTAssertTrue(firstQuery.contains(URLQueryItem(name: "type", value: "digit_dialed")))
+        XCTAssertTrue(firstQuery.contains(URLQueryItem(name: "installationId", value: "installation-1")))
+        XCTAssertNotNil(firstQuery.first(where: { $0.name == "since" })?.value)
+        XCTAssertNotNil(firstQuery.first(where: { $0.name == "until" })?.value)
+        let lastEventRequest = try XCTUnwrap(eventRequests.last)
+        let secondQuery = try XCTUnwrap(URLComponents(
+            url: lastEventRequest,
+            resolvingAgainstBaseURL: false
+        )?.queryItems)
+        XCTAssertTrue(secondQuery.contains(URLQueryItem(name: "cursor", value: "next-page")))
+    }
+
     func testCompletionRateAndQuietForSeconds() {
         let calls = StatsOverview.Calls(
             total: 0,
@@ -308,4 +368,111 @@ final class StatsOverviewTests: XCTestCase {
             boothBreakdown: []
         )
     }
+}
+
+private final class StatsDigitRecoveryURLProtocol: URLProtocol {
+    nonisolated(unsafe) private static var requests: [URL] = []
+    private static let lock = NSLock()
+
+    static func reset() {
+        lock.lock()
+        requests = []
+        lock.unlock()
+    }
+
+    static func capturedURLs() -> [URL] {
+        lock.lock()
+        defer { lock.unlock() }
+        return requests
+    }
+
+    override static func canInit(with request: URLRequest) -> Bool { true }
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func stopLoading() {}
+
+    override func startLoading() {
+        guard let url = request.url else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
+        Self.lock.lock()
+        Self.requests.append(url)
+        Self.lock.unlock()
+
+        let body: String
+        switch url.path {
+        case "/v1/stats/overview":
+            body = Self.overviewResponse
+        case "/v1/events":
+            let cursor = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?
+                .first(where: { $0.name == "cursor" })?
+                .value
+            body = cursor == nil
+                ? Self.firstEventPage
+                : #"{"items":[{"payload":{"digit":0}},{"payload":{"digit":5}}],"nextCursor":null}"#
+        default:
+            client?.urlProtocol(self, didFailWithError: URLError(.resourceUnavailable))
+            return
+        }
+
+        guard let response = HTTPURLResponse(
+            url: url,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: ["Content-Type": "application/json"]
+        ) else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(body.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    private static let firstEventPage = #"""
+    {
+      "items": [
+        { "payload": { "digit": 1 } },
+        { "payload": { "digit": 1 } },
+        { "payload": { "digit": 5 } }
+      ],
+      "nextCursor": "next-page"
+    }
+    """#
+
+    private static let overviewResponse = #"""
+    {
+      "window": "7d",
+      "rangeStart": "2026-08-12T12:00:00Z",
+      "rangeEnd": "2026-08-19T12:00:00Z",
+      "generatedAt": "2026-08-19T12:00:00Z",
+      "timezone": "UTC",
+      "calls": {
+        "total": 2,
+        "completed": 1,
+        "inProgress": 0,
+        "averageDurationMs": null,
+        "longestDurationMs": null,
+        "outcomes": { "recording_completed": 1 },
+        "perDay": []
+      },
+      "messages": { "total": 0, "byStatus": {}, "averageDurationMs": null },
+      "playback": { "totalPlaybacks": 0 },
+      "pickupsHangups": {
+        "pickups": 2,
+        "hangups": 2,
+        "digitsDialed": {
+          "0": 0, "1": 0, "2": 0, "3": 0, "4": 0,
+          "5": 0, "6": 0, "7": 0, "8": 0, "9": 0
+        }
+      },
+      "uploads": { "succeeded": 0, "failed": 0, "failureRate": null },
+      "topQuestions": [],
+      "hourly": [],
+      "busiest": { "hour": null, "dayOfWeek": null },
+      "lastActivityAt": null,
+      "boothBreakdown": []
+    }
+    """#
 }
