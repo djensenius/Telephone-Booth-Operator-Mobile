@@ -149,7 +149,11 @@ struct TVBoothWallView: View {
         let items = BoothStatusLiveStore
             .merging([currentStatus].compactMap(\.self), into: liveStore.history)
             .collapsingRepeats()
-        return TVRecentCallsCard(items: items)
+        return TVRecentCallsCard(
+            items: items,
+            latestStatusAt: currentStatus?.updatedAt,
+            connection: liveStore.connection
+        )
     }
 
     // MARK: - Recent activity (no message content by design)

@@ -159,13 +159,17 @@ struct TVSpotlightCard: View {
 
 struct TVRecentCallsCard: View {
     let items: [BoothStatus]
-
-    private var calls: [BoothActivityCall] {
-        items.activityCalls()
-    }
+    let latestStatusAt: Date?
+    let connection: BoothStatusLiveStore.ConnectionState
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 10)) { context in
+            let calls = items.activityCalls(
+                finalRunIsInProgress: connection.confirmsFreshStatus(
+                    lastStatusAt: latestStatusAt,
+                    now: context.date
+                )
+            )
             TVFocusCard {
                 VStack(alignment: .leading, spacing: 22) {
                     HStack(alignment: .top, spacing: 24) {
@@ -174,7 +178,7 @@ struct TVRecentCallsCard: View {
                                 title: "Recent calls",
                                 systemImage: "phone.fill"
                             )
-                            Text(summary(at: context.date))
+                            Text(summary(calls: calls, at: context.date))
                                 .font(TVMetrics.Font.body)
                                 .foregroundStyle(Theme.Colors.textSecondary)
                         }
@@ -190,14 +194,14 @@ struct TVRecentCallsCard: View {
                             .foregroundStyle(Theme.Colors.textSecondary)
                             .frame(maxWidth: .infinity, minHeight: 180)
                     } else {
-                        recentCallsChart(now: context.date)
+                        recentCallsChart(calls: calls, now: context.date)
                     }
                 }
             }
         }
     }
 
-    private func recentCallsChart(now: Date) -> some View {
+    private func recentCallsChart(calls: [BoothActivityCall], now: Date) -> some View {
         Chart {
             ForEach(calls) { call in
                 BarMark(
@@ -218,7 +222,7 @@ struct TVRecentCallsCard: View {
         }
         .frame(height: 230)
         .chartXScale(domain: timeDomain)
-        .chartYScale(domain: 0...durationCeiling(at: now))
+        .chartYScale(domain: 0...durationCeiling(calls: calls, at: now))
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 6)) { value in
                 AxisGridLine()
@@ -261,7 +265,7 @@ struct TVRecentCallsCard: View {
         return start.addingTimeInterval(-padding)...end.addingTimeInterval(padding)
     }
 
-    private func summary(at date: Date) -> String {
+    private func summary(calls: [BoothActivityCall], at date: Date) -> String {
         guard let first = items.first, let last = items.last else {
             return "No recent status yet"
         }
@@ -279,7 +283,7 @@ struct TVRecentCallsCard: View {
         return "\(countLabel) · \(compactDuration(average)) average\(liveLabel)"
     }
 
-    private func durationCeiling(at date: Date) -> Double {
+    private func durationCeiling(calls: [BoothActivityCall], at date: Date) -> Double {
         max(1, calls.map { durationMinutes(for: $0, at: date) }.max() ?? 1) * 1.16
     }
 

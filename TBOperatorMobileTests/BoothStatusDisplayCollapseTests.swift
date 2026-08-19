@@ -79,12 +79,15 @@ final class BoothStatusDisplayCollapseTests: XCTestCase {
         ]
 
         let calls = rows.activityCalls()
+        let cappedCalls = rows.activityCalls(finalRunIsInProgress: false)
 
         XCTAssertEqual(calls.count, 2)
         XCTAssertEqual(calls[0].duration(at: now.addingTimeInterval(40)), 0)
         XCTAssertFalse(calls[0].isInProgress)
         XCTAssertEqual(calls[1].duration(at: now.addingTimeInterval(40)), 30)
         XCTAssertTrue(calls[1].isInProgress)
+        XCTAssertEqual(cappedCalls[1].duration(at: now.addingTimeInterval(40)), 5)
+        XCTAssertFalse(cappedCalls[1].isInProgress)
     }
 
     func testIdLessRunReturningAfterATransitionIsKept() {

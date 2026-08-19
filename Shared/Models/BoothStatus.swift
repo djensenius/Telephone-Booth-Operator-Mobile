@@ -258,7 +258,9 @@ public extension Array where Element == BoothStatus {
     }
 
     /// Group adjacent call states into one interaction for dashboard charts.
-    internal func activityCalls() -> [BoothActivityCall] {
+    internal func activityCalls(
+        finalRunIsInProgress: Bool = true
+    ) -> [BoothActivityCall] {
         var calls: [BoothActivityCall] = []
         var startedAt: Date?
         var lastObservedAt: Date?
@@ -290,7 +292,7 @@ public extension Array where Element == BoothStatus {
                     id: calls.count,
                     startedAt: startedAt,
                     lastObservedAt: Swift.max(startedAt, lastObservedAt ?? startedAt),
-                    isInProgress: true
+                    isInProgress: finalRunIsInProgress
                 )
             )
         }

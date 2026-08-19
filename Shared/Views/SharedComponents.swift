@@ -266,6 +266,16 @@ extension BoothStatusLiveStore.ConnectionState {
         case .offline: return "Booth status unavailable"
         }
     }
+
+    func confirmsFreshStatus(lastStatusAt: Date?, now: Date) -> Bool {
+        guard lastStatusAt != nil else { return false }
+        switch self {
+        case .live, .polling:
+            return boothStaleness(lastStatusAt: lastStatusAt, now: now).level == .fresh
+        case .connecting, .offline:
+            return false
+        }
+    }
 }
 
 /// Pure function for unit testing — given a `lastStatusAt` and the
@@ -331,18 +341,22 @@ public struct BoothStalenessChip: View {
 #if !os(watchOS) && !os(tvOS)
 struct DashboardActivityCard: View {
     let items: [BoothStatus]
-
-    private var calls: [BoothActivityCall] {
-        items.activityCalls()
-    }
+    let latestStatusAt: Date?
+    let connection: BoothStatusLiveStore.ConnectionState
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 10)) { context in
+            let calls = items.activityCalls(
+                finalRunIsInProgress: connection.confirmsFreshStatus(
+                    lastStatusAt: latestStatusAt,
+                    now: context.date
+                )
+            )
             VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
                         SectionHeader(text: "Recent calls")
-                        Text(summary(at: context.date))
+                        Text(summary(calls: calls, at: context.date))
                             .font(Theme.Fonts.bodyMedium.weight(.semibold))
                             .foregroundStyle(Theme.Colors.textPrimary)
                     }
@@ -389,7 +403,7 @@ struct DashboardActivityCard: View {
         return start...end
     }
 
-    private func summary(at date: Date) -> String {
+    private func summary(calls: [BoothActivityCall], at date: Date) -> String {
         guard let first = items.first, let last = items.last else {
             return "No recent status yet"
         }

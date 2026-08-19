@@ -157,7 +157,11 @@ public struct StatusDashboardView: View {
         healthCard
         #if !os(watchOS) && !os(tvOS)
         if !recentCallItems.isEmpty {
-            DashboardActivityCard(items: recentCallItems)
+            DashboardActivityCard(
+                items: recentCallItems,
+                latestStatusAt: currentStatus?.updatedAt,
+                connection: liveStore.connection
+            )
         }
         #endif
     }
