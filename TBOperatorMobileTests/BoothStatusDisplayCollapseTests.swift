@@ -106,6 +106,23 @@ final class BoothStatusDisplayCollapseTests: XCTestCase {
         XCTAssertEqual(pages.orderedSessions.map(\.id), ["midnight", "middle", "newest"])
     }
 
+    func testCallsTodayPaginationStopsAtCachedSessionOverlap() {
+        var pages = CallsTodayPageAccumulator(
+            dayStartedAt: now,
+            knownSessionIDs: ["cached"]
+        )
+        let cursor = pages.append(SessionListPage(
+            items: [
+                session(id: "new", startedAt: now.addingTimeInterval(20)),
+                session(id: "cached", startedAt: now.addingTimeInterval(10))
+            ],
+            nextCursor: "unneeded-page"
+        ))
+
+        XCTAssertNil(cursor)
+        XCTAssertEqual(pages.orderedSessions.map(\.id), ["cached", "new"])
+    }
+
     func testDemoCallsTodayCountMatchesSummary() throws {
         let summary = DemoData.rebasedStats(to: DemoData.sessionAnchor)
         let start = try XCTUnwrap(summary.dayStartedAt)
@@ -116,6 +133,16 @@ final class BoothStatusDisplayCollapseTests: XCTestCase {
         )
 
         XCTAssertEqual(series.total, summary.calls.today)
+    }
+
+    func testDemoSessionEventsShareTheRebasedSessionTimeline() {
+        let detail = DemoData.sessionDetail(id: "demo-session-2")
+
+        XCTAssertFalse(detail.events.isEmpty)
+        XCTAssertTrue(detail.events.allSatisfy { $0.occurredAt >= detail.startedAt })
+        XCTAssertTrue(detail.events.allSatisfy { event in
+            detail.endedAt.map { event.occurredAt <= $0 } ?? true
+        })
     }
 
     func testIdLessRunReturningAfterATransitionIsKept() {

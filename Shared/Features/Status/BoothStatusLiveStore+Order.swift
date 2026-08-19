@@ -20,9 +20,13 @@ extension BoothStatusLiveStore {
         let client = self.client
         let localDayStartedAt = Calendar.current.startOfDay(for: Date())
         prepareCallsToday(for: localDayStartedAt)
+        let knownSessionIDs = Set(callsTodaySessions.map(\.id))
         async let statsResult = attempt { try await client.fetchStatsSummary() }
         async let sessionsResult = attempt {
-            try await client.fetchSessions(startedOnOrAfter: localDayStartedAt)
+            try await client.fetchSessions(
+                startedOnOrAfter: localDayStartedAt,
+                knownSessionIDs: knownSessionIDs
+            )
         }
 
         let newStats = await statsResult
@@ -54,7 +58,18 @@ extension BoothStatusLiveStore {
             applyStats(newStats)
         }
         if let sessions = summary.sessions {
-            callsTodaySessions = sessions
+            var sessionsByID = [String: CallSession]()
+            for session in callsTodaySessions + sessions {
+                sessionsByID[session.id] = session
+            }
+            callsTodaySessions = sessionsByID.values
+                .filter { $0.startedAt >= summary.dayStartedAt }
+                .sorted {
+                    if $0.startedAt == $1.startedAt {
+                        return $0.id < $1.id
+                    }
+                    return $0.startedAt < $1.startedAt
+                }
             hasLoadedCallsToday = true
         }
     }

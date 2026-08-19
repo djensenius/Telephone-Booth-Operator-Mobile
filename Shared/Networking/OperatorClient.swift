@@ -120,9 +120,13 @@ public actor OperatorClient {
 
     public func fetchSessions(
         boothId: String? = nil,
-        startedOnOrAfter start: Date
+        startedOnOrAfter start: Date,
+        knownSessionIDs: Set<String> = []
     ) async throws -> [CallSession] {
-        var pages = CallsTodayPageAccumulator(dayStartedAt: start)
+        var pages = CallsTodayPageAccumulator(
+            dayStartedAt: start,
+            knownSessionIDs: knownSessionIDs
+        )
         var cursor: String?
 
         repeat {
@@ -198,7 +202,7 @@ public actor OperatorClient {
         limit: Int = 100
     ) async throws -> EventList {
         if await usesDemoData {
-            return EventList(items: Array(DemoData.events.prefix(limit)), nextCursor: nil)
+            return EventList(items: Array(DemoData.rebasedEvents().prefix(limit)), nextCursor: nil)
         }
         var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
         if let boothId { items.append(URLQueryItem(name: "boothId", value: boothId)) }

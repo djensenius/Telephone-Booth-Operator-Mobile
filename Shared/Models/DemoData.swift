@@ -174,14 +174,34 @@ public enum DemoData {
         }
     }
 
+    public static func rebasedEvents(
+        to reference: Date = DemoData.sessionAnchor
+    ) -> [BoothEventRecord] {
+        let offset = reference.timeIntervalSince(now)
+        return events.map { event in
+            BoothEventRecord(
+                id: event.id,
+                eventId: event.eventId,
+                boothId: event.boothId,
+                bootId: event.bootId,
+                type: event.type,
+                occurredAt: event.occurredAt.addingTimeInterval(offset),
+                receivedAt: event.receivedAt.addingTimeInterval(offset),
+                sessionId: event.sessionId,
+                recordingId: event.recordingId,
+                version: event.version
+            )
+        }
+    }
+
     private static let demoHeartbeat: TimeInterval = 5
     private static let demoCallDurations: [TimeInterval] = [
         95, 410, 225, 640, 160, 335, 720, 285, 505, 135, 455, 245
     ]
     private static let demoCallMinutesAgo = [
-        9, 23, 46, 58, 75, 91, 110, 126, 145,
+        9, 46, 58, 75, 91, 110, 126, 145,
         161, 179, 198, 216, 233, 251, 270, 289,
-        307, 326, 344, 363, 382, 401, 421, 443, 468, 501
+        307, 326, 344, 363, 382, 401, 421, 443, 468, 501, 520
     ]
 
     public static let statusHistory: [BoothStatus] = (0..<24).map { index in
@@ -449,6 +469,7 @@ public extension DemoData {
     static func sessionDetail(id: String) -> CallSessionDetail {
         let sessions = rebasedSessions()
         let session = sessions.first { $0.id == id } ?? sessions[0]
+        let events = rebasedEvents()
         return CallSessionDetail(
             id: session.id,
             boothId: session.boothId,

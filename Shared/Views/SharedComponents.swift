@@ -444,7 +444,9 @@ private struct CallsTodayChart: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .accessibilityLabel(Text("Cumulative calls today"))
-        .accessibilityValue(Text("\(series.total) calls since midnight"))
+        .accessibilityValue(
+            Text("\(series.total) \(series.total == 1 ? "call" : "calls") since midnight")
+        )
     }
 
     private var xAxisEnd: Date {

@@ -266,7 +266,9 @@ struct TVCallsTodayCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .accessibilityLabel(Text("Cumulative calls today"))
-        .accessibilityValue(Text("\(series.total) calls since midnight"))
+        .accessibilityValue(
+            Text("\(series.total) \(series.total == 1 ? "call" : "calls") since midnight")
+        )
     }
 
     private func summary(for series: CallsTodaySeries) -> String {

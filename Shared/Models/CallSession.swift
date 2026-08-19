@@ -194,11 +194,21 @@ public struct CallsTodaySeries: Sendable, Equatable {
 
 struct CallsTodayPageAccumulator: Sendable {
     let dayStartedAt: Date
+    let knownSessionIDs: Set<String>
     private(set) var sessions: [CallSession] = []
+
+    init(dayStartedAt: Date, knownSessionIDs: Set<String> = []) {
+        self.dayStartedAt = dayStartedAt
+        self.knownSessionIDs = knownSessionIDs
+    }
 
     mutating func append(_ page: SessionListPage) -> String? {
         sessions.append(contentsOf: page.items.filter { $0.startedAt >= dayStartedAt })
+        let overlapsCachedSessions = page.items.contains {
+            knownSessionIDs.contains($0.id)
+        }
         guard
+            !overlapsCachedSessions,
             let nextCursor = page.nextCursor,
             let oldestSession = page.items.last,
             oldestSession.startedAt >= dayStartedAt
