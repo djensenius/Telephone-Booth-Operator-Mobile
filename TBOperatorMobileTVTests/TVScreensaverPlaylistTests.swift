@@ -123,6 +123,10 @@ final class TVScreensaverPlaylistTests: XCTestCase {
             Set(items.map(\.id)),
             Set(["completion", "pickups", "playbacks", "calls-chart"])
         )
+        guard case let .callsChart(days)? = items.first(where: { $0.id == "calls-chart" })?.kind else {
+            return XCTFail("expected a calls chart")
+        }
+        XCTAssertEqual(days, overview.calls.perDay)
     }
 
     // MARK: - Helpers
