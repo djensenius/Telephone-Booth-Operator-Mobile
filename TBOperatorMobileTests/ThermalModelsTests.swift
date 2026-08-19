@@ -279,6 +279,24 @@ final class ThermalModelsTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testInitialThermalRefreshLoadsDependentDataAfterDiscoveringSource() async {
+        let model = ThermalsViewModel(client: .demo)
+
+        XCTAssertFalse(model.hasCompletedCurrentRequest)
+        XCTAssertFalse(model.hasCompletedCurrentWeatherRequest)
+        XCTAssertFalse(model.hasCompletedHistoryRequest)
+
+        await model.refreshCurrentAndLoadDetailsIfNeeded()
+
+        XCTAssertTrue(model.hasCompletedCurrentRequest)
+        XCTAssertTrue(model.hasCompletedCurrentWeatherRequest)
+        XCTAssertTrue(model.hasCompletedHistoryRequest)
+        XCTAssertNotNil(model.selectedSource)
+        XCTAssertNotNil(model.currentWeather)
+        XCTAssertNotNil(model.history)
+    }
+
     func testLiveVitalsRouterTemperatureMatchesBoothAndFormatsMissingData() {
         let now = Date(timeIntervalSince1970: 1_787_003_600)
         let sources = [

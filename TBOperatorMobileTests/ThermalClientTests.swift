@@ -79,3 +79,150 @@ final class ThermalClientTests: XCTestCase {
         }
     }
 }
+
+final class ThermalsViewModelStateTests: XCTestCase {
+    @MainActor
+    func testFailedCurrentRefreshCompletesWithErrorInsteadOfEmptyState() async {
+        let provider = StubThermalsDataProvider(
+            components: .failure(.unavailable),
+            systems: .failure(.unavailable)
+        )
+        let model = ThermalsViewModel(provider: provider)
+
+        await model.refreshCurrent()
+
+        XCTAssertTrue(model.hasCompletedCurrentRequest)
+        XCTAssertTrue(model.sourceOptions.isEmpty)
+        XCTAssertNotNil(model.currentError)
+    }
+
+    @MainActor
+    func testEmptyCurrentRefreshCompletesWithoutError() async {
+        let model = ThermalsViewModel(provider: StubThermalsDataProvider())
+
+        await model.refreshCurrent()
+
+        XCTAssertTrue(model.hasCompletedCurrentRequest)
+        XCTAssertTrue(model.sourceOptions.isEmpty)
+        XCTAssertNil(model.currentError)
+    }
+
+    @MainActor
+    func testNotFoundWeatherAndEmptyHistoryCompleteWithoutErrors() async {
+        let component = makeComponent()
+        let history = makeEmptyHistory(source: component.source)
+        let provider = StubThermalsDataProvider(
+            components: .success([component]),
+            weather: .success(nil),
+            history: .success(history)
+        )
+        let model = ThermalsViewModel(provider: provider)
+
+        await model.refreshCurrentAndLoadDetailsIfNeeded()
+
+        XCTAssertTrue(model.hasCompletedCurrentWeatherRequest)
+        XCTAssertNil(model.currentWeather)
+        XCTAssertNil(model.currentWeatherError)
+        XCTAssertTrue(model.hasCompletedHistoryRequest)
+        XCTAssertEqual(model.history, history)
+        XCTAssertNil(model.historyError)
+    }
+
+    @MainActor
+    func testWeatherAndHistoryFailuresCompleteWithErrors() async {
+        let provider = StubThermalsDataProvider(
+            components: .success([makeComponent()]),
+            weather: .failure(.unavailable),
+            history: .failure(.unavailable)
+        )
+        let model = ThermalsViewModel(provider: provider)
+
+        await model.refreshCurrentAndLoadDetailsIfNeeded()
+
+        XCTAssertTrue(model.hasCompletedCurrentWeatherRequest)
+        XCTAssertNil(model.currentWeather)
+        XCTAssertNotNil(model.currentWeatherError)
+        XCTAssertTrue(model.hasCompletedHistoryRequest)
+        XCTAssertNil(model.history)
+        XCTAssertNotNil(model.historyError)
+    }
+
+    private func makeEmptyHistory(
+        source: SystemComponentSource
+    ) -> ThermalHistoryResponse {
+        ThermalHistoryResponse(
+            boothId: source.boothId,
+            source: source,
+            from: Date(timeIntervalSince1970: 1_787_000_000),
+            end: Date(timeIntervalSince1970: 1_787_003_600),
+            stepSeconds: 300,
+            series: []
+        )
+    }
+
+    private func makeComponent() -> SystemComponentCurrentEnvelope {
+        SystemComponentCurrentEnvelope(
+            source: SystemComponentSource(
+                boothId: "booth-a",
+                componentId: "router-a",
+                displayName: "Gallery router",
+                kind: "router",
+                prometheusJob: "glinet",
+                prometheusInstance: "booth-a"
+            ),
+            latestSnapshot: SystemComponentSnapshot(
+                battery: .init(temperatureCelsius: 42)
+            )
+        )
+    }
+}
+
+private enum ThermalStubError: Error, Sendable {
+    case unavailable
+}
+
+private struct StubThermalsDataProvider: ThermalsDataProvider {
+    let components: Result<[SystemComponentCurrentEnvelope], ThermalStubError>
+    let systems: Result<[BoothSystemSnapshotEnvelope], ThermalStubError>
+    let weather: Result<CurrentWeather?, ThermalStubError>
+    let history: Result<ThermalHistoryResponse, ThermalStubError>
+
+    init(
+        components: Result<
+            [SystemComponentCurrentEnvelope],
+            ThermalStubError
+        > = .success([]),
+        systems: Result<
+            [BoothSystemSnapshotEnvelope],
+            ThermalStubError
+        > = .success([]),
+        weather: Result<CurrentWeather?, ThermalStubError> = .success(nil),
+        history: Result<
+            ThermalHistoryResponse,
+            ThermalStubError
+        > = .failure(.unavailable)
+    ) {
+        self.components = components
+        self.systems = systems
+        self.weather = weather
+        self.history = history
+    }
+
+    func fetchCurrentSystemComponents() async throws -> [SystemComponentCurrentEnvelope] {
+        try components.get()
+    }
+
+    func fetchAllCurrentSystems() async throws -> [BoothSystemSnapshotEnvelope] {
+        try systems.get()
+    }
+
+    func fetchCurrentWeather(boothId: String) async throws -> CurrentWeather? {
+        try weather.get()
+    }
+
+    func fetchThermalHistory(
+        query: ThermalHistoryQuery
+    ) async throws -> ThermalHistoryResponse {
+        try history.get()
+    }
+}

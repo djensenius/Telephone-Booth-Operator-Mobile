@@ -20,11 +20,11 @@ public struct ThermalsView: View {
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.large) {
-                if let currentError = model.currentError {
+                if let currentError = model.currentError, !model.sourceOptions.isEmpty {
                     BannerView(message: currentError, kind: .error)
                 }
 
-                if model.sourceOptions.isEmpty {
+                if !model.hasCompletedCurrentRequest || model.sourceOptions.isEmpty {
                     currentUnavailableContent
                 } else {
                     controlsCard
@@ -42,7 +42,7 @@ public struct ThermalsView: View {
         }
         .background(Theme.Colors.background)
         .autoRefresh(every: .seconds(5)) {
-            await model.refreshCurrent()
+            await model.refreshCurrentAndLoadDetailsIfNeeded()
         }
         .autoRefresh(
             id: CurrentWeatherTaskID(
@@ -60,21 +60,31 @@ public struct ThermalsView: View {
             await model.refreshHistory()
         }
         .refreshable {
-            await model.refreshCurrent()
-            await model.refreshCurrentWeather()
-            await model.refreshHistory()
+            await model.refreshAll()
         }
     }
 
     @ViewBuilder
     private var currentUnavailableContent: some View {
-        if model.isLoadingCurrent {
+        if model.isLoadingCurrent || !model.hasCompletedCurrentRequest {
             ThermalStateCard(
                 icon: "thermometer.medium",
                 title: "Loading current thermals",
                 message: "Checking the Pi and router telemetry sources."
             ) {
                 ProgressView()
+            }
+        } else if let currentError = model.currentError {
+            ThermalStateCard(
+                icon: "wifi.slash",
+                title: "Current thermals unavailable",
+                message: currentError
+            ) {
+                Button("Try Again") {
+                    Task { await model.refreshAll() }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.Colors.accent)
             }
         } else {
             ThermalStateCard(
@@ -83,7 +93,7 @@ public struct ThermalsView: View {
                 message: "No booth or router has reported a current thermal snapshot yet."
             ) {
                 Button("Try Again") {
-                    Task { await model.refreshCurrent() }
+                    Task { await model.refreshAll() }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.Colors.accent)
@@ -202,7 +212,8 @@ public struct ThermalsView: View {
             if let error = model.currentWeatherError {
                 BannerView(message: error, kind: .error)
             }
-        } else if model.isLoadingCurrentWeather {
+        } else if model.isLoadingCurrentWeather
+                    || !model.hasCompletedCurrentWeatherRequest {
             ThermalStateCard(
                 icon: "cloud.sun",
                 title: "Loading current weather",
@@ -228,7 +239,9 @@ public struct ThermalsView: View {
 
     @ViewBuilder
     private var historyContent: some View {
-        if model.isLoadingHistory, model.history == nil {
+        if model.selectedSource != nil,
+           model.history == nil,
+           model.isLoadingHistory || !model.hasCompletedHistoryRequest {
             ThermalStateCard(
                 icon: "chart.xyaxis.line",
                 title: "Loading thermal history",
