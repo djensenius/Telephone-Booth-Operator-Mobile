@@ -141,7 +141,7 @@ public extension OperatorClient {
     /// `GET /v1/system/components/current` — latest snapshots for component
     /// telemetry sources across the fleet.
     func fetchCurrentSystemComponents() async throws -> [SystemComponentCurrentEnvelope] {
-        if await usesDemoData { return DemoData.systemComponentSources }
+        if await usesDemoData { return DemoData.rebasedSystemComponentSources() }
         let endpoint = ThermalEndpoint.currentComponents
         do {
             let response: SystemComponentCurrentList = try await get(endpoint.path)

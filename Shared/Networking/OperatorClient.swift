@@ -133,7 +133,7 @@ public actor OperatorClient {
     public func fetchCurrentSystemEnvelope(
         boothId: String? = nil
     ) async throws -> BoothSystemSnapshotEnvelope? {
-        if await usesDemoData { return DemoData.systemEnvelope }
+        if await usesDemoData { return DemoData.rebasedSystemEnvelope() }
         if let boothId {
             let items = [URLQueryItem(name: "boothId", value: boothId)]
             do {
@@ -152,7 +152,7 @@ public actor OperatorClient {
     /// snapshots across every booth that's ever reported in. Each item is
     /// a `BoothSystemSnapshotEnvelope`.
     public func fetchAllCurrentSystems() async throws -> [BoothSystemSnapshotEnvelope] {
-        if await usesDemoData { return [DemoData.systemEnvelope] }
+        if await usesDemoData { return [DemoData.rebasedSystemEnvelope()] }
         let list: BoothSystemSnapshotList = try await get("/v1/system/current")
         return list.items
     }

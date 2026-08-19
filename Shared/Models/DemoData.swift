@@ -103,6 +103,19 @@ public enum DemoData {
         )
     }
 
+    public static func rebasedSystemEnvelope(
+        to reference: Date = Date()
+    ) -> BoothSystemSnapshotEnvelope {
+        BoothSystemSnapshotEnvelope(
+            boothId: systemEnvelope.boothId,
+            snapshot: systemEnvelope.snapshot,
+            receivedAt: systemEnvelope.receivedAt.addingTimeInterval(
+                reference.timeIntervalSince(now)
+            ),
+            version: systemEnvelope.version
+        )
+    }
+
     /// `statsSummary` on the demo session's clock; its booth timestamp ages too.
     public static func rebasedStats(to reference: Date = Date()) -> StatsSummary {
         StatsSummary(

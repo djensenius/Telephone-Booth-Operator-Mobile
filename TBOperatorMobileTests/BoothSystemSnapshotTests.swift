@@ -248,6 +248,16 @@ final class BoothSystemSnapshotTests: XCTestCase {
         XCTAssertEqual(SystemVitals.overallSeverity(snapshot: disconnected), .crit)
     }
 
+    func testDemoSystemTelemetryRebasesOntoReferenceClock() {
+        let reference = Date(timeIntervalSince1970: 2_000_000_000)
+        let envelope = DemoData.rebasedSystemEnvelope(to: reference)
+        let component = DemoData.rebasedSystemComponentSources(to: reference)[0]
+
+        XCTAssertEqual(envelope.receivedAt, reference.addingTimeInterval(-18))
+        XCTAssertEqual(component.capturedAt, reference.addingTimeInterval(-25))
+        XCTAssertEqual(component.receivedAt, reference.addingTimeInterval(-20))
+    }
+
     func testFanCommandDoesNotImplyMeasuredRotationWithoutTachometer() {
         let fan = BoothSystemSnapshot.FanStats(
             commandedOn: true,
