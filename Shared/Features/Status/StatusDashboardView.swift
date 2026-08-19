@@ -207,8 +207,12 @@ private struct DashboardOverviewCard: View {
                     }
                 } else {
                     HStack(spacing: Theme.Spacing.small) {
-                        ProgressView()
-                        Text("Connecting to the booth...")
+                        if connection == .offline {
+                            Image(systemName: "wifi.slash").foregroundStyle(Theme.Colors.error)
+                        } else {
+                            ProgressView()
+                        }
+                        Text(connection.dashboardEmptyStatusMessage)
                             .font(Theme.Fonts.bodyMedium)
                             .foregroundStyle(Theme.Colors.textSecondary)
                     }

@@ -37,6 +37,17 @@ final class BoothStalenessTests: XCTestCase {
         XCTAssertEqual(result.level, .offline)
         XCTAssertEqual(result.label, "Booth offline")
     }
+
+    func testEmptyStatusCopyMatchesConnectionState() {
+        XCTAssertEqual(
+            BoothStatusLiveStore.ConnectionState.connecting.dashboardEmptyStatusMessage,
+            "Connecting to the booth..."
+        )
+        XCTAssertEqual(
+            BoothStatusLiveStore.ConnectionState.offline.dashboardEmptyStatusMessage,
+            "Booth status unavailable"
+        )
+    }
 }
 
 final class PaginationRefreshTests: XCTestCase {

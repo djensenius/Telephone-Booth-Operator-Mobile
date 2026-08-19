@@ -255,6 +255,16 @@ public enum BoothStalenessThresholds {
     public static let offlineSeconds: TimeInterval = 300
 }
 
+extension BoothStatusLiveStore.ConnectionState {
+    var dashboardEmptyStatusMessage: String {
+        switch self {
+        case .connecting: return "Connecting to the booth..."
+        case .live, .polling: return "Waiting for booth status..."
+        case .offline: return "Booth status unavailable"
+        }
+    }
+}
+
 /// Pure function for unit testing — given a `lastStatusAt` and the
 /// current clock, returns the staleness level and a short label
 /// ("Last seen 3m ago" / "Booth offline") or nil when fresh.
