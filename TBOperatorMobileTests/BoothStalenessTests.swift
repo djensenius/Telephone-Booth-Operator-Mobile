@@ -38,6 +38,24 @@ final class BoothStalenessTests: XCTestCase {
         XCTAssertEqual(result.label, "Booth offline")
     }
 
+    func testOnlyConnectedFreshTelemetryConfirmsLiveActivity() {
+        let fresh = now.addingTimeInterval(-30)
+        let stale = now.addingTimeInterval(-60)
+
+        XCTAssertTrue(BoothStatusLiveStore.ConnectionState.live.confirmsFreshStatus(
+            lastStatusAt: fresh, now: now
+        ))
+        XCTAssertTrue(BoothStatusLiveStore.ConnectionState.polling.confirmsFreshStatus(
+            lastStatusAt: fresh, now: now
+        ))
+        XCTAssertFalse(BoothStatusLiveStore.ConnectionState.live.confirmsFreshStatus(
+            lastStatusAt: stale, now: now
+        ))
+        XCTAssertFalse(BoothStatusLiveStore.ConnectionState.offline.confirmsFreshStatus(
+            lastStatusAt: fresh, now: now
+        ))
+    }
+
     func testEmptyStatusCopyMatchesConnectionState() {
         XCTAssertEqual(
             BoothStatusLiveStore.ConnectionState.connecting.dashboardEmptyStatusMessage,

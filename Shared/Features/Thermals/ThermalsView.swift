@@ -41,23 +41,14 @@ public struct ThermalsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Theme.Colors.background)
-        .autoRefresh(every: .seconds(5)) {
-            await model.refreshCurrent()
-        }
         .autoRefresh(
-            id: CurrentWeatherTaskID(
+            id: ThermalAutomaticRefreshID(
                 sourceId: model.selectedSourceId,
-                boothId: model.selectedSource?.boothId
+                range: model.range
             ),
-            every: .seconds(60)
+            every: .seconds(5)
         ) {
-            await model.refreshCurrentWeather()
-        }
-        .autoRefresh(
-            id: ThermalHistoryTaskID(sourceId: model.selectedSourceId, range: model.range),
-            every: .seconds(60)
-        ) {
-            await model.refreshHistory()
+            await model.refreshAutomatically()
         }
         .refreshable {
             await model.refreshAll()
@@ -190,6 +181,14 @@ public struct ThermalsView: View {
                         model.hottestRouterZone?.temperatureCelsius
                     )
                 )
+                if model.fan != nil {
+                    ThermalSummaryTile(
+                        label: "Cooling fan",
+                        value: model.fanValue,
+                        detail: model.fanDetail,
+                        severity: .nominal
+                    )
+                }
             }
 
             Text(model.currentFooter)
@@ -441,15 +440,5 @@ extension ThermalStateCard where Accessory == EmptyView {
             EmptyView()
         }
     }
-}
-
-private struct ThermalHistoryTaskID: Equatable {
-    let sourceId: String
-    let range: ThermalRangePreset
-}
-
-private struct CurrentWeatherTaskID: Equatable {
-    let sourceId: String
-    let boothId: String?
 }
 #endif

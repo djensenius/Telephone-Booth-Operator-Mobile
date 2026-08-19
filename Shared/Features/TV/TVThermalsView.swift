@@ -44,26 +44,14 @@ struct TVThermalsView: View {
                 historyContent
             }
         )
-        .autoRefresh(every: .seconds(5)) {
-            await model.refreshCurrent()
-        }
         .autoRefresh(
-            id: TVCurrentWeatherTaskID(
-                sourceId: model.selectedSourceId,
-                boothId: model.selectedSource?.boothId
-            ),
-            every: .seconds(60)
-        ) {
-            await model.refreshCurrentWeather()
-        }
-        .autoRefresh(
-            id: TVThermalHistoryTaskID(
+            id: ThermalAutomaticRefreshID(
                 sourceId: model.selectedSourceId,
                 range: model.range
             ),
-            every: .seconds(60)
+            every: .seconds(5)
         ) {
-            await model.refreshHistory()
+            await model.refreshAutomatically()
         }
     }
 
@@ -169,8 +157,12 @@ struct TVThermalsView: View {
         TVFocusCard {
             VStack(alignment: .leading, spacing: 24) {
                 TVCardHeader(title: "Current readings", systemImage: "thermometer.medium")
+                let columnCount = model.fan == nil ? 3 : 4
                 LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: 20), count: 3),
+                    columns: Array(
+                        repeating: GridItem(.flexible(), spacing: 20),
+                        count: columnCount
+                    ),
                     spacing: 20
                 ) {
                     TVStatTile(
@@ -197,6 +189,13 @@ struct TVThermalsView: View {
                         ).tint,
                         caption: model.hottestRouterZone?.name ?? "No zone reading"
                     )
+                    if model.fan != nil {
+                        TVStatTile(
+                            label: "Cooling fan",
+                            value: model.fanValue,
+                            caption: model.fanDetail
+                        )
+                    }
                 }
                 Text(model.currentFooter)
                     .font(TVMetrics.Font.caption)
@@ -316,6 +315,10 @@ private struct TVThermalHistoryCard: View {
         ThermalChartData(history: history)
     }
 
+    private var populatedSeries: [(offset: Int, element: ThermalChartSeries)] {
+        Array(chartData.series.enumerated()).filter { !$0.element.points.isEmpty }
+    }
+
     var body: some View {
         TVFocusCard {
             VStack(alignment: .leading, spacing: 24) {
@@ -324,24 +327,22 @@ private struct TVThermalHistoryCard: View {
                     .font(TVMetrics.Font.caption)
                     .foregroundStyle(Theme.Colors.textSecondary)
 
-                if chartData.series.allSatisfy({ $0.points.isEmpty }) {
+                if populatedSeries.isEmpty {
                     Text("No supported thermal series were returned in this range.")
                         .font(TVMetrics.Font.body)
                         .foregroundStyle(Theme.Colors.textSecondary)
                         .frame(maxWidth: .infinity, minHeight: 160)
                 } else {
                     Chart {
-                        ForEach(
-                            Array(chartData.series.enumerated()),
-                            id: \.element.id
-                        ) { index, series in
+                        ForEach(populatedSeries, id: \.element.id) { entry in
+                            let series = entry.element
                             ForEach(series.points) { point in
                                 LineMark(
                                     x: .value("Time", point.date),
                                     y: .value("Temperature", point.value),
                                     series: .value("Sensor", series.id)
                                 )
-                                .foregroundStyle(color(at: index))
+                                .foregroundStyle(color(at: entry.offset))
                                 .lineStyle(
                                     StrokeStyle(
                                         lineWidth: 4,
@@ -385,20 +386,23 @@ private struct TVThermalHistoryCard: View {
                         }
                     }
 
-                    HStack(spacing: 28) {
-                        ForEach(
-                            Array(chartData.series.enumerated()),
-                            id: \.element.id
-                        ) { index, series in
-                            Label {
-                                Text(series.displayName)
-                            } icon: {
-                                Circle()
-                                    .fill(color(at: index))
-                                    .frame(width: 14, height: 14)
-                            }
-                            .font(TVMetrics.Font.caption)
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("CHART KEY")
+                            .font(TVMetrics.Font.label)
                             .foregroundStyle(Theme.Colors.textSecondary)
+                        LazyVGrid(
+                            columns: [
+                                GridItem(.adaptive(minimum: 320), spacing: 18)
+                            ],
+                            alignment: .leading,
+                            spacing: 18
+                        ) {
+                            ForEach(populatedSeries, id: \.element.id) { entry in
+                                TVThermalLegendItem(
+                                    series: entry.element,
+                                    color: color(at: entry.offset)
+                                )
+                            }
                         }
                     }
                 }
@@ -407,7 +411,7 @@ private struct TVThermalHistoryCard: View {
     }
 
     private var yDomain: ClosedRange<Double> {
-        let values = chartData.series.flatMap(\.points).map(\.value)
+        let values = populatedSeries.flatMap(\.element.points).map(\.value)
         guard let minimum = values.min(), let maximum = values.max() else {
             return 0...100
         }
@@ -438,14 +442,43 @@ private struct TVThermalHistoryCard: View {
     }
 }
 
-private struct TVThermalHistoryTaskID: Equatable {
-    let sourceId: String
-    let range: ThermalRangePreset
-}
+private struct TVThermalLegendItem: View {
+    let series: ThermalChartSeries
+    let color: Color
 
-private struct TVCurrentWeatherTaskID: Equatable {
-    let sourceId: String
-    let boothId: String?
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 14) {
+                Capsule()
+                    .fill(color)
+                    .frame(width: 54, height: 8)
+                Text(series.displayName)
+                    .font(TVMetrics.Font.label)
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+            }
+            Text("Latest \(latestValue)")
+                .font(TVMetrics.Font.caption.monospacedDigit())
+                .foregroundStyle(Theme.Colors.textSecondary)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(color.opacity(0.09))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(color.opacity(0.38), lineWidth: 2)
+        )
+        .accessibilityElement(children: .combine)
+    }
+
+    private var latestValue: String {
+        SystemVitals.formatTemperature(series.points.last?.value)
+    }
 }
 
 #Preview {

@@ -430,3 +430,69 @@ final class ThermalModelsTests: XCTestCase {
         )
     }
 }
+
+private enum ThermalTestSupportError: Error {
+    case unavailable
+}
+
+struct ClosureThermalsDataProvider: ThermalsDataProvider {
+    let components: @Sendable () async throws -> [SystemComponentCurrentEnvelope]
+    let systems: @Sendable () async throws -> [BoothSystemSnapshotEnvelope]
+    let weather: @Sendable (String) async throws -> CurrentWeather?
+    let history: @Sendable (ThermalHistoryQuery) async throws -> ThermalHistoryResponse
+
+    init(
+        components: @escaping @Sendable () async throws
+            -> [SystemComponentCurrentEnvelope] = { [] },
+        systems: @escaping @Sendable () async throws
+            -> [BoothSystemSnapshotEnvelope] = { [] },
+        weather: @escaping @Sendable (String) async throws
+            -> CurrentWeather? = { _ in nil },
+        history: @escaping @Sendable (ThermalHistoryQuery) async throws
+            -> ThermalHistoryResponse = { _ in throw ThermalTestSupportError.unavailable }
+    ) {
+        self.components = components
+        self.systems = systems
+        self.weather = weather
+        self.history = history
+    }
+
+    func fetchCurrentSystemComponents() async throws -> [SystemComponentCurrentEnvelope] {
+        try await components()
+    }
+
+    func fetchAllCurrentSystems() async throws -> [BoothSystemSnapshotEnvelope] {
+        try await systems()
+    }
+
+    func fetchCurrentWeather(boothId: String) async throws -> CurrentWeather? {
+        try await weather(boothId)
+    }
+
+    func fetchThermalHistory(
+        query: ThermalHistoryQuery
+    ) async throws -> ThermalHistoryResponse {
+        try await history(query)
+    }
+}
+
+actor ThermalRequestGate<Value: Sendable> {
+    private var requestCount = 0
+    private var continuations: [Int: CheckedContinuation<Value, Never>] = [:]
+
+    func request() async -> Value {
+        requestCount += 1
+        let requestId = requestCount
+        return await withCheckedContinuation { continuation in
+            continuations[requestId] = continuation
+        }
+    }
+
+    func startedCount() -> Int {
+        requestCount
+    }
+
+    func resolve(_ requestId: Int, with value: Value) {
+        continuations.removeValue(forKey: requestId)?.resume(returning: value)
+    }
+}
