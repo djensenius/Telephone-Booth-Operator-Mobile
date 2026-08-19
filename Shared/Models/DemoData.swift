@@ -46,7 +46,9 @@ public enum DemoData {
         ),
         calls: StatsSummary.Calls(today: 27, inProgress: 1),
         realtime: StatsSummary.Realtime(wsClients: 4),
-        generatedAt: now
+        generatedAt: now,
+        dayStartedAt: Calendar.current.startOfDay(for: now),
+        timeZone: TimeZone.current.identifier
     )
 
     public static let installations: [Installation] = [
@@ -118,12 +120,21 @@ public enum DemoData {
 
     /// `statsSummary` on the demo session's clock; its booth timestamp ages too.
     public static func rebasedStats(to reference: Date = Date()) -> StatsSummary {
-        StatsSummary(
+        let dayStartedAt = Calendar.current.startOfDay(for: reference)
+        let callsToday = rebasedSessions().filter {
+            $0.startedAt >= dayStartedAt && $0.startedAt <= reference
+        }
+        return StatsSummary(
             booth: liveStatus(now: reference),
             messages: statsSummary.messages,
-            calls: statsSummary.calls,
+            calls: StatsSummary.Calls(
+                today: callsToday.count,
+                inProgress: callsToday.filter { $0.endedAt == nil }.count
+            ),
             realtime: statsSummary.realtime,
-            generatedAt: reference
+            generatedAt: reference,
+            dayStartedAt: dayStartedAt,
+            timeZone: TimeZone.current.identifier
         )
     }
 
@@ -143,9 +154,54 @@ public enum DemoData {
         statusHistory.prefix(limit).map { rebased($0, to: sessionAnchor) }
     }
 
+    public static func rebasedSessions(
+        to reference: Date = DemoData.sessionAnchor
+    ) -> [CallSession] {
+        let offset = reference.timeIntervalSince(now)
+        return sessions.map { session in
+            CallSession(
+                id: session.id,
+                boothId: session.boothId,
+                bootId: session.bootId,
+                startedAt: session.startedAt.addingTimeInterval(offset),
+                endedAt: session.endedAt?.addingTimeInterval(offset),
+                digitsDialed: session.digitsDialed,
+                outcome: session.outcome,
+                recordingId: session.recordingId,
+                durationMs: session.durationMs,
+                version: session.version
+            )
+        }
+    }
+
+    public static func rebasedEvents(
+        to reference: Date = DemoData.sessionAnchor
+    ) -> [BoothEventRecord] {
+        let offset = reference.timeIntervalSince(now)
+        return events.map { event in
+            BoothEventRecord(
+                id: event.id,
+                eventId: event.eventId,
+                boothId: event.boothId,
+                bootId: event.bootId,
+                type: event.type,
+                occurredAt: event.occurredAt.addingTimeInterval(offset),
+                receivedAt: event.receivedAt.addingTimeInterval(offset),
+                sessionId: event.sessionId,
+                recordingId: event.recordingId,
+                version: event.version
+            )
+        }
+    }
+
     private static let demoHeartbeat: TimeInterval = 5
     private static let demoCallDurations: [TimeInterval] = [
         95, 410, 225, 640, 160, 335, 720, 285, 505, 135, 455, 245
+    ]
+    private static let demoCallMinutesAgo = [
+        9, 46, 58, 75, 91, 110, 126, 145,
+        161, 179, 198, 216, 233, 251, 270, 289,
+        307, 326, 344, 363, 382, 401, 421, 443, 468, 501, 520
     ]
 
     public static let statusHistory: [BoothStatus] = (0..<24).map { index in
@@ -162,44 +218,29 @@ public enum DemoData {
         )
     }
 
-    public static let sessions: [CallSession] = [
-        CallSession(
-            id: "demo-session-3",
+    public static let sessions: [CallSession] = demoCallMinutesAgo.enumerated().map { index, minutesAgo in
+        let idNumber = index < 3 ? 3 - index : index + 1
+        let startedAt = now.addingTimeInterval(-TimeInterval(minutesAgo * 60))
+        let duration = demoCallDurations[index % demoCallDurations.count]
+        let completed = index > 0
+        let succeeded = !index.isMultiple(of: 4)
+        return CallSession(
+            id: "demo-session-\(idNumber)",
             boothId: boothId,
             bootId: bootId,
-            startedAt: now.addingTimeInterval(-9 * 60),
-            endedAt: nil,
-            digitsDialed: "7",
-            outcome: nil,
-            recordingId: "demo-recording-3",
-            durationMs: nil,
-            version: "demo"
-        ),
-        CallSession(
-            id: "demo-session-2",
-            boothId: boothId,
-            bootId: bootId,
-            startedAt: now.addingTimeInterval(-46 * 60),
-            endedAt: now.addingTimeInterval(-42 * 60),
-            digitsDialed: "4",
-            outcome: .recordingCompleted,
-            recordingId: "demo-recording-2",
-            durationMs: 214_000,
-            version: "demo"
-        ),
-        CallSession(
-            id: "demo-session-1",
-            boothId: boothId,
-            bootId: bootId,
-            startedAt: now.addingTimeInterval(-2 * 60 * 60),
-            endedAt: now.addingTimeInterval(-2 * 60 * 60 + 95),
-            digitsDialed: "2",
-            outcome: .hungUpDuringPrompt,
-            recordingId: nil,
-            durationMs: 95_000,
+            startedAt: startedAt,
+            endedAt: completed ? startedAt.addingTimeInterval(duration) : nil,
+            digitsDialed: String((index % 9) + 1),
+            outcome: completed
+                ? (succeeded ? .recordingCompleted : .hungUpDuringPrompt)
+                : nil,
+            recordingId: !completed || succeeded
+                ? "demo-recording-\(idNumber)"
+                : nil,
+            durationMs: completed ? Int(duration * 1_000) : nil,
             version: "demo"
         )
-    ]
+    }
 
     public static let messages: [Message] = [
         message(
@@ -426,7 +467,9 @@ public extension DemoData {
     }
 
     static func sessionDetail(id: String) -> CallSessionDetail {
+        let sessions = rebasedSessions()
         let session = sessions.first { $0.id == id } ?? sessions[0]
+        let events = rebasedEvents()
         return CallSessionDetail(
             id: session.id,
             boothId: session.boothId,

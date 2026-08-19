@@ -59,9 +59,14 @@ public actor OperatorClient {
 
     /// `GET /v1/stats/summary` — booth health + queue counts. Operator
     /// caches this for 5s, so 15-minute widget polling is cheap.
-    public func fetchStatsSummary() async throws -> StatsSummary {
+    public func fetchStatsSummary(
+        timeZone: TimeZone = .current
+    ) async throws -> StatsSummary {
         if await usesDemoData { return DemoData.rebasedStats() }
-        return try await get("/v1/stats/summary")
+        return try await get(
+            "/v1/stats/summary",
+            query: [URLQueryItem(name: "timeZone", value: timeZone.identifier)]
+        )
     }
 
     /// `GET /v1/stats/overview` — historical aggregation (calls, messages,
@@ -101,12 +106,40 @@ public actor OperatorClient {
         limit: Int = 50
     ) async throws -> SessionListPage {
         if await usesDemoData {
-            return SessionListPage(items: Array(DemoData.sessions.prefix(limit)), nextCursor: nil)
+            var sessions = DemoData.rebasedSessions()
+            if let boothId {
+                sessions = sessions.filter { $0.boothId == boothId }
+            }
+            return SessionListPage(items: Array(sessions.prefix(limit)), nextCursor: nil)
         }
         var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
         if let boothId { items.append(URLQueryItem(name: "boothId", value: boothId)) }
         if let cursor { items.append(URLQueryItem(name: "cursor", value: cursor)) }
         return try await get("/v1/sessions", query: items)
+    }
+
+    public func fetchSessions(
+        boothId: String? = nil,
+        startedOnOrAfter start: Date,
+        knownSessionIDs: Set<String> = []
+    ) async throws -> [CallSession] {
+        var pages = CallsTodayPageAccumulator(
+            dayStartedAt: start,
+            knownSessionIDs: knownSessionIDs
+        )
+        var cursor: String?
+
+        repeat {
+            try Task.checkCancellation()
+            let page = try await fetchSessions(
+                boothId: boothId,
+                cursor: cursor,
+                limit: 500
+            )
+            cursor = pages.append(page)
+        } while cursor != nil
+
+        return pages.orderedSessions
     }
 
     /// `GET /v1/sessions/{id}` — one session with its ordered events.
@@ -169,7 +202,7 @@ public actor OperatorClient {
         limit: Int = 100
     ) async throws -> EventList {
         if await usesDemoData {
-            return EventList(items: Array(DemoData.events.prefix(limit)), nextCursor: nil)
+            return EventList(items: Array(DemoData.rebasedEvents().prefix(limit)), nextCursor: nil)
         }
         var items: [URLQueryItem] = [URLQueryItem(name: "limit", value: String(limit))]
         if let boothId { items.append(URLQueryItem(name: "boothId", value: boothId)) }

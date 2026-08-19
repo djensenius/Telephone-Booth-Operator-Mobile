@@ -267,15 +267,6 @@ extension BoothStatusLiveStore.ConnectionState {
         }
     }
 
-    func confirmsFreshStatus(lastStatusAt: Date?, now: Date) -> Bool {
-        guard lastStatusAt != nil else { return false }
-        switch self {
-        case .live, .polling:
-            return boothStaleness(lastStatusAt: lastStatusAt, now: now).level == .fresh
-        case .connecting, .offline:
-            return false
-        }
-    }
 }
 
 /// Pure function for unit testing — given a `lastStatusAt` and the
@@ -339,48 +330,46 @@ public struct BoothStalenessChip: View {
 }
 
 #if !os(watchOS) && !os(tvOS)
-struct DashboardActivityCard: View {
-    let items: [BoothStatus]
-    let latestStatusAt: Date?
-    let connection: BoothStatusLiveStore.ConnectionState
+struct DashboardCallsTodayCard: View {
+    let sessions: [CallSession]
+    let dayStartedAt: Date?
+    let isLoaded: Bool
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 10)) { context in
-            let calls = items.activityCalls(
-                finalRunIsInProgress: connection.confirmsFreshStatus(
-                    lastStatusAt: latestStatusAt,
-                    now: context.date
-                )
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            let series = CallsTodaySeries(
+                sessions: sessions,
+                dayStartedAt: dayStartedAt
+                    ?? Calendar.current.startOfDay(for: context.date),
+                now: context.date
             )
             VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
-                        SectionHeader(text: "Recent calls")
-                        Text(summary(calls: calls, at: context.date))
+                        SectionHeader(text: "Calls today")
+                        Text(summary(for: series))
                             .font(Theme.Fonts.bodyMedium.weight(.semibold))
                             .foregroundStyle(Theme.Colors.textPrimary)
                     }
                     Spacer(minLength: Theme.Spacing.small)
-                    Label("Duration", systemImage: "clock")
+                    Label("Cumulative", systemImage: "chart.line.uptrend.xyaxis")
                         .font(Theme.Fonts.caption)
                         .foregroundStyle(Theme.Colors.textSecondary)
                 }
-                if calls.isEmpty {
-                    Text("No calls in this window")
+                if !isLoaded {
+                    ProgressView("Loading calls...")
                         .font(Theme.Fonts.bodyMedium)
                         .foregroundStyle(Theme.Colors.textSecondary)
-                        .frame(maxWidth: .infinity, minHeight: 96)
+                        .frame(maxWidth: .infinity, minHeight: 112)
+                } else if series.total == 0 {
+                    Text("No calls since midnight")
+                        .font(Theme.Fonts.bodyMedium)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 112)
                 } else {
-                    RecentCallsChart(calls: calls, now: context.date, domain: timeDomain)
-                        .frame(height: 96)
+                    CallsTodayChart(series: series)
+                        .frame(height: 128)
                 }
-                HStack {
-                    Text(observedDomain.lowerBound, format: .dateTime.hour().minute())
-                    Spacer()
-                    Text(observedDomain.upperBound, format: .dateTime.hour().minute())
-                }
-                .font(Theme.Fonts.caption.monospacedDigit())
-                .foregroundStyle(Theme.Colors.textSecondary)
             }
             .padding(Theme.Spacing.large)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -388,79 +377,65 @@ struct DashboardActivityCard: View {
         }
     }
 
-    private var observedDomain: ClosedRange<Date> {
-        let start = items.first?.heldSince ?? Date()
-        let observedEnd = items.last?.updatedAt ?? start
-        return start...Swift.max(observedEnd, start.addingTimeInterval(60))
-    }
-
-    private var timeDomain: ClosedRange<Date> {
-        let padding = max(30, observedDomain.upperBound.timeIntervalSince(
-            observedDomain.lowerBound
-        ) * 0.015)
-        let start = observedDomain.lowerBound.addingTimeInterval(-padding)
-        let end = observedDomain.upperBound.addingTimeInterval(padding)
-        return start...end
-    }
-
-    private func summary(calls: [BoothActivityCall], at date: Date) -> String {
-        guard let first = items.first, let last = items.last else {
-            return "No recent status yet"
-        }
-        let span = DurationFormatter.compactString(
-            from: first.heldSince,
-            to: last.updatedAt
-        )
-        guard !calls.isEmpty else { return "Quiet across \(span)" }
-        let completed = calls.filter { !$0.isInProgress }
-        let countLabel = "\(calls.count) \(calls.count == 1 ? "call" : "calls")"
-        let liveLabel = calls.contains(where: \.isInProgress) ? " · live now" : ""
-        guard !completed.isEmpty else { return countLabel + liveLabel }
-        let average = completed.reduce(0) { $0 + $1.duration(at: date) }
-            / Double(completed.count)
-        return "\(countLabel) · \(compactDuration(average)) average\(liveLabel)"
-    }
-
-    private func compactDuration(_ seconds: TimeInterval) -> String {
-        let start = Date(timeIntervalSinceReferenceDate: 0)
-        return DurationFormatter.compactString(
-            from: start,
-            to: start.addingTimeInterval(seconds)
-        )
+    private func summary(for series: CallsTodaySeries) -> String {
+        "\(series.total) \(series.total == 1 ? "call" : "calls") since midnight"
     }
 }
 
-private struct RecentCallsChart: View {
-    let calls: [BoothActivityCall]
-    let now: Date
-    let domain: ClosedRange<Date>
+private struct CallsTodayChart: View {
+    let series: CallsTodaySeries
 
     var body: some View {
         Chart {
-            ForEach(calls) { call in
-                BarMark(
-                    x: .value("Call started", call.startedAt),
-                    y: .value("Duration", durationMinutes(for: call)),
-                    width: .fixed(3)
+            ForEach(series.points) { point in
+                LineMark(
+                    x: .value("Time", point.date),
+                    y: .value("Calls", point.count)
                 )
-                .foregroundStyle(Theme.Colors.accent.opacity(call.isInProgress ? 0.8 : 0.36))
-                .cornerRadius(2)
-
+                .interpolationMethod(.stepEnd)
+                .foregroundStyle(Theme.Colors.accent)
+                .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+            }
+            if let endpoint = series.points.last {
                 PointMark(
-                    x: .value("Call started", call.startedAt),
-                    y: .value("Duration", durationMinutes(for: call))
+                    x: .value("Time", endpoint.date),
+                    y: .value("Calls", endpoint.count)
                 )
                 .foregroundStyle(Theme.Colors.accent)
-                .symbolSize(call.isInProgress ? 70 : 38)
+                .symbolSize(54)
+                .annotation(position: .topLeading) {
+                    Text("\(series.total)")
+                        .font(Theme.Fonts.caption.weight(.bold).monospacedDigit())
+                        .foregroundStyle(Theme.Colors.accent)
+                }
             }
         }
-        .chartXAxis(.hidden)
-        .chartXScale(domain: domain)
-        .chartYScale(domain: 0...durationCeiling)
+        .chartXScale(domain: series.dayStartedAt...xAxisEnd)
+        .chartYScale(domain: 0...max(1, series.total + 1))
+        .chartXAxis {
+            AxisMarks(values: .automatic(desiredCount: 3)) { value in
+                AxisGridLine()
+                    .foregroundStyle(Theme.Colors.textSecondary.opacity(0.08))
+                AxisValueLabel {
+                    if let date = value.as(Date.self) {
+                        Text(date, format: .dateTime.hour().minute())
+                            .font(Theme.Fonts.caption.monospacedDigit())
+                            .foregroundStyle(Theme.Colors.textSecondary)
+                    }
+                }
+            }
+        }
         .chartYAxis {
-            AxisMarks(values: .automatic(desiredCount: 3)) { _ in
+            AxisMarks(position: .leading, values: series.yAxisValues) { value in
                 AxisGridLine()
                     .foregroundStyle(Theme.Colors.textSecondary.opacity(0.1))
+                AxisValueLabel {
+                    if let count = value.as(Int.self) {
+                        Text("\(count)")
+                            .font(Theme.Fonts.caption.monospacedDigit())
+                            .foregroundStyle(Theme.Colors.textSecondary)
+                    }
+                }
             }
         }
         .chartPlotStyle { plotArea in
@@ -468,15 +443,14 @@ private struct RecentCallsChart: View {
                 .background(Theme.Colors.textPrimary.opacity(0.045))
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
-        .accessibilityLabel(Text("Recent calls by start time and duration"))
+        .accessibilityLabel(Text("Cumulative calls today"))
+        .accessibilityValue(
+            Text("\(series.total) \(series.total == 1 ? "call" : "calls") since midnight")
+        )
     }
 
-    private var durationCeiling: Double {
-        max(1, calls.map(durationMinutes).max() ?? 1) * 1.16
-    }
-
-    private func durationMinutes(for call: BoothActivityCall) -> Double {
-        max(call.duration(at: now) / 60, 0.05)
+    private var xAxisEnd: Date {
+        max(series.through, series.dayStartedAt.addingTimeInterval(60))
     }
 }
 #endif

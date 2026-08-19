@@ -156,23 +156,12 @@ public struct StatusDashboardView: View {
         )
         healthCard
         #if !os(watchOS) && !os(tvOS)
-        if !recentCallItems.isEmpty {
-            DashboardActivityCard(
-                items: recentCallItems,
-                latestStatusAt: currentStatus?.updatedAt,
-                connection: liveStore.connection
-            )
-        }
+        DashboardCallsTodayCard(
+            sessions: liveStore.callsTodaySessions,
+            dayStartedAt: liveStore.callsTodayStartedAt,
+            isLoaded: liveStore.hasLoadedCallsToday
+        )
         #endif
-    }
-
-    private var recentCallItems: [BoothStatus] {
-        guard let currentStatus else {
-            return liveStore.history.collapsingRepeats()
-        }
-        return BoothStatusLiveStore
-            .merging([currentStatus], into: liveStore.history)
-            .collapsingRepeats()
     }
 }
 

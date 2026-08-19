@@ -8,7 +8,71 @@
 
 import Foundation
 
+struct CallsTodayRefresh: Sendable {
+    let stats: StatsSummary?
+    let sessions: [CallSession]?
+    let dayStartedAt: Date
+}
+
 extension BoothStatusLiveStore {
+
+    func fetchSummaryAndSessions() async -> CallsTodayRefresh {
+        let client = self.client
+        let localDayStartedAt = Calendar.current.startOfDay(for: Date())
+        prepareCallsToday(for: localDayStartedAt)
+        let knownSessionIDs = Set(callsTodaySessions.map(\.id))
+        async let statsResult = attempt { try await client.fetchStatsSummary() }
+        async let sessionsResult = attempt {
+            try await client.fetchSessions(
+                startedOnOrAfter: localDayStartedAt,
+                knownSessionIDs: knownSessionIDs
+            )
+        }
+
+        let newStats = await statsResult
+        var newSessions = await sessionsResult
+        let dayStartedAt = newStats?.dayStartedAt ?? localDayStartedAt
+        if dayStartedAt != localDayStartedAt {
+            prepareCallsToday(for: dayStartedAt)
+            newSessions = await attempt {
+                try await client.fetchSessions(startedOnOrAfter: dayStartedAt)
+            }
+        }
+        return CallsTodayRefresh(
+            stats: newStats,
+            sessions: newSessions,
+            dayStartedAt: dayStartedAt
+        )
+    }
+
+    func prepareCallsToday(for dayStartedAt: Date) {
+        guard callsTodayStartedAt != dayStartedAt else { return }
+        callsTodayStartedAt = dayStartedAt
+        callsTodaySessions = []
+        hasLoadedCallsToday = false
+    }
+
+    func apply(_ summary: CallsTodayRefresh) {
+        prepareCallsToday(for: summary.dayStartedAt)
+        if let newStats = summary.stats {
+            applyStats(newStats)
+        }
+        if let sessions = summary.sessions {
+            var sessionsByID = [String: CallSession]()
+            for session in callsTodaySessions + sessions {
+                sessionsByID[session.id] = session
+            }
+            callsTodaySessions = sessionsByID.values
+                .filter { $0.startedAt >= summary.dayStartedAt }
+                .sorted {
+                    if $0.startedAt == $1.startedAt {
+                        return $0.id < $1.id
+                    }
+                    return $0.startedAt < $1.startedAt
+                }
+            hasLoadedCallsToday = true
+        }
+    }
 
     /// Cache order: oldest first, by booth timestamp, then by the operator's
     /// insertion order for reports of the same instant.

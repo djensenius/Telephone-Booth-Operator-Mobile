@@ -28,6 +28,9 @@ public final class BoothStatusLiveStore {
     public private(set) var systemEnvelope: BoothSystemSnapshotEnvelope?
     public private(set) var componentSources: [SystemComponentCurrentEnvelope] = []
     public private(set) var stats: StatsSummary?
+    public internal(set) var callsTodaySessions: [CallSession] = []
+    public internal(set) var callsTodayStartedAt: Date?
+    public internal(set) var hasLoadedCallsToday = false
     public private(set) var connection: ConnectionState = .offline
     public private(set) var lastError: String?
 
@@ -36,7 +39,7 @@ public final class BoothStatusLiveStore {
     /// state during an outage instead of a permanent "no snapshot yet".
     public private(set) var systemUnavailable: Bool = false
 
-    private let client: OperatorClient
+    let client: OperatorClient
     private let socket: StatusSocket
     private let config: AppConfig
     private let demoMode: Bool
@@ -140,8 +143,7 @@ public final class BoothStatusLiveStore {
                 await refreshFromREST()
             } else {
                 // The live socket owns status/history; keep the summary counts
-                // fresh on the cadence because the socket does not carry a
-                // StatsSummary.
+                // and call sessions fresh because the socket carries neither.
                 await refreshSummary()
                 // The socket may not carry system snapshots, so keep polling
                 // `/v1/system/current` on the cadence whenever we have none
@@ -159,7 +161,7 @@ public final class BoothStatusLiveStore {
         }
     }
 
-    private func attempt<Value: Sendable>(_ operation: () async throws -> Value) async -> Value? {
+    func attempt<Value: Sendable>(_ operation: () async throws -> Value) async -> Value? {
         do {
             return try await operation()
         } catch {
@@ -178,13 +180,13 @@ public final class BoothStatusLiveStore {
         async let historyResult = attempt { try await client.fetchStatusHistory(limit: 200) }
         async let systemResult = attempt { try await client.fetchCurrentSystemEnvelope() }
         async let componentsResult = attempt { try await client.fetchCurrentSystemComponents() }
-        async let statsResult = attempt { try await client.fetchStatsSummary() }
+        async let summaryResult = fetchSummaryAndSessions()
 
         let newStatus = await statusResult
         let newHistory = await historyResult
         let newSystem = await systemResult
         let newComponents = await componentsResult
-        let newStats = await statsResult
+        let summary = await summaryResult
 
         // Apply each successful result independently so one failing endpoint
         // does not discard the others. `apply(status:)` and `mergeHistory`
@@ -194,10 +196,11 @@ public final class BoothStatusLiveStore {
         if let newStatus { apply(status: newStatus) }
         applySystemResult(newSystem)
         if let newComponents { componentSources = newComponents }
-        if let newStats { applyStats(newStats) }
+        apply(summary)
 
         let anySuccess = newStatus != nil || newHistory != nil
-            || newSystem != nil || newComponents != nil || newStats != nil
+            || newSystem != nil || newComponents != nil
+            || summary.stats != nil || summary.sessions != nil
         if newStatus == nil {
             // Only a failed *current status* request signals degraded status;
             // other successful results above are still applied.
@@ -241,9 +244,9 @@ public final class BoothStatusLiveStore {
 
     private func refreshSummary() async {
         if demoMode || config.isDemoMode { return }
-        let client = self.client
-        if let newStats = await attempt({ try await client.fetchStatsSummary() }) {
-            applyStats(newStats)
+        let summary = await fetchSummaryAndSessions()
+        apply(summary)
+        if summary.stats != nil || summary.sessions != nil {
             lastError = nil
         }
     }
@@ -298,14 +301,16 @@ public final class BoothStatusLiveStore {
                 messages: currentStats.messages,
                 calls: currentStats.calls,
                 realtime: currentStats.realtime,
-                generatedAt: currentStats.generatedAt
+                generatedAt: currentStats.generatedAt,
+                dayStartedAt: currentStats.dayStartedAt,
+                timeZone: currentStats.timeZone
             )
             stats = updatedStats
             WidgetSnapshotStore.write(WidgetSnapshot(stats: updatedStats))
         }
     }
 
-    private func applyStats(_ newStats: StatsSummary) {
+    func applyStats(_ newStats: StatsSummary) {
         if status == nil { apply(status: newStats.booth) }
         let booth = status ?? newStats.booth
         let merged = StatsSummary(
@@ -313,7 +318,9 @@ public final class BoothStatusLiveStore {
             messages: newStats.messages,
             calls: newStats.calls,
             realtime: newStats.realtime,
-            generatedAt: newStats.generatedAt
+            generatedAt: newStats.generatedAt,
+            dayStartedAt: newStats.dayStartedAt,
+            timeZone: newStats.timeZone
         )
         stats = merged
         WidgetSnapshotStore.write(WidgetSnapshot(stats: merged))
@@ -457,6 +464,9 @@ public final class BoothStatusLiveStore {
         componentSources = DemoData.rebasedSystemComponentSources(to: demoNow)
         let demoStats = DemoData.rebasedStats(to: demoNow)
         stats = demoStats
+        callsTodaySessions = DemoData.rebasedSessions()
+        callsTodayStartedAt = demoStats.dayStartedAt
+        hasLoadedCallsToday = true
         connection = .polling
         lastError = nil
         systemUnavailable = false

@@ -146,13 +146,10 @@ struct TVBoothWallView: View {
     }
 
     private var recentCalls: some View {
-        let items = BoothStatusLiveStore
-            .merging([currentStatus].compactMap(\.self), into: liveStore.history)
-            .collapsingRepeats()
-        return TVRecentCallsCard(
-            items: items,
-            latestStatusAt: currentStatus?.updatedAt,
-            connection: liveStore.connection
+        TVCallsTodayCard(
+            sessions: liveStore.callsTodaySessions,
+            dayStartedAt: liveStore.callsTodayStartedAt,
+            isLoaded: liveStore.hasLoadedCallsToday
         )
     }
 
