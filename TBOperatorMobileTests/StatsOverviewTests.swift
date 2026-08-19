@@ -31,53 +31,28 @@ final class StatsOverviewTests: XCTestCase {
         let json = #"""
         {
           "window": "7d",
-          "rangeStart": "2026-05-19T00:00:00Z",
-          "rangeEnd": "2026-05-26T00:00:00Z",
-          "generatedAt": "2026-05-26T00:00:00Z",
-          "timezone": "UTC",
+          "rangeStart": "2026-05-19T00:00:00Z", "rangeEnd": "2026-05-26T00:00:00Z",
+          "generatedAt": "2026-05-26T00:00:00Z", "timezone": "UTC",
           "calls": {
-            "total": 12,
-            "completed": 9,
-            "inProgress": 1,
-            "averageDurationMs": 4321.5,
-            "longestDurationMs": 9000,
-            "outcomes": {
-              "recording_completed": 9,
-              "hung_up_before_dial": 2,
-              "wild_new_outcome": 1
-            },
-            "perDay": [
-              { "date": "2026-05-25", "total": 5, "completed": 4 },
-              { "date": "2026-05-26", "total": 7, "completed": 5 }
-            ]
+            "total": 12, "completed": 9, "inProgress": 1,
+            "averageDurationMs": 4321.5, "longestDurationMs": 9000,
+            "outcomes": { "recording_completed": 9, "hung_up_before_dial": 2, "wild_new_outcome": 1 },
+            "perDay": [{ "date": "2026-05-25", "total": 5, "completed": 4 },
+              { "date": "2026-05-26", "total": 7, "completed": 5 }]
           },
-          "messages": {
-            "total": 6,
-            "approved": 6,
-            "allRecordings": 9,
+          "messages": { "total": 6, "approved": 6, "allRecordings": 9,
             "byStatus": { "approved": 6, "pending": 2, "rejected": 1 },
-            "averageDurationMs": 8500
-          },
+            "averageDurationMs": 8500 },
           "playback": { "totalPlaybacks": 17 },
-          "pickupsHangups": {
-            "pickups": 12,
-            "hangups": 11,
-            "digitsDialed": { "1": 3, "5": 5 }
-          },
+          "pickupsHangups": { "pickups": 12, "hangups": 11, "digitsDialed": { "1": 3, "5": 5 } },
           "uploads": { "succeeded": 9, "failed": 1, "failureRate": 0.1 },
-          "topQuestions": [
-            {
-              "questionId": "11111111-1111-4111-8111-111111111111",
-              "prompt": "What did the city sound like today?",
-              "messageCount": 5,
-              "lastUsedAt": "2026-05-26T00:00:00Z",
-              "retiredAt": null
-            }
-          ],
-          "hourly": [
-            { "hour": 0, "calls": 0, "messages": 0 },
-            { "hour": 10, "calls": 3, "messages": 2 }
-          ],
+          "topQuestions": [{
+            "questionId": "11111111-1111-4111-8111-111111111111",
+            "prompt": "What did the city sound like today?",
+            "messageCount": 5, "lastUsedAt": "2026-05-26T00:00:00Z", "retiredAt": null
+          }],
+          "hourly": [{ "hour": 0, "calls": 0, "messages": 0 },
+            { "hour": 10, "calls": 3, "messages": 2 }],
           "busiest": { "hour": 10, "dayOfWeek": 1 },
           "lastActivityAt": "2026-05-26T00:00:00Z",
           "boothBreakdown": [
@@ -310,16 +285,37 @@ final class StatsOverviewTests: XCTestCase {
         )?.queryItems)
         XCTAssertTrue(secondQuery.contains(URLQueryItem(name: "cursor", value: "next-page")))
 
-        StatsDigitRecoveryURLProtocol.failEventRequests()
-        let fallback = try await client.fetchStatsOverview(
+        let cached = try await client.fetchStatsOverview(
             selection: .window(.last7d),
             installationScope: .installation("installation-1")
+        )
+        XCTAssertEqual(cached.pickupsHangups.digitsDialed["1"], 2)
+        XCTAssertEqual(
+            StatsDigitRecoveryURLProtocol.capturedURLs().filter { $0.path == "/v1/events" }.count,
+            2
+        )
+
+        StatsDigitRecoveryURLProtocol.reset(failEventRequests: true)
+        let fallback = try await client.fetchStatsOverview(
+            selection: .window(.last7d),
+            installationScope: .installation("installation-2")
         )
         XCTAssertEqual(fallback.calls.total, 2)
         XCTAssertEqual(fallback.pickupsHangups.digitsDialed.values.reduce(0, +), 0)
         XCTAssertEqual(
             StatsDigitRecoveryURLProtocol.capturedURLs().filter { $0.path == "/v1/events" }.count,
-            3
+            1
+        )
+
+        StatsDigitRecoveryURLProtocol.reset(reportedDigitCount: 8)
+        let authoritative = try await client.fetchStatsOverview(
+            selection: .window(.last7d),
+            installationScope: .installation("installation-3")
+        )
+        XCTAssertEqual(authoritative.pickupsHangups.digitsDialed["1"], 8)
+        XCTAssertEqual(
+            StatsDigitRecoveryURLProtocol.capturedURLs().filter { $0.path == "/v1/events" }.count,
+            0
         )
     }
 
@@ -385,18 +381,14 @@ final class StatsOverviewTests: XCTestCase {
 private final class StatsDigitRecoveryURLProtocol: URLProtocol {
     nonisolated(unsafe) private static var requests: [URL] = []
     nonisolated(unsafe) private static var shouldFailEventRequests = false
+    nonisolated(unsafe) private static var reportedDigitCount = 0
     private static let lock = NSLock()
 
-    static func reset() {
+    static func reset(failEventRequests: Bool = false, reportedDigitCount: Int = 0) {
         lock.lock()
         requests = []
-        shouldFailEventRequests = false
-        lock.unlock()
-    }
-
-    static func failEventRequests() {
-        lock.lock()
-        shouldFailEventRequests = true
+        shouldFailEventRequests = failEventRequests
+        self.reportedDigitCount = reportedDigitCount
         lock.unlock()
     }
 
@@ -423,7 +415,7 @@ private final class StatsDigitRecoveryURLProtocol: URLProtocol {
         let statusCode: Int
         switch url.path {
         case "/v1/stats/overview":
-            body = Self.overviewResponse
+            body = Self.overviewResponseBody()
             statusCode = 200
         case "/v1/events":
             if Self.eventRequestsShouldFail() {
@@ -462,6 +454,15 @@ private final class StatsDigitRecoveryURLProtocol: URLProtocol {
         lock.lock()
         defer { lock.unlock() }
         return shouldFailEventRequests
+    }
+
+    private static func overviewResponseBody() -> String {
+        lock.lock()
+        defer { lock.unlock() }
+        return overviewResponse.replacingOccurrences(
+            of: #""1": 0"#,
+            with: #""1": \#(reportedDigitCount)"#
+        )
     }
 
     private static let firstEventPage = #"""

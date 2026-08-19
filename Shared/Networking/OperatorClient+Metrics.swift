@@ -10,9 +10,44 @@ import Foundation
 import os
 
 private let metricsLogger = Logger(
-    subsystem: "org.davidjensenius.TelephoneBoothOperatorMobile",
+    subsystem: "org.davidjensenius.TBOperatorMobile",
     category: "OperatorClient.Metrics"
 )
+
+private struct DialedDigitRecoveryCacheKey: Hashable, Sendable {
+    let clientID: ObjectIdentifier
+    let selection: StatsRangeSelection
+    let installationScope: InstallationScope
+}
+
+private actor DialedDigitRecoveryCache {
+    private struct Entry {
+        let counts: [String: Int]
+        let expiresAt: Date
+    }
+
+    private var entries: [DialedDigitRecoveryCacheKey: Entry] = [:]
+
+    func counts(for key: DialedDigitRecoveryCacheKey, now: Date = Date()) -> [String: Int]? {
+        guard let entry = entries[key] else { return nil }
+        guard entry.expiresAt > now else {
+            entries.removeValue(forKey: key)
+            return nil
+        }
+        return entry.counts
+    }
+
+    func store(_ counts: [String: Int], for key: DialedDigitRecoveryCacheKey, now: Date = Date()) {
+        entries = entries.filter { $0.value.expiresAt > now }
+        entries[key] = Entry(counts: counts, expiresAt: now.addingTimeInterval(30))
+    }
+
+    func removeValue(for key: DialedDigitRecoveryCacheKey) {
+        entries.removeValue(forKey: key)
+    }
+}
+
+private let dialedDigitRecoveryCache = DialedDigitRecoveryCache()
 
 public extension OperatorClient {
     /// `GET /v1/stats/overview` for an arbitrary selection — a preset window
@@ -31,6 +66,7 @@ public extension OperatorClient {
         do {
             return try await recoveringDialedDigits(
                 in: overview,
+                selection: selection,
                 installationScope: installationScope
             )
         } catch let error as OperatorError {
@@ -194,17 +230,33 @@ private extension OperatorClient {
     /// Recover only an empty aggregate so a corrected server remains authoritative.
     func recoveringDialedDigits(
         in overview: StatsOverview,
+        selection: StatsRangeSelection,
         installationScope: InstallationScope
     ) async throws -> StatsOverview {
         let hasCalls = overview.pickupsHangups.pickups > 0 || overview.pickupsHangups.hangups > 0
         let hasReportedDigits = overview.pickupsHangups.digitsDialed.values.contains { $0 > 0 }
-        guard hasCalls, !hasReportedDigits else { return overview }
+        let cacheKey = DialedDigitRecoveryCacheKey(
+            clientID: ObjectIdentifier(self),
+            selection: selection,
+            installationScope: installationScope
+        )
+        if hasReportedDigits {
+            await dialedDigitRecoveryCache.removeValue(for: cacheKey)
+            return overview
+        }
+        guard hasCalls else { return overview }
+        if let cached = await dialedDigitRecoveryCache.counts(for: cacheKey) {
+            return cached.values.contains(where: { $0 > 0 })
+                ? overview.replacingDialedDigits(with: cached)
+                : overview
+        }
 
         let digitsDialed = try await fetchDialedDigitEventCounts(
             since: overview.rangeStart,
             until: overview.rangeEnd,
             installationScope: installationScope
         )
+        await dialedDigitRecoveryCache.store(digitsDialed, for: cacheKey)
         guard digitsDialed.values.contains(where: { $0 > 0 }) else { return overview }
         return overview.replacingDialedDigits(with: digitsDialed)
     }
