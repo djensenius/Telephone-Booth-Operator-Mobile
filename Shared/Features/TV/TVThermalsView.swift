@@ -45,7 +45,7 @@ struct TVThermalsView: View {
             }
         )
         .autoRefresh(every: .seconds(5)) {
-            await model.refreshCurrentAndLoadDetailsIfNeeded()
+            await model.refreshCurrent()
         }
         .autoRefresh(
             id: TVCurrentWeatherTaskID(

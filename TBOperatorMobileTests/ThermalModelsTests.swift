@@ -287,7 +287,7 @@ final class ThermalModelsTests: XCTestCase {
         XCTAssertFalse(model.hasCompletedCurrentWeatherRequest)
         XCTAssertFalse(model.hasCompletedHistoryRequest)
 
-        await model.refreshCurrentAndLoadDetailsIfNeeded()
+        await model.refreshAll()
 
         XCTAssertTrue(model.hasCompletedCurrentRequest)
         XCTAssertTrue(model.hasCompletedCurrentWeatherRequest)
