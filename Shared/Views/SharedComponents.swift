@@ -244,7 +244,7 @@ public var operatorFilterPlacement: ToolbarItemPlacement {
 
 /// Severity levels matching the operator web `BoothStatusBadge`
 /// thresholds (fresh < 60 s, warning 60 s – 5 min, offline > 5 min).
-public enum BoothStalenessLevel: Sendable {
+public enum BoothStalenessLevel: Sendable, Equatable {
     case fresh
     case warning
     case offline

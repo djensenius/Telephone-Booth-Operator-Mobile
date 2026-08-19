@@ -224,18 +224,19 @@ private struct DashboardOverviewCard: View {
     }
 
     private func statusRow(_ status: BoothStatus, now: Date) -> some View {
-        let presentation = status.state.dashboardPresentation
+        let isOffline = boothStaleness(lastStatusAt: status.updatedAt, now: now).level == .offline
+        let presentation = isOffline ? BoothStatePresentation.offline : status.state.dashboardPresentation
+        let tint = isOffline ? Theme.Colors.error : status.state.dashboardTint
+        let detail = isOffline ? "Waiting for fresh booth telemetry"
+            : "\(presentation.name) for " + DurationFormatter.compactString(from: status.heldSince, to: now)
         return HStack(alignment: .center, spacing: Theme.Spacing.medium) {
-            BoothStateIcon(state: status.state)
+            BoothStateIcon(symbol: presentation.symbol, tint: tint)
             VStack(alignment: .leading, spacing: 2) {
                 Text(presentation.title)
                     .font(Theme.Fonts.bodyLarge.weight(.semibold))
                     .foregroundStyle(Theme.Colors.textPrimary)
                     .lineLimit(2)
-                Text(
-                    "\(presentation.name) for "
-                        + DurationFormatter.compactString(from: status.heldSince, to: now)
-                )
+                Text(detail)
                 .font(Theme.Fonts.bodySmall)
                 .foregroundStyle(Theme.Colors.textSecondary)
             }
@@ -403,7 +404,7 @@ private struct StatusHistoryChart: View {
             } else {
                 PointMark(
                     x: .value("Transition", item.heldSince),
-                    y: .value("Transition order", statusHistoryPointLane(in: items, at: index))
+                    y: .value("Transition order", items.instantTransitionLane(at: index))
                 )
                 .symbolSize(42)
                 .foregroundStyle(color(for: item.state))
@@ -427,24 +428,18 @@ private struct StatusHistoryChart: View {
         return Theme.Colors.textSecondary.opacity(0.16)
     }
 }
-
-func statusHistoryPointLane(in items: [BoothStatus], at index: Int) -> Double {
-    let timestamp = items[index].heldSince
-    let ties = items.indices.filter { items[$0].heldSince == timestamp && items[$0].updatedAt <= timestamp }
-    let order = ties.firstIndex(of: index) ?? 0
-    return Double(order + 1) / Double(max(ties.count, 1) + 1)
-}
 #endif
 
 private struct BoothStateIcon: View {
-    let state: BoothState
+    let symbol: String
+    let tint: Color
     var body: some View {
-        Image(systemName: state.dashboardPresentation.symbol)
+        Image(systemName: symbol)
             .font(.system(size: 19, weight: .semibold))
-            .foregroundStyle(state.dashboardTint)
+            .foregroundStyle(tint)
             .frame(width: 44, height: 44)
             .background {
-                Circle().fill(state.dashboardTint.opacity(0.14))
+                Circle().fill(tint.opacity(0.14))
             }
             .accessibilityHidden(true)
     }
@@ -485,6 +480,7 @@ private extension BoothState {
 
 private struct BoothStatePresentation {
     let name, title, symbol: String
+    static let offline = BoothStatePresentation("Unavailable", "Booth status unavailable", "wifi.slash")
     init(_ name: String, _ title: String, _ symbol: String) {
         self.name = name
         self.title = title

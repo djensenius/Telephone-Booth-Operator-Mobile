@@ -43,7 +43,7 @@ final class BoothStatusDisplayCollapseTests: XCTestCase {
             BoothStatus(state: .idle, updatedAt: now)
         ]
 
-        let lanes = rows.indices.map { statusHistoryPointLane(in: rows, at: $0) }
+        let lanes = rows.indices.map { rows.instantTransitionLane(at: $0) }
 
         XCTAssertEqual(lanes, [0.25, 0.5, 0.75])
     }
