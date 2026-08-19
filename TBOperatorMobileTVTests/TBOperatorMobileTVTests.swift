@@ -12,6 +12,12 @@ final class TBOperatorMobileTVTests: XCTestCase {
         XCTAssertEqual(state.tvSymbol, "wave.3.right.circle")
     }
 
+    func testBoothWallNeutralizesStaleIdleStatus() {
+        let presentation = tvBoothPresentation(state: .idle, staleness: .offline)
+        XCTAssertEqual(presentation.headline, "Booth status unavailable")
+        XCTAssertEqual(presentation.symbol, "wifi.slash")
+    }
+
     func testBoothWallUsesReadinessCopyForIdleState() {
         XCTAssertEqual(BoothState.idle.tvHeadline, "Ready for the next call")
         XCTAssertEqual(BoothState.idle.tvDisplayName, "Idle")

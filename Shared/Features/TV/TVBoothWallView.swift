@@ -2,18 +2,7 @@
 //  TVBoothWallView.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Big-screen booth status wall for tvOS. Read-only by design — the
-//  remote doesn't translate well to moderation gestures, and message
-//  content is deliberately never shown here (that lives in the
-//  approve/reject flow). Live booth status and summary counts come from
-//  the shared `BoothStatusLiveStore` (WebSocket + 5-second REST fallback);
-//  this view additionally polls /v1/stats/overview and /v1/messages every
-//  10 seconds to keep the recent-activity strip and overview fresh.
-//
-//  Laid out with `TVDashboardKit` so everything stays inside the tvOS
-//  title-safe area and the whole wall scrolls (focusable cards) instead
-//  of running the header off the top and the overview strip off the
-//  bottom.
+//  Read-only, focus-friendly booth status wall for tvOS.
 //
 
 #if os(tvOS)
@@ -103,23 +92,24 @@ struct TVBoothWallView: View {
     private var statusOverview: some View {
         TimelineView(.periodic(from: .now, by: 10)) { context in
             let status = currentStatus
-            let state = status?.state
+            let staleness = boothStaleness(lastStatusAt: status?.updatedAt, now: context.date)
+            let presentation = tvBoothPresentation(state: status?.state, staleness: staleness.level)
             TVFocusCard {
                 HStack(spacing: 34) {
-                    Image(systemName: state.tvSymbol)
+                    Image(systemName: presentation.symbol)
                         .font(.system(size: 64, weight: .semibold))
-                        .foregroundStyle(state.tvTint)
+                        .foregroundStyle(presentation.tint)
                         .frame(width: 118, height: 118)
                         .background {
-                            Circle().fill(state.tvTint.opacity(0.16))
+                            Circle().fill(presentation.tint.opacity(0.16))
                         }
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(state.tvHeadline)
+                        Text(presentation.headline)
                             .font(.system(size: 44, weight: .bold))
                             .foregroundStyle(Theme.Colors.textPrimary)
                             .lineLimit(2)
                             .minimumScaleFactor(0.75)
-                        Text(statusDetail(status, now: context.date))
+                        Text(staleness.label ?? statusDetail(status, now: context.date))
                             .font(TVMetrics.Font.body)
                             .foregroundStyle(Theme.Colors.textSecondary)
                     }

@@ -2,12 +2,8 @@
 //  StatusDashboardView.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Live booth status panel and recent uptime chart. The chart pulls
-//  `/v1/status/history` and renders it with Swift Charts. State, queue
-//  counts, and operator profile come from `/v1/stats/summary` and
-//  `/v1/auth/me`.
+//  Compact live booth status, health, metrics, and recent activity.
 //
-
 import SwiftUI
 #if canImport(Charts)
 import Charts
@@ -395,14 +391,24 @@ private struct DashboardActivityCard: View {
 private struct StatusHistoryChart: View {
     let items: [BoothStatus]
     var body: some View {
-        Chart(Array(items.enumerated()), id: \.offset) { _, item in
-            RectangleMark(
-                xStart: .value("Started", item.heldSince),
-                xEnd: .value("Ended", max(item.updatedAt, item.heldSince.addingTimeInterval(1))),
-                yStart: .value("Lane start", 0),
-                yEnd: .value("Lane end", 1)
-            )
-            .foregroundStyle(color(for: item.state))
+        Chart(Array(items.enumerated()), id: \.offset) { index, item in
+            if item.updatedAt > item.heldSince {
+                RectangleMark(
+                    xStart: .value("Started", item.heldSince),
+                    xEnd: .value("Ended", item.updatedAt),
+                    yStart: .value("Lane start", 0),
+                    yEnd: .value("Lane end", 1)
+                )
+                .foregroundStyle(color(for: item.state))
+            } else {
+                PointMark(
+                    x: .value("Transition", item.heldSince),
+                    y: .value("Transition order", statusHistoryPointLane(in: items, at: index))
+                )
+                .symbolSize(42)
+                .foregroundStyle(color(for: item.state))
+                .zIndex(1)
+            }
         }
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
@@ -420,6 +426,13 @@ private struct StatusHistoryChart: View {
         if state.isCallActive { return Theme.Colors.accent }
         return Theme.Colors.textSecondary.opacity(0.16)
     }
+}
+
+func statusHistoryPointLane(in items: [BoothStatus], at index: Int) -> Double {
+    let timestamp = items[index].heldSince
+    let ties = items.indices.filter { items[$0].heldSince == timestamp && items[$0].updatedAt <= timestamp }
+    let order = ties.firstIndex(of: index) ?? 0
+    return Double(order + 1) / Double(max(ties.count, 1) + 1)
 }
 #endif
 

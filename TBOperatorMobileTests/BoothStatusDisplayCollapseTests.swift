@@ -36,6 +36,18 @@ final class BoothStatusDisplayCollapseTests: XCTestCase {
         XCTAssertEqual(rows.collapsingRepeats().map(\.id), [1, 2, 3])
     }
 
+    func testInstantActivityMarksPreserveTransitionOrder() {
+        let rows = [
+            BoothStatus(state: .idle, updatedAt: now),
+            BoothStatus(state: .recording, updatedAt: now),
+            BoothStatus(state: .idle, updatedAt: now)
+        ]
+
+        let lanes = rows.indices.map { statusHistoryPointLane(in: rows, at: $0) }
+
+        XCTAssertEqual(lanes, [0.25, 0.5, 0.75])
+    }
+
     func testIdLessRunReturningAfterATransitionIsKept() {
         // A collapsed operator that sends no row id: idle, a blip of recording,
         // idle again, all inside one booth millisecond.

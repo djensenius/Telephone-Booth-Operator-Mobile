@@ -434,4 +434,27 @@ extension BoothEventType {
     }
 }
 
+struct TVBoothPresentation {
+    let headline: String
+    let symbol: String
+    let tint: Color
+
+    init(_ headline: String, _ symbol: String, _ tint: Color) {
+        self.headline = headline
+        self.symbol = symbol
+        self.tint = tint
+    }
+}
+
+func tvBoothPresentation(
+    state: BoothState?,
+    staleness: BoothStalenessLevel
+) -> TVBoothPresentation {
+    switch staleness {
+    case .fresh: return TVBoothPresentation(state.tvHeadline, state.tvSymbol, state.tvTint)
+    case .warning: return TVBoothPresentation(state.tvHeadline, state.tvSymbol, Theme.Colors.warning)
+    case .offline: return TVBoothPresentation("Booth status unavailable", "wifi.slash", Theme.Colors.error)
+    }
+}
+
 #endif
