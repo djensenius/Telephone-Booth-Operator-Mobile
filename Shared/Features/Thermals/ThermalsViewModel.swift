@@ -64,6 +64,7 @@ final class ThermalsViewModel {
 
     @ObservationIgnored private let provider: any ThermalsDataProvider
     @ObservationIgnored private let now: @Sendable () -> Date
+    @ObservationIgnored private var currentGeneration = 0
     @ObservationIgnored private var historyGeneration = 0
     @ObservationIgnored private var weatherGeneration = 0
     @ObservationIgnored private var loadedSelectionId: String?
@@ -149,11 +150,6 @@ final class ThermalsViewModel {
         }
     }
 
-    func refreshCurrentAndLoadDetailsIfNeeded() async {
-        await refreshCurrent()
-        await refreshDetails(force: false)
-    }
-
     func refreshAll() async {
         await refreshCurrent()
         await refreshDetails(force: true)
@@ -161,22 +157,38 @@ final class ThermalsViewModel {
 
     func refreshCurrent() async {
         let previousBooth = selectedSource?.boothId
+        currentGeneration += 1
+        let generation = currentGeneration
         isLoadingCurrent = true
-        defer { isLoadingCurrent = false }
+        defer {
+            if generation == currentGeneration {
+                isLoadingCurrent = false
+            }
+        }
         var messages: [String] = []
 
-        do {
-            componentSources = try await provider.fetchCurrentSystemComponents()
-        } catch {
+        async let componentResult = capture {
+            try await provider.fetchCurrentSystemComponents()
+        }
+        async let systemResult = capture {
+            try await provider.fetchAllCurrentSystems()
+        }
+        let (components, systems) = await (componentResult, systemResult)
+
+        guard !Task.isCancelled, generation == currentGeneration else { return }
+        switch components {
+        case .success(let sources):
+            componentSources = sources
+        case .failure(let error):
             messages.append(Self.errorMessage(prefix: "Router readings", error: error))
         }
-        do {
-            systemEnvelopes = try await provider.fetchAllCurrentSystems()
-        } catch {
+        switch systems {
+        case .success(let envelopes):
+            systemEnvelopes = envelopes
+        case .failure(let error):
             messages.append(Self.errorMessage(prefix: "Pi readings", error: error))
         }
 
-        guard !Task.isCancelled else { return }
         normalizeSelection(preferredBooth: previousBooth)
         currentError = messages.isEmpty ? nil : messages.joined(separator: " ")
         hasCompletedCurrentRequest = true
@@ -187,7 +199,6 @@ final class ThermalsViewModel {
             clearCurrentWeather()
             return
         }
-        guard !isLoadingCurrentWeather else { return }
         weatherGeneration += 1
         let generation = weatherGeneration
         let requestedSelectionId = selectedSourceId
@@ -227,7 +238,6 @@ final class ThermalsViewModel {
             clearHistory()
             return
         }
-        guard !isLoadingHistory else { return }
         historyGeneration += 1
         let generation = historyGeneration
         let requestedSelectionId = selectedSourceId
@@ -277,12 +287,26 @@ final class ThermalsViewModel {
 
     private func refreshDetails(force: Bool) async {
         guard !Task.isCancelled, selectedSource != nil else { return }
-        if force || !hasCompletedCurrentWeatherRequest {
-            await refreshCurrentWeather()
-        }
-        guard !Task.isCancelled else { return }
-        if force || !hasCompletedHistoryRequest {
+        let needsWeather = force || !hasCompletedCurrentWeatherRequest
+        let needsHistory = force || !hasCompletedHistoryRequest
+        if needsWeather && needsHistory {
+            async let weatherRefresh: Void = refreshCurrentWeather()
             await refreshHistory()
+            await weatherRefresh
+        } else if needsWeather {
+            await refreshCurrentWeather()
+        } else if needsHistory {
+            await refreshHistory()
+        }
+    }
+
+    private func capture<Value: Sendable>(
+        _ operation: @Sendable () async throws -> Value
+    ) async -> Result<Value, Error> {
+        do {
+            return .success(try await operation())
+        } catch {
+            return .failure(error)
         }
     }
 

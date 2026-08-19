@@ -42,7 +42,7 @@ public struct ThermalsView: View {
         }
         .background(Theme.Colors.background)
         .autoRefresh(every: .seconds(5)) {
-            await model.refreshCurrentAndLoadDetailsIfNeeded()
+            await model.refreshCurrent()
         }
         .autoRefresh(
             id: CurrentWeatherTaskID(

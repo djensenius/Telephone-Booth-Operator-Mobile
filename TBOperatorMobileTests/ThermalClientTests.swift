@@ -118,7 +118,7 @@ final class ThermalsViewModelStateTests: XCTestCase {
         )
         let model = ThermalsViewModel(provider: provider)
 
-        await model.refreshCurrentAndLoadDetailsIfNeeded()
+        await model.refreshAll()
 
         XCTAssertTrue(model.hasCompletedCurrentWeatherRequest)
         XCTAssertNil(model.currentWeather)
@@ -137,7 +137,7 @@ final class ThermalsViewModelStateTests: XCTestCase {
         )
         let model = ThermalsViewModel(provider: provider)
 
-        await model.refreshCurrentAndLoadDetailsIfNeeded()
+        await model.refreshAll()
 
         XCTAssertTrue(model.hasCompletedCurrentWeatherRequest)
         XCTAssertNil(model.currentWeather)
@@ -147,14 +147,100 @@ final class ThermalsViewModelStateTests: XCTestCase {
         XCTAssertNotNil(model.historyError)
     }
 
+    @MainActor
+    func testCurrentRefreshStartsBothSourcesBeforeEitherCompletes() async {
+        let componentRequests = ThermalRequestGate<[SystemComponentCurrentEnvelope]>()
+        let systemRequests = ThermalRequestGate<[BoothSystemSnapshotEnvelope]>()
+        let component = makeComponent()
+        let provider = ClosureThermalsDataProvider(
+            components: { await componentRequests.request() },
+            systems: { await systemRequests.request() }
+        )
+        let model = ThermalsViewModel(provider: provider)
+
+        let refresh = Task { @MainActor in await model.refreshCurrent() }
+        let startedTogether = await requestsStarted(
+            componentRequests,
+            and: systemRequests,
+            expectedCount: 1
+        )
+
+        XCTAssertTrue(startedTogether)
+        await componentRequests.resolve(1, with: [component])
+        if await systemRequests.startedCount() == 0 {
+            _ = await waitForRequests(systemRequests, expectedCount: 1)
+        }
+        await systemRequests.resolve(1, with: [])
+        await refresh.value
+
+        XCTAssertEqual(model.componentSources, [component])
+        XCTAssertTrue(model.hasCompletedCurrentRequest)
+        XCTAssertFalse(model.isLoadingCurrent)
+    }
+
+    @MainActor
+    func testOverlappingDetailRefreshesSupersedeInFlightRequests() async {
+        let weatherRequests = ThermalRequestGate<CurrentWeather?>()
+        let historyRequests = ThermalRequestGate<ThermalHistoryResponse>()
+        let component = makeComponent()
+        let provider = ClosureThermalsDataProvider(
+            components: { [component] },
+            weather: { _ in await weatherRequests.request() },
+            history: { _ in await historyRequests.request() }
+        )
+        let model = ThermalsViewModel(provider: provider)
+        await model.refreshCurrent()
+
+        let firstWeather = Task { @MainActor in await model.refreshCurrentWeather() }
+        let firstHistory = Task { @MainActor in await model.refreshHistory() }
+        _ = await waitForRequests(weatherRequests, expectedCount: 1)
+        _ = await waitForRequests(historyRequests, expectedCount: 1)
+
+        let secondWeather = Task { @MainActor in await model.refreshCurrentWeather() }
+        let secondHistory = Task { @MainActor in await model.refreshHistory() }
+        let weatherCount = await waitForRequests(weatherRequests, expectedCount: 2)
+        let historyCount = await waitForRequests(historyRequests, expectedCount: 2)
+
+        XCTAssertEqual(weatherCount, 2)
+        XCTAssertEqual(historyCount, 2)
+
+        let newerWeather = makeWeather(temperature: 24)
+        let olderWeather = makeWeather(temperature: 18)
+        let newerHistory = makeEmptyHistory(
+            source: component.source,
+            end: Date(timeIntervalSince1970: 1_787_010_000)
+        )
+        let olderHistory = makeEmptyHistory(
+            source: component.source,
+            end: Date(timeIntervalSince1970: 1_787_005_000)
+        )
+
+        await weatherRequests.resolve(2, with: newerWeather)
+        await historyRequests.resolve(2, with: newerHistory)
+        await secondWeather.value
+        await secondHistory.value
+        await weatherRequests.resolve(1, with: olderWeather)
+        await historyRequests.resolve(1, with: olderHistory)
+        await firstWeather.value
+        await firstHistory.value
+
+        XCTAssertEqual(model.currentWeather, newerWeather)
+        XCTAssertEqual(model.history, newerHistory)
+        XCTAssertTrue(model.hasCompletedCurrentWeatherRequest)
+        XCTAssertTrue(model.hasCompletedHistoryRequest)
+        XCTAssertFalse(model.isLoadingCurrentWeather)
+        XCTAssertFalse(model.isLoadingHistory)
+    }
+
     private func makeEmptyHistory(
-        source: SystemComponentSource
+        source: SystemComponentSource,
+        end: Date = Date(timeIntervalSince1970: 1_787_003_600)
     ) -> ThermalHistoryResponse {
         ThermalHistoryResponse(
             boothId: source.boothId,
             source: source,
             from: Date(timeIntervalSince1970: 1_787_000_000),
-            end: Date(timeIntervalSince1970: 1_787_003_600),
+            end: end,
             stepSeconds: 300,
             series: []
         )
@@ -174,6 +260,49 @@ final class ThermalsViewModelStateTests: XCTestCase {
                 battery: .init(temperatureCelsius: 42)
             )
         )
+    }
+
+    private func makeWeather(temperature: Double) -> CurrentWeather {
+        CurrentWeather(
+            boothId: "booth-a",
+            source: "open_meteo",
+            temperatureCelsius: temperature,
+            relativeHumidityPercent: 50,
+            cloudCoverPercent: 10,
+            condition: .clearSky,
+            observedAt: Date(timeIntervalSince1970: 1_787_003_500),
+            fetchedAt: Date(timeIntervalSince1970: 1_787_003_600)
+        )
+    }
+
+    @MainActor
+    private func waitForRequests<Value: Sendable>(
+        _ gate: ThermalRequestGate<Value>,
+        expectedCount: Int
+    ) async -> Int {
+        for _ in 0..<1_000 {
+            let count = await gate.startedCount()
+            if count >= expectedCount { return count }
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        return await gate.startedCount()
+    }
+
+    @MainActor
+    private func requestsStarted<First: Sendable, Second: Sendable>(
+        _ first: ThermalRequestGate<First>,
+        and second: ThermalRequestGate<Second>,
+        expectedCount: Int
+    ) async -> Bool {
+        for _ in 0..<1_000 {
+            let firstCount = await first.startedCount()
+            let secondCount = await second.startedCount()
+            if firstCount >= expectedCount, secondCount >= expectedCount {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        return false
     }
 }
 
@@ -224,5 +353,67 @@ private struct StubThermalsDataProvider: ThermalsDataProvider {
         query: ThermalHistoryQuery
     ) async throws -> ThermalHistoryResponse {
         try history.get()
+    }
+}
+
+private struct ClosureThermalsDataProvider: ThermalsDataProvider {
+    let components: @Sendable () async throws -> [SystemComponentCurrentEnvelope]
+    let systems: @Sendable () async throws -> [BoothSystemSnapshotEnvelope]
+    let weather: @Sendable (String) async throws -> CurrentWeather?
+    let history: @Sendable (ThermalHistoryQuery) async throws -> ThermalHistoryResponse
+
+    init(
+        components: @escaping @Sendable () async throws
+            -> [SystemComponentCurrentEnvelope] = { [] },
+        systems: @escaping @Sendable () async throws
+            -> [BoothSystemSnapshotEnvelope] = { [] },
+        weather: @escaping @Sendable (String) async throws
+            -> CurrentWeather? = { _ in nil },
+        history: @escaping @Sendable (ThermalHistoryQuery) async throws
+            -> ThermalHistoryResponse = { _ in throw ThermalStubError.unavailable }
+    ) {
+        self.components = components
+        self.systems = systems
+        self.weather = weather
+        self.history = history
+    }
+
+    func fetchCurrentSystemComponents() async throws -> [SystemComponentCurrentEnvelope] {
+        try await components()
+    }
+
+    func fetchAllCurrentSystems() async throws -> [BoothSystemSnapshotEnvelope] {
+        try await systems()
+    }
+
+    func fetchCurrentWeather(boothId: String) async throws -> CurrentWeather? {
+        try await weather(boothId)
+    }
+
+    func fetchThermalHistory(
+        query: ThermalHistoryQuery
+    ) async throws -> ThermalHistoryResponse {
+        try await history(query)
+    }
+}
+
+private actor ThermalRequestGate<Value: Sendable> {
+    private var requestCount = 0
+    private var continuations: [Int: CheckedContinuation<Value, Never>] = [:]
+
+    func request() async -> Value {
+        requestCount += 1
+        let requestId = requestCount
+        return await withCheckedContinuation { continuation in
+            continuations[requestId] = continuation
+        }
+    }
+
+    func startedCount() -> Int {
+        requestCount
+    }
+
+    func resolve(_ requestId: Int, with value: Value) {
+        continuations.removeValue(forKey: requestId)?.resume(returning: value)
     }
 }
