@@ -50,7 +50,7 @@ the browser cookie session uses today.
 | macOS      | 26.0       | Native SwiftUI, sandboxed                                    |
 | watchOS    | 26.0       | Standalone companion + complications                         |
 | visionOS   | 26.0       | Spatial operator dashboard                                   |
-| tvOS       | 26.0       | Read-only "booth wall" for installation displays             |
+| tvOS       | 26.0       | Read-only, focus-friendly operator dashboards                |
 
 Widgets and a `CallInProgress` Live Activity ship on every platform that
 supports WidgetKit (iOS, iPadOS, macOS, visionOS, watchOS).

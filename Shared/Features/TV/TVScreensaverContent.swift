@@ -176,45 +176,76 @@ enum TVScreensaverPlaylist {
         }
 
         if let stats {
+            items.append(contentsOf: spotlights(for: stats))
+        }
+
+        if let overview {
+            items.append(contentsOf: spotlights(for: overview))
+        }
+
+        return items
+    }
+
+    private static func spotlights(for stats: StatsSummary) -> [TVSpotlight] {
+        var items: [TVSpotlight] = []
+
+        if stats.calls.today > 0 {
             items.append(metric("calls-today", "\(stats.calls.today)", "Calls today", "phone.fill"))
-            if stats.calls.inProgress > 0 {
-                items.append(
-                    metric(
-                        "in-progress",
-                        "\(stats.calls.inProgress)",
-                        "In progress",
-                        "phone.connection.fill",
-                        emphasized: true
-                    )
+        }
+        if stats.calls.inProgress > 0 {
+            items.append(
+                metric(
+                    "in-progress",
+                    "\(stats.calls.inProgress)",
+                    "In progress",
+                    "phone.connection.fill",
+                    emphasized: true
                 )
-            }
+            )
+        }
+        if stats.messages.pending > 0 {
             items.append(
                 metric(
                     "pending",
                     "\(stats.messages.pending)",
                     "Awaiting review",
                     "tray.full.fill",
-                    emphasized: stats.messages.pending > 0
+                    emphasized: true
                 )
             )
+        }
+        if stats.messages.receivedToday > 0 {
             items.append(metric("received", "\(stats.messages.receivedToday)", "Received today", "envelope.fill"))
         }
 
-        if let overview {
-            if let rate = overview.completionRate {
-                items.append(
-                    metric("completion", StatsFormat.percentString(rate), "Completion rate", "checkmark.seal.fill")
-                )
-            }
+        return items
+    }
+
+    private static func spotlights(for overview: StatsOverview) -> [TVSpotlight] {
+        var items: [TVSpotlight] = []
+
+        if let rate = overview.completionRate, rate > 0 {
+            items.append(
+                metric("completion", StatsFormat.percentString(rate), "Completion rate", "checkmark.seal.fill")
+            )
+        }
+        if overview.pickupsHangups.pickups > 0 {
             items.append(
                 metric("pickups", "\(overview.pickupsHangups.pickups)", "Pickups · 7 days", "hand.raised.fill")
             )
+        }
+        if overview.playback.totalPlaybacks > 0 {
             items.append(
-                metric("playbacks", "\(overview.playback.totalPlaybacks)", "Playbacks · 7 days", "speaker.wave.2.fill")
+                metric(
+                    "playbacks",
+                    "\(overview.playback.totalPlaybacks)",
+                    "Playbacks · 7 days",
+                    "speaker.wave.2.fill"
+                )
             )
-            if !overview.calls.perDay.isEmpty {
-                items.append(TVSpotlight(id: "calls-chart", kind: .callsChart(days: overview.calls.perDay)))
-            }
+        }
+        if overview.calls.perDay.contains(where: { $0.total > 0 }) {
+            items.append(TVSpotlight(id: "calls-chart", kind: .callsChart(days: overview.calls.perDay)))
         }
 
         return items

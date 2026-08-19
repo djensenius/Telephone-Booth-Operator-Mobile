@@ -8,7 +8,7 @@
 import Foundation
 import Observation
 
-#if !os(watchOS) && !os(tvOS)
+#if !os(watchOS)
 protocol ThermalsDataProvider: Sendable {
     func fetchCurrentSystemComponents() async throws -> [SystemComponentCurrentEnvelope]
     func fetchAllCurrentSystems() async throws -> [BoothSystemSnapshotEnvelope]

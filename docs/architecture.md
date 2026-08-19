@@ -10,7 +10,7 @@
 │    • TBOperatorMobile           (iOS / iPadOS — universal)        │
 │    • TBOperatorMobileMac        (macOS — native SwiftUI, sandbox) │
 │    • TBOperatorMobileVision     (visionOS)                        │
-│    • TBOperatorMobileTV         (tvOS — read-only booth wall)     │
+│    • TBOperatorMobileTV         (tvOS — read-only dashboards)     │
 │    • TBOperatorMobileWatch      (watchOS — standalone)            │
 │    • TBOperatorMobileWidgets    (WidgetKit extension + Live Acts) │
 │                                                                   │

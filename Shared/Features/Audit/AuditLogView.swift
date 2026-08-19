@@ -3,8 +3,8 @@
 //  TelephoneBoothOperatorMobile
 //
 //  Admin-only view of the operator audit trail (`/v1/audit-logs`): who took
-//  each write action, from which address, and when. Not shown on watchOS or
-//  tvOS, which have no admin workflow.
+//  each write action, from which address, and when. tvOS uses the read-only,
+//  focus-friendly `TVAuditView`; watchOS does not expose the admin workflow.
 //
 
 #if !os(watchOS) && !os(tvOS)

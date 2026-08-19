@@ -157,48 +157,50 @@ struct TVBoothWallView: View {
     // MARK: - Recent activity (no message content by design)
 
     private var activityStrip: some View {
-        TVFocusCard {
-            VStack(alignment: .leading, spacing: 24) {
-                TVCardHeader(title: "Live context", systemImage: "waveform.path.ecg")
-                HStack(alignment: .top, spacing: 32) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("LATEST RECORDING")
-                            .font(TVMetrics.Font.label)
-                            .foregroundStyle(Theme.Colors.textSecondary)
-                        Text(activitySubtitle)
-                            .font(.system(size: 36, weight: .semibold))
-                            .foregroundStyle(Theme.Colors.textPrimary)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.75)
+        TimelineView(.periodic(from: .now, by: 10)) { context in
+            TVFocusCard {
+                VStack(alignment: .leading, spacing: 24) {
+                    TVCardHeader(title: "Live context", systemImage: "waveform.path.ecg")
+                    HStack(alignment: .top, spacing: 32) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("LATEST RECORDING")
+                                .font(TVMetrics.Font.label)
+                                .foregroundStyle(Theme.Colors.textSecondary)
+                            Text(activitySubtitle)
+                                .font(.system(size: 36, weight: .semibold))
+                                .foregroundStyle(Theme.Colors.textPrimary)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.75)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Divider()
+                            .overlay(Theme.Colors.textSecondary.opacity(0.24))
+                            .frame(height: 100)
+                        let health = healthSummary(now: context.date)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("BOOTH HEALTH")
+                                .font(TVMetrics.Font.label)
+                                .foregroundStyle(Theme.Colors.textSecondary)
+                            Label(health.label, systemImage: health.systemImage)
+                                .font(.system(size: 36, weight: .semibold))
+                                .foregroundStyle(health.tint)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
+                            Text(health.detail)
+                                .font(TVMetrics.Font.caption)
+                                .foregroundStyle(Theme.Colors.textSecondary)
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    Divider()
-                        .overlay(Theme.Colors.textSecondary.opacity(0.24))
-                        .frame(height: 100)
-                    let health = healthSummary
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("BOOTH HEALTH")
-                            .font(TVMetrics.Font.label)
-                            .foregroundStyle(Theme.Colors.textSecondary)
-                        Label(health.label, systemImage: health.systemImage)
-                            .font(.system(size: 36, weight: .semibold))
-                            .foregroundStyle(health.tint)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                        Text(health.detail)
-                            .font(TVMetrics.Font.caption)
-                            .foregroundStyle(Theme.Colors.textSecondary)
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(minHeight: 130, alignment: .top)
                 }
-                .frame(minHeight: 130, alignment: .top)
             }
         }
     }
 
-    private var healthSummary: TVWallHealth {
-        guard let snapshot = liveStore.systemEnvelope?.snapshot else {
+    private func healthSummary(now: Date) -> TVWallHealth {
+        guard let envelope = liveStore.systemEnvelope else {
             return TVWallHealth(
                 label: "Waiting",
                 detail: "No system snapshot yet",
@@ -206,7 +208,19 @@ struct TVBoothWallView: View {
                 tint: Theme.Colors.info
             )
         }
-        let severity = SystemVitals.overallSeverity(snapshot: snapshot)
+        let snapshot = envelope.snapshot
+        let routerTemperature = SystemVitals.routerBatteryTemperature(
+            in: liveStore.componentSources,
+            boothId: envelope.boothId,
+            now: now
+        )
+        let telemetryIsStale =
+            now.timeIntervalSince(envelope.receivedAt) >= BoothStalenessThresholds.offlineSeconds
+        let severity = SystemVitals.overallSeverity(
+            snapshot: snapshot,
+            routerTemperature: routerTemperature,
+            telemetryIsStale: telemetryIsStale
+        )
         let label: String
         let systemImage: String
         switch severity {

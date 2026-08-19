@@ -1,4 +1,3 @@
-// swiftlint:disable file_length
 //
 //  TVStatsView.swift
 //  TelephoneBoothOperatorMobile
@@ -414,54 +413,6 @@ private struct TVInstallationSelector: View {
             return "All Installations"
         case .installation(let id):
             return installations.first(where: { $0.id == id })?.name ?? "Historical Installation"
-        }
-    }
-}
-
-/// Segmented-control button style with an unmistakable selected state and
-/// a focus treatment that keeps the label readable (accent ring + lift)
-/// rather than filling the pill solid white.
-private struct TVSegmentButtonStyle: ButtonStyle {
-    let isSelected: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        SegmentBody(configuration: configuration, isSelected: isSelected)
-    }
-
-    private struct SegmentBody: View {
-        let configuration: Configuration
-        let isSelected: Bool
-        @Environment(\.isFocused) private var isFocused
-
-        var body: some View {
-            configuration.label
-                .foregroundStyle(foreground)
-                .background(
-                    Capsule().fill(fill)
-                )
-                .overlay(
-                    Capsule().strokeBorder(
-                        Theme.Colors.accent.opacity(isFocused ? 1 : 0),
-                        lineWidth: 4
-                    )
-                )
-                .scaleEffect(isFocused ? 1.06 : 1)
-                .animation(.easeOut(duration: 0.16), value: isFocused)
-                .animation(.easeOut(duration: 0.16), value: isSelected)
-        }
-
-        private var foreground: Color {
-            // The accent (Catppuccin maroon) is light, so white washes out on
-            // the selected pill (~2:1 on the Mocha maroon). Black stays legible
-            // on both the Latte and Mocha maroons.
-            if isSelected { return .black }
-            return Theme.Colors.textPrimary
-        }
-
-        private var fill: Color {
-            if isSelected { return Theme.Colors.accent }
-            if isFocused { return Theme.Colors.elevatedBackground }
-            return Theme.Colors.elevatedBackground.opacity(0.6)
         }
     }
 }
