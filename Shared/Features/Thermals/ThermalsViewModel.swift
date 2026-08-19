@@ -33,13 +33,22 @@ final class ThermalsViewModel {
             }
         }
     }
-    var range: ThermalRangePreset = .default
+    var range: ThermalRangePreset = .default {
+        didSet {
+            if oldValue != range {
+                clearHistory()
+            }
+        }
+    }
     private(set) var history: ThermalHistoryResponse?
     private(set) var historyRange: ClosedRange<Date>?
     private(set) var currentWeather: CurrentWeather?
     private(set) var currentError: String?
     private(set) var currentWeatherError: String?
     private(set) var historyError: String?
+    private(set) var hasCompletedCurrentRequest = false
+    private(set) var hasCompletedCurrentWeatherRequest = false
+    private(set) var hasCompletedHistoryRequest = false
     private(set) var isLoadingCurrent = false
     private(set) var isLoadingCurrentWeather = false
     private(set) var isLoadingHistory = false
@@ -123,6 +132,16 @@ final class ThermalsViewModel {
         }
     }
 
+    func refreshCurrentAndLoadDetailsIfNeeded() async {
+        await refreshCurrent()
+        await refreshDetails(force: false)
+    }
+
+    func refreshAll() async {
+        await refreshCurrent()
+        await refreshDetails(force: true)
+    }
+
     func refreshCurrent() async {
         let previousBooth = selectedSource?.boothId
         isLoadingCurrent = true
@@ -140,8 +159,10 @@ final class ThermalsViewModel {
             messages.append(Self.errorMessage(prefix: "Pi readings", error: error))
         }
 
+        guard !Task.isCancelled else { return }
         normalizeSelection(preferredBooth: previousBooth)
         currentError = messages.isEmpty ? nil : messages.joined(separator: " ")
+        hasCompletedCurrentRequest = true
     }
 
     func refreshCurrentWeather() async {
@@ -149,6 +170,7 @@ final class ThermalsViewModel {
             clearCurrentWeather()
             return
         }
+        guard !isLoadingCurrentWeather else { return }
         weatherGeneration += 1
         let generation = weatherGeneration
         let requestedSelectionId = selectedSourceId
@@ -170,6 +192,7 @@ final class ThermalsViewModel {
             }
             currentWeather = result
             currentWeatherError = nil
+            hasCompletedCurrentWeatherRequest = true
         } catch {
             guard !Task.isCancelled,
                   generation == weatherGeneration,
@@ -178,6 +201,7 @@ final class ThermalsViewModel {
                 return
             }
             currentWeatherError = Self.errorMessage(prefix: "Current weather", error: error)
+            hasCompletedCurrentWeatherRequest = true
         }
     }
 
@@ -186,6 +210,7 @@ final class ThermalsViewModel {
             clearHistory()
             return
         }
+        guard !isLoadingHistory else { return }
         historyGeneration += 1
         let generation = historyGeneration
         let requestedSelectionId = selectedSourceId
@@ -220,6 +245,7 @@ final class ThermalsViewModel {
             loadedSelectionId = requestedSelectionId
             loadedRange = requestedRange
             historyError = nil
+            hasCompletedHistoryRequest = true
         } catch {
             guard !Task.isCancelled,
                   generation == historyGeneration,
@@ -228,6 +254,18 @@ final class ThermalsViewModel {
                 return
             }
             historyError = Self.errorMessage(prefix: "Thermal history", error: error)
+            hasCompletedHistoryRequest = true
+        }
+    }
+
+    private func refreshDetails(force: Bool) async {
+        guard !Task.isCancelled, selectedSource != nil else { return }
+        if force || !hasCompletedCurrentWeatherRequest {
+            await refreshCurrentWeather()
+        }
+        guard !Task.isCancelled else { return }
+        if force || !hasCompletedHistoryRequest {
+            await refreshHistory()
         }
     }
 
@@ -295,6 +333,7 @@ final class ThermalsViewModel {
         historyError = nil
         loadedSelectionId = nil
         loadedRange = nil
+        hasCompletedHistoryRequest = false
         isLoadingHistory = false
     }
 
@@ -302,6 +341,7 @@ final class ThermalsViewModel {
         weatherGeneration += 1
         currentWeather = nil
         currentWeatherError = nil
+        hasCompletedCurrentWeatherRequest = false
         isLoadingCurrentWeather = false
     }
 }
