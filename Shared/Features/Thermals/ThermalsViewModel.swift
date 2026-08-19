@@ -9,6 +9,15 @@ import Foundation
 import Observation
 
 #if !os(watchOS) && !os(tvOS)
+protocol ThermalsDataProvider: Sendable {
+    func fetchCurrentSystemComponents() async throws -> [SystemComponentCurrentEnvelope]
+    func fetchAllCurrentSystems() async throws -> [BoothSystemSnapshotEnvelope]
+    func fetchCurrentWeather(boothId: String) async throws -> CurrentWeather?
+    func fetchThermalHistory(query: ThermalHistoryQuery) async throws -> ThermalHistoryResponse
+}
+
+extension OperatorClient: ThermalsDataProvider {}
+
 struct ThermalSourceOption: Sendable, Hashable, Identifiable {
     let id: String
     let boothId: String
@@ -53,7 +62,7 @@ final class ThermalsViewModel {
     private(set) var isLoadingCurrentWeather = false
     private(set) var isLoadingHistory = false
 
-    @ObservationIgnored private let client: OperatorClient
+    @ObservationIgnored private let provider: any ThermalsDataProvider
     @ObservationIgnored private let now: @Sendable () -> Date
     @ObservationIgnored private var historyGeneration = 0
     @ObservationIgnored private var weatherGeneration = 0
@@ -64,7 +73,15 @@ final class ThermalsViewModel {
         client: OperatorClient,
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
-        self.client = client
+        provider = client
+        self.now = now
+    }
+
+    init(
+        provider: any ThermalsDataProvider,
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) {
+        self.provider = provider
         self.now = now
     }
 
@@ -149,12 +166,12 @@ final class ThermalsViewModel {
         var messages: [String] = []
 
         do {
-            componentSources = try await client.fetchCurrentSystemComponents()
+            componentSources = try await provider.fetchCurrentSystemComponents()
         } catch {
             messages.append(Self.errorMessage(prefix: "Router readings", error: error))
         }
         do {
-            systemEnvelopes = try await client.fetchAllCurrentSystems()
+            systemEnvelopes = try await provider.fetchAllCurrentSystems()
         } catch {
             messages.append(Self.errorMessage(prefix: "Pi readings", error: error))
         }
@@ -183,7 +200,7 @@ final class ThermalsViewModel {
         }
 
         do {
-            let result = try await client.fetchCurrentWeather(boothId: requestedBoothId)
+            let result = try await provider.fetchCurrentWeather(boothId: requestedBoothId)
             guard !Task.isCancelled,
                   generation == weatherGeneration,
                   selectedSourceId == requestedSelectionId,
@@ -233,7 +250,7 @@ final class ThermalsViewModel {
         }
 
         do {
-            let result = try await client.fetchThermalHistory(query: requestedQuery)
+            let result = try await provider.fetchThermalHistory(query: requestedQuery)
             guard !Task.isCancelled,
                   generation == historyGeneration,
                   selectedSourceId == requestedSelectionId,
