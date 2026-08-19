@@ -341,7 +341,7 @@ public enum DemoData {
 }
 
 public extension DemoData {
-    public static func statsOverview(window: StatsWindow) -> StatsOverview {
+    static func statsOverview(window: StatsWindow) -> StatsOverview {
         let rangeStart: Date?
         switch window {
         case .last24h:
@@ -421,7 +421,7 @@ public extension DemoData {
         )
     }
 
-    public static func sessionDetail(id: String) -> CallSessionDetail {
+    static func sessionDetail(id: String) -> CallSessionDetail {
         let session = sessions.first { $0.id == id } ?? sessions[0]
         return CallSessionDetail(
             id: session.id,
@@ -438,11 +438,11 @@ public extension DemoData {
         )
     }
 
-    public static func message(id: String) -> Message {
+    static func message(id: String) -> Message {
         messages.first { $0.id == id } ?? messages[0]
     }
 
-    public static func transcriptions(messageId: String) -> [Transcription] {
+    static func transcriptions(messageId: String) -> [Transcription] {
         [
             Transcription(
                 id: "\(messageId)-transcription",

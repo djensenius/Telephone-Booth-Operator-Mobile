@@ -7,6 +7,7 @@
 import XCTest
 @testable import TBOperatorMobile
 
+@MainActor
 final class AuditLogTests: XCTestCase {
 
     private let pageJSON = """
