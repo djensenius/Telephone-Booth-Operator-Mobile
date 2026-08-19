@@ -408,7 +408,11 @@ public enum SystemVitals {
         snapshot: BoothSystemSnapshot,
         routerTemperature: Double? = nil,
         telemetryIsStale: Bool = false
-    ) -> Severity {
+    ) -> Severity? {
+        let hasNumericSignal = [snapshot.cpuTemperatureCelsius, routerTemperature,
+            snapshot.memoryUsedRatio, snapshot.loadAverage1m].contains { $0?.isFinite == true }
+        guard hasNumericSignal || snapshot.tailscaleConnected != nil ||
+            snapshot.throttlingFlags != nil else { return nil }
         var severities = [
             temperatureSeverity(snapshot.cpuTemperatureCelsius),
             temperatureSeverity(routerTemperature),

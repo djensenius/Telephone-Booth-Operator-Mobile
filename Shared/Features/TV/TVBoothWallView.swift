@@ -200,14 +200,7 @@ struct TVBoothWallView: View {
     }
 
     private func healthSummary(now: Date) -> TVWallHealth {
-        guard let envelope = liveStore.systemEnvelope else {
-            return TVWallHealth(
-                label: "Waiting",
-                detail: "No system snapshot yet",
-                systemImage: "wave.3.right.circle",
-                tint: Theme.Colors.info
-            )
-        }
+        guard let envelope = liveStore.systemEnvelope else { return .waiting }
         let snapshot = envelope.snapshot
         let routerTemperature = SystemVitals.routerBatteryTemperature(
             in: liveStore.componentSources,
@@ -216,11 +209,11 @@ struct TVBoothWallView: View {
         )
         let telemetryIsStale =
             now.timeIntervalSince(envelope.receivedAt) >= BoothStalenessThresholds.offlineSeconds
-        let severity = SystemVitals.overallSeverity(
+        guard let severity = SystemVitals.overallSeverity(
             snapshot: snapshot,
             routerTemperature: routerTemperature,
             telemetryIsStale: telemetryIsStale
-        )
+        ) else { return .waiting }
         let label: String
         let systemImage: String
         switch severity {
@@ -415,6 +408,15 @@ private struct TVWallHealth {
     let detail: String
     let systemImage: String
     let tint: Color
+
+    static var waiting: TVWallHealth {
+        TVWallHealth(
+            label: "Waiting",
+            detail: "No health telemetry yet",
+            systemImage: "wave.3.right.circle",
+            tint: Theme.Colors.info
+        )
+    }
 }
 
 // MARK: - Booth state presentation

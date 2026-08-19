@@ -219,6 +219,14 @@ final class BoothSystemSnapshotTests: XCTestCase {
     }
 
     func testOverallSystemSeverityCombinesDashboardSignals() {
+        let empty = BoothSystemSnapshot()
+        XCTAssertNil(SystemVitals.overallSeverity(snapshot: empty))
+        XCTAssertNil(SystemVitals.overallSeverity(snapshot: empty, telemetryIsStale: true))
+        XCTAssertEqual(
+            SystemVitals.overallSeverity(snapshot: empty, routerTemperature: 65),
+            .warn
+        )
+
         let nominal = BoothSystemSnapshot(
             cpu: .init(physicalCores: 4, loadAvg1m: 0.4),
             temperatureCelsius: 48.5,
