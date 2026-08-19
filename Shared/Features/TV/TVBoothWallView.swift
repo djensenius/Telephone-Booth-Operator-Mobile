@@ -103,7 +103,7 @@ struct TVBoothWallView: View {
     private var statusOverview: some View {
         TimelineView(.periodic(from: .now, by: 10)) { context in
             let status = currentStatus
-            let state = status?.state ?? .idle
+            let state = status?.state
             TVFocusCard {
                 HStack(spacing: 34) {
                     Image(systemName: state.tvSymbol)
@@ -481,6 +481,12 @@ extension BoothState {
         case .unknown: return Theme.Colors.textSecondary
         }
     }
+}
+
+extension Optional where Wrapped == BoothState {
+    var tvHeadline: String { self?.tvHeadline ?? "Waiting for booth status" }
+    var tvSymbol: String { self?.tvSymbol ?? "wave.3.right.circle" }
+    var tvTint: Color { self?.tvTint ?? Theme.Colors.info }
 }
 
 #Preview {
