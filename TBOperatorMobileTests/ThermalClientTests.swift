@@ -179,6 +179,50 @@ final class ThermalsViewModelStateTests: XCTestCase {
     }
 
     @MainActor
+    func testOverlappingCurrentRefreshIgnoresStaleCompletion() async {
+        let componentRequests = ThermalRequestGate<[SystemComponentCurrentEnvelope]>()
+        let systemRequests = ThermalRequestGate<[BoothSystemSnapshotEnvelope]>()
+        let provider = ClosureThermalsDataProvider(
+            components: { await componentRequests.request() },
+            systems: { await systemRequests.request() }
+        )
+        let model = ThermalsViewModel(provider: provider)
+
+        let firstRefresh = Task { @MainActor in await model.refreshCurrent() }
+        let firstRequestsStarted = await requestsStarted(
+            componentRequests,
+            and: systemRequests,
+            expectedCount: 1
+        )
+        XCTAssertTrue(firstRequestsStarted)
+
+        let secondRefresh = Task { @MainActor in await model.refreshCurrent() }
+        let secondRequestsStarted = await requestsStarted(
+            componentRequests,
+            and: systemRequests,
+            expectedCount: 2
+        )
+        XCTAssertTrue(secondRequestsStarted)
+
+        await componentRequests.resolve(1, with: [makeComponent(temperature: 18)])
+        await systemRequests.resolve(1, with: [])
+        await firstRefresh.value
+
+        XCTAssertTrue(model.componentSources.isEmpty)
+        XCTAssertFalse(model.hasCompletedCurrentRequest)
+        XCTAssertTrue(model.isLoadingCurrent)
+
+        let newestComponent = makeComponent(temperature: 24)
+        await componentRequests.resolve(2, with: [newestComponent])
+        await systemRequests.resolve(2, with: [])
+        await secondRefresh.value
+
+        XCTAssertEqual(model.componentSources, [newestComponent])
+        XCTAssertTrue(model.hasCompletedCurrentRequest)
+        XCTAssertFalse(model.isLoadingCurrent)
+    }
+
+    @MainActor
     func testOverlappingDetailRefreshesSupersedeInFlightRequests() async {
         let weatherRequests = ThermalRequestGate<CurrentWeather?>()
         let historyRequests = ThermalRequestGate<ThermalHistoryResponse>()
@@ -246,7 +290,9 @@ final class ThermalsViewModelStateTests: XCTestCase {
         )
     }
 
-    private func makeComponent() -> SystemComponentCurrentEnvelope {
+    private func makeComponent(
+        temperature: Double = 42
+    ) -> SystemComponentCurrentEnvelope {
         SystemComponentCurrentEnvelope(
             source: SystemComponentSource(
                 boothId: "booth-a",
@@ -257,7 +303,7 @@ final class ThermalsViewModelStateTests: XCTestCase {
                 prometheusInstance: "booth-a"
             ),
             latestSnapshot: SystemComponentSnapshot(
-                battery: .init(temperatureCelsius: 42)
+                battery: .init(temperatureCelsius: temperature)
             )
         )
     }
