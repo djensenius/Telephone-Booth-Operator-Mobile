@@ -7,6 +7,47 @@
 //
 
 import Foundation
+import os
+
+private let metricsLogger = Logger(
+    subsystem: "org.davidjensenius.TBOperatorMobile",
+    category: "OperatorClient.Metrics"
+)
+
+private struct DialedDigitRecoveryCacheKey: Hashable, Sendable {
+    let clientID: ObjectIdentifier
+    let selection: StatsRangeSelection
+    let installationScope: InstallationScope
+}
+
+private actor DialedDigitRecoveryCache {
+    private struct Entry {
+        let counts: [String: Int]
+        let expiresAt: Date
+    }
+
+    private var entries: [DialedDigitRecoveryCacheKey: Entry] = [:]
+
+    func counts(for key: DialedDigitRecoveryCacheKey, now: Date = Date()) -> [String: Int]? {
+        guard let entry = entries[key] else { return nil }
+        guard entry.expiresAt > now else {
+            entries.removeValue(forKey: key)
+            return nil
+        }
+        return entry.counts
+    }
+
+    func store(_ counts: [String: Int], for key: DialedDigitRecoveryCacheKey, now: Date = Date()) {
+        entries = entries.filter { $0.value.expiresAt > now }
+        entries[key] = Entry(counts: counts, expiresAt: now.addingTimeInterval(30))
+    }
+
+    func removeValue(for key: DialedDigitRecoveryCacheKey) {
+        entries.removeValue(forKey: key)
+    }
+}
+
+private let dialedDigitRecoveryCache = DialedDigitRecoveryCache()
 
 public extension OperatorClient {
     /// `GET /v1/stats/overview` for an arbitrary selection — a preset window
@@ -21,7 +62,22 @@ public extension OperatorClient {
         if let installationID = installationScope.queryValue {
             query.append(URLQueryItem(name: "installationId", value: installationID))
         }
-        return try await get("/v1/stats/overview", query: query)
+        let overview: StatsOverview = try await get("/v1/stats/overview", query: query)
+        do {
+            return try await recoveringDialedDigits(
+                in: overview,
+                selection: selection,
+                installationScope: installationScope
+            )
+        } catch let error as OperatorError {
+            if Task.isCancelled || error.isCancellation {
+                throw CancellationError()
+            }
+            metricsLogger.warning(
+                "Dialed-digit recovery unavailable: \(String(describing: type(of: error)), privacy: .public)"
+            )
+            return overview
+        }
     }
 
     /// `GET /v1/installations` — all eras, newest first, for the stats scope
@@ -126,4 +182,158 @@ public extension OperatorClient {
 /// Envelope for `GET /v1/stats/filters`, which returns `{ "items": [...] }`.
 private struct MetricFilterList: Decodable {
     let items: [MetricFilter]
+}
+
+private struct DialedDigitEventPage: Decodable, Sendable {
+    let items: [DialedDigitEvent]
+    let nextCursor: String?
+}
+
+private struct DialedDigitEvent: Decodable, Sendable {
+    let digit: Int?
+
+    private enum CodingKeys: String, CodingKey {
+        case payload
+    }
+
+    private enum PayloadCodingKeys: String, CodingKey {
+        case digit
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        guard let payload = try? container.nestedContainer(
+            keyedBy: PayloadCodingKeys.self,
+            forKey: .payload
+        ) else {
+            digit = nil
+            return
+        }
+        digit = try? payload.decode(Int.self, forKey: .digit)
+    }
+}
+
+private enum DialedDigitEventError: LocalizedError {
+    case repeatedCursor(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .repeatedCursor(let cursor):
+            return "Digit event pagination repeated cursor \(cursor)."
+        }
+    }
+}
+
+private extension OperatorClient {
+    /// Some operator versions aggregate this field from `CallSession.digitsDialed`,
+    /// while booth clients report the actual values as `digit_dialed` events.
+    /// Recover only an empty aggregate so a corrected server remains authoritative.
+    func recoveringDialedDigits(
+        in overview: StatsOverview,
+        selection: StatsRangeSelection,
+        installationScope: InstallationScope
+    ) async throws -> StatsOverview {
+        let hasCalls = overview.pickupsHangups.pickups > 0 || overview.pickupsHangups.hangups > 0
+        let hasReportedDigits = overview.pickupsHangups.digitsDialed.values.contains { $0 > 0 }
+        let cacheKey = DialedDigitRecoveryCacheKey(
+            clientID: ObjectIdentifier(self),
+            selection: selection,
+            installationScope: installationScope
+        )
+        if hasReportedDigits {
+            await dialedDigitRecoveryCache.removeValue(for: cacheKey)
+            return overview
+        }
+        guard hasCalls else { return overview }
+        if let cached = await dialedDigitRecoveryCache.counts(for: cacheKey) {
+            return cached.values.contains(where: { $0 > 0 })
+                ? overview.replacingDialedDigits(with: cached)
+                : overview
+        }
+
+        let digitsDialed = try await fetchDialedDigitEventCounts(
+            since: overview.rangeStart,
+            until: overview.rangeEnd,
+            installationScope: installationScope
+        )
+        await dialedDigitRecoveryCache.store(digitsDialed, for: cacheKey)
+        guard digitsDialed.values.contains(where: { $0 > 0 }) else { return overview }
+        return overview.replacingDialedDigits(with: digitsDialed)
+    }
+
+    func fetchDialedDigitEventCounts(
+        since: Date?,
+        until: Date,
+        installationScope: InstallationScope
+    ) async throws -> [String: Int] {
+        var counts = Dictionary(uniqueKeysWithValues: (0...9).map { (String($0), 0) })
+        var cursor: String?
+        var seenCursors: Set<String> = []
+
+        repeat {
+            var query = [
+                URLQueryItem(name: "type", value: BoothEventType.digitDialed.rawValue),
+                URLQueryItem(name: "until", value: OperatorJSON.iso8601String(from: until)),
+                URLQueryItem(name: "limit", value: "500")
+            ]
+            if let since {
+                query.append(
+                    URLQueryItem(name: "since", value: OperatorJSON.iso8601String(from: since))
+                )
+            }
+            if let installationID = installationScope.queryValue {
+                query.append(URLQueryItem(name: "installationId", value: installationID))
+            }
+            if let cursor {
+                query.append(URLQueryItem(name: "cursor", value: cursor))
+            }
+
+            let page: DialedDigitEventPage = try await get("/v1/events", query: query)
+            for event in page.items {
+                guard let digit = event.digit, (0...9).contains(digit) else { continue }
+                counts[String(digit), default: 0] += 1
+            }
+
+            cursor = page.nextCursor
+            if let cursor, !seenCursors.insert(cursor).inserted {
+                throw OperatorError.decoding(DialedDigitEventError.repeatedCursor(cursor))
+            }
+        } while cursor != nil
+
+        return counts
+    }
+}
+
+private extension OperatorError {
+    var isCancellation: Bool {
+        guard case .transport(let error) = self else { return false }
+        if error is CancellationError { return true }
+        return (error as? URLError)?.code == .cancelled
+    }
+}
+
+private extension StatsOverview {
+    func replacingDialedDigits(with digitsDialed: [String: Int]) -> StatsOverview {
+        StatsOverview(
+            window: window,
+            rangeStart: rangeStart,
+            rangeEnd: rangeEnd,
+            generatedAt: generatedAt,
+            timezone: timezone,
+            calls: calls,
+            messages: messages,
+            playback: playback,
+            pickupsHangups: PickupsHangups(
+                pickups: pickupsHangups.pickups,
+                hangups: pickupsHangups.hangups,
+                digitsDialed: digitsDialed
+            ),
+            uploads: uploads,
+            topQuestions: topQuestions,
+            hourly: hourly,
+            busiest: busiest,
+            lastActivityAt: lastActivityAt,
+            boothBreakdown: boothBreakdown
+        )
+    }
 }
