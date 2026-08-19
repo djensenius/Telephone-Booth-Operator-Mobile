@@ -29,6 +29,11 @@ struct ThermalSourceOption: Sendable, Hashable, Identifiable {
     }
 }
 
+struct ThermalAutomaticRefreshID: Equatable {
+    let sourceId: String
+    let range: ThermalRangePreset
+}
+
 @MainActor
 @Observable
 final class ThermalsViewModel {
@@ -69,6 +74,14 @@ final class ThermalsViewModel {
     @ObservationIgnored private var weatherGeneration = 0
     @ObservationIgnored private var loadedSelectionId: String?
     @ObservationIgnored private var loadedRange: ThermalRangePreset?
+    @ObservationIgnored private var lastCurrentAttemptAt: Date?
+    @ObservationIgnored private var lastWeatherAttemptAt: Date?
+    @ObservationIgnored private var lastHistoryAttemptAt: Date?
+
+    // Source discovery restarts `.task(id:)`; coalesce that immediate
+    // replacement without changing the normal five-second current cadence.
+    private static let automaticCurrentCoalescingSeconds: TimeInterval = 1
+    private static let automaticDetailsRefreshSeconds: TimeInterval = 60
 
     init(
         client: OperatorClient,
@@ -130,6 +143,44 @@ final class ThermalsViewModel {
         selectedComponentEnvelope?.latestSnapshot?.hottestThermalZone
     }
 
+    var fan: BoothSystemSnapshot.FanStats? {
+        selectedSystemEnvelope?.snapshot.fan
+    }
+
+    var fanValue: String {
+        guard let fan else { return "—" }
+        if let rpm = fan.rpm {
+            return "\(rpm) RPM"
+        }
+        if let ratio = fan.pwmRatio {
+            let percent = Int((max(0, min(1, ratio)) * 100).rounded())
+            return "\(percent)% PWM"
+        }
+        if let commandedOn = fan.commandedOn {
+            return commandedOn ? "On" : "Off"
+        }
+        if let coolingState = fan.coolingStateDescription {
+            return "State \(coolingState)"
+        }
+        return "—"
+    }
+
+    var fanDetail: String {
+        guard let fan else { return "No fan telemetry" }
+        if fan.rpm != nil {
+            return fan.commandDescription
+                ?? fan.coolingStateDescription.map { "Cooling state \($0)" }
+                ?? "Measured fan speed"
+        }
+        if let commandedOn = fan.commandedOn {
+            return "\(commandedOn ? "On" : "Off") · no tach feedback"
+        }
+        if let coolingState = fan.coolingStateDescription {
+            return "Cooling state \(coolingState) · no tach feedback"
+        }
+        return "No tachometer feedback"
+    }
+
     var selectedComponentName: String? {
         selectedComponentEnvelope?.source.effectiveDisplayName
     }
@@ -148,6 +199,19 @@ final class ThermalsViewModel {
         case (.none, .none):
             return isLoadingCurrent ? "Refreshing current readings…" : "Awaiting current readings"
         }
+    }
+
+    func refreshAutomatically() async {
+        let refreshDate = now()
+        if Self.refreshIsDue(
+            lastCurrentAttemptAt,
+            interval: Self.automaticCurrentCoalescingSeconds,
+            at: refreshDate
+        ) {
+            await refreshCurrent()
+        }
+        guard !Task.isCancelled else { return }
+        await refreshDetails(force: false)
     }
 
     func refreshAll() async {
@@ -192,6 +256,7 @@ final class ThermalsViewModel {
         normalizeSelection(preferredBooth: previousBooth)
         currentError = messages.isEmpty ? nil : messages.joined(separator: " ")
         hasCompletedCurrentRequest = true
+        lastCurrentAttemptAt = now()
     }
 
     func refreshCurrentWeather() async {
@@ -221,6 +286,7 @@ final class ThermalsViewModel {
             currentWeather = result
             currentWeatherError = nil
             hasCompletedCurrentWeatherRequest = true
+            lastWeatherAttemptAt = now()
         } catch {
             guard !Task.isCancelled,
                   generation == weatherGeneration,
@@ -230,6 +296,7 @@ final class ThermalsViewModel {
             }
             currentWeatherError = Self.errorMessage(prefix: "Current weather", error: error)
             hasCompletedCurrentWeatherRequest = true
+            lastWeatherAttemptAt = now()
         }
     }
 
@@ -273,6 +340,7 @@ final class ThermalsViewModel {
             loadedRange = requestedRange
             historyError = nil
             hasCompletedHistoryRequest = true
+            lastHistoryAttemptAt = now()
         } catch {
             guard !Task.isCancelled,
                   generation == historyGeneration,
@@ -282,13 +350,23 @@ final class ThermalsViewModel {
             }
             historyError = Self.errorMessage(prefix: "Thermal history", error: error)
             hasCompletedHistoryRequest = true
+            lastHistoryAttemptAt = now()
         }
     }
 
     private func refreshDetails(force: Bool) async {
         guard !Task.isCancelled, selectedSource != nil else { return }
-        let needsWeather = force || !hasCompletedCurrentWeatherRequest
-        let needsHistory = force || !hasCompletedHistoryRequest
+        let refreshDate = now()
+        let needsWeather = force || !hasCompletedCurrentWeatherRequest || Self.refreshIsDue(
+            lastWeatherAttemptAt,
+            interval: Self.automaticDetailsRefreshSeconds,
+            at: refreshDate
+        )
+        let needsHistory = force || !hasCompletedHistoryRequest || Self.refreshIsDue(
+            lastHistoryAttemptAt,
+            interval: Self.automaticDetailsRefreshSeconds,
+            at: refreshDate
+        )
         if needsWeather && needsHistory {
             async let weatherRefresh: Void = refreshCurrentWeather()
             await refreshHistory()
@@ -367,6 +445,16 @@ final class ThermalsViewModel {
         date.formatted(date: .omitted, time: .standard)
     }
 
+    private static func refreshIsDue(
+        _ lastAttempt: Date?,
+        interval: TimeInterval,
+        at date: Date
+    ) -> Bool {
+        guard let lastAttempt else { return true }
+        let elapsed = date.timeIntervalSince(lastAttempt)
+        return elapsed < 0 || elapsed >= interval
+    }
+
     private func clearHistory() {
         historyGeneration += 1
         history = nil
@@ -376,6 +464,7 @@ final class ThermalsViewModel {
         loadedRange = nil
         hasCompletedHistoryRequest = false
         isLoadingHistory = false
+        lastHistoryAttemptAt = nil
     }
 
     private func clearCurrentWeather() {
@@ -384,6 +473,7 @@ final class ThermalsViewModel {
         currentWeatherError = nil
         hasCompletedCurrentWeatherRequest = false
         isLoadingCurrentWeather = false
+        lastWeatherAttemptAt = nil
     }
 }
 #endif

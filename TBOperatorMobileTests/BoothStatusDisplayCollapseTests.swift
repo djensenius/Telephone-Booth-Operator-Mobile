@@ -36,16 +36,55 @@ final class BoothStatusDisplayCollapseTests: XCTestCase {
         XCTAssertEqual(rows.collapsingRepeats().map(\.id), [1, 2, 3])
     }
 
-    func testInstantActivityMarksPreserveTransitionOrder() {
+    func testActivityCallsGroupAdjacentCallStates() {
+        let rows = [
+            BoothStatus(state: .idle, updatedAt: now),
+            BoothStatus(
+                state: .dialing,
+                updatedAt: now.addingTimeInterval(10),
+                firstSeenAt: now.addingTimeInterval(5)
+            ),
+            BoothStatus(
+                state: .playingQuestion,
+                updatedAt: now.addingTimeInterval(25),
+                firstSeenAt: now.addingTimeInterval(10)
+            ),
+            BoothStatus(
+                state: .recording,
+                updatedAt: now.addingTimeInterval(70),
+                firstSeenAt: now.addingTimeInterval(25)
+            ),
+            BoothStatus(state: .idle, updatedAt: now.addingTimeInterval(75))
+        ]
+
+        let calls = rows.activityCalls()
+
+        XCTAssertEqual(calls.count, 1)
+        XCTAssertEqual(calls[0].startedAt, now.addingTimeInterval(5))
+        XCTAssertEqual(calls[0].lastObservedAt, now.addingTimeInterval(75))
+        XCTAssertEqual(calls[0].duration(at: now.addingTimeInterval(100)), 70)
+        XCTAssertFalse(calls[0].isInProgress)
+    }
+
+    func testActivityCallsPreserveInstantCallAndMarkCurrentCallLive() {
         let rows = [
             BoothStatus(state: .idle, updatedAt: now),
             BoothStatus(state: .recording, updatedAt: now),
-            BoothStatus(state: .idle, updatedAt: now)
+            BoothStatus(state: .idle, updatedAt: now),
+            BoothStatus(
+                state: .recording,
+                updatedAt: now.addingTimeInterval(15),
+                firstSeenAt: now.addingTimeInterval(10)
+            )
         ]
 
-        let lanes = rows.indices.map { rows.instantTransitionLane(at: $0) }
+        let calls = rows.activityCalls()
 
-        XCTAssertEqual(lanes, [0.25, 0.5, 0.75])
+        XCTAssertEqual(calls.count, 2)
+        XCTAssertEqual(calls[0].duration(at: now.addingTimeInterval(40)), 0)
+        XCTAssertFalse(calls[0].isInProgress)
+        XCTAssertEqual(calls[1].duration(at: now.addingTimeInterval(40)), 30)
+        XCTAssertTrue(calls[1].isInProgress)
     }
 
     func testIdLessRunReturningAfterATransitionIsKept() {

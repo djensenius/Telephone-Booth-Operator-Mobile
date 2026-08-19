@@ -8,6 +8,9 @@
 //
 
 import SwiftUI
+#if canImport(Charts)
+import Charts
+#endif
 
 private struct AutomaticRefreshEnabledKey: EnvironmentKey {
     static let defaultValue = true
@@ -324,3 +327,142 @@ public struct BoothStalenessChip: View {
         }
     }
 }
+
+#if !os(watchOS) && !os(tvOS)
+struct DashboardActivityCard: View {
+    let items: [BoothStatus]
+
+    private var calls: [BoothActivityCall] {
+        items.activityCalls()
+    }
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 10)) { context in
+            VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        SectionHeader(text: "Recent calls")
+                        Text(summary(at: context.date))
+                            .font(Theme.Fonts.bodyMedium.weight(.semibold))
+                            .foregroundStyle(Theme.Colors.textPrimary)
+                    }
+                    Spacer(minLength: Theme.Spacing.small)
+                    Label("Duration", systemImage: "clock")
+                        .font(Theme.Fonts.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                }
+                if calls.isEmpty {
+                    Text("No calls in this window")
+                        .font(Theme.Fonts.bodyMedium)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 96)
+                } else {
+                    RecentCallsChart(calls: calls, now: context.date, domain: timeDomain)
+                        .frame(height: 96)
+                }
+                HStack {
+                    Text(observedDomain.lowerBound, format: .dateTime.hour().minute())
+                    Spacer()
+                    Text(observedDomain.upperBound, format: .dateTime.hour().minute())
+                }
+                .font(Theme.Fonts.caption.monospacedDigit())
+                .foregroundStyle(Theme.Colors.textSecondary)
+            }
+            .padding(Theme.Spacing.large)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassCardBackground()
+        }
+    }
+
+    private var observedDomain: ClosedRange<Date> {
+        let start = items.first?.heldSince ?? Date()
+        let observedEnd = items.last?.updatedAt ?? start
+        return start...Swift.max(observedEnd, start.addingTimeInterval(60))
+    }
+
+    private var timeDomain: ClosedRange<Date> {
+        let padding = max(30, observedDomain.upperBound.timeIntervalSince(
+            observedDomain.lowerBound
+        ) * 0.015)
+        let start = observedDomain.lowerBound.addingTimeInterval(-padding)
+        let end = observedDomain.upperBound.addingTimeInterval(padding)
+        return start...end
+    }
+
+    private func summary(at date: Date) -> String {
+        guard let first = items.first, let last = items.last else {
+            return "No recent status yet"
+        }
+        let span = DurationFormatter.compactString(
+            from: first.heldSince,
+            to: last.updatedAt
+        )
+        guard !calls.isEmpty else { return "Quiet across \(span)" }
+        let completed = calls.filter { !$0.isInProgress }
+        let countLabel = "\(calls.count) \(calls.count == 1 ? "call" : "calls")"
+        let liveLabel = calls.contains(where: \.isInProgress) ? " · live now" : ""
+        guard !completed.isEmpty else { return countLabel + liveLabel }
+        let average = completed.reduce(0) { $0 + $1.duration(at: date) }
+            / Double(completed.count)
+        return "\(countLabel) · \(compactDuration(average)) average\(liveLabel)"
+    }
+
+    private func compactDuration(_ seconds: TimeInterval) -> String {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        return DurationFormatter.compactString(
+            from: start,
+            to: start.addingTimeInterval(seconds)
+        )
+    }
+}
+
+private struct RecentCallsChart: View {
+    let calls: [BoothActivityCall]
+    let now: Date
+    let domain: ClosedRange<Date>
+
+    var body: some View {
+        Chart {
+            ForEach(calls) { call in
+                BarMark(
+                    x: .value("Call started", call.startedAt),
+                    y: .value("Duration", durationMinutes(for: call)),
+                    width: .fixed(3)
+                )
+                .foregroundStyle(Theme.Colors.accent.opacity(call.isInProgress ? 0.8 : 0.36))
+                .cornerRadius(2)
+
+                PointMark(
+                    x: .value("Call started", call.startedAt),
+                    y: .value("Duration", durationMinutes(for: call))
+                )
+                .foregroundStyle(Theme.Colors.accent)
+                .symbolSize(call.isInProgress ? 70 : 38)
+            }
+        }
+        .chartXAxis(.hidden)
+        .chartXScale(domain: domain)
+        .chartYScale(domain: 0...durationCeiling)
+        .chartYAxis {
+            AxisMarks(values: .automatic(desiredCount: 3)) { _ in
+                AxisGridLine()
+                    .foregroundStyle(Theme.Colors.textSecondary.opacity(0.1))
+            }
+        }
+        .chartPlotStyle { plotArea in
+            plotArea
+                .background(Theme.Colors.textPrimary.opacity(0.045))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .accessibilityLabel(Text("Recent calls by start time and duration"))
+    }
+
+    private var durationCeiling: Double {
+        max(1, calls.map(durationMinutes).max() ?? 1) * 1.16
+    }
+
+    private func durationMinutes(for call: BoothActivityCall) -> Double {
+        max(call.duration(at: now) / 60, 0.05)
+    }
+}
+#endif

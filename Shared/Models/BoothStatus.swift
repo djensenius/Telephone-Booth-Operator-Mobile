@@ -218,6 +218,18 @@ public struct BoothStatus: Codable, Sendable, Hashable {
     }
 }
 
+struct BoothActivityCall: Sendable, Equatable, Identifiable {
+    let id: Int
+    let startedAt: Date
+    let lastObservedAt: Date
+    let isInProgress: Bool
+
+    func duration(at date: Date) -> TimeInterval {
+        let end = isInProgress ? Swift.max(lastObservedAt, date) : lastObservedAt
+        return Swift.max(0, end.timeIntervalSince(startedAt))
+    }
+}
+
 public extension Array where Element == BoothStatus {
     /// Fold adjacent reports of one status into a single run for display.
     ///
@@ -245,10 +257,43 @@ public extension Array where Element == BoothStatus {
         }
     }
 
-    internal func instantTransitionLane(at index: Int) -> Double {
-        let timestamp = self[index].heldSince
-        let ties = indices.filter { self[$0].heldSince == timestamp && self[$0].updatedAt <= timestamp }
-        let order = ties.firstIndex(of: index) ?? 0
-        return Double(order + 1) / Double(Swift.max(ties.count, 1) + 1)
+    /// Group adjacent call states into one interaction for dashboard charts.
+    internal func activityCalls() -> [BoothActivityCall] {
+        var calls: [BoothActivityCall] = []
+        var startedAt: Date?
+        var lastObservedAt: Date?
+
+        for item in self {
+            if item.state.isCallActive {
+                startedAt = startedAt ?? item.heldSince
+                lastObservedAt = Swift.max(lastObservedAt ?? item.updatedAt, item.updatedAt)
+            } else if let callStart = startedAt {
+                calls.append(
+                    BoothActivityCall(
+                        id: calls.count,
+                        startedAt: callStart,
+                        lastObservedAt: Swift.max(
+                            callStart,
+                            Swift.max(lastObservedAt ?? callStart, item.heldSince)
+                        ),
+                        isInProgress: false
+                    )
+                )
+                startedAt = nil
+                lastObservedAt = nil
+            }
+        }
+
+        if let startedAt {
+            calls.append(
+                BoothActivityCall(
+                    id: calls.count,
+                    startedAt: startedAt,
+                    lastObservedAt: Swift.max(startedAt, lastObservedAt ?? startedAt),
+                    isInProgress: true
+                )
+            )
+        }
+        return calls
     }
 }

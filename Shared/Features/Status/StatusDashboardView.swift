@@ -5,9 +5,6 @@
 //  Compact live booth status, health, metrics, and recent activity.
 //
 import SwiftUI
-#if canImport(Charts)
-import Charts
-#endif
 
 public struct StatusDashboardView: View {
     @State private var auth = AuthManager.shared
@@ -155,28 +152,23 @@ public struct StatusDashboardView: View {
             receivedAt: liveStore.systemEnvelope?.receivedAt,
             componentSources: liveStore.componentSources,
             boothId: liveStore.systemEnvelope?.boothId,
-            presentation: .summary
+            presentation: .full
         )
-        #if !os(watchOS) && !os(tvOS)
-        if liveStore.history.isEmpty {
-            healthCard
-        } else {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: Theme.Spacing.medium) {
-                    healthCard
-                        .frame(minWidth: 280, maxWidth: .infinity)
-                    DashboardActivityCard(items: liveStore.history.collapsingRepeats())
-                        .frame(minWidth: 360, maxWidth: .infinity)
-                }
-                VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-                    healthCard
-                    DashboardActivityCard(items: liveStore.history.collapsingRepeats())
-                }
-            }
-        }
-        #else
         healthCard
+        #if !os(watchOS) && !os(tvOS)
+        if !recentCallItems.isEmpty {
+            DashboardActivityCard(items: recentCallItems)
+        }
         #endif
+    }
+
+    private var recentCallItems: [BoothStatus] {
+        guard let currentStatus else {
+            return liveStore.history.collapsingRepeats()
+        }
+        return BoothStatusLiveStore
+            .merging([currentStatus], into: liveStore.history)
+            .collapsingRepeats()
     }
 }
 
@@ -337,102 +329,6 @@ private struct DashboardMetric: View {
         .accessibilityElement(children: .combine)
     }
 }
-
-#if !os(watchOS) && !os(tvOS)
-private struct DashboardActivityCard: View {
-    let items: [BoothStatus]
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    SectionHeader(text: "Recent activity")
-                    Text(summary)
-                        .font(Theme.Fonts.bodyMedium.weight(.semibold))
-                        .foregroundStyle(Theme.Colors.textPrimary)
-                }
-                Spacer(minLength: Theme.Spacing.small)
-                HStack(spacing: 5) {
-                    Circle()
-                        .fill(Theme.Colors.accent)
-                        .frame(width: 7, height: 7)
-                    Text("Call active")
-                        .font(Theme.Fonts.caption)
-                        .foregroundStyle(Theme.Colors.textSecondary)
-                }
-            }
-            StatusHistoryChart(items: items)
-                .frame(height: 62)
-            if let first = items.first, let last = items.last {
-                HStack {
-                    Text(first.heldSince, format: .dateTime.hour().minute())
-                    Spacer()
-                    Text(last.updatedAt, format: .dateTime.hour().minute())
-                }
-                .font(Theme.Fonts.caption.monospacedDigit())
-                .foregroundStyle(Theme.Colors.textSecondary)
-            }
-        }
-        .padding(Theme.Spacing.large)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCardBackground()
-    }
-    private var summary: String {
-        guard let first = items.first, let last = items.last else { return "No recent status yet" }
-        let span = DurationFormatter.compactString(from: first.heldSince, to: last.updatedAt)
-        let count = recentCallCount
-        if count == 0 { return "Quiet across \(span)" }
-        return "\(count) \(count == 1 ? "call" : "calls") across \(span)"
-    }
-    private var recentCallCount: Int {
-        var wasActive = false
-        return items.reduce(into: 0) { count, item in
-            let isActive = item.state.isCallActive
-            if isActive, !wasActive { count += 1 }
-            wasActive = isActive
-        }
-    }
-}
-
-private struct StatusHistoryChart: View {
-    let items: [BoothStatus]
-    var body: some View {
-        Chart(Array(items.enumerated()), id: \.offset) { index, item in
-            if item.updatedAt > item.heldSince {
-                RectangleMark(
-                    xStart: .value("Started", item.heldSince),
-                    xEnd: .value("Ended", item.updatedAt),
-                    yStart: .value("Lane start", 0),
-                    yEnd: .value("Lane end", 1)
-                )
-                .foregroundStyle(color(for: item.state))
-            } else {
-                PointMark(
-                    x: .value("Transition", item.heldSince),
-                    y: .value("Transition order", items.instantTransitionLane(at: index))
-                )
-                .symbolSize(42)
-                .foregroundStyle(color(for: item.state))
-                .zIndex(1)
-            }
-        }
-        .chartXAxis(.hidden)
-        .chartYAxis(.hidden)
-        .chartYScale(domain: 0...1)
-        .chartPlotStyle { plotArea in
-            plotArea
-                .background(Theme.Colors.textPrimary.opacity(0.045))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        }
-        .accessibilityLabel(Text("Recent booth activity"))
-    }
-
-    private func color(for state: BoothState) -> Color {
-        if state == .error { return Theme.Colors.error }
-        if state.isCallActive { return Theme.Colors.accent }
-        return Theme.Colors.textSecondary.opacity(0.16)
-    }
-}
-#endif
 
 private struct BoothStateIcon: View {
     let symbol: String

@@ -297,6 +297,24 @@ final class ThermalModelsTests: XCTestCase {
         XCTAssertNotNil(model.history)
     }
 
+    @MainActor
+    func testAutomaticThermalRefreshLoadsDetailsAndFanAfterDiscoveringSource() async {
+        let now = DemoData.sessionAnchor.addingTimeInterval(120)
+        let model = ThermalsViewModel(client: .demo, now: { now })
+
+        await model.refreshAutomatically()
+        await model.refreshAutomatically()
+
+        XCTAssertTrue(model.hasCompletedCurrentRequest)
+        XCTAssertTrue(model.hasCompletedCurrentWeatherRequest)
+        XCTAssertTrue(model.hasCompletedHistoryRequest)
+        XCTAssertNotNil(model.currentWeather)
+        XCTAssertNotNil(model.history)
+        XCTAssertNotNil(model.fan)
+        XCTAssertEqual(model.fanValue, "67% PWM")
+        XCTAssertEqual(model.fanDetail, "On · no tach feedback")
+    }
+
     func testLiveVitalsRouterTemperatureMatchesBoothAndFormatsMissingData() {
         let now = Date(timeIntervalSince1970: 1_787_003_600)
         let sources = [

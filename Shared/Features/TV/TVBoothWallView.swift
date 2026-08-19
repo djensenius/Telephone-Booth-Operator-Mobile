@@ -28,6 +28,7 @@ struct TVBoothWallView: View {
             VStack(alignment: .leading, spacing: TVMetrics.sectionSpacing) {
                 header
                 statusOverview
+                recentCalls
                 HStack(alignment: .top, spacing: TVMetrics.cardSpacing) {
                     activityStrip
                         .frame(maxWidth: .infinity)
@@ -142,6 +143,13 @@ struct TVBoothWallView: View {
         guard let status else { return "Waiting for the first booth update" }
         return "\(status.state.tvDisplayName) · "
             + DurationFormatter.compactString(from: status.heldSince, to: now)
+    }
+
+    private var recentCalls: some View {
+        let items = BoothStatusLiveStore
+            .merging([currentStatus].compactMap(\.self), into: liveStore.history)
+            .collapsingRepeats()
+        return TVRecentCallsCard(items: items)
     }
 
     // MARK: - Recent activity (no message content by design)

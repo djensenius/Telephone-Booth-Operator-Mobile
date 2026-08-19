@@ -144,16 +144,20 @@ public enum DemoData {
     }
 
     private static let demoHeartbeat: TimeInterval = 5
+    private static let demoCallDurations: [TimeInterval] = [
+        95, 410, 225, 640, 160, 335, 720, 285, 505, 135, 455, 245
+    ]
 
     public static let statusHistory: [BoothStatus] = (0..<24).map { index in
         // Mirrors the collapsed shape: one snapshot per booth status.
         let updatedAt = now.addingTimeInterval(TimeInterval(index - 24) * 900)
         let recording = index.isMultiple(of: 2)
+        let duration = recording ? demoCallDurations[index / 2] : 880
         return BoothStatus(
             state: recording ? .recording : .idle,
             updatedAt: updatedAt,
             runtimeMode: .simulator,
-            firstSeenAt: updatedAt.addingTimeInterval(-880),
+            firstSeenAt: updatedAt.addingTimeInterval(-duration),
             repeatCount: recording ? 2 : 29
         )
     }
