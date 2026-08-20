@@ -9,6 +9,158 @@
 
 import SwiftUI
 
+struct StatsSectionColumnsLayout: Layout {
+    let spacing: CGFloat = Theme.Spacing.large
+    let twoColumnWidth: CGFloat = 900
+
+    struct Arrangement {
+        let containerSize: CGSize
+        let frames: [CGRect]
+
+        static let empty = Arrangement(containerSize: .zero, frames: [])
+    }
+
+    struct Cache {
+        var arrangement = Arrangement.empty
+    }
+
+    static func usesTwoColumns(
+        availableWidth: CGFloat?,
+        itemCount: Int,
+        twoColumnWidth: CGFloat = 900
+    ) -> Bool {
+        guard itemCount > 1, let availableWidth, availableWidth.isFinite else { return false }
+        return availableWidth >= twoColumnWidth
+    }
+
+    static func arrangement(
+        for itemSizes: [CGSize],
+        availableWidth: CGFloat?,
+        spacing: CGFloat = Theme.Spacing.large,
+        twoColumnWidth: CGFloat = 900
+    ) -> Arrangement {
+        guard !itemSizes.isEmpty else { return .empty }
+
+        if usesTwoColumns(
+            availableWidth: availableWidth,
+            itemCount: itemSizes.count,
+            twoColumnWidth: twoColumnWidth
+        ), let availableWidth {
+            let columnWidth = max(0, (availableWidth - spacing) / 2)
+            var frames: [CGRect] = []
+            frames.reserveCapacity(itemSizes.count)
+
+            var leftY: CGFloat = 0
+            var rightY: CGFloat = 0
+            var hasLeftColumn = false
+            var hasRightColumn = false
+
+            for (index, size) in itemSizes.enumerated() {
+                if index.isMultiple(of: 2) {
+                    frames.append(CGRect(x: 0, y: leftY, width: columnWidth, height: size.height))
+                    leftY += size.height + spacing
+                    hasLeftColumn = true
+                } else {
+                    frames.append(CGRect(x: columnWidth + spacing, y: rightY, width: columnWidth, height: size.height))
+                    rightY += size.height + spacing
+                    hasRightColumn = true
+                }
+            }
+
+            let totalHeight = max(
+                hasLeftColumn ? leftY - spacing : 0,
+                hasRightColumn ? rightY - spacing : 0
+            )
+            return Arrangement(
+                containerSize: CGSize(width: availableWidth, height: totalHeight),
+                frames: frames
+            )
+        }
+
+        var frames: [CGRect] = []
+        frames.reserveCapacity(itemSizes.count)
+
+        var currentY: CGFloat = 0
+        var maxMeasuredWidth: CGFloat = 0
+
+        for size in itemSizes {
+            let width = availableWidth ?? size.width
+            frames.append(CGRect(x: 0, y: currentY, width: width, height: size.height))
+            currentY += size.height + spacing
+            maxMeasuredWidth = max(maxMeasuredWidth, size.width)
+        }
+
+        return Arrangement(
+            containerSize: CGSize(
+                width: availableWidth ?? maxMeasuredWidth,
+                height: max(0, currentY - spacing)
+            ),
+            frames: frames
+        )
+    }
+
+    func makeCache(subviews: Subviews) -> Cache {
+        Cache()
+    }
+
+    func updateCache(_ cache: inout Cache, subviews: Subviews, proposal: ProposedViewSize) {
+        let proposalWidth = sanitizedWidth(proposal.width)
+        let childWidth = childWidth(for: proposalWidth, itemCount: subviews.count)
+        let childProposal = ProposedViewSize(width: childWidth, height: nil)
+        let itemSizes = subviews.map { $0.sizeThatFits(childProposal) }
+
+        cache.arrangement = Self.arrangement(
+            for: itemSizes,
+            availableWidth: proposalWidth,
+            spacing: spacing,
+            twoColumnWidth: twoColumnWidth
+        )
+    }
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout Cache
+    ) -> CGSize {
+        updateCache(&cache, subviews: subviews, proposal: proposal)
+        return cache.arrangement.containerSize
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout Cache
+    ) {
+        updateCache(&cache, subviews: subviews, proposal: proposal)
+
+        for (subview, frame) in zip(subviews, cache.arrangement.frames) {
+            subview.place(
+                at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+                anchor: .topLeading,
+                proposal: ProposedViewSize(width: frame.width, height: frame.height)
+            )
+        }
+    }
+
+    private func childWidth(for availableWidth: CGFloat?, itemCount: Int) -> CGFloat? {
+        guard let availableWidth else { return nil }
+        if Self.usesTwoColumns(
+            availableWidth: availableWidth,
+            itemCount: itemCount,
+            twoColumnWidth: twoColumnWidth
+        ) {
+            return max(0, (availableWidth - spacing) / 2)
+        }
+        return availableWidth
+    }
+
+    private func sanitizedWidth(_ width: CGFloat?) -> CGFloat? {
+        guard let width, width.isFinite else { return nil }
+        return max(0, width)
+    }
+}
+
 struct StatsSummaryTile: View {
     let label: String
     let value: String
