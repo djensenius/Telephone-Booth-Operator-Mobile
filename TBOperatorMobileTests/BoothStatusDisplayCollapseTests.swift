@@ -261,6 +261,53 @@ final class StatsSummaryCompatibilityTests: XCTestCase {
     }
 }
 
+@MainActor
+final class BoothStatusLiveStoreCompatibilityTests: XCTestCase {
+    private let now = Date(timeIntervalSince1970: 1_700_000_000)
+
+    func testApplyingSummaryPreservesAdditiveInteractions() throws {
+        let store = BoothStatusLiveStore()
+        store.applyStats(makeSummary(booth: BoothStatus(state: .idle, updatedAt: now)))
+
+        let stats = try XCTUnwrap(store.stats)
+        XCTAssertEqual(stats.calls.today, 2)
+        XCTAssertEqual(stats.interactions?.today, 5)
+        XCTAssertEqual(stats.interactionsToday, 5)
+        XCTAssertEqual(stats.interactionsInProgress, 3)
+    }
+
+    func testStatusUpdatesKeepAdditiveInteractionsFromCurrentSummary() throws {
+        let store = BoothStatusLiveStore()
+        store.applyStats(makeSummary(booth: BoothStatus(state: .idle, updatedAt: now)))
+
+        store.applyStatusForTesting(
+            BoothStatus(state: .recording, updatedAt: now.addingTimeInterval(60))
+        )
+
+        let stats = try XCTUnwrap(store.stats)
+        XCTAssertEqual(stats.booth.state, .recording)
+        XCTAssertEqual(stats.calls.today, 2)
+        XCTAssertEqual(stats.interactions?.today, 5)
+        XCTAssertEqual(stats.interactionsToday, 5)
+        XCTAssertEqual(stats.interactionsInProgress, 3)
+    }
+
+    private func makeSummary(booth: BoothStatus) -> StatsSummary {
+        StatsSummary(
+            booth: booth,
+            messages: StatsSummary.Messages(
+                pending: 1,
+                receivedToday: 1,
+                latestId: nil
+            ),
+            calls: .init(today: 2, inProgress: 0),
+            interactions: .init(today: 5, inProgress: 3),
+            realtime: .init(wsClients: 1),
+            generatedAt: now
+        )
+    }
+}
+
 final class WidgetSnapshotCompatibilityTests: XCTestCase {
     func testWidgetSnapshotFromStatsSummary() {
         let stats = StatsSummary(

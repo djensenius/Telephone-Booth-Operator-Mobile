@@ -300,6 +300,7 @@ public final class BoothStatusLiveStore {
                 booth: newStatus,
                 messages: currentStats.messages,
                 calls: currentStats.calls,
+                interactions: currentStats.interactions,
                 realtime: currentStats.realtime,
                 generatedAt: currentStats.generatedAt,
                 dayStartedAt: currentStats.dayStartedAt,
@@ -317,6 +318,7 @@ public final class BoothStatusLiveStore {
             booth: booth,
             messages: newStats.messages,
             calls: newStats.calls,
+            interactions: newStats.interactions,
             realtime: newStats.realtime,
             generatedAt: newStats.generatedAt,
             dayStartedAt: newStats.dayStartedAt,
@@ -473,3 +475,11 @@ public final class BoothStatusLiveStore {
         WidgetSnapshotStore.write(WidgetSnapshot(stats: demoStats))
     }
 }
+
+#if DEBUG
+extension BoothStatusLiveStore {
+    func applyStatusForTesting(_ newStatus: BoothStatus) {
+        apply(status: newStatus)
+    }
+}
+#endif
