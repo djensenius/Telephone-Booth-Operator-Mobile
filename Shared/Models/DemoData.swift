@@ -281,6 +281,12 @@ public enum DemoData {
             id: "demo-question-3",
             prompt: "Leave a sound, story, or greeting for the next visitor.",
             durationMs: 8_000
+        ),
+        question(
+            id: "demo-question-4",
+            prompt: "What did this place sound like when you first arrived?",
+            durationMs: 10_000,
+            status: .archived
         )
     ]
 
@@ -584,7 +590,8 @@ public extension DemoData {
                 sha256: "demo-\(id)",
                 durationMs: durationMs
             ),
-            createdAt: now.addingTimeInterval(-86_400)
+            createdAt: now.addingTimeInterval(-86_400),
+            retiredAt: status == .archived ? now.addingTimeInterval(-3_600) : nil
         )
     }
 

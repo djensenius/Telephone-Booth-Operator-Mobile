@@ -168,6 +168,15 @@ final class OperatorClientRetryTests: XCTestCase {
         XCTAssertEqual(query, .all)
         XCTAssertEqual(query.statusQueryValue, "any")
     }
+
+    @MainActor
+    func testDemoAllQuestionsIncludesArchivedQuestionsImmediately() async throws {
+        let all = try await OperatorClient.demo.fetchQuestions(filter: .all)
+        let defaultList = try await OperatorClient.demo.fetchQuestions()
+
+        XCTAssertTrue(all.items.contains { $0.status == .archived })
+        XCTAssertFalse(defaultList.items.contains { $0.status == .archived })
+    }
 }
 
 // MARK: - URL protocol mocks

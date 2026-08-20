@@ -66,12 +66,15 @@ struct StatsRangeControls: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, Theme.Spacing.small)
                         .background(
-                            (selectedPreset == option ? Theme.Colors.accent : Theme.Colors.textSecondary)
-                                .opacity(selectedPreset == option ? 0.2 : 0.08),
+                            selectedPreset == option
+                                ? Theme.Colors.textPrimary
+                                : Theme.Colors.textSecondary.opacity(0.08),
                             in: Capsule()
                         )
                         .foregroundStyle(
-                            selectedPreset == option ? Theme.Colors.accent : Theme.Colors.textPrimary
+                            selectedPreset == option
+                                ? Theme.Colors.background
+                                : Theme.Colors.textPrimary
                         )
                 }
                 .buttonStyle(.plain)
@@ -98,9 +101,15 @@ struct StatsRangeControls: View {
                 )
             }
             HStack {
-                Button("Apply custom range") { applyCustomRange() }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Theme.Colors.accent)
+                Button {
+                    applyCustomRange()
+                } label: {
+                    Label("Apply custom range", systemImage: "checkmark")
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Theme.Colors.background)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.Colors.textPrimary)
                 Spacer()
                 if selection.isCustom {
                     Button("Save…") { isPresentingSave = true }
