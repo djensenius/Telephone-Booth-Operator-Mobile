@@ -346,7 +346,7 @@ struct DashboardCallsTodayCard: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
-                        SectionHeader(text: "Calls today")
+                        SectionHeader(text: "Pickups today")
                         Text(summary(for: series))
                             .font(Theme.Fonts.bodyMedium.weight(.semibold))
                             .foregroundStyle(Theme.Colors.textPrimary)
@@ -357,12 +357,12 @@ struct DashboardCallsTodayCard: View {
                         .foregroundStyle(Theme.Colors.textSecondary)
                 }
                 if !isLoaded {
-                    ProgressView("Loading calls...")
+                    ProgressView("Loading pickups...")
                         .font(Theme.Fonts.bodyMedium)
                         .foregroundStyle(Theme.Colors.textSecondary)
                         .frame(maxWidth: .infinity, minHeight: 112)
                 } else if series.total == 0 {
-                    Text("No calls since midnight")
+                    Text("No pickups since midnight")
                         .font(Theme.Fonts.bodyMedium)
                         .foregroundStyle(Theme.Colors.textSecondary)
                         .frame(maxWidth: .infinity, minHeight: 112)
@@ -378,7 +378,7 @@ struct DashboardCallsTodayCard: View {
     }
 
     private func summary(for series: CallsTodaySeries) -> String {
-        "\(series.total) \(series.total == 1 ? "call" : "calls") since midnight"
+        "\(series.total) \(series.total == 1 ? "pickup" : "pickups") since midnight"
     }
 }
 
@@ -390,7 +390,7 @@ private struct CallsTodayChart: View {
             ForEach(series.points) { point in
                 LineMark(
                     x: .value("Time", point.date),
-                    y: .value("Calls", point.count)
+                    y: .value("Pickups", point.count)
                 )
                 .interpolationMethod(.stepEnd)
                 .foregroundStyle(Theme.Colors.accent)
@@ -399,7 +399,7 @@ private struct CallsTodayChart: View {
             if let endpoint = series.points.last {
                 PointMark(
                     x: .value("Time", endpoint.date),
-                    y: .value("Calls", endpoint.count)
+                    y: .value("Pickups", endpoint.count)
                 )
                 .foregroundStyle(Theme.Colors.accent)
                 .symbolSize(54)
@@ -443,9 +443,9 @@ private struct CallsTodayChart: View {
                 .background(Theme.Colors.textPrimary.opacity(0.045))
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
-        .accessibilityLabel(Text("Cumulative calls today"))
+        .accessibilityLabel(Text("Cumulative pickups today"))
         .accessibilityValue(
-            Text("\(series.total) \(series.total == 1 ? "call" : "calls") since midnight")
+            Text("\(series.total) \(series.total == 1 ? "pickup" : "pickups") since midnight")
         )
     }
 

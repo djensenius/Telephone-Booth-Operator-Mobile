@@ -83,6 +83,8 @@ public struct StatsOverview: Codable, Sendable, Hashable {
     public let generatedAt: Date
     public let timezone: String
     public let calls: Calls
+    public let interactions: Interactions?
+    public let actions: Actions?
     public let messages: Messages
     public let playback: Playback
     public let pickupsHangups: PickupsHangups
@@ -124,12 +126,53 @@ public struct StatsOverview: Codable, Sendable, Hashable {
     public struct PerDay: Codable, Sendable, Hashable {
         public let date: String      // YYYY-MM-DD (UTC)
         public let total: Int
-        public let completed: Int
+        public let completed: Int?
+        public let noSelection: Int?
+        public let messagesLeft: Int?
 
-        public init(date: String, total: Int, completed: Int) {
+        public init(
+            date: String,
+            total: Int,
+            completed: Int? = nil,
+            noSelection: Int? = nil,
+            messagesLeft: Int? = nil
+        ) {
             self.date = date
             self.total = total
             self.completed = completed
+            self.noSelection = noSelection
+            self.messagesLeft = messagesLeft
+        }
+    }
+
+    public struct Interactions: Codable, Sendable, Hashable {
+        public let total: Int
+        public let inProgressNow: Int
+        public let noSelection: Int
+        public let messagesLeft: Int
+        public let averageDurationMs: Double?
+        public let longestDurationMs: Double?
+        public let outcomes: [String: Int]
+        public let perDay: [PerDay]
+
+        public init(
+            total: Int,
+            inProgressNow: Int,
+            noSelection: Int,
+            messagesLeft: Int,
+            averageDurationMs: Double?,
+            longestDurationMs: Double?,
+            outcomes: [String: Int],
+            perDay: [PerDay]
+        ) {
+            self.total = total
+            self.inProgressNow = inProgressNow
+            self.noSelection = noSelection
+            self.messagesLeft = messagesLeft
+            self.averageDurationMs = averageDurationMs
+            self.longestDurationMs = longestDurationMs
+            self.outcomes = outcomes
+            self.perDay = perDay
         }
     }
 
@@ -160,10 +203,40 @@ public struct StatsOverview: Codable, Sendable, Hashable {
     }
 
     public struct Playback: Codable, Sendable, Hashable {
+        /// Legacy combined booth playbacks; newer payloads split message and
+        /// instruction starts in `actions`.
         public let totalPlaybacks: Int
 
         public init(totalPlaybacks: Int) {
             self.totalPlaybacks = totalPlaybacks
+        }
+    }
+
+    public struct Actions: Codable, Sendable, Hashable {
+        public let digitsDialed: [String: Int]
+        public let leaveMessageSelections: Int
+        public let listenMessageSelections: Int
+        public let instructionSelections: Int
+        public let wrongNumberAttempts: Int
+        public let messagePlaybackStarts: Int
+        public let instructionPlaybackStarts: Int
+
+        public init(
+            digitsDialed: [String: Int],
+            leaveMessageSelections: Int,
+            listenMessageSelections: Int,
+            instructionSelections: Int,
+            wrongNumberAttempts: Int,
+            messagePlaybackStarts: Int,
+            instructionPlaybackStarts: Int
+        ) {
+            self.digitsDialed = digitsDialed
+            self.leaveMessageSelections = leaveMessageSelections
+            self.listenMessageSelections = listenMessageSelections
+            self.instructionSelections = instructionSelections
+            self.wrongNumberAttempts = wrongNumberAttempts
+            self.messagePlaybackStarts = messagePlaybackStarts
+            self.instructionPlaybackStarts = instructionPlaybackStarts
         }
     }
 
@@ -218,13 +291,20 @@ public struct StatsOverview: Codable, Sendable, Hashable {
     public struct HourlyBucket: Codable, Sendable, Hashable, Identifiable {
         public let hour: Int
         public let calls: Int
+        public let interactions: Int?
         public let messages: Int
 
         public var id: Int { hour }
 
-        public init(hour: Int, calls: Int, messages: Int) {
+        public init(
+            hour: Int,
+            calls: Int,
+            interactions: Int? = nil,
+            messages: Int
+        ) {
             self.hour = hour
             self.calls = calls
+            self.interactions = interactions
             self.messages = messages
         }
     }
@@ -242,14 +322,22 @@ public struct StatsOverview: Codable, Sendable, Hashable {
     public struct BoothBreakdown: Codable, Sendable, Hashable, Identifiable {
         public let boothId: String
         public let calls: Int
+        public let interactions: Int?
         public let messages: Int?
         public let lastSeenAt: Date?
 
         public var id: String { boothId }
 
-        public init(boothId: String, calls: Int, messages: Int?, lastSeenAt: Date?) {
+        public init(
+            boothId: String,
+            calls: Int,
+            interactions: Int? = nil,
+            messages: Int?,
+            lastSeenAt: Date?
+        ) {
             self.boothId = boothId
             self.calls = calls
+            self.interactions = interactions
             self.messages = messages
             self.lastSeenAt = lastSeenAt
         }
@@ -262,6 +350,8 @@ public struct StatsOverview: Codable, Sendable, Hashable {
         generatedAt: Date,
         timezone: String,
         calls: Calls,
+        interactions: Interactions? = nil,
+        actions: Actions? = nil,
         messages: Messages,
         playback: Playback,
         pickupsHangups: PickupsHangups,
@@ -278,6 +368,8 @@ public struct StatsOverview: Codable, Sendable, Hashable {
         self.generatedAt = generatedAt
         self.timezone = timezone
         self.calls = calls
+        self.interactions = interactions
+        self.actions = actions
         self.messages = messages
         self.playback = playback
         self.pickupsHangups = pickupsHangups
@@ -293,11 +385,124 @@ public struct StatsOverview: Codable, Sendable, Hashable {
 // MARK: - Display helpers
 
 public extension StatsOverview {
-    /// Completion rate (calls.completed / calls.total) when there were any
-    /// calls in the window, otherwise `nil` so the UI can show "—".
+    enum ActionMetricSource: Sendable, Hashable {
+        case additivePayload
+        case legacyFallback
+    }
+
+    struct ActionMetrics: Sendable, Hashable {
+        public let digitsDialed: [String: Int]
+        public let leaveMessageSelections: Int
+        public let listenMessageSelections: Int
+        public let instructionSelections: Int
+        public let wrongNumberAttempts: Int
+        public let messagePlaybackStarts: Int?
+        public let instructionPlaybackStarts: Int?
+        public let combinedPlaybackStarts: Int?
+        public let source: ActionMetricSource
+
+        public var supportsPlaybackBreakouts: Bool {
+            messagePlaybackStarts != nil && instructionPlaybackStarts != nil
+        }
+
+        public var totalSelections: Int {
+            leaveMessageSelections + listenMessageSelections + instructionSelections
+        }
+
+        public var totalPlaybackStarts: Int? {
+            if let messagePlaybackStarts, let instructionPlaybackStarts {
+                return messagePlaybackStarts + instructionPlaybackStarts
+            }
+            return combinedPlaybackStarts
+        }
+
+        public func digitsDialedZeroFilled() -> [(digit: String, count: Int)] {
+            (0...9).map { idx -> (digit: String, count: Int) in
+                let key = String(idx)
+                return (digit: key, count: digitsDialed[key] ?? 0)
+            }
+        }
+    }
+
+    struct SelectionFunnel: Identifiable, Sendable, Hashable {
+        public let id: String
+        public let selectionLabel: String
+        public let selectionCount: Int
+        public let outcomeLabel: String
+        public let outcomeCount: Int?
+    }
+
+    var interactionMetrics: Interactions {
+        interactions ?? Interactions(legacyCalls: calls)
+    }
+
+    var actionMetrics: ActionMetrics {
+        if let actions {
+            return ActionMetrics(
+                digitsDialed: actions.digitsDialed,
+                leaveMessageSelections: actions.leaveMessageSelections,
+                listenMessageSelections: actions.listenMessageSelections,
+                instructionSelections: actions.instructionSelections,
+                wrongNumberAttempts: actions.wrongNumberAttempts,
+                messagePlaybackStarts: actions.messagePlaybackStarts,
+                instructionPlaybackStarts: actions.instructionPlaybackStarts,
+                combinedPlaybackStarts: actions.messagePlaybackStarts + actions.instructionPlaybackStarts,
+                source: .additivePayload
+            )
+        }
+
+        let digits = pickupsHangups.digitsDialed
+        let wrongNumbers = (3...9)
+            .map { digits[String($0)] ?? 0 }
+            .reduce(0, +)
+        let combinedPlaybackStarts = playback.totalPlaybacks > 0 ? playback.totalPlaybacks : nil
+        return ActionMetrics(
+            digitsDialed: digits,
+            leaveMessageSelections: digits["1"] ?? 0,
+            listenMessageSelections: digits["2"] ?? 0,
+            instructionSelections: digits["0"] ?? 0,
+            wrongNumberAttempts: wrongNumbers,
+            messagePlaybackStarts: nil,
+            instructionPlaybackStarts: nil,
+            combinedPlaybackStarts: combinedPlaybackStarts,
+            source: .legacyFallback
+        )
+    }
+
+    var selectionFunnels: [SelectionFunnel] {
+        let actions = actionMetrics
+        let interactions = interactionMetrics
+        return [
+            SelectionFunnel(
+                id: "leave-message",
+                selectionLabel: "Leave message",
+                selectionCount: actions.leaveMessageSelections,
+                outcomeLabel: "Messages left",
+                outcomeCount: interactions.messagesLeft
+            ),
+            SelectionFunnel(
+                id: "listen-message",
+                selectionLabel: "Listen message",
+                selectionCount: actions.listenMessageSelections,
+                outcomeLabel: "Message playback starts",
+                outcomeCount: actions.messagePlaybackStarts
+            ),
+            SelectionFunnel(
+                id: "instructions",
+                selectionLabel: "Instructions",
+                selectionCount: actions.instructionSelections,
+                outcomeLabel: "Instruction playback starts",
+                outcomeCount: actions.instructionPlaybackStarts
+            )
+        ]
+    }
+
+    /// Message-left rate for the selected interaction cohort. Falls back to
+    /// the legacy `calls.completed / calls.total` semantics while older
+    /// Operator deployments are still in use.
     var completionRate: Double? {
-        guard calls.total > 0 else { return nil }
-        return Double(calls.completed) / Double(calls.total)
+        guard interactionMetrics.total > 0 else { return nil }
+        return Double(interactionMetrics.messagesLeft) / Double(interactionMetrics.total)
     }
 
     /// Time elapsed since the most recent booth telemetry event.
@@ -310,6 +515,42 @@ public extension StatsOverview {
 
 public extension StatsOverview.Uploads {
     var total: Int { succeeded + failed }
+}
+
+public extension StatsOverview.PerDay {
+    var messagesLeftCount: Int { messagesLeft ?? completed ?? 0 }
+    var noSelectionCount: Int { noSelection ?? 0 }
+}
+
+public extension StatsOverview.HourlyBucket {
+    var interactionCount: Int { interactions ?? calls }
+}
+
+public extension StatsOverview.BoothBreakdown {
+    var interactionCount: Int { interactions ?? calls }
+}
+
+private extension StatsOverview.Interactions {
+    init(legacyCalls: StatsOverview.Calls) {
+        self.init(
+            total: legacyCalls.total,
+            inProgressNow: legacyCalls.inProgress,
+            noSelection: legacyCalls.outcomes["hung_up_before_dial"] ?? 0,
+            messagesLeft: legacyCalls.outcomes["recording_completed"] ?? legacyCalls.completed,
+            averageDurationMs: legacyCalls.averageDurationMs,
+            longestDurationMs: legacyCalls.longestDurationMs,
+            outcomes: legacyCalls.outcomes,
+            perDay: legacyCalls.perDay.map {
+                StatsOverview.PerDay(
+                    date: $0.date,
+                    total: $0.total,
+                    completed: $0.completed,
+                    noSelection: $0.noSelection,
+                    messagesLeft: $0.messagesLeft ?? $0.completed
+                )
+            }
+        )
+    }
 }
 
 public enum InstallationScope: Sendable, Hashable {
@@ -336,6 +577,8 @@ public enum InstallationScope: Sendable, Hashable {
 
 public struct InstallationSummary: Codable, Sendable, Hashable {
     public let calls: Int
+    public let interactions: Int?
+    public let interactionBreakdown: InteractionBreakdown?
     public let messages: Int
     public let allRecordings: Int?
     public let byStatus: [String: Int]?
@@ -347,8 +590,32 @@ public struct InstallationSummary: Codable, Sendable, Hashable {
     public let firstActivityAt: Date?
     public let lastActivityAt: Date?
 
+    public struct InteractionBreakdown: Codable, Sendable, Hashable {
+        public let noSelection: Int
+        public let wrongNumberAttempts: Int
+        public let messagesLeft: Int
+        public let messagePlaybackStarts: Int
+        public let instructionPlaybackStarts: Int
+
+        public init(
+            noSelection: Int,
+            wrongNumberAttempts: Int,
+            messagesLeft: Int,
+            messagePlaybackStarts: Int,
+            instructionPlaybackStarts: Int
+        ) {
+            self.noSelection = noSelection
+            self.wrongNumberAttempts = wrongNumberAttempts
+            self.messagesLeft = messagesLeft
+            self.messagePlaybackStarts = messagePlaybackStarts
+            self.instructionPlaybackStarts = instructionPlaybackStarts
+        }
+    }
+
     public init(
         calls: Int,
+        interactions: Int? = nil,
+        interactionBreakdown: InteractionBreakdown? = nil,
         messages: Int,
         allRecordings: Int? = nil,
         byStatus: [String: Int]? = nil,
@@ -361,6 +628,8 @@ public struct InstallationSummary: Codable, Sendable, Hashable {
         lastActivityAt: Date?
     ) {
         self.calls = calls
+        self.interactions = interactions
+        self.interactionBreakdown = interactionBreakdown
         self.messages = messages
         self.allRecordings = allRecordings
         self.byStatus = byStatus
@@ -372,6 +641,11 @@ public struct InstallationSummary: Codable, Sendable, Hashable {
         self.firstActivityAt = firstActivityAt
         self.lastActivityAt = lastActivityAt
     }
+}
+
+public extension InstallationSummary {
+    var interactionTotal: Int { interactions ?? calls }
+    var messagesLeftCount: Int { interactionBreakdown?.messagesLeft ?? allRecordings ?? messages }
 }
 
 public struct Installation: Codable, Sendable, Hashable, Identifiable {
@@ -465,6 +739,7 @@ public extension StatsOverview {
         "recording_failed",
         "upload_failed",
         "operator_error",
+        "installation_ended",
         "aborted"
     ]
 
@@ -478,7 +753,7 @@ public extension StatsOverview {
     ]
 
     func outcomesInDisplayOrder() -> [(key: String, count: Int)] {
-        ordered(calls.outcomes, canonical: Self.canonicalOutcomeOrder)
+        ordered(interactionMetrics.outcomes, canonical: Self.canonicalOutcomeOrder)
     }
 
     func statusesInDisplayOrder() -> [(key: String, count: Int)] {
@@ -509,18 +784,7 @@ public extension StatsOverview {
 
 public extension StatsOverview {
     static func outcomeLabel(_ key: String) -> String {
-        switch key {
-        case "recording_completed": return "Recording completed"
-        case "hung_up_before_dial": return "Hung up before dialing"
-        case "hung_up_during_prompt": return "Hung up during prompt"
-        case "hung_up_during_recording": return "Hung up during recording"
-        case "hung_up_during_upload": return "Hung up during upload"
-        case "recording_failed": return "Recording failed"
-        case "upload_failed": return "Upload failed"
-        case "operator_error": return "Operator error"
-        case "aborted": return "Aborted"
-        default: return key
-        }
+        outcomeLabels[key] ?? key
     }
 
     static func statusLabel(_ key: String) -> String {
@@ -542,4 +806,17 @@ public extension StatsOverview {
         guard index >= 0, index < names.count else { return nil }
         return names[index]
     }
+
+    private static let outcomeLabels: [String: String] = [
+        "recording_completed": "Recording completed",
+        "hung_up_before_dial": "Hung up before dialing",
+        "hung_up_during_prompt": "Hung up during prompt",
+        "hung_up_during_recording": "Hung up during recording",
+        "hung_up_during_upload": "Hung up during upload",
+        "recording_failed": "Recording failed",
+        "upload_failed": "Upload failed",
+        "operator_error": "Operator error",
+        "installation_ended": "Installation ended",
+        "aborted": "Aborted"
+    ]
 }

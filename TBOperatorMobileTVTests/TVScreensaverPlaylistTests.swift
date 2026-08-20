@@ -99,8 +99,7 @@ final class TVScreensaverPlaylistTests: XCTestCase {
 
     func testBuildOmitsAllZeroOverviewStats() {
         let overview = makeOverview(
-            totalCalls: 1,
-            completedCalls: 0,
+            totalInteractions: 0,
             perDay: [.init(date: "2026-08-19", total: 0, completed: 0)]
         )
         let items = TVScreensaverPlaylist.build(status: nil, stats: nil, overview: overview)
@@ -109,9 +108,9 @@ final class TVScreensaverPlaylistTests: XCTestCase {
 
     func testBuildIncludesAllNonZeroOverviewStats() {
         let overview = makeOverview(
-            totalCalls: 4,
-            completedCalls: 2,
-            pickups: 3,
+            totalInteractions: 4,
+            messagesLeft: 2,
+            wrongNumbers: 3,
             totalPlaybacks: 2,
             perDay: [
                 .init(date: "2026-08-18", total: 0, completed: 0),
@@ -121,12 +120,12 @@ final class TVScreensaverPlaylistTests: XCTestCase {
         let items = TVScreensaverPlaylist.build(status: nil, stats: nil, overview: overview)
         XCTAssertEqual(
             Set(items.map(\.id)),
-            Set(["completion", "pickups", "playbacks", "calls-chart"])
+            Set(["pickups", "messages-left", "wrong-numbers", "playbacks", "calls-chart"])
         )
         guard case let .callsChart(days)? = items.first(where: { $0.id == "calls-chart" })?.kind else {
             return XCTFail("expected a calls chart")
         }
-        XCTAssertEqual(days, overview.calls.perDay)
+        XCTAssertEqual(days, overview.interactionMetrics.perDay)
     }
 
     // MARK: - Helpers
@@ -147,15 +146,16 @@ final class TVScreensaverPlaylistTests: XCTestCase {
                 latestId: nil
             ),
             calls: .init(today: callsToday, inProgress: inProgress),
+            interactions: .init(today: callsToday, inProgress: inProgress),
             realtime: base.realtime,
             generatedAt: base.generatedAt
         )
     }
 
     private func makeOverview(
-        totalCalls: Int = 0,
-        completedCalls: Int = 0,
-        pickups: Int = 0,
+        totalInteractions: Int = 0,
+        messagesLeft: Int = 0,
+        wrongNumbers: Int = 0,
         totalPlaybacks: Int = 0,
         perDay: [StatsOverview.PerDay] = []
     ) -> StatsOverview {
@@ -167,17 +167,36 @@ final class TVScreensaverPlaylistTests: XCTestCase {
             generatedAt: date,
             timezone: "UTC",
             calls: .init(
-                total: totalCalls,
-                completed: completedCalls,
+                total: totalInteractions,
+                completed: messagesLeft,
                 inProgress: 0,
                 averageDurationMs: nil,
                 longestDurationMs: nil,
-                outcomes: [:],
+                outcomes: ["recording_completed": messagesLeft],
                 perDay: perDay
+            ),
+            interactions: .init(
+                total: totalInteractions,
+                inProgressNow: 0,
+                noSelection: 0,
+                messagesLeft: messagesLeft,
+                averageDurationMs: nil,
+                longestDurationMs: nil,
+                outcomes: ["recording_completed": messagesLeft],
+                perDay: perDay
+            ),
+            actions: .init(
+                digitsDialed: ["1": messagesLeft, "3": wrongNumbers],
+                leaveMessageSelections: messagesLeft,
+                listenMessageSelections: 0,
+                instructionSelections: 0,
+                wrongNumberAttempts: wrongNumbers,
+                messagePlaybackStarts: totalPlaybacks,
+                instructionPlaybackStarts: 0
             ),
             messages: .init(total: 0, byStatus: [:], averageDurationMs: nil),
             playback: .init(totalPlaybacks: totalPlaybacks),
-            pickupsHangups: .init(pickups: pickups, hangups: 0, digitsDialed: [:]),
+            pickupsHangups: .init(pickups: totalInteractions, hangups: 0, digitsDialed: [:]),
             uploads: .init(succeeded: 0, failed: 0, failureRate: nil),
             topQuestions: [],
             hourly: [],

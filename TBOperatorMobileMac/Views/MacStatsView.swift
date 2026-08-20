@@ -267,17 +267,26 @@ extension MacStatsView {
     // MARK: - Summary metrics
 
     private func summaryGrid(_ overview: StatsOverview) -> some View {
-        LazyVGrid(
+        let interactions = overview.interactionMetrics
+        let actions = overview.actionMetrics
+        return LazyVGrid(
             columns: [GridItem(.adaptive(minimum: 150), spacing: 12)],
             spacing: 12
         ) {
-            MacMetricTile(label: "Pickups", value: num(overview.pickupsHangups.pickups))
-            MacMetricTile(label: "Approved messages", value: num(overview.messages.approvedCount))
-            MacMetricTile(label: "All recordings", value: num(overview.messages.allRecordingsCount))
-            MacMetricTile(label: "Completion", value: StatsFormat.percentString(overview.completionRate))
-            MacMetricTile(label: "Booth playbacks", value: num(overview.playback.totalPlaybacks))
+            MacMetricTile(label: "Pickups", value: num(interactions.total))
+            MacMetricTile(label: "No selection", value: num(interactions.noSelection))
+            MacMetricTile(label: "Wrong numbers", value: num(actions.wrongNumberAttempts))
+            MacMetricTile(label: "Messages left", value: num(interactions.messagesLeft))
+            MacMetricTile(
+                label: "Messages listened",
+                value: StatsFormat.optionalNumberString(actions.messagePlaybackStarts)
+            )
+            MacMetricTile(
+                label: "Instructions heard",
+                value: StatsFormat.optionalNumberString(actions.instructionPlaybackStarts)
+            )
+            MacMetricTile(label: "In progress", value: num(interactions.inProgressNow))
             MacMetricTile(label: "Last activity", value: StatsFormat.timeAgoString(overview.lastActivityAt))
-            MacMetricTile(label: "In progress", value: num(overview.calls.inProgress))
         }
     }
 
@@ -301,18 +310,22 @@ extension MacStatsView {
     }
 
     private func callsSection(_ overview: StatsOverview) -> some View {
-        GroupBox("Calls") {
+        let interactions = overview.interactionMetrics
+        return GroupBox("Pickups") {
             VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-                LabeledContent("Total", value: num(overview.calls.total))
-                LabeledContent("Completed", value: num(overview.calls.completed))
-                LabeledContent("Avg duration", value: StatsFormat.durationString(overview.calls.averageDurationMs))
-                LabeledContent("Longest call", value: StatsFormat.durationString(overview.calls.longestDurationMs))
+                LabeledContent("Total", value: num(interactions.total))
+                LabeledContent("In progress now", value: num(interactions.inProgressNow))
+                LabeledContent("No selection", value: num(interactions.noSelection))
+                LabeledContent("Messages left", value: num(interactions.messagesLeft))
+                LabeledContent("Message left rate", value: StatsFormat.percentString(overview.completionRate))
+                LabeledContent("Avg duration", value: StatsFormat.durationString(interactions.averageDurationMs))
+                LabeledContent("Longest pickup", value: StatsFormat.durationString(interactions.longestDurationMs))
                 Divider()
                 Text("Outcomes").font(.headline)
                 bars(overview.outcomesInDisplayOrder().map {
                     (StatsOverview.outcomeLabel($0.key), $0.count)
-                }, empty: "No completed calls in this window.")
-                Text("Calls per day (UTC)").font(.headline)
+                }, empty: "No pickups in this window.")
+                Text("Pickups per day (UTC)").font(.headline)
                 perDayChart(overview)
             }
             .padding(.top, 4)
@@ -321,12 +334,13 @@ extension MacStatsView {
     }
 
     private func messagesSection(_ overview: StatsOverview) -> some View {
-        GroupBox("Recordings") {
+        GroupBox("Recordings & moderation") {
             VStack(alignment: .leading, spacing: Theme.Spacing.small) {
                 LabeledContent("Approved messages", value: num(overview.messages.approvedCount))
                 LabeledContent("All recordings", value: num(overview.messages.allRecordingsCount))
                 LabeledContent("Avg duration", value: StatsFormat.durationString(overview.messages.averageDurationMs))
-                LabeledContent("Booth playbacks", value: num(overview.playback.totalPlaybacks))
+                LabeledContent("Uploads succeeded", value: num(overview.uploads.succeeded))
+                LabeledContent("Uploads failed", value: failedUploads(overview))
                 Divider()
                 Text("By status").font(.headline)
                 bars(overview.statusesInDisplayOrder().map {
@@ -357,14 +371,33 @@ extension MacStatsView {
     }
 
     private func pickupsSection(_ overview: StatsOverview) -> some View {
-        let digits = overview.pickupsHangups.digitsDialedZeroFilled()
+        let actions = overview.actionMetrics
+        let digits = actions.digitsDialedZeroFilled()
         let maxDigit = digits.map(\.count).max() ?? 0
-        return GroupBox("Pickups & hangups") {
+        return GroupBox("Selections & playback") {
             VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-                LabeledContent("Pickups", value: num(overview.pickupsHangups.pickups))
-                LabeledContent("Hangups", value: num(overview.pickupsHangups.hangups))
-                LabeledContent("Uploads succeeded", value: num(overview.uploads.succeeded))
-                LabeledContent("Uploads failed", value: failedUploads(overview))
+                ForEach(overview.selectionFunnels) { funnel in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(funnel.selectionLabel)
+                            .font(.headline)
+                        LabeledContent("Selected", value: num(funnel.selectionCount))
+                        LabeledContent(
+                            funnel.outcomeLabel,
+                            value: StatsFormat.optionalNumberString(funnel.outcomeCount)
+                        )
+                    }
+                }
+                LabeledContent("Wrong numbers", value: num(actions.wrongNumberAttempts))
+                LabeledContent("Total dial attempts", value: num(actions.digitsDialed.values.reduce(0, +)))
+                if !actions.supportsPlaybackBreakouts {
+                    LabeledContent(
+                        "Combined playback starts",
+                        value: StatsFormat.optionalNumberString(actions.totalPlaybackStarts)
+                    )
+                    Text("Legacy Operator payloads do not split message and instruction playback starts.")
+                        .font(Theme.Fonts.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                }
                 Divider()
                 Text("Digits dialed").font(.headline)
                 LazyVGrid(
@@ -415,7 +448,11 @@ extension MacStatsView {
             VStack(alignment: .leading, spacing: Theme.Spacing.small) {
                 ForEach(overview.boothBreakdown) { entry in
                     LabeledContent {
-                        Text("\(entry.calls) calls").monospacedDigit()
+                        Text(
+                            "\(num(entry.interactionCount)) "
+                                + "\(entry.interactionCount == 1 ? "pickup" : "pickups")"
+                        )
+                        .monospacedDigit()
                     } label: {
                         Text(entry.boothId)
                         Text("Last seen \(StatsFormat.timeAgoString(entry.lastSeenAt))")
@@ -431,12 +468,13 @@ extension MacStatsView {
 
     @ViewBuilder
     private func perDayChart(_ overview: StatsOverview) -> some View {
-        if overview.calls.perDay.isEmpty {
+        let perDay = overview.interactionMetrics.perDay
+        if perDay.isEmpty {
             Text("No data in this window.")
                 .font(Theme.Fonts.bodySmall)
                 .foregroundStyle(Theme.Colors.textSecondary)
         } else {
-            Chart(overview.calls.perDay, id: \.date) { day in
+            Chart(perDay, id: \.date) { day in
                 BarMark(x: .value("Date", day.date), y: .value("Total", day.total))
                     .foregroundStyle(Theme.Colors.accent)
             }
@@ -455,7 +493,7 @@ extension MacStatsView {
 
     private func hourlyChart(_ overview: StatsOverview) -> some View {
         Chart(overview.hourly) { bucket in
-            BarMark(x: .value("Hour", bucket.hour), y: .value("Calls", bucket.calls))
+            BarMark(x: .value("Hour", bucket.hour), y: .value("Pickups", bucket.interactionCount))
                 .foregroundStyle(Theme.Colors.accent)
         }
         .frame(height: 140)

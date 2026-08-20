@@ -12,6 +12,7 @@ public struct StatsSummary: Codable, Sendable, Hashable {
     public let booth: BoothStatus
     public let messages: Messages
     public let calls: Calls
+    public let interactions: Calls?
     public let realtime: Realtime
     public let generatedAt: Date
     public let dayStartedAt: Date?
@@ -56,6 +57,7 @@ public struct StatsSummary: Codable, Sendable, Hashable {
         booth: BoothStatus,
         messages: Messages,
         calls: Calls,
+        interactions: Calls? = nil,
         realtime: Realtime,
         generatedAt: Date,
         dayStartedAt: Date? = nil,
@@ -64,6 +66,7 @@ public struct StatsSummary: Codable, Sendable, Hashable {
         self.booth = booth
         self.messages = messages
         self.calls = calls
+        self.interactions = interactions
         self.realtime = realtime
         self.generatedAt = generatedAt
         self.dayStartedAt = dayStartedAt
@@ -73,6 +76,10 @@ public struct StatsSummary: Codable, Sendable, Hashable {
 
 /// Placeholder summary used by SwiftUI previews and widget snapshots.
 public extension StatsSummary {
+    var interactionCounts: Calls { interactions ?? calls }
+    var interactionsToday: Int { interactionCounts.today }
+    var interactionsInProgress: Int { interactionCounts.inProgress }
+
     static let placeholder = StatsSummary(
         booth: BoothStatus(
             state: .idle,
@@ -80,6 +87,7 @@ public extension StatsSummary {
         ),
         messages: Messages(pending: 2, awaitingModeration: 2, receivedToday: 7, latestId: nil),
         calls: Calls(today: 4, inProgress: 0),
+        interactions: Calls(today: 4, inProgress: 0),
         realtime: Realtime(wsClients: 1),
         generatedAt: Date(timeIntervalSince1970: 1_700_000_000),
         dayStartedAt: nil,

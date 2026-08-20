@@ -98,49 +98,58 @@ struct TVStatsView: View {
     // MARK: Headline KPIs
 
     private func headline(_ overview: StatsOverview) -> some View {
-        TVFocusCard {
+        let interactions = overview.interactionMetrics
+        let actions = overview.actionMetrics
+        return TVFocusCard {
             VStack(alignment: .leading, spacing: 24) {
                 TVCardHeader(
                     title: "\(installationScopeName) · \(window.displayName)",
                     systemImage: "sparkles"
                 )
                 LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: 20), count: 3),
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 20), count: 4),
                     spacing: 20
                 ) {
-                    TVStatTile(label: "Pickups", value: number(overview.pickupsHangups.pickups))
-                    TVStatTile(label: "Approved messages", value: number(overview.messages.approvedCount))
-                    TVStatTile(label: "All recordings", value: number(overview.messages.allRecordingsCount))
+                    TVStatTile(label: "Pickups", value: number(interactions.total))
+                    TVStatTile(label: "No selection", value: number(interactions.noSelection))
+                    TVStatTile(label: "Wrong numbers", value: number(actions.wrongNumberAttempts))
+                    TVStatTile(label: "Messages left", value: number(interactions.messagesLeft))
                     TVStatTile(
-                        label: "Completion",
-                        value: StatsFormat.percentString(overview.completionRate)
+                        label: "Messages listened",
+                        value: StatsFormat.optionalNumberString(actions.messagePlaybackStarts)
                     )
-                    TVStatTile(label: "Booth playbacks", value: number(overview.playback.totalPlaybacks))
                     TVStatTile(
-                        label: "Last activity",
-                        value: StatsFormat.timeAgoString(overview.lastActivityAt)
+                        label: "Instructions heard",
+                        value: StatsFormat.optionalNumberString(actions.instructionPlaybackStarts)
                     )
                     TVStatTile(
                         label: "In progress",
-                        value: number(liveInProgress ?? overview.calls.inProgress),
-                        emphasize: (liveInProgress ?? overview.calls.inProgress) > 0
+                        value: number(liveInProgress ?? interactions.inProgressNow),
+                        emphasize: (liveInProgress ?? interactions.inProgressNow) > 0
                     )
+                    TVStatTile(label: "Last activity", value: StatsFormat.timeAgoString(overview.lastActivityAt))
                 }
             }
         }
     }
 
-    // MARK: Calls
+    // MARK: Pickups
 
     private func callsCard(_ overview: StatsOverview) -> some View {
-        TVFocusCard {
+        let interactions = overview.interactionMetrics
+        return TVFocusCard {
             VStack(alignment: .leading, spacing: 16) {
-                TVCardHeader(title: "Calls", systemImage: "phone.connection.fill")
-                TVKeyValueRow(key: "Total", value: number(overview.calls.total))
-                TVKeyValueRow(key: "Completed", value: number(overview.calls.completed))
-                TVKeyValueRow(key: "Avg duration", value: StatsFormat.durationString(overview.calls.averageDurationMs))
-                TVKeyValueRow(key: "Longest call", value: StatsFormat.durationString(overview.calls.longestDurationMs))
-
+                TVCardHeader(title: "Pickups", systemImage: "phone.connection.fill")
+                TVKeyValueRow(key: "Total", value: number(interactions.total))
+                TVKeyValueRow(key: "In progress now", value: number(interactions.inProgressNow))
+                TVKeyValueRow(key: "No selection", value: number(interactions.noSelection))
+                TVKeyValueRow(key: "Messages left", value: number(interactions.messagesLeft))
+                TVKeyValueRow(key: "Message left rate", value: StatsFormat.percentString(overview.completionRate))
+                TVKeyValueRow(key: "Avg duration", value: StatsFormat.durationString(interactions.averageDurationMs))
+                TVKeyValueRow(
+                    key: "Longest pickup",
+                    value: StatsFormat.durationString(interactions.longestDurationMs)
+                )
                 let outcomes = overview.outcomesInDisplayOrder()
                 if !outcomes.isEmpty {
                     Divider().overlay(Theme.Colors.textSecondary.opacity(0.25))
@@ -164,13 +173,14 @@ struct TVStatsView: View {
 
     @ViewBuilder
     private func perDayChart(_ overview: StatsOverview) -> some View {
-        if !overview.calls.perDay.isEmpty {
+        let perDay = overview.interactionMetrics.perDay
+        if !perDay.isEmpty {
             Divider().overlay(Theme.Colors.textSecondary.opacity(0.25))
-            Text("Calls per day (UTC)")
+            Text("Pickups per day (UTC)")
                 .font(TVMetrics.Font.rowValue)
                 .foregroundStyle(Theme.Colors.textPrimary)
             #if canImport(Charts)
-            Chart(overview.calls.perDay, id: \.date) { day in
+            Chart(perDay, id: \.date) { day in
                 BarMark(
                     x: .value("Date", StatsFormat.shortDateLabel(day.date)),
                     y: .value("Total", day.total)
@@ -199,15 +209,15 @@ struct TVStatsView: View {
     private func messagesCard(_ overview: StatsOverview) -> some View {
         TVFocusCard {
             VStack(alignment: .leading, spacing: 16) {
-                TVCardHeader(title: "Recordings", systemImage: "tray.full.fill")
+                TVCardHeader(title: "Recordings & moderation", systemImage: "tray.full.fill")
                 TVKeyValueRow(key: "Approved messages", value: number(overview.messages.approvedCount))
                 TVKeyValueRow(key: "All recordings", value: number(overview.messages.allRecordingsCount))
                 TVKeyValueRow(
                     key: "Avg duration",
                     value: StatsFormat.durationString(overview.messages.averageDurationMs)
                 )
-                TVKeyValueRow(key: "Booth playbacks", value: number(overview.playback.totalPlaybacks))
-
+                TVKeyValueRow(key: "Uploads OK", value: number(overview.uploads.succeeded))
+                TVKeyValueRow(key: "Uploads failed", value: failedUploads(overview))
                 let statuses = overview.statusesInDisplayOrder()
                 if !statuses.isEmpty {
                     Divider().overlay(Theme.Colors.textSecondary.opacity(0.25))
@@ -227,18 +237,42 @@ struct TVStatsView: View {
         }
     }
 
-    // MARK: Pickups & hangups
+    // MARK: Selections & playback
 
     private func pickupsCard(_ overview: StatsOverview) -> some View {
-        let digits = overview.pickupsHangups.digitsDialedZeroFilled()
+        let actions = overview.actionMetrics
+        let digits = actions.digitsDialedZeroFilled()
         let maxDigit = digits.map(\.count).max() ?? 0
         return TVFocusCard {
             VStack(alignment: .leading, spacing: 16) {
-                TVCardHeader(title: "Pickups & hangups", systemImage: "hand.raised.fill")
-                TVKeyValueRow(key: "Pickups", value: number(overview.pickupsHangups.pickups))
-                TVKeyValueRow(key: "Hangups", value: number(overview.pickupsHangups.hangups))
-                TVKeyValueRow(key: "Uploads OK", value: number(overview.uploads.succeeded))
-                TVKeyValueRow(key: "Uploads failed", value: failedUploads(overview))
+                TVCardHeader(title: "Selections & playback", systemImage: "circle.grid.3x3.fill")
+                ForEach(overview.selectionFunnels) { funnel in
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(funnel.selectionLabel)
+                            .font(TVMetrics.Font.rowValue)
+                            .foregroundStyle(Theme.Colors.textPrimary)
+                        TVKeyValueRow(key: "Selected", value: number(funnel.selectionCount))
+                        TVKeyValueRow(
+                            key: funnel.outcomeLabel,
+                            value: StatsFormat.optionalNumberString(funnel.outcomeCount)
+                        )
+                    }
+                    .padding(.bottom, 6)
+                }
+                TVKeyValueRow(key: "Wrong numbers", value: number(actions.wrongNumberAttempts))
+                TVKeyValueRow(
+                    key: "Total dial attempts",
+                    value: number(actions.digitsDialed.values.reduce(0, +))
+                )
+                if !actions.supportsPlaybackBreakouts {
+                    TVKeyValueRow(
+                        key: "Combined playback starts",
+                        value: StatsFormat.optionalNumberString(actions.totalPlaybackStarts)
+                    )
+                    Text("Legacy Operator payloads do not split message and instruction playback starts.")
+                        .font(TVMetrics.Font.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                }
                 Divider().overlay(Theme.Colors.textSecondary.opacity(0.25))
                 Text("Digits dialed")
                     .font(TVMetrics.Font.rowValue)
@@ -334,7 +368,7 @@ struct TVStatsView: View {
     /// so the headline reflects current booth activity between the slower
     /// historical-overview refreshes.
     private var liveInProgress: Int? {
-        liveStore.stats?.calls.inProgress
+        liveStore.stats?.interactionsInProgress
     }
 
     private func number(_ value: Int) -> String {
@@ -352,8 +386,6 @@ struct TVStatsView: View {
         }
     }
 }
-
-// MARK: - Range selector
 
 private struct TVRangeSelector: View {
     @Binding var window: StatsWindow
@@ -416,8 +448,6 @@ private struct TVInstallationSelector: View {
         }
     }
 }
-
-// MARK: - Small primitives
 
 private struct TVDigitTile: View {
     let digit: String

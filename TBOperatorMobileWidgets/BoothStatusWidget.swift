@@ -73,7 +73,7 @@ struct BoothStatusWidgetView: View {
             if family == .systemMedium {
                 Divider()
                 HStack {
-                    StatBlock(label: "Calls today", value: "\(snapshot.callsToday)")
+                    StatBlock(label: "Pickups", value: "\(snapshot.interactionsToday)")
                     Spacer()
                     StatBlock(label: "Pending", value: "\(snapshot.pendingMessages)")
                     Spacer()

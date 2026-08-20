@@ -55,8 +55,8 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             boothUpdatedAt: stats.booth.updatedAt,
             pendingMessages: stats.messages.pending,
             receivedToday: stats.messages.receivedToday,
-            callsToday: stats.calls.today,
-            callsInProgress: stats.calls.inProgress,
+            callsToday: stats.interactionsToday,
+            callsInProgress: stats.interactionsInProgress,
             wsClients: stats.realtime.wsClients,
             generatedAt: stats.generatedAt,
             runtimeMode: stats.booth.runtimeMode
@@ -65,6 +65,9 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
 }
 
 public extension WidgetSnapshot {
+    var interactionsToday: Int { callsToday }
+    var interactionsInProgress: Int { callsInProgress }
+
     /// Compares only the semantically meaningful fields, ignoring
     /// `generatedAt` which changes on every server response.
     func hasSameContent(as other: WidgetSnapshot) -> Bool {

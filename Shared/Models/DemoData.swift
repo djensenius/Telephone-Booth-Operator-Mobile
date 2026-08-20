@@ -45,6 +45,7 @@ public enum DemoData {
             latestId: UUID(uuidString: "22222222-2222-2222-2222-222222222222")
         ),
         calls: StatsSummary.Calls(today: 27, inProgress: 1),
+        interactions: StatsSummary.Calls(today: 27, inProgress: 1),
         realtime: StatsSummary.Realtime(wsClients: 4),
         generatedAt: now,
         dayStartedAt: Calendar.current.startOfDay(for: now),
@@ -76,6 +77,14 @@ public enum DemoData {
             endedById: operatorProfile.id,
             summary: InstallationSummary(
                 calls: 42,
+                interactions: 42,
+                interactionBreakdown: .init(
+                    noSelection: 8,
+                    wrongNumberAttempts: 11,
+                    messagesLeft: 27,
+                    messagePlaybackStarts: 15,
+                    instructionPlaybackStarts: 7
+                ),
                 messages: 18,
                 allRecordings: 27,
                 questions: 3,
@@ -128,6 +137,10 @@ public enum DemoData {
             booth: liveStatus(now: reference),
             messages: statsSummary.messages,
             calls: StatsSummary.Calls(
+                today: callsToday.count,
+                inProgress: callsToday.filter { $0.endedAt == nil }.count
+            ),
+            interactions: StatsSummary.Calls(
                 today: callsToday.count,
                 inProgress: callsToday.filter { $0.endedAt == nil }.count
             ),
@@ -393,55 +406,19 @@ public enum DemoData {
 
 public extension DemoData {
     static func statsOverview(window: StatsWindow) -> StatsOverview {
-        let rangeStart: Date?
-        switch window {
-        case .last24h:
-            rangeStart = now.addingTimeInterval(-24 * 60 * 60)
-        case .last7d:
-            rangeStart = now.addingTimeInterval(-7 * 24 * 60 * 60)
-        case .last30d:
-            rangeStart = now.addingTimeInterval(-30 * 24 * 60 * 60)
-        case .all, .unknown:
-            rangeStart = nil
-        }
-
         return StatsOverview(
             window: window,
-            rangeStart: rangeStart,
+            rangeStart: statsRangeStart(for: window),
             rangeEnd: now,
             generatedAt: now,
             timezone: "UTC",
-            calls: StatsOverview.Calls(
-                total: 124,
-                completed: 91,
-                inProgress: 1,
-                averageDurationMs: 92_000,
-                longestDurationMs: 321_000,
-                outcomes: ["recording_completed": 91, "hung_up_during_prompt": 18, "upload_failed": 2],
-                perDay: [
-                    .init(date: "2026-05-25", total: 12, completed: 9),
-                    .init(date: "2026-05-26", total: 18, completed: 13),
-                    .init(date: "2026-05-27", total: 20, completed: 14),
-                    .init(date: "2026-05-28", total: 16, completed: 12),
-                    .init(date: "2026-05-29", total: 22, completed: 17),
-                    .init(date: "2026-05-30", total: 28, completed: 21),
-                    .init(date: "2026-05-31", total: 8, completed: 5)
-                ]
-            ),
-            messages: StatsOverview.Messages(
-                total: 66,
-                approved: 66,
-                allRecordings: 87,
-                byStatus: ["received": 14, "pending": 3, "approved": 66, "rejected": 4],
-                averageDurationMs: 39_000
-            ),
-            playback: StatsOverview.Playback(totalPlaybacks: 236),
-            pickupsHangups: StatsOverview.PickupsHangups(
-                pickups: 151,
-                hangups: 27,
-                digitsDialed: ["0": 4, "1": 9, "2": 12, "3": 8, "4": 19, "7": 31, "9": 6]
-            ),
-            uploads: StatsOverview.Uploads(succeeded: 84, failed: 3, failureRate: 0.034),
+            calls: demoCalls,
+            interactions: demoInteractions,
+            actions: demoActions,
+            messages: demoOverviewMessages,
+            playback: demoPlayback,
+            pickupsHangups: demoPickupsHangups,
+            uploads: demoUploads,
             topQuestions: questions.map {
                 StatsOverview.TopQuestion(
                     questionId: UUID(
@@ -456,21 +433,137 @@ public extension DemoData {
                     retiredAt: nil
                 )
             },
-            hourly: (0..<24).map {
-                StatsOverview.HourlyBucket(hour: $0, calls: ($0 * 3) % 11, messages: ($0 * 2) % 8)
-            },
+            hourly: demoHourlyBuckets,
             busiest: StatsOverview.Busiest(hour: 19, dayOfWeek: 6),
             lastActivityAt: now.addingTimeInterval(-12 * 60),
-            boothBreakdown: [
-                StatsOverview.BoothBreakdown(
-                    boothId: boothId,
-                    calls: 124,
-                    messages: 87,
-                    lastSeenAt: now.addingTimeInterval(-18)
-                )
-            ]
+            boothBreakdown: demoBoothBreakdown
         )
     }
+
+    private static func statsRangeStart(for window: StatsWindow) -> Date? {
+        switch window {
+        case .last24h:
+            return now.addingTimeInterval(-24 * 60 * 60)
+        case .last7d:
+            return now.addingTimeInterval(-7 * 24 * 60 * 60)
+        case .last30d:
+            return now.addingTimeInterval(-30 * 24 * 60 * 60)
+        case .all, .unknown:
+            return nil
+        }
+    }
+
+    private static let demoInteractionOutcomes: [String: Int] = [
+        "recording_completed": 78,
+        "hung_up_before_dial": 19,
+        "hung_up_during_prompt": 14,
+        "hung_up_during_recording": 6,
+        "upload_failed": 3,
+        "installation_ended": 3,
+        "aborted": 1
+    ]
+
+    private static let demoLegacyPerDay: [StatsOverview.PerDay] = [
+        .init(date: "2026-05-25", total: 12, completed: 7),
+        .init(date: "2026-05-26", total: 18, completed: 10),
+        .init(date: "2026-05-27", total: 20, completed: 12),
+        .init(date: "2026-05-28", total: 16, completed: 9),
+        .init(date: "2026-05-29", total: 22, completed: 14),
+        .init(date: "2026-05-30", total: 28, completed: 18),
+        .init(date: "2026-05-31", total: 8, completed: 8)
+    ]
+
+    private static let demoInteractionPerDay: [StatsOverview.PerDay] = [
+        .init(date: "2026-05-25", total: 12, noSelection: 2, messagesLeft: 7),
+        .init(date: "2026-05-26", total: 18, noSelection: 3, messagesLeft: 10),
+        .init(date: "2026-05-27", total: 20, noSelection: 4, messagesLeft: 12),
+        .init(date: "2026-05-28", total: 16, noSelection: 3, messagesLeft: 9),
+        .init(date: "2026-05-29", total: 22, noSelection: 2, messagesLeft: 14),
+        .init(date: "2026-05-30", total: 28, noSelection: 4, messagesLeft: 18),
+        .init(date: "2026-05-31", total: 8, noSelection: 1, messagesLeft: 8)
+    ]
+
+    private static let demoDigitsDialed: [String: Int] = [
+        "0": 18,
+        "1": 72,
+        "2": 41,
+        "3": 5,
+        "4": 4,
+        "5": 3,
+        "6": 2,
+        "7": 5,
+        "8": 4,
+        "9": 3
+    ]
+
+    private static let demoCalls = StatsOverview.Calls(
+        total: 124,
+        completed: 78,
+        inProgress: 1,
+        averageDurationMs: 92_000,
+        longestDurationMs: 321_000,
+        outcomes: demoInteractionOutcomes,
+        perDay: demoLegacyPerDay
+    )
+
+    private static let demoInteractions = StatsOverview.Interactions(
+        total: 124,
+        inProgressNow: 1,
+        noSelection: 19,
+        messagesLeft: 78,
+        averageDurationMs: 92_000,
+        longestDurationMs: 321_000,
+        outcomes: demoInteractionOutcomes,
+        perDay: demoInteractionPerDay
+    )
+
+    private static let demoActions = StatsOverview.Actions(
+        digitsDialed: demoDigitsDialed,
+        leaveMessageSelections: 72,
+        listenMessageSelections: 41,
+        instructionSelections: 18,
+        wrongNumberAttempts: 26,
+        messagePlaybackStarts: 34,
+        instructionPlaybackStarts: 15
+    )
+
+    private static let demoOverviewMessages = StatsOverview.Messages(
+        total: 52,
+        approved: 52,
+        allRecordings: 78,
+        byStatus: ["received": 6, "pending": 4, "approved": 52, "rejected": 16],
+        averageDurationMs: 39_000
+    )
+
+    private static let demoPlayback = StatsOverview.Playback(totalPlaybacks: 49)
+
+    private static let demoPickupsHangups = StatsOverview.PickupsHangups(
+        pickups: 124,
+        hangups: 123,
+        digitsDialed: demoDigitsDialed
+    )
+
+    private static let demoUploads = StatsOverview.Uploads(succeeded: 78, failed: 3, failureRate: 0.037)
+
+    private static let demoHourlyBuckets: [StatsOverview.HourlyBucket] = (0..<24).map {
+        let interactions = ($0 * 3) % 11
+        return StatsOverview.HourlyBucket(
+            hour: $0,
+            calls: interactions,
+            interactions: interactions,
+            messages: ($0 * 2) % 8
+        )
+    }
+
+    private static let demoBoothBreakdown: [StatsOverview.BoothBreakdown] = [
+        StatsOverview.BoothBreakdown(
+            boothId: boothId,
+            calls: 124,
+            interactions: 124,
+            messages: 78,
+            lastSeenAt: now.addingTimeInterval(-18)
+        )
+    ]
 
     static func sessionDetail(id: String) -> CallSessionDetail {
         let sessions = rebasedSessions()
