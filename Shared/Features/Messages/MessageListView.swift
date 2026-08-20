@@ -11,46 +11,10 @@
 import SwiftUI
 
 public struct MessageListView: View {
-    private enum MessageFilter: String, CaseIterable, Identifiable {
-        case all
-        case pending
-        case approved
-        case rejected
-
-        var id: String { rawValue }
-
-        var title: String {
-            switch self {
-            case .all: return "All"
-            case .pending: return "Review"
-            case .approved: return "Approved"
-            case .rejected: return "Rejected"
-            }
-        }
-
-        func includes(_ message: Message) -> Bool {
-            switch self {
-            case .all: return true
-            case .pending: return message.status == .pending
-            case .approved: return message.status == .approved
-            case .rejected: return message.status == .rejected
-            }
-        }
-
-        var status: MessageStatus? {
-            switch self {
-            case .all: return nil
-            case .pending: return .pending
-            case .approved: return .approved
-            case .rejected: return .rejected
-            }
-        }
-    }
-
     @State private var messages: [Message] = []
     @State private var loading = false
     @State private var errorMessage: String?
-    @State private var filter: MessageFilter = .all
+    @State private var filter: MessageListFilter
     @State private var searchText = ""
     @State private var decidingMessageIds: Set<String> = []
     @State private var deletingMessageIds: Set<String> = []
@@ -61,9 +25,20 @@ public struct MessageListView: View {
     #endif
     private let client: OperatorClient
     private let socket: StatusSocket
-    public init(client: OperatorClient = .shared, socket: StatusSocket? = nil) {
+    private let routeFilter: MessageListFilter
+    private let routeRevision: UInt
+
+    public init(
+        client: OperatorClient = .shared,
+        socket: StatusSocket? = nil,
+        routeFilter: MessageListFilter = .all,
+        routeRevision: UInt = 0
+    ) {
         self.client = client
         self.socket = socket ?? (client.demoMode ? .demo : .shared)
+        self.routeFilter = routeFilter
+        self.routeRevision = routeRevision
+        _filter = State(initialValue: routeFilter)
     }
 
     public var body: some View {
@@ -86,6 +61,9 @@ public struct MessageListView: View {
         .searchable(text: $searchText, prompt: "Search transcripts")
         .autoRefresh(id: filter) {
             await refresh()
+        }
+        .onChange(of: routeRevision) {
+            filter = routeFilter
         }
         .task {
             await watchMessageUpdates()
@@ -253,7 +231,7 @@ public struct MessageListView: View {
     }
     private var filterPicker: some View {
         Picker("Filter", selection: $filter) {
-            ForEach(MessageFilter.allCases) { option in
+            ForEach(MessageListFilter.allCases) { option in
                 Text(option.title).tag(option)
             }
         }
@@ -290,14 +268,13 @@ public struct MessageListView: View {
 
     private var filteredMessages: [Message] {
         messages.filter { message in
-            filter.includes(message) && message.matchesSearch(searchText)
+            filter.includes(message.status) && message.matchesSearch(searchText)
         }
     }
 
     private func refresh() async {
         refreshGeneration += 1
         let generation = refreshGeneration
-        let requestedStatus = filter.status
         loading = true
         errorMessage = nil
         defer {
@@ -306,9 +283,9 @@ public struct MessageListView: View {
             }
         }
         do {
-            let list = try await client.fetchMessages(status: requestedStatus, limit: 100)
+            let list = try await fetchMessages(for: filter)
             guard !Task.isCancelled, generation == refreshGeneration else { return }
-            messages = list.items
+            messages = list
         } catch {
             guard !Task.isCancelled, generation == refreshGeneration else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to load messages."
@@ -348,7 +325,25 @@ public struct MessageListView: View {
     }
 
     private func apply(_ updated: Message) {
-        messages.applyLiveUpdate(updated, isIncluded: filter.includes(updated))
+        messages.applyLiveUpdate(updated, isIncluded: filter.includes(updated.status))
+    }
+
+    private func fetchMessages(for filter: MessageListFilter) async throws -> [Message] {
+        guard let statuses = filter.requestedStatuses else {
+            return try await client.fetchMessages(limit: 100).items
+        }
+        guard statuses.count == 2 else {
+            return try await client.fetchMessages(status: statuses[0], limit: 100).items
+        }
+
+        async let received = client.fetchMessages(status: statuses[0], limit: 100)
+        async let pending = client.fetchMessages(status: statuses[1], limit: 100)
+        let lists = try await [received, pending]
+        var messagesByID: [String: Message] = [:]
+        for message in lists.flatMap(\.items) {
+            messagesByID[message.id] = message
+        }
+        return messagesByID.values.sorted { $0.createdAt > $1.createdAt }
     }
 
     private func watchMessageUpdates() async {

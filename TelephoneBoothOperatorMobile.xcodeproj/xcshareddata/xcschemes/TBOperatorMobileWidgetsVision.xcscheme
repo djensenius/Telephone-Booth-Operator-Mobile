@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
    LastUpgradeVersion = "2650"
+   wasCreatedForAppExtension = "YES"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -14,23 +15,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "4A47F610A11EE2109713BC3B"
-               BuildableName = "Operator.app"
-               BlueprintName = "TBOperatorMobileMac"
-               ReferencedContainer = "container:TelephoneBoothOperatorMobile.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "4C458E35B31E08CA32F0C3AB"
-               BuildableName = "TBOperatorMobileWidgetsMac.appex"
-               BlueprintName = "TBOperatorMobileWidgetsMac"
+               BlueprintIdentifier = "D4480B45B44C343675016D57"
+               BuildableName = "TBOperatorMobileWidgetsVision.appex"
+               BlueprintName = "TBOperatorMobileWidgetsVision"
                ReferencedContainer = "container:TelephoneBoothOperatorMobile.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -44,43 +31,33 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4A47F610A11EE2109713BC3B"
-            BuildableName = "Operator.app"
-            BlueprintName = "TBOperatorMobileMac"
+            BlueprintIdentifier = "D4480B45B44C343675016D57"
+            BuildableName = "TBOperatorMobileWidgetsVision.appex"
+            BlueprintName = "TBOperatorMobileWidgetsVision"
             ReferencedContainer = "container:TelephoneBoothOperatorMobile.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "3828AA21DAEBFE03873B738C"
-               BuildableName = "TBOperatorMobileMacTests.xctest"
-               BlueprintName = "TBOperatorMobileMacTests"
-               ReferencedContainer = "container:TelephoneBoothOperatorMobile.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
-      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
-      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      selectedDebuggerIdentifier = ""
+      selectedLauncherIdentifier = "Xcode.IDEFoundation.Launcher.PosixSpawn"
       launchStyle = "0"
       useCustomWorkingDirectory = "NO"
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
-      allowLocationSimulation = "YES">
+      allowLocationSimulation = "YES"
+      launchAutomaticallySubstyle = "2">
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4A47F610A11EE2109713BC3B"
-            BuildableName = "Operator.app"
-            BlueprintName = "TBOperatorMobileMac"
+            BlueprintIdentifier = "D4480B45B44C343675016D57"
+            BuildableName = "TBOperatorMobileWidgetsVision.appex"
+            BlueprintName = "TBOperatorMobileWidgetsVision"
             ReferencedContainer = "container:TelephoneBoothOperatorMobile.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -95,9 +72,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4A47F610A11EE2109713BC3B"
-            BuildableName = "Operator.app"
-            BlueprintName = "TBOperatorMobileMac"
+            BlueprintIdentifier = "D4480B45B44C343675016D57"
+            BuildableName = "TBOperatorMobileWidgetsVision.appex"
+            BlueprintName = "TBOperatorMobileWidgetsVision"
             ReferencedContainer = "container:TelephoneBoothOperatorMobile.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

@@ -307,7 +307,7 @@ public final class BoothStatusLiveStore {
                 timeZone: currentStats.timeZone
             )
             stats = updatedStats
-            WidgetSnapshotStore.write(WidgetSnapshot(stats: updatedStats))
+            writeWidgetSnapshotIfPossible()
         }
     }
 
@@ -325,7 +325,7 @@ public final class BoothStatusLiveStore {
             timeZone: newStats.timeZone
         )
         stats = merged
-        WidgetSnapshotStore.write(WidgetSnapshot(stats: merged))
+        writeWidgetSnapshotIfPossible()
     }
 
     private func mergeIntoHistory(_ newStatus: BoothStatus) {
@@ -453,8 +453,15 @@ public final class BoothStatusLiveStore {
     }
 
     private func writeWidgetSnapshotIfPossible() {
-        if let stats {
-            WidgetSnapshotStore.write(WidgetSnapshot(stats: stats))
+        guard !demoMode, !config.isDemoMode, let stats else { return }
+        let systemEnvelope = self.systemEnvelope
+        let componentSources = self.componentSources
+        Task {
+            await WidgetRefreshCoordinator.shared.apply(
+                stats: stats,
+                systemEnvelope: systemEnvelope,
+                components: componentSources
+            )
         }
     }
 
@@ -472,7 +479,7 @@ public final class BoothStatusLiveStore {
         connection = .polling
         lastError = nil
         systemUnavailable = false
-        WidgetSnapshotStore.write(WidgetSnapshot(stats: demoStats))
+        writeWidgetSnapshotIfPossible()
     }
 }
 

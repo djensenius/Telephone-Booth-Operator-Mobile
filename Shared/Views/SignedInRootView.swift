@@ -9,13 +9,16 @@ import SwiftUI
 public struct SignedInRootView: View {
     private let client: OperatorClient
     private let eventStream: EventStream
+    private let navigationStore: AppNavigationStore
 
     public init(
         client: OperatorClient = .shared,
-        eventStream: EventStream = .shared
+        eventStream: EventStream = .shared,
+        navigationStore: AppNavigationStore = .shared
     ) {
         self.client = client
         self.eventStream = eventStream
+        self.navigationStore = navigationStore
     }
 
     public var body: some View {
@@ -23,7 +26,11 @@ public struct SignedInRootView: View {
         WatchHomeView(client: client)
             .liveActivityObserver()
         #else
-        OperatorShell(client: client, eventStream: eventStream)
+        OperatorShell(
+            client: client,
+            eventStream: eventStream,
+            navigationStore: navigationStore
+        )
         #endif
     }
 }
@@ -103,19 +110,26 @@ enum OperatorTab: String, Hashable {
 private struct OperatorShell: View {
     let client: OperatorClient
     let eventStream: EventStream
+    let navigationStore: AppNavigationStore
     @State private var pending = PendingMessagesStore.shared
-    @State private var notifications = NotificationManager.shared
     @State private var currentUser: CurrentUserStore
     @State private var selection: OperatorTab
     @State private var messagePath: [String]
+    @State private var messageFilter: MessageListFilter = .all
+    @State private var messageRouteRevision: UInt = 0
     @State private var sessionPath: [String] = []
     #if os(tvOS)
     @State private var config = AppConfig.shared
     #endif
 
-    init(client: OperatorClient, eventStream: EventStream) {
+    init(
+        client: OperatorClient,
+        eventStream: EventStream,
+        navigationStore: AppNavigationStore
+    ) {
         self.client = client
         self.eventStream = eventStream
+        self.navigationStore = navigationStore
         _currentUser = State(initialValue: CurrentUserStore(client: client))
         let requested = LaunchEnv.screenshotMessageId == nil
             ? LaunchEnv.screenshotTab.flatMap(OperatorTab.init(rawValue:))
@@ -145,9 +159,9 @@ private struct OperatorShell: View {
         .environment(currentUser)
         .task { pending.startPolling(using: client) }
         .task { currentUser.start() }
-        .task { handleNotificationTarget() }
-        .onChange(of: notifications.navigationTarget) {
-            handleNotificationTarget()
+        .task { consumePendingNavigationTarget() }
+        .onChange(of: navigationStore.routeGeneration) {
+            consumePendingNavigationTarget()
         }
         #if !os(tvOS) && canImport(Speech) && canImport(FoundationModels)
         .automaticMessageProcessing(client: client)
@@ -247,7 +261,12 @@ private struct OperatorShell: View {
             .automaticRefreshEnabled(selection == .sessions)
         case .messages:
             NavigationStack(path: $messagePath) {
-                MessageListView(client: client).navigationTitle("Messages")
+                MessageListView(
+                    client: client,
+                    routeFilter: messageFilter,
+                    routeRevision: messageRouteRevision
+                )
+                .navigationTitle("Messages")
             }
             .automaticRefreshEnabled(selection == .messages)
         case .thermals:
@@ -321,172 +340,34 @@ private struct OperatorShell: View {
         #endif
     }
 
-    private func handleNotificationTarget() {
-        guard let target = notifications.navigationTarget else { return }
+    private func consumePendingNavigationTarget() {
+        guard let target = navigationStore.consumePendingTarget() else { return }
         switch target {
-        case .messages(let messageId):
-            selection = .messages
-            messagePath = messageId.map { [$0] } ?? []
+        case .dashboard:
+            selection = .dashboard
+        case .stats:
+            selection = .stats
+        case .sessions:
+            selection = .sessions
+            sessionPath = []
         case .session(let id):
             selection = .sessions
             sessionPath = [id]
+        case .messages(let route):
+            selection = .messages
+            switch route {
+            case .list(let filter):
+                messagePath = []
+                messageFilter = filter
+            case .detail(let id):
+                messagePath = [id]
+            }
+            messageRouteRevision &+= 1
+        case .thermals:
+            selection = .thermals
+        case .system:
+            selection = .system
         }
-        notifications.clearNavigationTarget()
-    }
-}
-#endif
-
-#if !os(watchOS) && !os(tvOS) && canImport(Speech) && canImport(FoundationModels)
-private extension View {
-    @ViewBuilder
-    func automaticMessageProcessing(client: OperatorClient) -> some View {
-        if #available(macOS 26.0, iOS 26.0, visionOS 26.0, *) {
-            modifier(AutomaticMessageProcessingModifier(client: client))
-        } else {
-            self
-        }
-    }
-}
-
-@available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
-private struct AutomaticMessageProcessingModifier: ViewModifier {
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var coordinator: AutomaticMessageProcessingCoordinator
-
-    init(client: OperatorClient) {
-        _coordinator = State(initialValue: AutomaticMessageProcessingCoordinator(client: client))
-    }
-
-    func body(content: Content) -> some View {
-        placedStatus(content)
-            .task {
-                coordinator.setActive(scenePhase == .active)
-            }
-            .onChange(of: scenePhase) {
-                coordinator.setActive(scenePhase == .active)
-            }
-            .onDisappear {
-                coordinator.setActive(false)
-            }
-    }
-
-    @ViewBuilder
-    private func placedStatus(_ content: Content) -> some View {
-        #if os(iOS)
-        if #available(iOS 26.1, *) {
-            content.tabViewBottomAccessory(isEnabled: coordinator.shouldPresentStatus) {
-                MessageProcessingQueueStatus(coordinator: coordinator)
-                    .padding(.horizontal, Theme.Spacing.medium)
-                    .padding(.vertical, Theme.Spacing.small)
-            }
-        } else {
-            content.safeAreaInset(edge: .bottom, spacing: 0) {
-                if coordinator.shouldPresentStatus {
-                    MessageProcessingQueueStatus(coordinator: coordinator)
-                        .padding(.horizontal, Theme.Spacing.medium)
-                        .padding(.vertical, Theme.Spacing.small)
-                        .frame(maxWidth: 520)
-                        .glassEffect(.regular, in: .rect(cornerRadius: Theme.cornerRadius))
-                        .padding(.horizontal, Theme.Spacing.medium)
-                        .padding(.bottom, Theme.Spacing.small)
-                }
-            }
-        }
-        #else
-        content.safeAreaInset(edge: .bottom, spacing: 0) {
-            if coordinator.shouldPresentStatus {
-                MessageProcessingQueueStatus(coordinator: coordinator)
-                    .padding(.horizontal, Theme.Spacing.medium)
-                    .padding(.vertical, Theme.Spacing.small)
-                    .frame(maxWidth: 520)
-                    .glassCardBackground()
-                    .padding(.horizontal, Theme.Spacing.medium)
-                    .padding(.bottom, Theme.Spacing.small)
-            }
-        }
-        #endif
-    }
-}
-
-@available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
-private struct MessageProcessingQueueStatus: View {
-    @Environment(\.tabViewBottomAccessoryPlacement) private var accessoryPlacement
-    let coordinator: AutomaticMessageProcessingCoordinator
-
-    var body: some View {
-        let summary = coordinator.summary
-        statusContent(summary)
-    }
-
-    private func statusContent(_ summary: MessageProcessingSummary?) -> some View {
-        HStack(spacing: Theme.Spacing.small) {
-            statusIndicator
-            if accessoryPlacement == .inline {
-                Text(compactStatusText(summary))
-                    .font(Theme.Fonts.caption.weight(.semibold))
-                    .foregroundStyle(
-                        coordinator.canRetry ? Theme.Colors.error : Theme.Colors.textPrimary
-                    )
-                    .lineLimit(1)
-            } else {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Messages · \(scopeText(summary))")
-                        .font(Theme.Fonts.caption.weight(.semibold))
-                        .foregroundStyle(Theme.Colors.textPrimary)
-                    Text(coordinator.status.text)
-                        .font(Theme.Fonts.caption)
-                        .foregroundStyle(
-                            coordinator.canRetry ? Theme.Colors.error : Theme.Colors.textSecondary
-                        )
-                        .lineLimit(1)
-                }
-            }
-            Spacer(minLength: 0)
-            if coordinator.canRetry {
-                retryButton(compact: accessoryPlacement == .inline)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var statusIndicator: some View {
-        if coordinator.isProcessing {
-            ProgressView().controlSize(.small)
-        } else {
-            Image(systemName: coordinator.canRetry
-                ? "exclamationmark.triangle.fill"
-                : "tray.and.arrow.down.fill")
-            .foregroundStyle(coordinator.canRetry ? Theme.Colors.error : Theme.Colors.accent)
-        }
-    }
-
-    private func retryButton(compact: Bool) -> some View {
-        Button {
-            coordinator.retry()
-        } label: {
-            if compact {
-                Image(systemName: "arrow.clockwise")
-                    .accessibilityLabel("Retry message processing")
-            } else {
-                Label("Retry", systemImage: "arrow.clockwise")
-            }
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Theme.Colors.accent)
-        .font(Theme.Fonts.caption.weight(.semibold))
-        .frame(minWidth: 44, minHeight: 44)
-    }
-
-    private func compactStatusText(_ summary: MessageProcessingSummary?) -> String {
-        if coordinator.canRetry { return "Processing failed" }
-        if coordinator.isProcessing { return coordinator.status.text }
-        return scopeText(summary)
-    }
-
-    private func scopeText(_ summary: MessageProcessingSummary?) -> String {
-        guard let summary else { return "checking queue" }
-        let remaining = summary.queued + summary.leased
-        return "\(remaining) remaining"
     }
 }
 #endif
