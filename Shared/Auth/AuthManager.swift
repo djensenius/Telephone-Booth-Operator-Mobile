@@ -105,6 +105,12 @@ public final class AuthManager {
     @ObservationIgnored
     var restoreRetryGeneration = 0
 
+    @ObservationIgnored
+    var widgetCleanupTask: Task<Void, Never>?
+
+    @ObservationIgnored
+    var widgetCleanupGeneration = 0
+
     /// URLSession used for token operations. Internal so tests can swap it.
     @ObservationIgnored
     var urlSession: URLSession = .shared
@@ -237,23 +243,6 @@ public final class AuthManager {
         authState = .signedIn
         logger.info("Signed in via OIDC")
         #endif
-    }
-
-    public func signOut() {
-        restoreRetryTask?.cancel()
-        restoreRetryTask = nil
-        sessionRestoreFailed = false
-        NotificationManager.shared.resetForSignOut()
-        deleteKeychainItem(account: "oidc_access_token")
-        deleteKeychainItem(account: "oidc_refresh_token")
-        deleteKeychainItem(account: "oidc_token_expiry")
-        authState = .signedOut
-        logger.info("Signed out")
-    }
-
-    public func signOutRevokingNotifications() async {
-        await NotificationManager.shared.revokeForSignOut()
-        signOut()
     }
 
     /// Marks the session as signed-in. Used by other auth flows (e.g.

@@ -4,9 +4,12 @@
 //
 //  Live Activity UI for an active phone call at the booth. Renders on
 //  the Lock Screen, Dynamic Island (compact + expanded), and StandBy.
+//  iOS-only — Live Activities are not offered on macOS or visionOS in
+//  this app. The single action is a read-only "View call" deep link;
+//  moderation is never performed from a Live Activity.
 //
 
-#if canImport(ActivityKit) && !os(macOS)
+#if os(iOS)
 import ActivityKit
 import SwiftUI
 import WidgetKit
@@ -15,6 +18,7 @@ struct CallInProgressLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: CallInProgressAttributes.self) { context in
             lockScreenView(context: context)
+                .widgetURL(WidgetDeepLink.session(id: context.attributes.sessionId))
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -44,9 +48,11 @@ struct CallInProgressLiveActivity: Widget {
                                 .privacySensitive()
                         }
                         Spacer()
-                        Link(destination: approveURL(sessionId: context.attributes.sessionId)) {
-                            Label("Approve", systemImage: "checkmark.circle.fill")
-                                .font(.caption.weight(.semibold))
+                        if let url = WidgetDeepLink.session(id: context.attributes.sessionId) {
+                            Link(destination: url) {
+                                Label("View call", systemImage: "arrow.up.forward.app")
+                                    .font(.caption.weight(.semibold))
+                            }
                         }
                     }
                 }
@@ -62,6 +68,7 @@ struct CallInProgressLiveActivity: Widget {
                 Image(systemName: "phone.fill")
                     .foregroundStyle(.green)
             }
+            .widgetURL(WidgetDeepLink.session(id: context.attributes.sessionId))
         }
     }
 
@@ -90,18 +97,6 @@ struct CallInProgressLiveActivity: Widget {
         }
         .padding()
         .activityBackgroundTint(.black.opacity(0.7))
-    }
-
-    private func approveURL(sessionId: String) -> URL {
-        let allowedPathCharacters = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: "/"))
-
-        guard let encodedSessionId = sessionId.addingPercentEncoding(withAllowedCharacters: allowedPathCharacters),
-              let url = URL(string: "tboperator://call/\(encodedSessionId)/approve") else {
-            // swiftlint:disable:next force_unwrapping
-            return URL(string: "tboperator://dashboard")!
-        }
-
-        return url
     }
 }
 #endif

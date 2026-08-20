@@ -87,7 +87,14 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
+            -only-testing:TBOperatorMobileTests/NavigationOrderTests \
+            -only-testing:TBOperatorMobileTests/NotificationTests \
             -only-testing:TBOperatorMobileTests/OnDeviceReviewTests \
             -only-testing:TBOperatorMobileTests/PendingMessagesTests \
             -only-testing:TBOperatorMobileTests/QuestionAudioEncoderTests \
+            -only-testing:TBOperatorMobileTests/WidgetSnapshotModelTests \
+            -only-testing:TBOperatorMobileTests/WidgetRefreshCoordinatorTests \
+            -only-testing:TBOperatorMobileWidgetsTests/WidgetDeepLinkTests \
+            -only-testing:TBOperatorMobileWidgetsTests/WidgetDisplayStateTests \
+            -only-testing:TBOperatorMobileWidgetsTests/WidgetStaleTransitionTests \
             test

@@ -52,8 +52,8 @@ the browser cookie session uses today.
 | visionOS   | 26.0       | Spatial operator dashboard                                   |
 | tvOS       | 26.0       | Read-only, focus-friendly operator dashboards                |
 
-Widgets and a `CallInProgress` Live Activity ship on every platform that
-supports WidgetKit (iOS, iPadOS, macOS, visionOS, watchOS).
+The read-only widget catalog ships on iOS, iPadOS, macOS, and visionOS.
+`CallInProgress` Live Activities are available on iOS and iPadOS.
 
 ## Building and testing
 
@@ -78,7 +78,8 @@ xcodebuild -project TelephoneBoothOperatorMobile.xcodeproj \
 
 Available schemes: `TBOperatorMobile` (iOS / iPadOS), `TBOperatorMobileMac`,
 `TBOperatorMobileVision`, `TBOperatorMobileTV`, `TBOperatorMobileWatch`,
-`TBOperatorMobileWidgets`.
+`TBOperatorMobileWidgets`, `TBOperatorMobileWidgetsMac`, and
+`TBOperatorMobileWidgetsVision`.
 
 ## Authentication
 

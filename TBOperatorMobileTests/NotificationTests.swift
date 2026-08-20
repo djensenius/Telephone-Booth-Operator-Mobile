@@ -69,7 +69,32 @@ final class NotificationTests: XCTestCase {
             categoryIdentifier: "BOOTH_MESSAGE",
             userInfo: ["awaitingModeration": 12, "threshold": 10]
         )
-        XCTAssertEqual(target, .messages(messageId: nil))
+        XCTAssertEqual(target, .reviewQueue)
+    }
+
+    @MainActor
+    func testNotificationManagerForwardsToSharedNavigationStore() {
+        let store = AppNavigationStore()
+        let manager = NotificationManager(navigationStore: store)
+
+        manager.route(to: .messages(messageId: "message-123"))
+        XCTAssertEqual(store.pendingTarget, .messages(.detail(id: "message-123")))
+        XCTAssertEqual(manager.navigationTarget, .messages(messageId: "message-123"))
+
+        manager.route(to: .reviewQueue)
+        XCTAssertEqual(store.pendingTarget, .messages(.list(filter: .review)))
+        XCTAssertEqual(manager.navigationTarget, .reviewQueue)
+    }
+
+    @MainActor
+    func testSignOutResetClearsPendingNavigation() {
+        let store = AppNavigationStore()
+        let manager = NotificationManager(navigationStore: store)
+        store.route(to: .messages(.detail(id: "previous-account-message")))
+
+        manager.resetForSignOut()
+
+        XCTAssertNil(store.pendingTarget)
     }
 
     func testRegisterMobileDeviceRequestEncodesAsExpected() throws {

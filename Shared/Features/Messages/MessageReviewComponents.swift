@@ -164,4 +164,159 @@ struct MessageMetadataCard: View {
     }
 }
 
+#if canImport(Speech) && canImport(FoundationModels)
+extension View {
+    @ViewBuilder
+    func automaticMessageProcessing(client: OperatorClient) -> some View {
+        if #available(macOS 26.0, iOS 26.0, visionOS 26.0, *) {
+            modifier(AutomaticMessageProcessingModifier(client: client))
+        } else {
+            self
+        }
+    }
+}
+
+@available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+private struct AutomaticMessageProcessingModifier: ViewModifier {
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var coordinator: AutomaticMessageProcessingCoordinator
+
+    init(client: OperatorClient) {
+        _coordinator = State(initialValue: AutomaticMessageProcessingCoordinator(client: client))
+    }
+
+    func body(content: Content) -> some View {
+        placedStatus(content)
+            .task {
+                coordinator.setActive(scenePhase == .active)
+            }
+            .onChange(of: scenePhase) {
+                coordinator.setActive(scenePhase == .active)
+            }
+            .onDisappear {
+                coordinator.setActive(false)
+            }
+    }
+
+    @ViewBuilder
+    private func placedStatus(_ content: Content) -> some View {
+        #if os(iOS)
+        if #available(iOS 26.1, *) {
+            content.tabViewBottomAccessory(isEnabled: coordinator.shouldPresentStatus) {
+                MessageProcessingQueueStatus(coordinator: coordinator)
+                    .padding(.horizontal, Theme.Spacing.medium)
+                    .padding(.vertical, Theme.Spacing.small)
+            }
+        } else {
+            content.safeAreaInset(edge: .bottom, spacing: 0) {
+                if coordinator.shouldPresentStatus {
+                    MessageProcessingQueueStatus(coordinator: coordinator)
+                        .padding(.horizontal, Theme.Spacing.medium)
+                        .padding(.vertical, Theme.Spacing.small)
+                        .frame(maxWidth: 520)
+                        .glassEffect(.regular, in: .rect(cornerRadius: Theme.cornerRadius))
+                        .padding(.horizontal, Theme.Spacing.medium)
+                        .padding(.bottom, Theme.Spacing.small)
+                }
+            }
+        }
+        #else
+        content.safeAreaInset(edge: .bottom, spacing: 0) {
+            if coordinator.shouldPresentStatus {
+                MessageProcessingQueueStatus(coordinator: coordinator)
+                    .padding(.horizontal, Theme.Spacing.medium)
+                    .padding(.vertical, Theme.Spacing.small)
+                    .frame(maxWidth: 520)
+                    .glassCardBackground()
+                    .padding(.horizontal, Theme.Spacing.medium)
+                    .padding(.bottom, Theme.Spacing.small)
+            }
+        }
+        #endif
+    }
+}
+
+@available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+private struct MessageProcessingQueueStatus: View {
+    @Environment(\.tabViewBottomAccessoryPlacement) private var accessoryPlacement
+    let coordinator: AutomaticMessageProcessingCoordinator
+
+    var body: some View {
+        let summary = coordinator.summary
+        statusContent(summary)
+    }
+
+    private func statusContent(_ summary: MessageProcessingSummary?) -> some View {
+        HStack(spacing: Theme.Spacing.small) {
+            statusIndicator
+            if accessoryPlacement == .inline {
+                Text(compactStatusText(summary))
+                    .font(Theme.Fonts.caption.weight(.semibold))
+                    .foregroundStyle(
+                        coordinator.canRetry ? Theme.Colors.error : Theme.Colors.textPrimary
+                    )
+                    .lineLimit(1)
+            } else {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Messages · \(scopeText(summary))")
+                        .font(Theme.Fonts.caption.weight(.semibold))
+                        .foregroundStyle(Theme.Colors.textPrimary)
+                    Text(coordinator.status.text)
+                        .font(Theme.Fonts.caption)
+                        .foregroundStyle(
+                            coordinator.canRetry ? Theme.Colors.error : Theme.Colors.textSecondary
+                        )
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+            if coordinator.canRetry {
+                retryButton(compact: accessoryPlacement == .inline)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var statusIndicator: some View {
+        if coordinator.isProcessing {
+            ProgressView().controlSize(.small)
+        } else {
+            Image(systemName: coordinator.canRetry
+                ? "exclamationmark.triangle.fill"
+                : "tray.and.arrow.down.fill")
+            .foregroundStyle(coordinator.canRetry ? Theme.Colors.error : Theme.Colors.accent)
+        }
+    }
+
+    private func retryButton(compact: Bool) -> some View {
+        Button {
+            coordinator.retry()
+        } label: {
+            if compact {
+                Image(systemName: "arrow.clockwise")
+                    .accessibilityLabel("Retry message processing")
+            } else {
+                Label("Retry", systemImage: "arrow.clockwise")
+            }
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Theme.Colors.accent)
+        .font(Theme.Fonts.caption.weight(.semibold))
+        .frame(minWidth: 44, minHeight: 44)
+    }
+
+    private func compactStatusText(_ summary: MessageProcessingSummary?) -> String {
+        if coordinator.canRetry { return "Processing failed" }
+        if coordinator.isProcessing { return coordinator.status.text }
+        return scopeText(summary)
+    }
+
+    private func scopeText(_ summary: MessageProcessingSummary?) -> String {
+        guard let summary else { return "checking queue" }
+        let remaining = summary.queued + summary.leased
+        return "\(remaining) remaining"
+    }
+}
+#endif
+
 #endif

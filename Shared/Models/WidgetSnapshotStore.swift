@@ -2,94 +2,169 @@
 //  WidgetSnapshotStore.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Tiny shared-container store for WidgetSnapshot. The main app calls
-//  `write(_:)` after every stats refresh; the widget extension calls
-//  `read()` from its TimelineProvider. The store is process-safe and
-//  doesn't require keychain access.
-//
 
 import Foundation
+import os
 #if canImport(WidgetKit) && !os(tvOS)
 import WidgetKit
 #endif
 
-public enum WidgetSnapshotStore {
-    /// App Group identifier shared between the main app, widget extension,
-    /// and watch app. Keep this in sync with the per-target entitlements.
-    public static let appGroup = "group.org.davidjensenius.TelephoneBoothOperatorMobile"
+public struct WidgetSnapshotFileStore: Sendable {
+    public let snapshotURL: URL
 
-    private static let filename = "widget-snapshot.json"
-    private static let reloadTimestampFilename = "widget-last-reload"
+    public init(directoryURL: URL) {
+        snapshotURL = directoryURL.appendingPathComponent(
+            WidgetSnapshotStore.snapshotFilename,
+            isDirectory: false
+        )
+    }
 
-    /// Minimum interval between `reloadAllTimelines()` calls (seconds).
-    private static let reloadThrottleInterval: TimeInterval = 60
+    public func read() throws -> WidgetSnapshot? {
+        guard FileManager.default.fileExists(atPath: snapshotURL.path) else {
+            return nil
+        }
+        let data = try Data(contentsOf: snapshotURL)
+        return try Self.decoder.decode(WidgetSnapshot.self, from: data)
+    }
 
-    private static let encoder: JSONEncoder = {
+    /// Returns true when the file changed.
+    @discardableResult
+    public func write(_ snapshot: WidgetSnapshot) throws -> Bool {
+        let data = try Self.encoder.encode(snapshot)
+        if FileManager.default.fileExists(atPath: snapshotURL.path),
+           try Data(contentsOf: snapshotURL) == data {
+            return false
+        }
+        try data.write(to: snapshotURL, options: [.atomic])
+        return true
+    }
+
+    /// Returns true when a file was removed.
+    @discardableResult
+    public func clear() throws -> Bool {
+        guard FileManager.default.fileExists(atPath: snapshotURL.path) else {
+            return false
+        }
+        try FileManager.default.removeItem(at: snapshotURL)
+        return true
+    }
+
+    private static var encoder: JSONEncoder {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.sortedKeys]
         return encoder
-    }()
+    }
 
-    private static let decoder: JSONDecoder = {
+    private static var decoder: JSONDecoder {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return decoder
-    }()
+    }
+}
 
-    /// Returns the App Group container URL for the snapshot file, or nil
-    /// if App Groups aren't configured (e.g., on tvOS builds today).
+public enum WidgetSnapshotStore {
+    public static let appGroup = "group.org.davidjensenius.TelephoneBoothOperatorMobile"
+
+    static let snapshotFilename = "widget-snapshot.json"
+    private static let reloadTimestampFilename = "widget-last-reload"
+    private static let reloadThrottleInterval: TimeInterval = 60
+    private static let writesEnabled = OSAllocatedUnfairLock(initialState: false)
+    private static let logger = Logger(
+        subsystem: "org.davidjensenius.TelephoneBoothOperatorMobile",
+        category: "Widgets"
+    )
+
     public static var snapshotURL: URL? {
-        guard let container = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: appGroup)
-        else { return nil }
-        return container.appendingPathComponent(filename, isDirectory: false)
+        fileStore?.snapshotURL
     }
 
-    private static var reloadTimestampURL: URL? {
-        guard let container = FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: appGroup)
-        else { return nil }
-        return container.appendingPathComponent(reloadTimestampFilename, isDirectory: false)
-    }
-
-    /// Persist a snapshot for widget consumption. Writes are atomic so the
-    /// widget never reads a partially-written file. Timeline reloads are
-    /// skipped when the snapshot is unchanged, and throttled to at most
-    /// once per 60 seconds to avoid storming WidgetKit.
     @discardableResult
     public static func write(_ snapshot: WidgetSnapshot) -> Bool {
-        guard let url = snapshotURL else { return false }
-
-        // Change detection: skip write if meaningful content hasn't changed.
-        if let existing = read(), existing.hasSameContent(as: snapshot) {
-            return true
-        }
-
-        do {
-            let data = try encoder.encode(snapshot)
-            try data.write(to: url, options: [.atomic])
-            #if canImport(WidgetKit) && !os(tvOS)
-            reloadTimelinesIfNeeded()
-            #endif
-            return true
-        } catch {
-            return false
+        writesEnabled.withLock { enabled in
+            guard enabled else {
+                logger.notice("Skipped widget snapshot write while signed out")
+                return false
+            }
+            guard let store = fileStore else {
+                logger.error("Widget App Group container is unavailable")
+                return false
+            }
+            do {
+                let changed = try store.write(snapshot)
+                guard changed else { return true }
+                #if canImport(WidgetKit) && !os(tvOS)
+                reloadTimelinesIfNeeded()
+                #endif
+                return true
+            } catch {
+                logger.error(
+                    "Widget snapshot write failed: \(error.localizedDescription, privacy: .public)"
+                )
+                return false
+            }
         }
     }
 
-    /// Returns the latest snapshot, or nil if none has been written yet.
     public static func read() -> WidgetSnapshot? {
-        guard let url = snapshotURL else { return nil }
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        guard let store = fileStore else { return nil }
         do {
-            let data = try Data(contentsOf: url)
-            return try decoder.decode(WidgetSnapshot.self, from: data)
+            return try store.read()
         } catch {
+            logger.error(
+                "Widget snapshot read failed: \(error.localizedDescription, privacy: .public)"
+            )
             return nil
         }
     }
 
-    // MARK: - Reload Throttling
+    @discardableResult
+    public static func clear() -> Bool {
+        guard let store = fileStore else { return false }
+        do {
+            let changed = try store.clear()
+            guard changed else { return true }
+            removeReloadTimestamp()
+            #if canImport(WidgetKit) && !os(tvOS)
+            WidgetCenter.shared.reloadAllTimelines()
+            #endif
+            return true
+        } catch {
+            logger.error(
+                "Widget snapshot clear failed: \(error.localizedDescription, privacy: .public)"
+            )
+            return false
+        }
+    }
+
+    @discardableResult
+    static func disableWritesAndClear() -> Bool {
+        writesEnabled.withLock { enabled in
+            enabled = false
+            return clear()
+        }
+    }
+
+    static func enableWrites() {
+        writesEnabled.withLock { $0 = true }
+    }
+
+    private static var containerURL: URL? {
+        FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: appGroup
+        )
+    }
+
+    private static var fileStore: WidgetSnapshotFileStore? {
+        containerURL.map(WidgetSnapshotFileStore.init(directoryURL:))
+    }
+
+    private static var reloadTimestampURL: URL? {
+        containerURL?.appendingPathComponent(
+            reloadTimestampFilename,
+            isDirectory: false
+        )
+    }
 
     #if canImport(WidgetKit) && !os(tvOS)
     private static func reloadTimelinesIfNeeded() {
@@ -103,19 +178,51 @@ public enum WidgetSnapshotStore {
     }
 
     private static func readLastReloadDate() -> Date? {
-        guard let url = reloadTimestampURL,
-              let data = try? Data(contentsOf: url),
-              let string = String(data: data, encoding: .utf8),
-              let interval = TimeInterval(string) else {
+        guard let url = reloadTimestampURL else { return nil }
+        do {
+            let data = try Data(contentsOf: url)
+            guard let string = String(data: data, encoding: .utf8),
+                  let interval = TimeInterval(string) else {
+                logger.error("Widget reload timestamp is malformed")
+                return nil
+            }
+            return Date(timeIntervalSince1970: interval)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return nil
+        } catch {
+            logger.error(
+                "Widget reload timestamp read failed: \(error.localizedDescription, privacy: .public)"
+            )
             return nil
         }
-        return Date(timeIntervalSince1970: interval)
     }
 
     private static func writeLastReloadDate(_ date: Date) {
-        guard let url = reloadTimestampURL else { return }
-        let string = String(date.timeIntervalSince1970)
-        try? string.data(using: .utf8)?.write(to: url, options: [.atomic])
+        guard let url = reloadTimestampURL,
+              let data = String(date.timeIntervalSince1970).data(using: .utf8) else {
+            return
+        }
+        do {
+            try data.write(to: url, options: [.atomic])
+        } catch {
+            logger.error(
+                "Widget reload timestamp write failed: \(error.localizedDescription, privacy: .public)"
+            )
+        }
     }
     #endif
+
+    private static func removeReloadTimestamp() {
+        guard let url = reloadTimestampURL,
+              FileManager.default.fileExists(atPath: url.path) else {
+            return
+        }
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch {
+            logger.error(
+                "Widget reload timestamp clear failed: \(error.localizedDescription, privacy: .public)"
+            )
+        }
+    }
 }

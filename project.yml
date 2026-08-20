@@ -16,8 +16,8 @@ settings:
     SWIFT_VERSION: "6"
     SWIFT_STRICT_CONCURRENCY: complete
     DEVELOPMENT_TEAM: 9JALHNGRBQ
-    MARKETING_VERSION: "0.4.5"
-    CURRENT_PROJECT_VERSION: "5"
+    MARKETING_VERSION: "0.4.6"
+    CURRENT_PROJECT_VERSION: "6"
     DEAD_CODE_STRIPPING: YES
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     SWIFT_EMIT_LOC_STRINGS: YES
@@ -49,6 +49,9 @@ targets:
         UIBackgroundModes:
           - remote-notification
           - audio
+          - fetch
+        BGTaskSchedulerPermittedIdentifiers:
+          - org.davidjensenius.TBOperatorMobile.widget-refresh
         NSSupportsLiveActivities: true
         NSSupportsLiveActivitiesFrequentUpdates: true
         CFBundleURLTypes:
@@ -112,6 +115,78 @@ targets:
         GENERATE_INFOPLIST_FILE: false
     entitlements:
       path: TBOperatorMobileWidgets/TBOperatorMobileWidgets.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.org.davidjensenius.TelephoneBoothOperatorMobile
+
+  TBOperatorMobileWidgetsMac:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: TBOperatorMobileWidgets
+        excludes:
+          - "**/.DS_Store"
+          - "Info.plist"
+          - "TBOperatorMobileWidgets.entitlements"
+      - path: Shared/Theme
+        excludes:
+          - "**/.DS_Store"
+      - path: Shared/Models
+        excludes:
+          - "**/.DS_Store"
+    info:
+      path: TBOperatorMobileWidgetsMac/Info.plist
+      properties:
+        CFBundleDisplayName: Operator Widgets
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.widgets.mac
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: false
+        ENABLE_HARDENED_RUNTIME: true
+        ENABLE_APP_SANDBOX: true
+        COMBINE_HIDPI_IMAGES: true
+    entitlements:
+      path: TBOperatorMobileWidgetsMac/TBOperatorMobileWidgetsMac.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups:
+          - group.org.davidjensenius.TelephoneBoothOperatorMobile
+
+  TBOperatorMobileWidgetsVision:
+    type: app-extension
+    platform: visionOS
+    sources:
+      - path: TBOperatorMobileWidgets
+        excludes:
+          - "**/.DS_Store"
+          - "Info.plist"
+          - "TBOperatorMobileWidgets.entitlements"
+      - path: Shared/Theme
+        excludes:
+          - "**/.DS_Store"
+      - path: Shared/Models
+        excludes:
+          - "**/.DS_Store"
+    info:
+      path: TBOperatorMobileWidgetsVision/Info.plist
+      properties:
+        CFBundleDisplayName: Operator Widgets
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.widgets.vision
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: false
+    entitlements:
+      path: TBOperatorMobileWidgetsVision/TBOperatorMobileWidgetsVision.entitlements
       properties:
         com.apple.security.application-groups:
           - group.org.davidjensenius.TelephoneBoothOperatorMobile
@@ -205,6 +280,9 @@ targets:
         com.apple.security.network.client: true
         com.apple.security.application-groups:
           - group.org.davidjensenius.TelephoneBoothOperatorMobile
+    dependencies:
+      - target: TBOperatorMobileWidgetsMac
+        embed: true
 
   TBOperatorMobileVision:
     type: application
@@ -229,6 +307,11 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - tboperator
+        UIBackgroundModes:
+          - remote-notification
+          - fetch
+        BGTaskSchedulerPermittedIdentifiers:
+          - org.davidjensenius.TBOperatorMobile.widget-refresh
         OIDCIssuerBase: https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile
         OIDCClientID: x0M0MleMvCSCx8MqIE2jVoYe57nAhGymIG8azTEY
         OperatorAPIBase: https://api.telephonebooth.io
@@ -245,6 +328,9 @@ targets:
         aps-environment: development
         com.apple.security.application-groups:
           - group.org.davidjensenius.TelephoneBoothOperatorMobile
+    dependencies:
+      - target: TBOperatorMobileWidgetsVision
+        embed: true
 
   TBOperatorMobileTV:
     type: application
@@ -290,6 +376,31 @@ targets:
     dependencies:
       - target: TBOperatorMobile
         embed: false
+
+  TBOperatorMobileWidgetsTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: TBOperatorMobileWidgetsTests
+        excludes:
+          - "**/.DS_Store"
+      - path: TBOperatorMobileWidgets
+        excludes:
+          - "**/.DS_Store"
+          - "Info.plist"
+          - "TBOperatorMobileWidgets.entitlements"
+          - "TBOperatorMobileWidgetsBundle.swift"
+          - "CallInProgressLiveActivity.swift"
+      - path: Shared/Theme
+        excludes:
+          - "**/.DS_Store"
+      - path: Shared/Models
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.widgets.tests
+        GENERATE_INFOPLIST_FILE: true
 
   TBOperatorMobileMacTests:
     type: bundle.unit-test
@@ -364,6 +475,7 @@ schemes:
       config: Debug
       targets:
         - TBOperatorMobileTests
+        - TBOperatorMobileWidgetsTests
     profile:
       config: Release
     analyze:
@@ -373,6 +485,7 @@ schemes:
     build:
       targets:
         TBOperatorMobileMac: all
+        TBOperatorMobileWidgetsMac: all
     run:
       config: Debug
     test:
@@ -388,6 +501,7 @@ schemes:
     build:
       targets:
         TBOperatorMobileVision: all
+        TBOperatorMobileWidgetsVision: all
     run:
       config: Debug
     test:
@@ -433,6 +547,32 @@ schemes:
     build:
       targets:
         TBOperatorMobileWidgets: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - TBOperatorMobileWidgetsTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+
+  TBOperatorMobileWidgetsMac:
+    build:
+      targets:
+        TBOperatorMobileWidgetsMac: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+
+  TBOperatorMobileWidgetsVision:
+    build:
+      targets:
+        TBOperatorMobileWidgetsVision: all
     run:
       config: Debug
     profile:

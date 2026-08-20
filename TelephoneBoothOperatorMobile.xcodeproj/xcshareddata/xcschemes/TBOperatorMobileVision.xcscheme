@@ -20,6 +20,20 @@
                ReferencedContainer = "container:TelephoneBoothOperatorMobile.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D4480B45B44C343675016D57"
+               BuildableName = "TBOperatorMobileWidgetsVision.appex"
+               BlueprintName = "TBOperatorMobileWidgetsVision"
+               ReferencedContainer = "container:TelephoneBoothOperatorMobile.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction

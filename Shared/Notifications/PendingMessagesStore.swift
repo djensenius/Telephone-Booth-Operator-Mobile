@@ -79,7 +79,7 @@ public final class PendingMessagesStore {
     private func applyCount(_ count: Int, stats: StatsSummary?) async {
         pendingCount = count
         if let stats {
-            WidgetSnapshotStore.write(WidgetSnapshot(stats: stats))
+            await WidgetRefreshCoordinator.shared.apply(stats: stats)
         }
         await setApplicationBadge(count)
     }

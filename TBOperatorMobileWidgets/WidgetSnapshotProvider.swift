@@ -4,9 +4,12 @@
 //
 //  Shared TimelineProvider used by every widget. Reads the snapshot
 //  written by the main app from the App Group container and rebuilds
-//  the timeline every 15 minutes. WidgetCenter.reloadAllTimelines() is
-//  called by the app whenever a new snapshot is written, so the 15-
-//  minute fallback is only used when the app hasn't refreshed lately.
+//  the timeline every 15 minutes. `WidgetCenter.reloadAllTimelines()`
+//  is called by the app whenever a new snapshot is written, so the
+//  15-minute fallback is only used when the app hasn't refreshed lately.
+//  When a section is about to flip stale sooner than that, the provider
+//  reloads at the transition instead so the "stale" chrome appears on
+//  time. Extensions never authenticate or perform network requests.
 //
 
 import Foundation
@@ -16,26 +19,55 @@ import WidgetKit
 struct WidgetSnapshotEntry: TimelineEntry {
     let date: Date
     let snapshot: WidgetSnapshot?
+    /// True for gallery/placeholder entries built from `.placeholder`
+    /// sample data, which must never render as stale.
+    var isPlaceholder = false
 }
 
 struct WidgetSnapshotProvider: TimelineProvider {
+    private static let refreshInterval: TimeInterval = 15 * 60
+    private let readSnapshot: @Sendable () -> WidgetSnapshot?
+    private let now: @Sendable () -> Date
+
+    init(
+        readSnapshot: @escaping @Sendable () -> WidgetSnapshot? = {
+            WidgetSnapshotStore.read()
+        },
+        now: @escaping @Sendable () -> Date = {
+            Date.now
+        }
+    ) {
+        self.readSnapshot = readSnapshot
+        self.now = now
+    }
+
     func placeholder(in context: Context) -> WidgetSnapshotEntry {
-        WidgetSnapshotEntry(date: .now, snapshot: .placeholder)
+        WidgetSnapshotEntry(date: now(), snapshot: .placeholder, isPlaceholder: true)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (WidgetSnapshotEntry) -> Void) {
-        let entry = WidgetSnapshotEntry(
-            date: .now,
-            snapshot: WidgetSnapshotStore.read() ?? .placeholder
-        )
-        completion(entry)
+        if context.isPreview {
+            completion(WidgetSnapshotEntry(date: now(), snapshot: .placeholder, isPlaceholder: true))
+        } else {
+            completion(WidgetSnapshotEntry(date: now(), snapshot: readSnapshot()))
+        }
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<WidgetSnapshotEntry>) -> Void) {
-        let snapshot = WidgetSnapshotStore.read()
-        let entry = WidgetSnapshotEntry(date: .now, snapshot: snapshot)
-        let refresh = Date.now.addingTimeInterval(15 * 60)
-        completion(Timeline(entries: [entry], policy: .after(refresh)))
+        completion(makeTimeline())
+    }
+
+    func makeTimeline() -> Timeline<WidgetSnapshotEntry> {
+        let currentDate = now()
+        let entry = WidgetSnapshotEntry(date: currentDate, snapshot: readSnapshot())
+        return Timeline(entries: [entry], policy: .after(nextReloadDate(for: entry)))
+    }
+
+    func nextReloadDate(for entry: WidgetSnapshotEntry) -> Date {
+        let fallback = entry.date.addingTimeInterval(Self.refreshInterval)
+        let nextStale = entry.staleTransitionDates(after: entry.date).first
+        let reload = min(nextStale ?? fallback, fallback)
+        return reload
     }
 }
 

@@ -38,11 +38,6 @@ public enum NotificationAuthorizationState: Equatable, Sendable {
     case provisional
 }
 
-public enum NotificationNavigationTarget: Equatable, Sendable {
-    case messages(messageId: String?)
-    case session(id: String)
-}
-
 @MainActor
 @Observable
 public final class NotificationManager {
@@ -54,10 +49,14 @@ public final class NotificationManager {
     public private(set) var preferences: MobileDevicePreferences
     public private(set) var lastError: String?
     public private(set) var isWorking: Bool = false
-    public private(set) var navigationTarget: NotificationNavigationTarget?
+    public var navigationTarget: NotificationNavigationTarget? {
+        guard let target = navigationStore.pendingTarget else { return nil }
+        return NotificationNavigationTarget(appNavigationTarget: target)
+    }
 
     private let defaults: UserDefaults
     private let client: OperatorClient
+    private let navigationStore: AppNavigationStore
 
     /// Latest preferences waiting to be sent to the server.
     private var pendingPreferences: MobileDevicePreferences?
@@ -87,10 +86,12 @@ public final class NotificationManager {
     public init(
         defaults: UserDefaults = .standard,
         client: OperatorClient = .shared,
+        navigationStore: AppNavigationStore = .shared,
         debounceInterval: Duration = .milliseconds(300)
     ) {
         self.defaults = defaults
         self.client = client
+        self.navigationStore = navigationStore
         self.debounceInterval = debounceInterval
         self.deviceId = defaults.string(forKey: Keys.deviceId)
         self.apnsToken = defaults.string(forKey: Keys.apnsToken)
@@ -143,7 +144,6 @@ public final class NotificationManager {
     /// Revokes the server-side device while the bearer token is still
     /// available, then removes the local APNs registration.
     public func revokeForSignOut() async {
-        navigationTarget = nil
         await stopRegistrationWork()
 
         if let id = deviceId {
@@ -196,11 +196,11 @@ public final class NotificationManager {
     }
 
     public func route(to target: NotificationNavigationTarget) {
-        navigationTarget = target
+        navigationStore.route(to: target.appNavigationTarget)
     }
 
     public func clearNavigationTarget() {
-        navigationTarget = nil
+        navigationStore.clearPendingTarget()
     }
 
     public func resetForSignOut() {
@@ -211,7 +211,7 @@ public final class NotificationManager {
         syncTask?.cancel()
         syncTask = nil
         pendingPreferences = nil
-        navigationTarget = nil
+        navigationStore.clearPendingTarget()
         clearLocalRegistration()
         unregisterForRemoteNotifications()
     }
@@ -229,7 +229,7 @@ public final class NotificationManager {
 
         switch categoryIdentifier {
         case Category.message:
-            return .messages(messageId: nil)
+            return hasModerationQueuePayload(userInfo) ? .reviewQueue : .messages(messageId: nil)
         default:
             return nil
         }
@@ -452,6 +452,10 @@ public final class NotificationManager {
             }
         }
         return nil
+    }
+
+    private nonisolated static func hasModerationQueuePayload(_ userInfo: [AnyHashable: Any]) -> Bool {
+        userInfo["awaitingModeration"] != nil || userInfo["awaiting_moderation"] != nil
     }
 
     private static func currentPlatform() -> MobileDevicePlatform {

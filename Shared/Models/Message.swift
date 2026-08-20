@@ -54,6 +54,56 @@ public enum MessageStatus: Codable, Sendable, Hashable {
     public var displayName: String { rawValue.capitalized }
 }
 
+public enum MessageListFilter: String, CaseIterable, Identifiable, Sendable, Hashable {
+    case all
+    case review
+    case approved
+    case rejected
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .all: return "All"
+        case .review: return "Review"
+        case .approved: return "Approved"
+        case .rejected: return "Rejected"
+        }
+    }
+
+    /// The server accepts one message status per request. Review must merge
+    /// both pre-decision states so recently received messages are actionable.
+    public var requestedStatuses: [MessageStatus]? {
+        switch self {
+        case .all: return nil
+        case .review: return [.received, .pending]
+        case .approved: return [.approved]
+        case .rejected: return [.rejected]
+        }
+    }
+
+    public func includes(_ status: MessageStatus) -> Bool {
+        switch self {
+        case .all: return true
+        case .review: return status == .received || status == .pending
+        case .approved: return status == .approved
+        case .rejected: return status == .rejected
+        }
+    }
+
+    /// Accepts the legacy widget `received` value while making `review` the
+    /// canonical route for the combined operator queue.
+    public init?(deepLinkValue: String) {
+        switch deepLinkValue.lowercased() {
+        case "all": self = .all
+        case "review", "received", "pending": self = .review
+        case "approved": self = .approved
+        case "rejected": self = .rejected
+        default: return nil
+        }
+    }
+}
+
 public enum AiProvider: Codable, Sendable, Hashable {
     case openai
     case macApp

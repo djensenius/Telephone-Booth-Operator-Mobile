@@ -23,6 +23,9 @@ public final class TBOperatorAppDelegate: NSObject, UIApplicationDelegate, UNUse
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         NotificationManager.registerNotificationCategories()
+        #if os(iOS) || os(visionOS)
+        WidgetRefreshScheduler.register()
+        #endif
         #if os(iOS)
         Task { @MainActor in WatchAuthSync.shared.activate() }
         #endif
@@ -46,6 +49,28 @@ public final class TBOperatorAppDelegate: NSObject, UIApplicationDelegate, UNUse
             NotificationManager.shared.tokenRegistrationFailed(error: error)
         }
     }
+
+    #if os(iOS) || os(visionOS)
+    public func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        Task { @MainActor in
+            let result = await WidgetRefreshScheduler.refreshNow()
+            WidgetRefreshScheduler.schedule()
+
+            switch result {
+            case .newData:
+                completionHandler(.newData)
+            case .noData:
+                completionHandler(.noData)
+            case .failed:
+                completionHandler(.failed)
+            }
+        }
+    }
+    #endif
 
     nonisolated public func userNotificationCenter(
         _ center: UNUserNotificationCenter,
@@ -80,6 +105,7 @@ public final class TBOperatorMacAppDelegate: NSObject, NSApplicationDelegate, UN
     public func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
         NotificationManager.registerNotificationCategories()
+        WidgetRefreshScheduler.register()
     }
 
     public func application(
@@ -97,6 +123,15 @@ public final class TBOperatorMacAppDelegate: NSObject, NSApplicationDelegate, UN
     ) {
         Task { @MainActor in
             NotificationManager.shared.tokenRegistrationFailed(error: error)
+        }
+    }
+
+    public func application(
+        _ application: NSApplication,
+        didReceiveRemoteNotification userInfo: [String: Any]
+    ) {
+        Task { @MainActor in
+            _ = await WidgetRefreshScheduler.refreshNow()
         }
     }
 

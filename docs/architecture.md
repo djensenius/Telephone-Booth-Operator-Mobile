@@ -1,7 +1,5 @@
 # Architecture
 
-> **Status:** scaffold. Concrete components arrive across PRs 2–11.
-
 ```text
 ┌──────────────────────────────────────────────────────────────────┐
 │ Telephone-Booth-Operator-Mobile (Swift / SwiftUI, multi-platform) │
@@ -68,5 +66,8 @@
 - All app targets share `Shared/` (theme, auth, client, models). watchOS
   consumes only a slim subset (theme + auth + a few read endpoints) to
   keep binary size down.
+- iOS, macOS, and visionOS widget extensions share one WidgetKit source
+  catalog. Signed-in host apps write a versioned, privacy-bounded snapshot to
+  the App Group; widget processes never authenticate or call the API.
 - iOS / iPadOS / macOS / visionOS / tvOS 26.0 minimum, so we can use the
   full Liquid Glass design system natively.

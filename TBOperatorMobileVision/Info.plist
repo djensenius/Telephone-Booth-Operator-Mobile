@@ -33,6 +33,10 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>org.davidjensenius.TBOperatorMobile.widget-refresh</string>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>OIDCClientID</key>
@@ -41,5 +45,10 @@
 	<string>https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile</string>
 	<key>OperatorAPIBase</key>
 	<string>https://api.telephonebooth.io</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>fetch</string>
+	</array>
 </dict>
 </plist>

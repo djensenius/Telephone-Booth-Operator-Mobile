@@ -10,7 +10,6 @@ import XCTest
 
 @MainActor
 final class PendingMessagesTests: XCTestCase {
-
     // MARK: - badgeCount fallback
 
     func testBadgeCountPrefersAwaitingModeration() {

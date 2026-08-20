@@ -76,6 +76,17 @@
                ReferencedContainer = "container:TelephoneBoothOperatorMobile.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "DB9F9988D8AABB8B93BE189E"
+               BuildableName = "TBOperatorMobileWidgetsTests.xctest"
+               BlueprintName = "TBOperatorMobileWidgetsTests"
+               ReferencedContainer = "container:TelephoneBoothOperatorMobile.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
