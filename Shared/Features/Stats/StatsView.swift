@@ -206,6 +206,7 @@ extension StatsView {
 
     private func callsCard(overview: StatsOverview) -> some View {
         let interactions = overview.interactionMetrics
+        let actions = overview.actionMetrics
         return VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
             SectionHeader(text: "Pickups")
             StatRow(
@@ -223,6 +224,10 @@ extension StatsView {
             StatRow(
                 label: "Messages left",
                 value: StatsFormat.numberString(interactions.messagesLeft)
+            )
+            StatRow(
+                label: "Messages listened",
+                value: StatsFormat.optionalNumberString(actions.messagePlaybackStarts)
             )
             StatRow(
                 label: "Message left rate",
