@@ -169,8 +169,6 @@ private struct StatsRangePresetButton: View {
     let action: () -> Void
 
     #if os(visionOS)
-    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
-    @Environment(\.isFocused) private var isFocused
     @State private var isHovered = false
     #endif
 
@@ -181,18 +179,12 @@ private struct StatsRangePresetButton: View {
                 .fontWeight(isSelected ? .semibold : .regular)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Theme.Spacing.small)
-                .background(buttonFill, in: Capsule())
-                .overlay {
-                    buttonBorder
-                }
-                .foregroundStyle(buttonForeground)
-                #if os(visionOS)
-                .scaleEffect(isHighlighted ? 1.02 : 1)
-                .animation(.easeOut(duration: 0.16), value: isHighlighted)
-                .animation(.easeOut(duration: 0.16), value: isSelected)
-                #endif
         }
-        .buttonStyle(.plain)
+        #if os(visionOS)
+        .buttonStyle(StatsRangePresetButtonStyle(isSelected: isSelected, isHovered: isHovered))
+        #else
+        .buttonStyle(StatsRangePresetButtonStyle(isSelected: isSelected))
+        #endif
         .contentShape(Capsule())
         .accessibilityLabel(option.displayName)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -201,60 +193,107 @@ private struct StatsRangePresetButton: View {
         .onHover { isHovered = $0 }
         #endif
     }
+}
 
-    private var buttonForeground: Color {
-        isSelected ? Theme.Colors.background : Theme.Colors.textPrimary
-    }
-
-    private var buttonFill: Color {
-        #if os(visionOS)
-        if isSelected {
-            return Theme.Colors.textPrimary
-        }
-        if isHighlighted {
-            return Theme.Colors.secondaryBackground
-        }
-        let opacity = colorSchemeContrast == .increased ? 1.0 : 0.92
-        return Theme.Colors.elevatedBackground.opacity(opacity)
-        #else
-        return isSelected
-            ? Theme.Colors.textPrimary
-            : Theme.Colors.textSecondary.opacity(0.08)
-        #endif
-    }
-
-    @ViewBuilder
-    private var buttonBorder: some View {
-        #if os(visionOS)
-        Capsule()
-            .strokeBorder(borderColor, lineWidth: borderWidth)
-        #endif
-    }
+private struct StatsRangePresetButtonStyle: ButtonStyle {
+    let isSelected: Bool
 
     #if os(visionOS)
-    private var isHighlighted: Bool {
-        isFocused || isHovered
-    }
+    let isHovered: Bool
+    #endif
 
-    private var borderColor: Color {
-        if isHighlighted {
-            return Theme.Colors.accent
-        }
-        if isSelected {
-            let opacity = colorSchemeContrast == .increased ? 0.45 : 0.24
-            return Theme.Colors.background.opacity(opacity)
-        }
-        let opacity = colorSchemeContrast == .increased ? 0.9 : 0.55
-        return Theme.Colors.textSecondary.opacity(opacity)
+    #if os(visionOS)
+    func makeBody(configuration: Configuration) -> some View {
+        PresetBody(
+            configuration: configuration,
+            isSelected: isSelected,
+            isHovered: isHovered
+        )
     }
-
-    private var borderWidth: CGFloat {
-        if isHighlighted {
-            return colorSchemeContrast == .increased ? 3.5 : 3
-        }
-        return isSelected ? 1.5 : 1
+    #else
+    func makeBody(configuration: Configuration) -> some View {
+        PresetBody(configuration: configuration, isSelected: isSelected)
     }
     #endif
+
+    private struct PresetBody: View {
+        let configuration: Configuration
+        let isSelected: Bool
+
+    #if os(visionOS)
+        let isHovered: Bool
+        @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+        @Environment(\.isFocused) private var isFocused
+    #endif
+
+        var body: some View {
+            configuration.label
+                .foregroundStyle(buttonForeground)
+                .background(buttonFill, in: Capsule())
+                .overlay {
+                    buttonBorder
+                }
+                #if os(visionOS)
+                .scaleEffect(isHighlighted ? 1.02 : 1)
+                .animation(.easeOut(duration: 0.16), value: isHighlighted)
+                .animation(.easeOut(duration: 0.16), value: isSelected)
+                #endif
+        }
+
+        private var buttonForeground: Color {
+            isSelected ? Theme.Colors.background : Theme.Colors.textPrimary
+        }
+
+        private var buttonFill: Color {
+            #if os(visionOS)
+            if isSelected {
+                return Theme.Colors.textPrimary
+            }
+            if isHighlighted {
+                return Theme.Colors.secondaryBackground
+            }
+            let opacity = colorSchemeContrast == .increased ? 1.0 : 0.92
+            return Theme.Colors.elevatedBackground.opacity(opacity)
+            #else
+            return isSelected
+                ? Theme.Colors.textPrimary
+                : Theme.Colors.textSecondary.opacity(0.08)
+            #endif
+        }
+
+        @ViewBuilder
+        private var buttonBorder: some View {
+            #if os(visionOS)
+            Capsule()
+                .strokeBorder(borderColor, lineWidth: borderWidth)
+            #endif
+        }
+
+        #if os(visionOS)
+        private var isHighlighted: Bool {
+            isFocused || isHovered
+        }
+
+        private var borderColor: Color {
+            if isHighlighted {
+                return Theme.Colors.accent
+            }
+            if isSelected {
+                let opacity = colorSchemeContrast == .increased ? 0.45 : 0.24
+                return Theme.Colors.background.opacity(opacity)
+            }
+            let opacity = colorSchemeContrast == .increased ? 0.9 : 0.55
+            return Theme.Colors.textSecondary.opacity(opacity)
+        }
+
+        private var borderWidth: CGFloat {
+            if isHighlighted {
+                return colorSchemeContrast == .increased ? 3.5 : 3
+            }
+            return isSelected ? 1.5 : 1
+        }
+        #endif
+    }
 }
 
 #Preview("Stats range controls") {
