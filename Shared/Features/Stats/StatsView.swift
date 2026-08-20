@@ -54,14 +54,7 @@ public struct StatsView: View {
                 }
                 if let overview {
                     headlineCard(overview: overview)
-                    callsCard(overview: overview)
-                    messagesCard(overview: overview)
-                    hourlyCard(overview: overview)
-                    actionActivityCard(overview: overview)
-                    topQuestionsCard(overview: overview)
-                    if !overview.boothBreakdown.isEmpty {
-                        boothBreakdownCard(overview: overview)
-                    }
+                    detailSections(overview: overview)
                 } else if isRefreshing {
                     ProgressView("Adding up the numbers…")
                         .frame(maxWidth: .infinity)
@@ -84,6 +77,19 @@ public struct StatsView: View {
 }
 
 extension StatsView {
+    private func detailSections(overview: StatsOverview) -> some View {
+        StatsSectionColumnsLayout {
+            callsCard(overview: overview)
+            messagesCard(overview: overview)
+            hourlyCard(overview: overview)
+            actionActivityCard(overview: overview)
+            topQuestionsCard(overview: overview)
+            if !overview.boothBreakdown.isEmpty {
+                boothBreakdownCard(overview: overview)
+            }
+        }
+    }
+
     private func refresh() async {
         refreshGeneration += 1
         let generation = refreshGeneration
@@ -577,6 +583,12 @@ private struct StatsInstallationScopePicker: View {
 }
 #endif
 
-#Preview {
+#Preview("Stats · narrow") {
     StatsView(client: .demo)
+        .frame(width: 430, height: 1_200)
+}
+
+#Preview("Stats · wide") {
+    StatsView(client: .demo)
+        .frame(width: 1_000, height: 1_200)
 }

@@ -293,11 +293,7 @@ extension MacStatsView {
     // MARK: - Section grid
 
     private func sectionsGrid(_ overview: StatsOverview) -> some View {
-        LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 360), spacing: 16, alignment: .top)],
-            alignment: .leading,
-            spacing: 16
-        ) {
+        StatsSectionColumnsLayout {
             callsSection(overview)
             messagesSection(overview)
             hourlySection(overview)

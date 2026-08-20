@@ -338,3 +338,96 @@ final class StatsOverviewTests: XCTestCase {
         )
     }
 }
+
+final class AdaptiveStatsLayoutTests: XCTestCase {
+    func testEmptyArrangementHasNoFramesOrSize() {
+        let arrangement = StatsSectionColumnsLayout.arrangement(for: [], availableWidth: 900)
+
+        XCTAssertEqual(arrangement.containerSize, .zero)
+        XCTAssertTrue(arrangement.frames.isEmpty)
+    }
+
+    func testUsesTwoColumnsOnlyForFiniteWideWidthsWithMultipleSections() {
+        XCTAssertFalse(StatsSectionColumnsLayout.usesTwoColumns(availableWidth: nil, itemCount: 6))
+        XCTAssertFalse(StatsSectionColumnsLayout.usesTwoColumns(availableWidth: .infinity, itemCount: 6))
+        XCTAssertFalse(StatsSectionColumnsLayout.usesTwoColumns(availableWidth: 899, itemCount: 6))
+        XCTAssertTrue(StatsSectionColumnsLayout.usesTwoColumns(availableWidth: 900, itemCount: 6))
+        XCTAssertFalse(StatsSectionColumnsLayout.usesTwoColumns(availableWidth: 1_200, itemCount: 1))
+    }
+
+    func testTwoColumnArrangementKeepsStableEvenOddAssignments() {
+        let arrangement = StatsSectionColumnsLayout.arrangement(
+            for: [
+                CGSize(width: 320, height: 100),
+                CGSize(width: 320, height: 40),
+                CGSize(width: 320, height: 30),
+                CGSize(width: 320, height: 80),
+                CGSize(width: 320, height: 20)
+            ],
+            availableWidth: 900
+        )
+
+        XCTAssertEqual(arrangement.containerSize, CGSize(width: 900, height: 182))
+        XCTAssertEqual(arrangement.frames, [
+            CGRect(x: 0, y: 0, width: 442, height: 100),
+            CGRect(x: 458, y: 0, width: 442, height: 40),
+            CGRect(x: 0, y: 116, width: 442, height: 30),
+            CGRect(x: 458, y: 56, width: 442, height: 80),
+            CGRect(x: 0, y: 162, width: 442, height: 20)
+        ])
+    }
+
+    func testArrangementUpdatesForChangedHeightsAtSameWidthAndCount() {
+        let initial = StatsSectionColumnsLayout.arrangement(
+            for: [
+                CGSize(width: 320, height: 100),
+                CGSize(width: 320, height: 40),
+                CGSize(width: 320, height: 30),
+                CGSize(width: 320, height: 80)
+            ],
+            availableWidth: 900
+        )
+        let updated = StatsSectionColumnsLayout.arrangement(
+            for: [
+                CGSize(width: 320, height: 140),
+                CGSize(width: 320, height: 60),
+                CGSize(width: 320, height: 90),
+                CGSize(width: 320, height: 20)
+            ],
+            availableWidth: 900
+        )
+
+        XCTAssertEqual(initial.containerSize, CGSize(width: 900, height: 146))
+        XCTAssertEqual(initial.frames, [
+            CGRect(x: 0, y: 0, width: 442, height: 100),
+            CGRect(x: 458, y: 0, width: 442, height: 40),
+            CGRect(x: 0, y: 116, width: 442, height: 30),
+            CGRect(x: 458, y: 56, width: 442, height: 80)
+        ])
+        XCTAssertEqual(updated.containerSize, CGSize(width: 900, height: 246))
+        XCTAssertEqual(updated.frames, [
+            CGRect(x: 0, y: 0, width: 442, height: 140),
+            CGRect(x: 458, y: 0, width: 442, height: 60),
+            CGRect(x: 0, y: 156, width: 442, height: 90),
+            CGRect(x: 458, y: 76, width: 442, height: 20)
+        ])
+    }
+
+    func testSingleColumnArrangementPreservesSourceOrderWhenWidthIsUnknown() {
+        let arrangement = StatsSectionColumnsLayout.arrangement(
+            for: [
+                CGSize(width: 220, height: 60),
+                CGSize(width: 260, height: 110),
+                CGSize(width: 240, height: 80)
+            ],
+            availableWidth: nil
+        )
+
+        XCTAssertEqual(arrangement.containerSize, CGSize(width: 260, height: 282))
+        XCTAssertEqual(arrangement.frames, [
+            CGRect(x: 0, y: 0, width: 220, height: 60),
+            CGRect(x: 0, y: 76, width: 260, height: 110),
+            CGRect(x: 0, y: 202, width: 240, height: 80)
+        ])
+    }
+}
