@@ -97,10 +97,10 @@ public struct QuestionsView: View {
             }
         }
         .autoRefresh(id: filter) {
-            if loadedFilter == filter {
-                await refreshLoadedPages()
-            } else {
+            if loadedFilter != filter || loadState == .loadingInitial || loadState == .loadingMore {
                 await loadFirstPage()
+            } else {
+                await refreshLoadedPages()
             }
         }
         .refreshableIfAvailable {

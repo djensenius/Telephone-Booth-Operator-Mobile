@@ -62,7 +62,7 @@ struct StatsBarTrack: View {
     var body: some View {
         GeometryReader { proxy in
             let ratio = max > 0 ? Double(value) / Double(max) : 0
-            let width = Swift.max(2, proxy.size.width * ratio)
+            let width = value > 0 ? Swift.max(2, proxy.size.width * ratio) : 0
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Theme.Colors.accent.opacity(0.15))
