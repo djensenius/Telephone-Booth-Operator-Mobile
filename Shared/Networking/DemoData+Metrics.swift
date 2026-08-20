@@ -101,6 +101,8 @@ public extension DemoData {
                 generatedAt: base.generatedAt,
                 timezone: base.timezone,
                 calls: base.calls,
+                interactions: base.interactions,
+                actions: base.actions,
                 messages: base.messages,
                 playback: base.playback,
                 pickupsHangups: base.pickupsHangups,

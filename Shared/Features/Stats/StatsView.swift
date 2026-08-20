@@ -5,9 +5,8 @@
 //
 //  Usage statistics page that mirrors the operator web /stats screen.
 //  Reads `/v1/stats/overview?window=` with a 24h/7d/30d/all picker and
-//  renders summary tiles, calls-per-day + hourly distribution charts,
-//  outcomes + message-status bars, top-questions list, pickups/hangups
-//  + digit pad, and an optional per-booth breakdown.
+//  renders interaction breakouts, cohort diagnostics, recordings,
+//  action funnels, digit activity, and an optional per-booth breakdown.
 //
 
 import SwiftUI
@@ -58,7 +57,7 @@ public struct StatsView: View {
                     callsCard(overview: overview)
                     messagesCard(overview: overview)
                     hourlyCard(overview: overview)
-                    pickupsHangupsCard(overview: overview)
+                    actionActivityCard(overview: overview)
                     topQuestionsCard(overview: overview)
                     if !overview.boothBreakdown.isEmpty {
                         boothBreakdownCard(overview: overview)
@@ -154,45 +153,47 @@ extension StatsView {
     // MARK: - Headline
 
     private func headlineCard(overview: StatsOverview) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+        let interactions = overview.interactionMetrics
+        let actions = overview.actionMetrics
+        return VStack(alignment: .leading, spacing: Theme.Spacing.small) {
             SectionHeader(text: selection.displayName)
             Text(scopeName)
                 .font(Theme.Fonts.caption)
                 .foregroundStyle(Theme.Colors.textSecondary)
-            HStack(spacing: Theme.Spacing.small) {
+            Text(
+                "In progress now \(StatsFormat.numberString(interactions.inProgressNow))"
+                    + " · Message left rate \(percentString(overview.completionRate))"
+                    + " · Last activity \(timeAgoString(overview.lastActivityAt))"
+            )
+            .font(Theme.Fonts.bodySmall)
+            .foregroundStyle(Theme.Colors.textSecondary)
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 150), spacing: Theme.Spacing.small)],
+                spacing: Theme.Spacing.small
+            ) {
                 StatsSummaryTile(
                     label: "Pickups",
-                    value: numberFormatter.string(from: NSNumber(value: overview.pickupsHangups.pickups)) ?? "0"
+                    value: StatsFormat.numberString(interactions.total)
                 )
                 StatsSummaryTile(
-                    label: "Approved messages",
-                    value: numberFormatter.string(
-                        from: NSNumber(value: overview.messages.approvedCount)
-                    ) ?? "0"
+                    label: "No selection",
+                    value: StatsFormat.numberString(interactions.noSelection)
                 )
                 StatsSummaryTile(
-                    label: "Completion",
-                    value: percentString(overview.completionRate)
-                )
-            }
-            HStack(spacing: Theme.Spacing.small) {
-                StatsSummaryTile(
-                    label: "All recordings",
-                    value: numberFormatter.string(
-                        from: NSNumber(value: overview.messages.allRecordingsCount)
-                    ) ?? "0"
+                    label: "Wrong numbers",
+                    value: StatsFormat.numberString(actions.wrongNumberAttempts)
                 )
                 StatsSummaryTile(
-                    label: "Booth playbacks",
-                    value: numberFormatter.string(from: NSNumber(value: overview.playback.totalPlaybacks)) ?? "0"
+                    label: "Messages left",
+                    value: StatsFormat.numberString(interactions.messagesLeft)
                 )
                 StatsSummaryTile(
-                    label: "Last activity",
-                    value: timeAgoString(overview.lastActivityAt)
+                    label: "Messages listened",
+                    value: StatsFormat.optionalNumberString(actions.messagePlaybackStarts)
                 )
                 StatsSummaryTile(
-                    label: "In progress",
-                    value: numberFormatter.string(from: NSNumber(value: overview.calls.inProgress)) ?? "0"
+                    label: "Instructions heard",
+                    value: StatsFormat.optionalNumberString(actions.instructionPlaybackStarts)
                 )
             }
         }
@@ -201,31 +202,44 @@ extension StatsView {
         .glassCardBackground()
     }
 
-    // MARK: - Calls
+    // MARK: - Interactions
 
     private func callsCard(overview: StatsOverview) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-            SectionHeader(text: "Calls")
+        let interactions = overview.interactionMetrics
+        return VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
+            SectionHeader(text: "Pickups")
             StatRow(
                 label: "Total",
-                value: numberFormatter.string(from: NSNumber(value: overview.calls.total)) ?? "0"
+                value: StatsFormat.numberString(interactions.total)
             )
             StatRow(
-                label: "Completed",
-                value: numberFormatter.string(from: NSNumber(value: overview.calls.completed)) ?? "0"
+                label: "In progress now",
+                value: StatsFormat.numberString(interactions.inProgressNow)
+            )
+            StatRow(
+                label: "No selection",
+                value: StatsFormat.numberString(interactions.noSelection)
+            )
+            StatRow(
+                label: "Messages left",
+                value: StatsFormat.numberString(interactions.messagesLeft)
+            )
+            StatRow(
+                label: "Message left rate",
+                value: percentString(overview.completionRate)
             )
             StatRow(
                 label: "Avg duration",
-                value: durationString(overview.calls.averageDurationMs)
+                value: durationString(interactions.averageDurationMs)
             )
             StatRow(
-                label: "Longest call",
-                value: durationString(overview.calls.longestDurationMs)
+                label: "Longest pickup",
+                value: durationString(interactions.longestDurationMs)
             )
             Text("Outcomes").font(Theme.Fonts.bodyMedium.weight(.semibold))
                 .foregroundStyle(Theme.Colors.textPrimary)
             outcomeBars(overview: overview)
-            Text("Calls per day (UTC)").font(Theme.Fonts.bodyMedium.weight(.semibold))
+            Text("Pickups per day (UTC)").font(Theme.Fonts.bodyMedium.weight(.semibold))
                 .foregroundStyle(Theme.Colors.textPrimary)
             perDayChart(overview: overview)
         }
@@ -239,7 +253,7 @@ extension StatsView {
         let max = entries.map(\.count).max() ?? 0
         return VStack(alignment: .leading, spacing: Theme.Spacing.small) {
             if entries.isEmpty {
-                Text("No completed calls in this window.")
+                Text("No pickups in this window.")
                     .font(Theme.Fonts.bodySmall)
                     .foregroundStyle(Theme.Colors.textSecondary)
             } else {
@@ -256,13 +270,14 @@ extension StatsView {
 
     @ViewBuilder
     private func perDayChart(overview: StatsOverview) -> some View {
+        let perDay = overview.interactionMetrics.perDay
         #if canImport(Charts)
-        if overview.calls.perDay.isEmpty {
+        if perDay.isEmpty {
             Text("No data in this window.")
                 .font(Theme.Fonts.bodySmall)
                 .foregroundStyle(Theme.Colors.textSecondary)
         } else {
-            Chart(overview.calls.perDay, id: \.date) { day in
+            Chart(perDay, id: \.date) { day in
                 BarMark(
                     x: .value("Date", day.date),
                     y: .value("Total", day.total)
@@ -270,7 +285,7 @@ extension StatsView {
                 .foregroundStyle(Theme.Colors.accent)
                 .annotation(position: .top) {
                     if day.total > 0 {
-                        Text("\(day.completed)/\(day.total)")
+                        Text("\(day.messagesLeftCount)/\(day.total)")
                             .font(Theme.Fonts.caption)
                             .foregroundStyle(Theme.Colors.textSecondary)
                     }
@@ -289,8 +304,8 @@ extension StatsView {
         }
         #else
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            ForEach(overview.calls.perDay, id: \.date) { day in
-                StatRow(label: day.date, value: "\(day.completed)/\(day.total)")
+            ForEach(perDay, id: \.date) { day in
+                StatRow(label: day.date, value: "\(day.messagesLeftCount)/\(day.total)")
             }
         }
         #endif
@@ -300,26 +315,26 @@ extension StatsView {
 
     private func messagesCard(overview: StatsOverview) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-            SectionHeader(text: "Recordings")
+            SectionHeader(text: "Recordings & moderation")
             StatRow(
                 label: "Approved messages",
-                value: numberFormatter.string(
-                    from: NSNumber(value: overview.messages.approvedCount)
-                ) ?? "0"
+                value: StatsFormat.numberString(overview.messages.approvedCount)
             )
             StatRow(
                 label: "All recordings",
-                value: numberFormatter.string(
-                    from: NSNumber(value: overview.messages.allRecordingsCount)
-                ) ?? "0"
+                value: StatsFormat.numberString(overview.messages.allRecordingsCount)
             )
             StatRow(
                 label: "Avg duration",
                 value: durationString(overview.messages.averageDurationMs)
             )
             StatRow(
-                label: "Booth playbacks",
-                value: numberFormatter.string(from: NSNumber(value: overview.playback.totalPlaybacks)) ?? "0"
+                label: "Uploads succeeded",
+                value: StatsFormat.numberString(overview.uploads.succeeded)
+            )
+            StatRow(
+                label: "Uploads failed",
+                value: failedUploadsLabel(overview: overview)
             )
             Text("By status").font(Theme.Fonts.bodyMedium.weight(.semibold))
                 .foregroundStyle(Theme.Colors.textPrimary)
@@ -378,7 +393,7 @@ extension StatsView {
         Chart(overview.hourly) { bucket in
             BarMark(
                 x: .value("Hour", bucket.hour),
-                y: .value("Calls", bucket.calls)
+                y: .value("Pickups", bucket.interactionCount)
             )
             .foregroundStyle(Theme.Colors.accent)
         }
@@ -389,35 +404,51 @@ extension StatsView {
         #else
         VStack(alignment: .leading, spacing: 2) {
             ForEach(overview.hourly) { bucket in
-                StatRow(label: "\(bucket.hour):00", value: "\(bucket.calls)")
+                StatRow(label: "\(bucket.hour):00", value: StatsFormat.numberString(bucket.interactionCount))
             }
         }
         #endif
     }
 
-    // MARK: - Pickups / hangups
+    // MARK: - Actions / playback
 
-    private func pickupsHangupsCard(overview: StatsOverview) -> some View {
-        let digits = overview.pickupsHangups.digitsDialedZeroFilled()
+    private func actionActivityCard(overview: StatsOverview) -> some View {
+        let actionMetrics = overview.actionMetrics
+        let digits = actionMetrics.digitsDialedZeroFilled()
         let maxDigit = digits.map(\.count).max() ?? 0
         return VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-            SectionHeader(text: "Pickups & hangups")
+            SectionHeader(text: "Selections & playback")
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 170), spacing: Theme.Spacing.small)],
+                spacing: Theme.Spacing.small
+            ) {
+                ForEach(overview.selectionFunnels) { funnel in
+                    StatsSelectionDetailTile(
+                        title: funnel.selectionLabel,
+                        selectionLabel: "Selected",
+                        selectionCount: funnel.selectionCount,
+                        outcomeLabel: funnel.outcomeLabel,
+                        outcomeCount: funnel.outcomeCount
+                    )
+                }
+            }
             StatRow(
-                label: "Pickups",
-                value: numberFormatter.string(from: NSNumber(value: overview.pickupsHangups.pickups)) ?? "0"
+                label: "Wrong numbers",
+                value: StatsFormat.numberString(actionMetrics.wrongNumberAttempts)
             )
             StatRow(
-                label: "Hangups",
-                value: numberFormatter.string(from: NSNumber(value: overview.pickupsHangups.hangups)) ?? "0"
+                label: "Total dial attempts",
+                value: StatsFormat.numberString(actionMetrics.digitsDialed.values.reduce(0, +))
             )
-            StatRow(
-                label: "Uploads succeeded",
-                value: numberFormatter.string(from: NSNumber(value: overview.uploads.succeeded)) ?? "0"
-            )
-            StatRow(
-                label: "Uploads failed",
-                value: failedUploadsLabel(overview: overview)
-            )
+            if !actionMetrics.supportsPlaybackBreakouts {
+                StatRow(
+                    label: "Combined playback starts",
+                    value: StatsFormat.optionalNumberString(actionMetrics.totalPlaybackStarts)
+                )
+                Text("This Operator build reports legacy combined playbacks without a message/instruction split.")
+                    .font(Theme.Fonts.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+            }
             Text("Digits dialed").font(Theme.Fonts.bodyMedium.weight(.semibold))
                 .foregroundStyle(Theme.Colors.textPrimary)
             LazyVGrid(

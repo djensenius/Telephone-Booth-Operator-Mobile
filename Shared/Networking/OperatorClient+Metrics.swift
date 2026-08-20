@@ -227,13 +227,16 @@ private enum DialedDigitEventError: LocalizedError {
 private extension OperatorClient {
     /// Some operator versions aggregate this field from `CallSession.digitsDialed`,
     /// while booth clients report the actual values as `digit_dialed` events.
-    /// Recover only an empty aggregate so a corrected server remains authoritative.
+    /// Newer Operator builds send additive `actions.digitsDialed`, so recover
+    /// only legacy payloads whose aggregate is empty. Old overview payloads can
+    /// still have in-range digit activity even when their interaction totals are
+    /// zero, so do not gate recovery on call or pickup counts.
     func recoveringDialedDigits(
         in overview: StatsOverview,
         selection: StatsRangeSelection,
         installationScope: InstallationScope
     ) async throws -> StatsOverview {
-        let hasCalls = overview.pickupsHangups.pickups > 0 || overview.pickupsHangups.hangups > 0
+        guard overview.actions == nil else { return overview }
         let hasReportedDigits = overview.pickupsHangups.digitsDialed.values.contains { $0 > 0 }
         let cacheKey = DialedDigitRecoveryCacheKey(
             clientID: ObjectIdentifier(self),
@@ -244,7 +247,6 @@ private extension OperatorClient {
             await dialedDigitRecoveryCache.removeValue(for: cacheKey)
             return overview
         }
-        guard hasCalls else { return overview }
         if let cached = await dialedDigitRecoveryCache.counts(for: cacheKey) {
             return cached.values.contains(where: { $0 > 0 })
                 ? overview.replacingDialedDigits(with: cached)
@@ -321,6 +323,8 @@ private extension StatsOverview {
             generatedAt: generatedAt,
             timezone: timezone,
             calls: calls,
+            interactions: interactions,
+            actions: actions,
             messages: messages,
             playback: playback,
             pickupsHangups: PickupsHangups(

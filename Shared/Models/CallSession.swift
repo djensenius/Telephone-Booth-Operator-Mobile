@@ -14,6 +14,7 @@ public enum CallOutcome: Codable, Sendable, Hashable {
     case recordingFailed
     case uploadFailed
     case operatorError
+    case installationEnded
     case aborted
     case unknown(String)
 
@@ -27,24 +28,14 @@ public enum CallOutcome: Codable, Sendable, Hashable {
         case .recordingFailed: return "recording_failed"
         case .uploadFailed: return "upload_failed"
         case .operatorError: return "operator_error"
+        case .installationEnded: return "installation_ended"
         case .aborted: return "aborted"
         case .unknown(let value): return value
         }
     }
 
     public init(rawValue: String) {
-        switch rawValue {
-        case "hung_up_before_dial": self = .hungUpBeforeDial
-        case "hung_up_during_prompt": self = .hungUpDuringPrompt
-        case "hung_up_during_recording": self = .hungUpDuringRecording
-        case "hung_up_during_upload": self = .hungUpDuringUpload
-        case "recording_completed": self = .recordingCompleted
-        case "recording_failed": self = .recordingFailed
-        case "upload_failed": self = .uploadFailed
-        case "operator_error": self = .operatorError
-        case "aborted": self = .aborted
-        default: self = .unknown(rawValue)
-        }
+        self = Self.knownCasesByRawValue[rawValue] ?? .unknown(rawValue)
     }
 
     public init(from decoder: Decoder) throws {
@@ -68,6 +59,7 @@ public enum CallOutcome: Codable, Sendable, Hashable {
         case .recordingFailed: return "Recording failed"
         case .uploadFailed: return "Upload failed"
         case .operatorError: return "Operator error"
+        case .installationEnded: return "Installation ended"
         case .aborted: return "Aborted"
         case .unknown(let value):
             return value
@@ -78,6 +70,19 @@ public enum CallOutcome: Codable, Sendable, Hashable {
     }
 
     public var isSuccess: Bool { self == .recordingCompleted }
+
+    private static let knownCasesByRawValue: [String: CallOutcome] = [
+        "hung_up_before_dial": .hungUpBeforeDial,
+        "hung_up_during_prompt": .hungUpDuringPrompt,
+        "hung_up_during_recording": .hungUpDuringRecording,
+        "hung_up_during_upload": .hungUpDuringUpload,
+        "recording_completed": .recordingCompleted,
+        "recording_failed": .recordingFailed,
+        "upload_failed": .uploadFailed,
+        "operator_error": .operatorError,
+        "installation_ended": .installationEnded,
+        "aborted": .aborted
+    ]
 }
 
 public struct CallSession: Codable, Sendable, Equatable, Identifiable {

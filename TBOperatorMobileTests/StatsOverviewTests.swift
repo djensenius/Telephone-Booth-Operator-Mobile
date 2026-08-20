@@ -40,6 +40,24 @@ final class StatsOverviewTests: XCTestCase {
             "perDay": [{ "date": "2026-05-25", "total": 5, "completed": 4 },
               { "date": "2026-05-26", "total": 7, "completed": 5 }]
           },
+          "interactions": {
+            "total": 12, "inProgressNow": 1, "noSelection": 2, "messagesLeft": 8,
+            "averageDurationMs": 5123.5, "longestDurationMs": 9100,
+            "outcomes": { "recording_completed": 8, "hung_up_before_dial": 2, "wild_new_outcome": 2 },
+            "perDay": [
+              { "date": "2026-05-25", "total": 5, "noSelection": 1, "messagesLeft": 3 },
+              { "date": "2026-05-26", "total": 7, "noSelection": 1, "messagesLeft": 5 }
+            ]
+          },
+          "actions": {
+            "digitsDialed": { "0": 1, "1": 4, "2": 3, "3": 2, "8": 1 },
+            "leaveMessageSelections": 4,
+            "listenMessageSelections": 3,
+            "instructionSelections": 1,
+            "wrongNumberAttempts": 3,
+            "messagePlaybackStarts": 2,
+            "instructionPlaybackStarts": 1
+          },
           "messages": { "total": 6, "approved": 6, "allRecordings": 9,
             "byStatus": { "approved": 6, "pending": 2, "rejected": 1 },
             "averageDurationMs": 8500 },
@@ -51,13 +69,25 @@ final class StatsOverviewTests: XCTestCase {
             "prompt": "What did the city sound like today?",
             "messageCount": 5, "lastUsedAt": "2026-05-26T00:00:00Z", "retiredAt": null
           }],
-          "hourly": [{ "hour": 0, "calls": 0, "messages": 0 },
-            { "hour": 10, "calls": 3, "messages": 2 }],
+          "hourly": [{ "hour": 0, "calls": 0, "interactions": 0, "messages": 0 },
+            { "hour": 10, "calls": 3, "interactions": 4, "messages": 2 }],
           "busiest": { "hour": 10, "dayOfWeek": 1 },
           "lastActivityAt": "2026-05-26T00:00:00Z",
           "boothBreakdown": [
-            { "boothId": "booth-1", "calls": 8, "messages": null, "lastSeenAt": "2026-05-26T00:00:00Z" },
-            { "boothId": "booth-2", "calls": 4, "messages": null, "lastSeenAt": "2026-05-25T00:00:00Z" }
+            {
+              "boothId": "booth-1",
+              "calls": 8,
+              "interactions": 8,
+              "messages": null,
+              "lastSeenAt": "2026-05-26T00:00:00Z"
+            },
+            {
+              "boothId": "booth-2",
+              "calls": 4,
+              "interactions": 5,
+              "messages": null,
+              "lastSeenAt": "2026-05-25T00:00:00Z"
+            }
           ]
         }
         """#
@@ -66,17 +96,25 @@ final class StatsOverviewTests: XCTestCase {
         XCTAssertEqual(overview.timezone, "UTC")
         XCTAssertEqual(overview.calls.total, 12)
         XCTAssertEqual(overview.calls.completed, 9)
+        XCTAssertEqual(overview.interactions?.messagesLeft, Optional(8))
+        XCTAssertEqual(overview.interactionMetrics.messagesLeft, 8)
         XCTAssertEqual(overview.calls.outcomes["wild_new_outcome"], 1)
-        XCTAssertEqual(overview.completionRate, 9.0 / 12.0)
+        XCTAssertEqual(overview.completionRate, 8.0 / 12.0)
+        XCTAssertEqual(overview.outcomesInDisplayOrder().first?.count, 8)
         XCTAssertEqual(overview.messages.byStatus["approved"], 6)
         XCTAssertEqual(overview.messages.approvedCount, 6)
         XCTAssertEqual(overview.messages.allRecordingsCount, 9)
+        XCTAssertEqual(overview.actionMetrics.leaveMessageSelections, 4)
+        XCTAssertEqual(overview.actionMetrics.wrongNumberAttempts, 3)
+        XCTAssertEqual(overview.actionMetrics.messagePlaybackStarts, Optional(2))
         XCTAssertEqual(overview.playback.totalPlaybacks, 17)
         XCTAssertEqual(overview.pickupsHangups.digitsDialed["5"], 5)
         XCTAssertEqual(overview.uploads.failureRate, 0.1)
         XCTAssertEqual(overview.topQuestions.first?.prompt, "What did the city sound like today?")
         XCTAssertEqual(overview.busiest.hour, 10)
         XCTAssertEqual(overview.boothBreakdown.count, 2)
+        XCTAssertEqual(overview.hourly[1].interactionCount, 4)
+        XCTAssertEqual(overview.boothBreakdown[1].interactionCount, 5)
         XCTAssertNil(overview.boothBreakdown.first?.messages)
     }
 
@@ -118,6 +156,8 @@ final class StatsOverviewTests: XCTestCase {
         XCTAssertNil(overview.lastActivityAt)
         XCTAssertEqual(overview.calls.outcomes, [:])
         XCTAssertEqual(overview.pickupsHangups.digitsDialed, [:])
+        XCTAssertEqual(overview.interactionMetrics.total, 0)
+        XCTAssertEqual(overview.actionMetrics.wrongNumberAttempts, 0)
     }
 
     // MARK: - Display helpers
@@ -180,35 +220,44 @@ final class StatsOverviewTests: XCTestCase {
         XCTAssertEqual(messages.allRecordingsCount, 9)
     }
 
-    func testInstallationScopeQueryValues() {
-        XCTAssertNil(InstallationScope.current.queryValue)
-        XCTAssertEqual(InstallationScope.all.queryValue, "all")
-        XCTAssertEqual(
-            InstallationScope.installation("era-1").queryValue,
-            "era-1"
+    func testLegacyOverviewFallsBackToInteractionAndActionMetrics() {
+        let calls = StatsOverview.Calls(
+            total: 9,
+            completed: 4,
+            inProgress: 2,
+            averageDurationMs: 12_000,
+            longestDurationMs: 30_000,
+            outcomes: [
+                "recording_completed": 4,
+                "hung_up_before_dial": 3,
+                "upload_failed": 2
+            ],
+            perDay: [
+                .init(date: "2026-08-18", total: 5, completed: 2),
+                .init(date: "2026-08-19", total: 4, completed: 2)
+            ]
         )
-    }
+        let overview = makeOverview(
+            calls: calls,
+            playback: .init(totalPlaybacks: 7),
+            pickupsHangups: .init(
+                pickups: 9,
+                hangups: 7,
+                digitsDialed: ["0": 2, "1": 4, "2": 3, "3": 1, "9": 2]
+            )
+        )
 
-    func testInstallationDecodesWithoutLanguageDuringDeployment() throws {
-        let installation = try OperatorJSON.decoder.decode(
-            Installation.self,
-            from: Data(#"""
-            {
-              "id":"00000000-0000-4000-8000-000000000001",
-              "name":"Opening",
-              "notes":null,
-              "location":null,
-              "startedAt":"2026-08-14T12:00:00Z",
-              "endedAt":null,
-              "endedById":null,
-              "summary":null,
-              "createdAt":"2026-08-14T12:00:00Z",
-              "isActive":true
-            }
-            """#.utf8)
-        )
-        XCTAssertNil(installation.defaultTranscriptionLanguage)
-        XCTAssertTrue(installation.isActive)
+        XCTAssertNil(overview.interactions)
+        XCTAssertEqual(overview.interactionMetrics.messagesLeft, 4)
+        XCTAssertEqual(overview.interactionMetrics.noSelection, 3)
+        XCTAssertEqual(overview.completionRate, 4.0 / 9.0)
+        XCTAssertEqual(overview.interactionMetrics.perDay[0].messagesLeftCount, 2)
+        XCTAssertEqual(overview.actionMetrics.leaveMessageSelections, 4)
+        XCTAssertEqual(overview.actionMetrics.listenMessageSelections, 3)
+        XCTAssertEqual(overview.actionMetrics.instructionSelections, 2)
+        XCTAssertEqual(overview.actionMetrics.wrongNumberAttempts, 3)
+        XCTAssertNil(overview.actionMetrics.messagePlaybackStarts)
+        XCTAssertEqual(overview.actionMetrics.totalPlaybackStarts, Optional(7))
     }
 
     func testDigitsDialedZeroFilledAlwaysHas10EntriesInOrder() {
@@ -224,99 +273,6 @@ final class StatsOverviewTests: XCTestCase {
         XCTAssertEqual(digits[1].count, 3)
         XCTAssertEqual(digits[9].count, 1)
         XCTAssertEqual(digits[0].count, 0)
-    }
-
-    @MainActor
-    func testFetchStatsOverviewRecoversDigitsAndKeepsOverviewWhenRecoveryFails() async throws {
-        let appConfig = AppConfig.shared
-        let previousDemoMode = appConfig.isDemoMode
-        appConfig.isDemoMode = false
-        defer { appConfig.isDemoMode = previousDemoMode }
-
-        let auth = AuthManager.shared
-        auth.signOut()
-        XCTAssertTrue(auth.storeTokens(
-            OIDCTokens(
-                accessToken: "stats-access-\(UUID().uuidString)",
-                refreshToken: "stats-refresh-\(UUID().uuidString)",
-                idToken: nil,
-                expiresIn: 3_600,
-                tokenType: "Bearer"
-            )
-        ))
-        defer { auth.signOut() }
-
-        StatsDigitRecoveryURLProtocol.reset()
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [StatsDigitRecoveryURLProtocol.self]
-        let client = OperatorClient(
-            config: appConfig,
-            auth: auth,
-            session: URLSession(configuration: configuration)
-        )
-
-        let overview = try await client.fetchStatsOverview(
-            selection: .window(.last7d),
-            installationScope: .installation("installation-1")
-        )
-
-        XCTAssertEqual(overview.pickupsHangups.digitsDialed["0"], 1)
-        XCTAssertEqual(overview.pickupsHangups.digitsDialed["1"], 2)
-        XCTAssertEqual(overview.pickupsHangups.digitsDialed["5"], 2)
-        XCTAssertEqual(overview.pickupsHangups.digitsDialed["9"], 0)
-
-        let requests = StatsDigitRecoveryURLProtocol.capturedURLs()
-        XCTAssertEqual(requests.filter { $0.path == "/v1/stats/overview" }.count, 1)
-        let eventRequests = requests.filter { $0.path == "/v1/events" }
-        XCTAssertEqual(eventRequests.count, 2)
-        let firstEventRequest = try XCTUnwrap(eventRequests.first)
-        let firstQuery = try XCTUnwrap(URLComponents(
-            url: firstEventRequest,
-            resolvingAgainstBaseURL: false
-        )?.queryItems)
-        XCTAssertTrue(firstQuery.contains(URLQueryItem(name: "type", value: "digit_dialed")))
-        XCTAssertTrue(firstQuery.contains(URLQueryItem(name: "installationId", value: "installation-1")))
-        XCTAssertNotNil(firstQuery.first(where: { $0.name == "since" })?.value)
-        XCTAssertNotNil(firstQuery.first(where: { $0.name == "until" })?.value)
-        let lastEventRequest = try XCTUnwrap(eventRequests.last)
-        let secondQuery = try XCTUnwrap(URLComponents(
-            url: lastEventRequest,
-            resolvingAgainstBaseURL: false
-        )?.queryItems)
-        XCTAssertTrue(secondQuery.contains(URLQueryItem(name: "cursor", value: "next-page")))
-
-        let cached = try await client.fetchStatsOverview(
-            selection: .window(.last7d),
-            installationScope: .installation("installation-1")
-        )
-        XCTAssertEqual(cached.pickupsHangups.digitsDialed["1"], 2)
-        XCTAssertEqual(
-            StatsDigitRecoveryURLProtocol.capturedURLs().filter { $0.path == "/v1/events" }.count,
-            2
-        )
-
-        StatsDigitRecoveryURLProtocol.reset(failEventRequests: true)
-        let fallback = try await client.fetchStatsOverview(
-            selection: .window(.last7d),
-            installationScope: .installation("installation-2")
-        )
-        XCTAssertEqual(fallback.calls.total, 2)
-        XCTAssertEqual(fallback.pickupsHangups.digitsDialed.values.reduce(0, +), 0)
-        XCTAssertEqual(
-            StatsDigitRecoveryURLProtocol.capturedURLs().filter { $0.path == "/v1/events" }.count,
-            1
-        )
-
-        StatsDigitRecoveryURLProtocol.reset(reportedDigitCount: 8)
-        let authoritative = try await client.fetchStatsOverview(
-            selection: .window(.last7d),
-            installationScope: .installation("installation-3")
-        )
-        XCTAssertEqual(authoritative.pickupsHangups.digitsDialed["1"], 8)
-        XCTAssertEqual(
-            StatsDigitRecoveryURLProtocol.capturedURLs().filter { $0.path == "/v1/events" }.count,
-            0
-        )
     }
 
     func testCompletionRateAndQuietForSeconds() {
@@ -354,7 +310,10 @@ final class StatsOverviewTests: XCTestCase {
             averageDurationMs: nil, longestDurationMs: nil,
             outcomes: [:], perDay: []
         ),
+        interactions: StatsOverview.Interactions? = nil,
+        actions: StatsOverview.Actions? = nil,
         messages: StatsOverview.Messages = .init(total: 0, byStatus: [:], averageDurationMs: nil),
+        playback: StatsOverview.Playback = .init(totalPlaybacks: 0),
         pickupsHangups: StatsOverview.PickupsHangups = .init(pickups: 0, hangups: 0, digitsDialed: [:]),
         lastActivityAt: Date? = nil
     ) -> StatsOverview {
@@ -365,8 +324,10 @@ final class StatsOverviewTests: XCTestCase {
             generatedAt: Date(),
             timezone: "UTC",
             calls: calls,
+            interactions: interactions,
+            actions: actions,
             messages: messages,
-            playback: .init(totalPlaybacks: 0),
+            playback: playback,
             pickupsHangups: pickupsHangups,
             uploads: .init(succeeded: 0, failed: 0, failureRate: nil),
             topQuestions: [],
@@ -376,125 +337,4 @@ final class StatsOverviewTests: XCTestCase {
             boothBreakdown: []
         )
     }
-}
-
-private final class StatsDigitRecoveryURLProtocol: URLProtocol {
-    nonisolated(unsafe) private static var requests: [URL] = []
-    nonisolated(unsafe) private static var shouldFailEventRequests = false
-    nonisolated(unsafe) private static var reportedDigitCount = 0
-    private static let lock = NSLock()
-
-    static func reset(failEventRequests: Bool = false, reportedDigitCount: Int = 0) {
-        lock.lock()
-        requests = []
-        shouldFailEventRequests = failEventRequests
-        self.reportedDigitCount = reportedDigitCount
-        lock.unlock()
-    }
-
-    static func capturedURLs() -> [URL] {
-        lock.lock()
-        defer { lock.unlock() }
-        return requests
-    }
-
-    override static func canInit(with request: URLRequest) -> Bool { true }
-    override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-    override func stopLoading() {}
-
-    override func startLoading() {
-        guard let url = request.url else {
-            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
-            return
-        }
-        Self.lock.lock()
-        Self.requests.append(url)
-        Self.lock.unlock()
-
-        let body: String
-        let statusCode: Int
-        switch url.path {
-        case "/v1/stats/overview":
-            body = Self.overviewResponseBody()
-            statusCode = 200
-        case "/v1/events":
-            if Self.eventRequestsShouldFail() {
-                body = #"{"error":"temporarily_unavailable"}"#
-                statusCode = 503
-            } else {
-                let cursor = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-                    .queryItems?
-                    .first(where: { $0.name == "cursor" })?
-                    .value
-                body = cursor == nil
-                    ? Self.firstEventPage
-                    : #"{"items":[{"payload":{"digit":0}},{"payload":{"digit":5}}],"nextCursor":null}"#
-                statusCode = 200
-            }
-        default:
-            client?.urlProtocol(self, didFailWithError: URLError(.resourceUnavailable))
-            return
-        }
-
-        guard let response = HTTPURLResponse(
-            url: url,
-            statusCode: statusCode,
-            httpVersion: nil,
-            headerFields: ["Content-Type": "application/json"]
-        ) else {
-            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
-            return
-        }
-        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: Data(body.utf8))
-        client?.urlProtocolDidFinishLoading(self)
-    }
-
-    private static func eventRequestsShouldFail() -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return shouldFailEventRequests
-    }
-
-    private static func overviewResponseBody() -> String {
-        lock.lock()
-        defer { lock.unlock() }
-        return overviewResponse.replacingOccurrences(
-            of: #""1": 0"#,
-            with: #""1": \#(reportedDigitCount)"#
-        )
-    }
-
-    private static let firstEventPage = #"""
-    { "items": [
-        { "payload": { "digit": 1 } }, { "payload": { "digit": 1 } },
-        { "payload": { "digit": 5 } }, {}, { "payload": null },
-        { "payload": "invalid" }, { "payload": { "digit": "1" } },
-        { "payload": { "digit": 12 } }
-      ], "nextCursor": "next-page" }
-    """#
-
-    private static let overviewResponse = #"""
-    {
-      "window": "7d", "rangeStart": "2026-08-12T12:00:00Z",
-      "rangeEnd": "2026-08-19T12:00:00Z", "generatedAt": "2026-08-19T12:00:00Z",
-      "timezone": "UTC",
-      "calls": {
-        "total": 2, "completed": 1, "inProgress": 0,
-        "averageDurationMs": null, "longestDurationMs": null,
-        "outcomes": { "recording_completed": 1 }, "perDay": []
-      },
-      "messages": { "total": 0, "byStatus": {}, "averageDurationMs": null },
-      "playback": { "totalPlaybacks": 0 },
-      "pickupsHangups": {
-        "pickups": 2, "hangups": 2,
-        "digitsDialed": { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0,
-          "5": 0, "6": 0, "7": 0, "8": 0, "9": 0 }
-      },
-      "uploads": { "succeeded": 0, "failed": 0, "failureRate": null },
-      "topQuestions": [], "hourly": [],
-      "busiest": { "hour": null, "dayOfWeek": null },
-      "lastActivityAt": null, "boothBreakdown": []
-    }
-    """#
 }

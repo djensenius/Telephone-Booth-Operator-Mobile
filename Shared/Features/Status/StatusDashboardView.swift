@@ -242,7 +242,11 @@ private struct DashboardOverviewCard: View {
     private var metrics: some View {
         if let stats {
             HStack(spacing: Theme.Spacing.small) {
-                DashboardMetric(label: "Calls today", value: stats.calls.today, symbol: "phone.fill")
+                DashboardMetric(
+                    label: "Pickups today",
+                    value: stats.interactionsToday,
+                    symbol: "phone.fill"
+                )
                 DashboardMetric(
                     label: "Messages",
                     value: stats.messages.receivedToday,

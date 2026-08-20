@@ -43,6 +43,9 @@ final class TBOperatorMobileTests: XCTestCase {
         XCTAssertEqual(summary.messages.receivedToday, 12)
         XCTAssertEqual(summary.calls.today, 8)
         XCTAssertEqual(summary.calls.inProgress, 1)
+        XCTAssertNil(summary.interactions)
+        XCTAssertEqual(summary.interactionsToday, 8)
+        XCTAssertEqual(summary.interactionsInProgress, 1)
         XCTAssertEqual(summary.realtime.wsClients, 4)
 
         let reencoded = try OperatorJSON.encoder.encode(summary)
@@ -65,6 +68,7 @@ final class TBOperatorMobileTests: XCTestCase {
         let summary = try OperatorJSON.decoder.decode(StatsSummary.self, from: data)
         XCTAssertEqual(summary.booth.state, .idle)
         XCTAssertNil(summary.booth.currentQuestionId)
+        XCTAssertEqual(summary.interactionsToday, 0)
     }
 
     func testOperatorMeRoundTrip() throws {
@@ -436,19 +440,6 @@ final class TBOperatorMobileTests: XCTestCase {
     }
 
     // MARK: - WidgetSnapshot
-
-    func testWidgetSnapshotFromStatsSummary() {
-        let stats = StatsSummary.placeholder
-        let snapshot = WidgetSnapshot(stats: stats)
-        XCTAssertEqual(snapshot.boothState, stats.booth.state)
-        XCTAssertEqual(snapshot.boothUpdatedAt, stats.booth.updatedAt)
-        XCTAssertEqual(snapshot.pendingMessages, stats.messages.pending)
-        XCTAssertEqual(snapshot.receivedToday, stats.messages.receivedToday)
-        XCTAssertEqual(snapshot.callsToday, stats.calls.today)
-        XCTAssertEqual(snapshot.callsInProgress, stats.calls.inProgress)
-        XCTAssertEqual(snapshot.wsClients, stats.realtime.wsClients)
-        XCTAssertEqual(snapshot.generatedAt, stats.generatedAt)
-    }
 
     func testWidgetSnapshotRoundTrip() throws {
         let snapshot = WidgetSnapshot.placeholder

@@ -222,6 +222,7 @@ final class StatsSummaryDayBoundaryTests: XCTestCase {
                 latestId: nil
             ),
             calls: StatsSummary.Calls(today: 0, inProgress: 0),
+            interactions: StatsSummary.Calls(today: 0, inProgress: 0),
             realtime: StatsSummary.Realtime(wsClients: 0),
             generatedAt: dayStartedAt,
             dayStartedAt: dayStartedAt,
@@ -233,7 +234,86 @@ final class StatsSummaryDayBoundaryTests: XCTestCase {
 
         XCTAssertEqual(decoded.dayStartedAt, dayStartedAt)
         XCTAssertEqual(decoded.timeZone, "America/Toronto")
+        XCTAssertEqual(decoded.interactionsToday, 0)
         XCTAssertNil(StatsSummary.placeholder.dayStartedAt)
         XCTAssertNil(StatsSummary.placeholder.timeZone)
+    }
+}
+
+final class StatsSummaryCompatibilityTests: XCTestCase {
+    func testStatsSummaryPrefersAdditiveInteractionsWhenPresent() throws {
+        let json = """
+        {
+          "booth": { "state": "idle", "updatedAt": "2026-05-23T14:32:11Z" },
+          "messages": { "pending": 0, "receivedToday": 0, "latestId": null },
+          "calls": { "today": 2, "inProgress": 0 },
+          "interactions": { "today": 5, "inProgress": 3 },
+          "realtime": { "wsClients": 1 },
+          "generatedAt": "2026-05-23T14:32:11Z"
+        }
+        """
+
+        let summary = try OperatorJSON.decoder.decode(StatsSummary.self, from: Data(json.utf8))
+        XCTAssertEqual(summary.calls.today, 2)
+        XCTAssertEqual(summary.interactions?.today, Optional(5))
+        XCTAssertEqual(summary.interactionsToday, 5)
+        XCTAssertEqual(summary.interactionsInProgress, 3)
+    }
+}
+
+final class WidgetSnapshotCompatibilityTests: XCTestCase {
+    func testWidgetSnapshotFromStatsSummary() {
+        let stats = StatsSummary(
+            booth: StatsSummary.placeholder.booth,
+            messages: StatsSummary.placeholder.messages,
+            calls: .init(today: 4, inProgress: 0),
+            interactions: .init(today: 9, inProgress: 2),
+            realtime: StatsSummary.placeholder.realtime,
+            generatedAt: StatsSummary.placeholder.generatedAt
+        )
+        let snapshot = WidgetSnapshot(stats: stats)
+        XCTAssertEqual(snapshot.boothState, stats.booth.state)
+        XCTAssertEqual(snapshot.boothUpdatedAt, stats.booth.updatedAt)
+        XCTAssertEqual(snapshot.pendingMessages, stats.messages.pending)
+        XCTAssertEqual(snapshot.receivedToday, stats.messages.receivedToday)
+        XCTAssertEqual(snapshot.callsToday, stats.interactionsToday)
+        XCTAssertEqual(snapshot.callsInProgress, stats.interactionsInProgress)
+        XCTAssertEqual(snapshot.interactionsToday, 9)
+        XCTAssertEqual(snapshot.interactionsInProgress, 2)
+        XCTAssertEqual(snapshot.wsClients, stats.realtime.wsClients)
+        XCTAssertEqual(snapshot.generatedAt, stats.generatedAt)
+    }
+}
+
+final class InstallationCompatibilityTests: XCTestCase {
+    func testInstallationScopeQueryValues() {
+        XCTAssertNil(InstallationScope.current.queryValue)
+        XCTAssertEqual(InstallationScope.all.queryValue, "all")
+        XCTAssertEqual(
+            InstallationScope.installation("era-1").queryValue,
+            "era-1"
+        )
+    }
+
+    func testInstallationDecodesWithoutLanguageDuringDeployment() throws {
+        let installation = try OperatorJSON.decoder.decode(
+            Installation.self,
+            from: Data(#"""
+            {
+              "id":"00000000-0000-4000-8000-000000000001",
+              "name":"Opening",
+              "notes":null,
+              "location":null,
+              "startedAt":"2026-08-14T12:00:00Z",
+              "endedAt":null,
+              "endedById":null,
+              "summary":null,
+              "createdAt":"2026-08-14T12:00:00Z",
+              "isActive":true
+            }
+            """#.utf8)
+        )
+        XCTAssertNil(installation.defaultTranscriptionLanguage)
+        XCTAssertTrue(installation.isActive)
     }
 }

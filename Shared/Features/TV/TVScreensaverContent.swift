@@ -104,7 +104,7 @@ struct TVSpotlightCard: View {
 
     private func chartCard(days: [StatsOverview.PerDay]) -> some View {
         VStack(alignment: .leading, spacing: 28) {
-            Text("CALLS · LAST 7 DAYS")
+            Text("PICKUPS · LAST 7 DAYS")
                 .font(.system(size: 34, weight: .semibold))
                 .tracking(3)
                 .foregroundStyle(TVAmbient.textSecondary)
@@ -119,7 +119,7 @@ struct TVSpotlightCard: View {
         Chart(days, id: \.date) { day in
             BarMark(
                 x: .value("Date", StatsFormat.shortDateLabel(day.date)),
-                y: .value("Calls", day.total)
+                y: .value("Pickups", day.total)
             )
             .foregroundStyle(Theme.Colors.accent.gradient)
             .cornerRadius(8)
@@ -175,7 +175,7 @@ struct TVCallsTodayCard: View {
                     HStack(alignment: .top, spacing: 24) {
                         VStack(alignment: .leading, spacing: 6) {
                             TVCardHeader(
-                                title: "Calls today",
+                                title: "Pickups today",
                                 systemImage: "phone.fill"
                             )
                             Text(summary(for: series))
@@ -189,12 +189,12 @@ struct TVCallsTodayCard: View {
                     }
 
                     if !isLoaded {
-                        ProgressView("Loading calls...")
+                        ProgressView("Loading pickups...")
                             .font(TVMetrics.Font.body)
                             .foregroundStyle(Theme.Colors.textSecondary)
                             .frame(maxWidth: .infinity, minHeight: 230)
                     } else if series.total == 0 {
-                        Text("No calls since midnight")
+                        Text("No pickups since midnight")
                             .font(TVMetrics.Font.body)
                             .foregroundStyle(Theme.Colors.textSecondary)
                             .frame(maxWidth: .infinity, minHeight: 230)
@@ -211,7 +211,7 @@ struct TVCallsTodayCard: View {
             ForEach(series.points) { point in
                 LineMark(
                     x: .value("Time", point.date),
-                    y: .value("Calls", point.count)
+                    y: .value("Pickups", point.count)
                 )
                 .interpolationMethod(.stepEnd)
                 .lineStyle(StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round))
@@ -220,7 +220,7 @@ struct TVCallsTodayCard: View {
             if let endpoint = series.points.last {
                 PointMark(
                     x: .value("Time", endpoint.date),
-                    y: .value("Calls", endpoint.count)
+                    y: .value("Pickups", endpoint.count)
                 )
                 .symbolSize(170)
                 .foregroundStyle(Theme.Colors.accent)
@@ -265,14 +265,14 @@ struct TVCallsTodayCard: View {
                 .background(Theme.Colors.background.opacity(0.42))
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
-        .accessibilityLabel(Text("Cumulative calls today"))
+        .accessibilityLabel(Text("Cumulative pickups today"))
         .accessibilityValue(
-            Text("\(series.total) \(series.total == 1 ? "call" : "calls") since midnight")
+            Text("\(series.total) \(series.total == 1 ? "pickup" : "pickups") since midnight")
         )
     }
 
     private func summary(for series: CallsTodaySeries) -> String {
-        "\(series.total) \(series.total == 1 ? "call" : "calls") since midnight"
+        "\(series.total) \(series.total == 1 ? "pickup" : "pickups") since midnight"
     }
 
     private func xAxisEnd(for series: CallsTodaySeries) -> Date {
@@ -311,14 +311,16 @@ enum TVScreensaverPlaylist {
     private static func spotlights(for stats: StatsSummary) -> [TVSpotlight] {
         var items: [TVSpotlight] = []
 
-        if stats.calls.today > 0 {
-            items.append(metric("calls-today", "\(stats.calls.today)", "Calls today", "phone.fill"))
+        if stats.interactionsToday > 0 {
+            items.append(
+                metric("calls-today", "\(stats.interactionsToday)", "Pickups today", "phone.fill")
+            )
         }
-        if stats.calls.inProgress > 0 {
+        if stats.interactionsInProgress > 0 {
             items.append(
                 metric(
                     "in-progress",
-                    "\(stats.calls.inProgress)",
+                    "\(stats.interactionsInProgress)",
                     "In progress",
                     "phone.connection.fill",
                     emphasized: true
@@ -345,29 +347,48 @@ enum TVScreensaverPlaylist {
 
     private static func spotlights(for overview: StatsOverview) -> [TVSpotlight] {
         var items: [TVSpotlight] = []
+        let interactions = overview.interactionMetrics
+        let actions = overview.actionMetrics
 
-        if let rate = overview.completionRate, rate > 0 {
+        if interactions.total > 0 {
             items.append(
-                metric("completion", StatsFormat.percentString(rate), "Completion rate", "checkmark.seal.fill")
+                metric("pickups", "\(interactions.total)", "Pickups · 7 days", "phone.fill")
             )
         }
-        if overview.pickupsHangups.pickups > 0 {
+        if interactions.messagesLeft > 0 {
             items.append(
-                metric("pickups", "\(overview.pickupsHangups.pickups)", "Pickups · 7 days", "hand.raised.fill")
+                metric(
+                    "messages-left",
+                    "\(interactions.messagesLeft)",
+                    "Messages left · 7 days",
+                    "waveform"
+                )
             )
         }
-        if overview.playback.totalPlaybacks > 0 {
+        if actions.wrongNumberAttempts > 0 {
+            items.append(
+                metric(
+                    "wrong-numbers",
+                    "\(actions.wrongNumberAttempts)",
+                    "Wrong numbers · 7 days",
+                    "exclamationmark.triangle.fill"
+                )
+            )
+        }
+        if let playbackStarts = actions.totalPlaybackStarts, playbackStarts > 0 {
             items.append(
                 metric(
                     "playbacks",
-                    "\(overview.playback.totalPlaybacks)",
-                    "Playbacks · 7 days",
+                    "\(playbackStarts)",
+                    "Playback starts · 7 days",
                     "speaker.wave.2.fill"
                 )
             )
         }
-        if overview.calls.perDay.contains(where: { $0.total > 0 }) {
-            items.append(TVSpotlight(id: "calls-chart", kind: .callsChart(days: overview.calls.perDay)))
+        if overview.interactionMetrics.perDay.contains(where: { $0.total > 0 }) {
+            items.append(
+                TVSpotlight(id: "calls-chart", kind: .callsChart(days: overview.interactionMetrics.perDay))
+            )
         }
 
         return items

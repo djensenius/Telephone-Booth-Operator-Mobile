@@ -31,6 +31,8 @@ struct StatsSummaryTile: View {
             RoundedRectangle(cornerRadius: Theme.cornerRadius)
                 .fill(Theme.Colors.elevatedBackground.opacity(0.7))
         )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label), \(value)")
     }
 }
 
@@ -112,6 +114,42 @@ struct StatsDigitTile: View {
 
 // MARK: - Section cards
 
+struct StatsSelectionDetailTile: View {
+    let title: String
+    let selectionLabel: String
+    let selectionCount: Int
+    let outcomeLabel: String
+    let outcomeCount: Int?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+            Text(title.uppercased())
+                .font(Theme.Fonts.caption.weight(.semibold))
+                .foregroundStyle(Theme.Colors.textSecondary)
+                .lineLimit(1)
+            StatRow(
+                label: selectionLabel,
+                value: StatsFormat.numberString(selectionCount)
+            )
+            StatRow(
+                label: outcomeLabel,
+                value: StatsFormat.optionalNumberString(outcomeCount)
+            )
+        }
+        .padding(Theme.Spacing.medium)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            Theme.Colors.background,
+            in: RoundedRectangle(cornerRadius: Theme.cornerRadius)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.cornerRadius)
+                .stroke(Theme.Colors.textPrimary.opacity(0.16), lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 struct StatsTopQuestionsCard: View {
     let overview: StatsOverview
 
@@ -176,7 +214,10 @@ struct StatsBoothBreakdownCard: View {
                             .font(Theme.Fonts.bodyMedium.weight(.semibold))
                             .foregroundStyle(Theme.Colors.textPrimary)
                         Spacer()
-                        Text("\(entry.calls) calls")
+                        Text(
+                            "\(StatsFormat.numberString(entry.interactionCount)) "
+                                + "\(entry.interactionCount == 1 ? "pickup" : "pickups")"
+                        )
                             .font(Theme.Fonts.bodySmall)
                             .foregroundStyle(Theme.Colors.textPrimary)
                             .monospacedDigit()
@@ -205,6 +246,15 @@ enum StatsFormat {
     static func percentString(_ value: Double?) -> String {
         guard let value, value.isFinite else { return "—" }
         return String(format: "%.1f%%", value * 100)
+    }
+
+    static func numberString(_ value: Int) -> String {
+        numberFormatter.string(from: NSNumber(value: value)) ?? "0"
+    }
+
+    static func optionalNumberString(_ value: Int?) -> String {
+        guard let value else { return "—" }
+        return numberString(value)
     }
 
     static func durationString(_ value: Double?) -> String {

@@ -68,11 +68,14 @@ struct WatchStatusView: View {
 
     private var statsGrid: some View {
         VStack(spacing: 6) {
-            WatchStatRow(label: "Calls today", value: "\(liveStore.stats?.calls.today ?? 0)")
+            WatchStatRow(
+                label: "Pickups today",
+                value: "\(liveStore.stats?.interactionsToday ?? 0)"
+            )
             WatchStatRow(
                 label: "In progress",
-                value: "\(liveStore.stats?.calls.inProgress ?? 0)",
-                emphasize: (liveStore.stats?.calls.inProgress ?? 0) > 0
+                value: "\(liveStore.stats?.interactionsInProgress ?? 0)",
+                emphasize: (liveStore.stats?.interactionsInProgress ?? 0) > 0
             )
             WatchStatRow(
                 label: "Pending",

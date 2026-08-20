@@ -53,8 +53,6 @@ struct TVBoothWallView: View {
         .boothStatusLive(liveStore)
     }
 
-    // MARK: - Header
-
     private var header: some View {
         HStack(alignment: .center, spacing: 22) {
             Image(systemName: "phone.connection.fill")
@@ -88,8 +86,6 @@ struct TVBoothWallView: View {
         }
     }
 
-    // MARK: - Current state
-
     private var statusOverview: some View {
         TimelineView(.periodic(from: .now, by: 10)) { context in
             let status = currentStatus
@@ -117,8 +113,8 @@ struct TVBoothWallView: View {
                     Spacer(minLength: 24)
                     HStack(spacing: 16) {
                         TVWallMetric(
-                            label: "Calls today",
-                            value: liveStore.stats?.calls.today ?? 0,
+                            label: "Pickups today",
+                            value: liveStore.stats?.interactionsToday ?? 0,
                             systemImage: "phone.fill"
                         )
                         TVWallMetric(
@@ -152,8 +148,6 @@ struct TVBoothWallView: View {
             isLoaded: liveStore.hasLoadedCallsToday
         )
     }
-
-    // MARK: - Recent activity (no message content by design)
 
     private var activityStrip: some View {
         TimelineView(.periodic(from: .now, by: 10)) { context in
@@ -239,39 +233,45 @@ struct TVBoothWallView: View {
         return StatsFormat.timeAgoString(latest)
     }
 
-    // MARK: - Overview strip
-
     private func overviewStrip(overview: StatsOverview) -> some View {
-        TVFocusCard {
+        let interactions = overview.interactionMetrics
+        let actions = overview.actionMetrics
+        return TVFocusCard {
             VStack(alignment: .leading, spacing: 24) {
                 TVCardHeader(title: "Last 7 days", systemImage: "calendar")
                 LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 2),
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 16), count: 3),
                     spacing: 16
                 ) {
                     TVWallMiniMetric(
                         label: "Pickups",
-                        value: "\(overview.pickupsHangups.pickups)"
+                        value: StatsFormat.numberString(interactions.total)
                     )
                     TVWallMiniMetric(
-                        label: "Recordings",
-                        value: "\(overview.messages.allRecordingsCount)"
+                        label: "No selection",
+                        value: StatsFormat.numberString(interactions.noSelection)
                     )
                     TVWallMiniMetric(
-                        label: "Approved",
-                        value: "\(overview.messages.approvedCount)"
+                        label: "Wrong numbers",
+                        value: StatsFormat.numberString(actions.wrongNumberAttempts)
                     )
                     TVWallMiniMetric(
-                        label: "Completion",
-                        value: StatsFormat.percentString(overview.completionRate)
+                        label: "Messages left",
+                        value: StatsFormat.numberString(interactions.messagesLeft)
+                    )
+                    TVWallMiniMetric(
+                        label: "Messages listened",
+                        value: StatsFormat.optionalNumberString(actions.messagePlaybackStarts)
+                    )
+                    TVWallMiniMetric(
+                        label: "Instructions heard",
+                        value: StatsFormat.optionalNumberString(actions.instructionPlaybackStarts)
                     )
                 }
-                .frame(minHeight: 130, alignment: .top)
+                .frame(minHeight: 210, alignment: .top)
             }
         }
     }
-
-    // MARK: - Data
 
     private var currentStatus: BoothStatus? {
         liveStore.status ?? liveStore.stats?.booth
@@ -297,8 +297,6 @@ struct TVBoothWallView: View {
         }
     }
 }
-
-// MARK: - Wall metrics
 
 private struct TVWallMetric: View {
     let label: String

@@ -3,8 +3,8 @@
 //  TelephoneBoothOperatorMobile
 //
 //  Compact today-only usage stats for the watch: a vertical scroll of
-//  small tiles (pickups, messages, completion rate, playbacks, last
-//  activity) backed by /v1/stats/overview?window=24h.
+//  small tiles for interaction breakouts and current booth activity,
+//  backed by /v1/stats/overview?window=24h.
 //
 
 #if os(watchOS)
@@ -29,11 +29,22 @@ struct WatchStatsView: View {
                     BannerView(message: errorMessage, kind: .error)
                 }
                 if let overview {
-                    tile(label: "Pickups (24h)", value: "\(overview.pickupsHangups.pickups)")
-                    tile(label: "Approved messages", value: "\(overview.messages.approvedCount)")
-                    tile(label: "All recordings", value: "\(overview.messages.allRecordingsCount)")
-                    tile(label: "Completion", value: percent(overview.completionRate))
-                    tile(label: "Playbacks", value: "\(overview.playback.totalPlaybacks)")
+                    let interactions = overview.interactionMetrics
+                    let actions = overview.actionMetrics
+                    tile(label: "Pickups (24h)", value: StatsFormat.numberString(interactions.total))
+                    tile(label: "No selection", value: StatsFormat.numberString(interactions.noSelection))
+                    tile(label: "Wrong numbers", value: StatsFormat.numberString(actions.wrongNumberAttempts))
+                    tile(label: "Messages left", value: StatsFormat.numberString(interactions.messagesLeft))
+                    tile(
+                        label: "Messages listened",
+                        value: StatsFormat.optionalNumberString(actions.messagePlaybackStarts)
+                    )
+                    tile(
+                        label: "Instructions heard",
+                        value: StatsFormat.optionalNumberString(actions.instructionPlaybackStarts)
+                    )
+                    tile(label: "In progress", value: StatsFormat.numberString(interactions.inProgressNow))
+                    tile(label: "Message left rate", value: percent(overview.completionRate))
                     tile(label: "Last activity", value: timeAgo(overview.lastActivityAt))
                 } else if !isRefreshing {
                     Text("No data yet.")

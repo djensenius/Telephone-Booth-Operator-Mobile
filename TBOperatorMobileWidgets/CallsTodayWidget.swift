@@ -18,8 +18,8 @@ struct CallsTodayWidget: Widget {
                 .widgetURL(URL(string: "tboperator://sessions"))
                 .containerBackground(.fill.tertiary, for: .widget)
         }
-        .configurationDisplayName("Calls today")
-        .description("Calls answered today, plus any currently in progress.")
+        .configurationDisplayName("Pickups today")
+        .description("Pickups started today, plus any currently in progress.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -41,12 +41,12 @@ struct CallsTodayWidgetView: View {
                 Image(systemName: "phone.connection.fill")
                     .foregroundStyle(.tint)
                     .font(.title3.weight(.semibold))
-                Text("Calls")
+                Text("Pickups")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                 Spacer()
-                if snapshot.callsInProgress > 0 {
+                if snapshot.interactionsInProgress > 0 {
                     Label("Live", systemImage: "dot.radiowaves.left.and.right")
                         .labelStyle(.iconOnly)
                         .foregroundStyle(.red)
@@ -54,7 +54,7 @@ struct CallsTodayWidgetView: View {
                         .privacySensitive()
                 }
             }
-            Text("\(snapshot.callsToday)")
+            Text("\(snapshot.interactionsToday)")
                 .font(.system(size: 48, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary)
                 .monospacedDigit()
@@ -62,8 +62,8 @@ struct CallsTodayWidgetView: View {
                 .privacySensitive()
             Spacer(minLength: 0)
             HStack(spacing: 8) {
-                if snapshot.callsInProgress > 0 {
-                    Text("\(snapshot.callsInProgress) in progress")
+                if snapshot.interactionsInProgress > 0 {
+                    Text("\(snapshot.interactionsInProgress) in progress")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.red)
                         .privacySensitive()
@@ -81,7 +81,7 @@ struct CallsTodayWidgetView: View {
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Label("Calls", systemImage: "phone.connection")
+            Label("Pickups", systemImage: "phone.connection")
                 .font(.headline)
             Text("Open the app to load latest counts.")
                 .font(.caption2)
