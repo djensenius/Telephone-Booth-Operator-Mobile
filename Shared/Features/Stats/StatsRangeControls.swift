@@ -57,27 +57,11 @@ struct StatsRangeControls: View {
     private var presetPicker: some View {
         HStack(spacing: Theme.Spacing.small) {
             ForEach(StatsWindow.knownCases, id: \.rawValue) { option in
-                Button {
-                    selection = .window(option)
-                } label: {
-                    Text(option.shortLabel)
-                        .font(Theme.Fonts.bodySmall)
-                        .fontWeight(selectedPreset == option ? .semibold : .regular)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, Theme.Spacing.small)
-                        .background(
-                            selectedPreset == option
-                                ? Theme.Colors.textPrimary
-                                : Theme.Colors.textSecondary.opacity(0.08),
-                            in: Capsule()
-                        )
-                        .foregroundStyle(
-                            selectedPreset == option
-                                ? Theme.Colors.background
-                                : Theme.Colors.textPrimary
-                        )
-                }
-                .buttonStyle(.plain)
+                StatsRangePresetButton(
+                    option: option,
+                    isSelected: selectedPreset == option,
+                    action: { selection = .window(option) }
+                )
             }
         }
     }
@@ -177,4 +161,130 @@ struct StatsRangeControls: View {
             if let end { customEnd = end }
         }
     }
+}
+
+private struct StatsRangePresetButton: View {
+    let option: StatsWindow
+    let isSelected: Bool
+    let action: () -> Void
+
+    #if os(visionOS)
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.isFocused) private var isFocused
+    @State private var isHovered = false
+    #endif
+
+    var body: some View {
+        Button(action: action) {
+            Text(option.shortLabel)
+                .font(Theme.Fonts.bodySmall)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Theme.Spacing.small)
+                .background(buttonFill, in: Capsule())
+                .overlay {
+                    buttonBorder
+                }
+                .foregroundStyle(buttonForeground)
+                #if os(visionOS)
+                .scaleEffect(isHighlighted ? 1.02 : 1)
+                .animation(.easeOut(duration: 0.16), value: isHighlighted)
+                .animation(.easeOut(duration: 0.16), value: isSelected)
+                #endif
+        }
+        .buttonStyle(.plain)
+        .contentShape(Capsule())
+        .accessibilityLabel(option.displayName)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        #if os(visionOS)
+        .hoverEffect(.highlight)
+        .onHover { isHovered = $0 }
+        #endif
+    }
+
+    private var buttonForeground: Color {
+        isSelected ? Theme.Colors.background : Theme.Colors.textPrimary
+    }
+
+    private var buttonFill: Color {
+        #if os(visionOS)
+        if isSelected {
+            return Theme.Colors.textPrimary
+        }
+        if isHighlighted {
+            return Theme.Colors.secondaryBackground
+        }
+        let opacity = colorSchemeContrast == .increased ? 1.0 : 0.92
+        return Theme.Colors.elevatedBackground.opacity(opacity)
+        #else
+        return isSelected
+            ? Theme.Colors.textPrimary
+            : Theme.Colors.textSecondary.opacity(0.08)
+        #endif
+    }
+
+    @ViewBuilder
+    private var buttonBorder: some View {
+        #if os(visionOS)
+        Capsule()
+            .strokeBorder(borderColor, lineWidth: borderWidth)
+        #endif
+    }
+
+    #if os(visionOS)
+    private var isHighlighted: Bool {
+        isFocused || isHovered
+    }
+
+    private var borderColor: Color {
+        if isHighlighted {
+            return Theme.Colors.accent
+        }
+        if isSelected {
+            let opacity = colorSchemeContrast == .increased ? 0.45 : 0.24
+            return Theme.Colors.background.opacity(opacity)
+        }
+        let opacity = colorSchemeContrast == .increased ? 0.9 : 0.55
+        return Theme.Colors.textSecondary.opacity(opacity)
+    }
+
+    private var borderWidth: CGFloat {
+        if isHighlighted {
+            return colorSchemeContrast == .increased ? 3.5 : 3
+        }
+        return isSelected ? 1.5 : 1
+    }
+    #endif
+}
+
+#Preview("Stats range controls") {
+    @Previewable @State var selection: StatsRangeSelection = .window(.last7d)
+
+    StatsRangeControls(
+        selection: $selection,
+        filters: [
+            MetricFilter(
+                id: "saved-week",
+                name: "Last week",
+                window: .last7d,
+                start: nil,
+                end: nil,
+                createdAt: .now,
+                updatedAt: .now
+            ),
+            MetricFilter(
+                id: "saved-custom",
+                name: "Launch weekend",
+                window: nil,
+                start: Calendar.current.date(byAdding: .day, value: -3, to: .now),
+                end: nil,
+                createdAt: .now,
+                updatedAt: .now
+            )
+        ],
+        onSave: { _ in },
+        onDelete: { _ in }
+    )
+    .padding()
+    .background(Theme.Colors.background)
 }
