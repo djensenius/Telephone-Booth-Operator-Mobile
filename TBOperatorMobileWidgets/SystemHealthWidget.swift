@@ -56,13 +56,39 @@ struct SystemHealthWidgetView: View {
         }
     }
 
+    @ViewBuilder
     private func layout(_ health: WidgetSnapshot.SystemHealth, cacheStale: Bool) -> some View {
         let severity = health.effectiveSeverity(at: entry.date)
         let sourceStale = entry.date.timeIntervalSince(health.sourceUpdatedAt)
             >= WidgetSnapshot.sourceStaleInterval
-        return VStack(alignment: .leading, spacing: family == .systemSmall ? 6 : 10) {
+
+        switch family.operatorLayoutSize {
+        case .large, .extraLarge:
+            largeLayout(
+                health,
+                severity: severity,
+                cacheStale: cacheStale,
+                sourceStale: sourceStale
+            )
+        default:
+            standardLayout(
+                health,
+                severity: severity,
+                cacheStale: cacheStale,
+                sourceStale: sourceStale
+            )
+        }
+    }
+
+    private func standardLayout(
+        _ health: WidgetSnapshot.SystemHealth,
+        severity: WidgetSnapshot.HealthSeverity,
+        cacheStale: Bool,
+        sourceStale: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: family.operatorLayoutSize == .small ? 6 : 10) {
             header(severity: severity, cacheStale: cacheStale)
-            if family == .systemSmall {
+            if family.operatorLayoutSize == .small {
                 compactMetrics(health)
             } else {
                 metricGrid(health)
@@ -72,6 +98,81 @@ struct SystemHealthWidgetView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .accessibilityElement(children: .combine)
+    }
+
+    private func largeLayout(
+        _ health: WidgetSnapshot.SystemHealth,
+        severity: WidgetSnapshot.HealthSeverity,
+        cacheStale: Bool,
+        sourceStale: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            header(severity: severity, cacheStale: cacheStale)
+            metricGrid(health)
+            Divider()
+            relatedSummary
+            if let activity = entry.activityState.value {
+                WidgetActivityTrendSection(activity: activity, height: 52)
+            }
+            Spacer(minLength: 0)
+            footer(health, sourceStale: sourceStale)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var relatedSummary: some View {
+        if let summary = entry.summaryState.value {
+            HStack(alignment: .top, spacing: 14) {
+                WidgetStatusBlock(
+                    label: "Booth",
+                    value: summary.boothState.widgetDisplayName,
+                    systemImage: summary.boothState.widgetSymbol,
+                    tint: summary.boothState.widgetTint,
+                    detail: Text(summary.boothUpdatedAt, style: .relative)
+                )
+                WidgetMetricGrid(
+                    metrics: [
+                        WidgetMetricValue(
+                            label: "Pickups",
+                            value: "\(summary.interactionsToday)"
+                        ),
+                        WidgetMetricValue(
+                            label: "Pending",
+                            value: "\(summary.pendingMessages)"
+                        )
+                    ],
+                    columns: 2,
+                    compact: true
+                )
+                .frame(maxWidth: .infinity)
+                latestMessageBlock
+            }
+        } else {
+            Text("Booth summary is not available yet.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var latestMessageBlock: some View {
+        if let message = entry.latestMessageState.value {
+            WidgetStatusBlock(
+                label: "Latest message",
+                value: message.status.displayName,
+                systemImage: "waveform",
+                tint: message.status.widgetTint,
+                detail: Text(message.occurredAt, style: .relative)
+            )
+        } else {
+            WidgetStatusBlock(
+                label: "Latest message",
+                value: "None yet",
+                systemImage: "waveform"
+            )
+        }
     }
 
     private func header(severity: WidgetSnapshot.HealthSeverity, cacheStale: Bool) -> some View {
@@ -232,6 +333,12 @@ private struct MetricTile: View {
 }
 
 #Preview("System health · medium", as: .systemMedium) {
+    SystemHealthWidget()
+} timeline: {
+    WidgetSnapshotEntry.sample()
+}
+
+#Preview("System health · large", as: .systemLarge) {
     SystemHealthWidget()
 } timeline: {
     WidgetSnapshotEntry.sample()

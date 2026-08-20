@@ -80,15 +80,65 @@ struct ActivitySummaryWidgetView: View {
                 legend
             }
             trend(activity)
-            if family == .systemLarge {
+            if family.operatorLayoutSize == .large {
+                Divider()
+                currentStatusRow
                 WidgetUpdatedFooter(date: activity.refreshedAt, stale: stale)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "Last 24 hours: \(activity.pickups) pickups, \(activity.messages) messages"
-        )
+    }
+
+    @ViewBuilder
+    private var currentStatusRow: some View {
+        if let summary = entry.summaryState.value {
+            HStack(alignment: .top, spacing: 14) {
+                WidgetStatusBlock(
+                    label: "Booth",
+                    value: summary.boothState.widgetDisplayName,
+                    systemImage: summary.boothState.widgetSymbol,
+                    tint: summary.boothState.widgetTint
+                )
+                WidgetMetricGrid(
+                    metrics: [
+                        WidgetMetricValue(
+                            label: "Today",
+                            value: "\(summary.interactionsToday)"
+                        ),
+                        WidgetMetricValue(
+                            label: "Pending",
+                            value: "\(summary.pendingMessages)"
+                        )
+                    ],
+                    columns: 2,
+                    compact: true
+                )
+                .frame(maxWidth: .infinity)
+                systemHealthBlock
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var systemHealthBlock: some View {
+        if let health = entry.systemHealthState.value {
+            let severity = health.effectiveSeverity(at: entry.date)
+            WidgetStatusBlock(
+                label: "System",
+                value: severity.displayName,
+                systemImage: severity.symbolName,
+                tint: severity.tint,
+                privacySensitive: false
+            )
+        } else {
+            WidgetStatusBlock(
+                label: "System",
+                value: "Unavailable",
+                systemImage: "cpu",
+                privacySensitive: false
+            )
+        }
     }
 
     private var legend: some View {
@@ -118,7 +168,7 @@ struct ActivitySummaryWidgetView: View {
         } else {
             ActivityTrendChart(buckets: buckets)
                 .frame(maxWidth: .infinity)
-                .frame(height: family == .systemLarge ? 150 : 60)
+                .frame(height: family.operatorLayoutSize == .large ? 105 : 60)
         }
     }
 
@@ -127,7 +177,10 @@ struct ActivitySummaryWidgetView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: family == .systemLarge ? 150 : 60, alignment: .center)
+            .frame(
+                height: family.operatorLayoutSize == .large ? 105 : 60,
+                alignment: .center
+            )
     }
 }
 
@@ -156,6 +209,7 @@ struct ActivityTrendChart: View {
                 .lineStyle(StrokeStyle(lineWidth: 2))
             }
         }
+
         .chartLegend(.hidden)
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
@@ -182,6 +236,47 @@ struct ActivityTrendChart: View {
             .frame(maxHeight: .infinity, alignment: .bottom)
         }
         .accessibilityHidden(true)
+    }
+}
+
+struct WidgetActivityTrendSection: View {
+    let activity: WidgetSnapshot.Activity
+    var height: CGFloat = 64
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 8) {
+                Label("24-hour trend", systemImage: "chart.xyaxis.line")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 4)
+                Text("\(activity.pickups) pickups · \(activity.messages) messages")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .privacySensitive()
+            }
+            if hasSignal {
+                ActivityTrendChart(buckets: activity.buckets)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: height)
+            } else {
+                Text("No activity in the last 24 hours.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: height, alignment: .center)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "Last 24 hours: \(activity.pickups) pickups, \(activity.messages) messages"
+        )
+    }
+
+    private var hasSignal: Bool {
+        activity.buckets.contains { $0.pickups > 0 || $0.messages > 0 }
     }
 }
 

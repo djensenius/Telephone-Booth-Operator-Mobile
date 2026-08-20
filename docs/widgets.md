@@ -8,17 +8,33 @@ OIDC token, or call the Operator API.
 
 | Widget | Primary families | Data |
 | --- | --- | --- |
-| `BoothStatusWidget` | accessory, small, medium | Booth state, runtime mode, update age |
-| `PendingModerationWidget` | accessory, small, medium | Combined received + pending review queue |
-| `CallsTodayWidget` | accessory, small, medium | Pickups today and currently in progress |
-| `LatestMessageWidget` | small, medium, large | Message status and received time only |
-| `SystemHealthWidget` | small, medium, large | Health severity, temperatures, memory, connectivity |
-| `ActivitySummaryWidget` | medium, large | Rolling 24-hour pickup and message trend |
-| `OperatorDashboardWidget` | large, extra large | Combined booth, queue, health, and latest-message metadata |
+| `BoothStatusWidget` | accessory, small, medium, large | Booth state; larger families add counts, health, and latest-message metadata |
+| `PendingModerationWidget` | accessory, small, medium, large | Review queue; larger families add operational counts, booth, health, and latest-message metadata |
+| `CallsTodayWidget` | accessory, small, medium, large | Pickups today; larger families add queue counts, booth, health, latest-message metadata, and activity |
+| `LatestMessageWidget` | small, medium, large | Message status and received time only; larger families add counts, booth, health, and activity |
+| `SystemHealthWidget` | small, medium, large | Health severity and telemetry; large adds booth, queue, latest-message metadata, and activity |
+| `ActivitySummaryWidget` | medium, large | Rolling 24-hour pickup and message trend; large adds current booth, queue, and health context |
+| `OperatorDashboardWidget` | medium, large, extra large | Combined booth, queue, health, latest-message metadata, and activity |
 
 Accessory inline, circular, and rectangular layouts are offered only on
 iOS/iPadOS. macOS and visionOS use the system-sized layouts supported by those
 platforms.
+
+## Adaptive layouts and previews
+
+Layouts become progressively richer instead of simply scaling the compact
+view. Small and accessory families keep one primary answer prominent. Medium
+families use two columns to pair that answer with related counts or status.
+Large families combine the primary widget with booth, queue, system,
+latest-message, and 24-hour activity sections when those snapshot slices are
+available. The dashboard uses the extra-large width for a two-column
+operational overview.
+
+Every supported family has a named `#Preview` in its widget source file so it
+can be reviewed in the Xcode canvas. The iOS-only preview catalog also covers
+inline, circular, and rectangular Lock Screen widgets plus the Lock Screen,
+expanded, compact, and minimal Live Activity presentations. Preview timelines
+include populated data and, where useful, stale or unavailable states.
 
 ## Snapshot and refresh flow
 

@@ -57,41 +57,170 @@ struct LatestMessageWidgetView: View {
         }
     }
 
+    @ViewBuilder
     private func layout(_ message: WidgetSnapshot.LatestMessage, stale: Bool) -> some View {
-        VStack(alignment: .leading, spacing: family == .systemSmall ? 6 : 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "waveform")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.tint)
-                    .widgetAccentable()
-                Text("Latest message")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                Spacer()
-                if stale { WidgetStaleBadge() }
-            }
+        switch family.operatorLayoutSize {
+        case .medium:
+            mediumLayout(message, stale: stale)
+        case .large, .extraLarge:
+            largeLayout(message, stale: stale)
+        default:
+            compactLayout(message, stale: stale)
+        }
+    }
+
+    private func compactLayout(
+        _ message: WidgetSnapshot.LatestMessage,
+        stale: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            header(stale: stale)
             Spacer(minLength: 0)
             statusBadge(message.status)
             Spacer(minLength: 0)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Received")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Text(message.occurredAt, style: .relative)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .privacySensitive()
-            }
-            if family != .systemSmall {
-                Text("Tap to review — no transcript shown here.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
+            receivedBlock(message)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Latest message status \(message.status.displayName)")
+    }
+
+    private func mediumLayout(
+        _ message: WidgetSnapshot.LatestMessage,
+        stale: Bool
+    ) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                header(stale: stale)
+                statusBadge(message.status)
+                receivedBlock(message)
+                Spacer(minLength: 0)
+                WidgetUpdatedFooter(date: message.refreshedAt, stale: stale)
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            Divider()
+            if let summary = entry.summaryState.value {
+                WidgetMetricGrid(
+                    metrics: summaryMetrics(summary),
+                    columns: 2,
+                    compact: true
+                )
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            } else {
+                WidgetStatusBlock(
+                    label: "Booth",
+                    value: "Unavailable",
+                    systemImage: "phone.connection"
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func largeLayout(
+        _ message: WidgetSnapshot.LatestMessage,
+        stale: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            header(stale: stale)
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 8) {
+                    statusBadge(message.status)
+                    receivedBlock(message)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Divider()
+                boothStatusBlock
+                systemHealthBlock
+            }
+            Divider()
+            if let summary = entry.summaryState.value {
+                WidgetMetricGrid(metrics: summaryMetrics(summary), columns: 4)
+            }
+            if let activity = entry.activityState.value {
+                WidgetActivityTrendSection(activity: activity, height: 54)
+            }
+            Spacer(minLength: 0)
+            WidgetUpdatedFooter(date: message.refreshedAt, stale: stale)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func header(stale: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "waveform")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.tint)
+                .widgetAccentable()
+            Text("Latest message")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            Spacer()
+            if stale { WidgetStaleBadge() }
+        }
+    }
+
+    private func receivedBlock(_ message: WidgetSnapshot.LatestMessage) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Received")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(message.occurredAt, style: .relative)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.primary)
+                .privacySensitive()
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func summaryMetrics(_ summary: WidgetSnapshot.Summary) -> [WidgetMetricValue] {
+        [
+            WidgetMetricValue(label: "Pending", value: "\(summary.pendingMessages)"),
+            WidgetMetricValue(label: "Pickups", value: "\(summary.interactionsToday)"),
+            WidgetMetricValue(label: "Received", value: "\(summary.receivedToday)"),
+            WidgetMetricValue(label: "Clients", value: "\(summary.wsClients)")
+        ]
+    }
+
+    @ViewBuilder
+    private var boothStatusBlock: some View {
+        if let summary = entry.summaryState.value {
+            WidgetStatusBlock(
+                label: "Booth",
+                value: summary.boothState.widgetDisplayName,
+                systemImage: summary.boothState.widgetSymbol,
+                tint: summary.boothState.widgetTint,
+                detail: Text(summary.boothUpdatedAt, style: .relative)
+            )
+        } else {
+            WidgetStatusBlock(
+                label: "Booth",
+                value: "Unavailable",
+                systemImage: "phone.connection"
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var systemHealthBlock: some View {
+        if let health = entry.systemHealthState.value {
+            let severity = health.effectiveSeverity(at: entry.date)
+            WidgetStatusBlock(
+                label: "System",
+                value: severity.displayName,
+                systemImage: severity.symbolName,
+                tint: severity.tint,
+                detail: Text(health.sourceUpdatedAt, style: .relative),
+                privacySensitive: false
+            )
+        } else {
+            WidgetStatusBlock(
+                label: "System",
+                value: "Unavailable",
+                systemImage: "cpu",
+                privacySensitive: false
+            )
+        }
     }
 
     private func statusBadge(_ status: MessageStatus) -> some View {
@@ -107,10 +236,12 @@ struct LatestMessageWidgetView: View {
                 .minimumScaleFactor(0.7)
         }
         .privacySensitive()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Status \(status.displayName)")
     }
 }
 
-private extension MessageStatus {
+extension MessageStatus {
     var widgetSymbol: String {
         switch self {
         case .uploading: return "icloud.and.arrow.up"
@@ -146,4 +277,10 @@ private extension MessageStatus {
 } timeline: {
     WidgetSnapshotEntry.sample()
     WidgetSnapshotEntry.noSnapshot()
+}
+
+#Preview("Latest message · large", as: .systemLarge) {
+    LatestMessageWidget()
+} timeline: {
+    WidgetSnapshotEntry.sample()
 }

@@ -15,6 +15,7 @@
 //
 
 import Foundation
+import WidgetKit
 import XCTest
 
 // MARK: - Deep links
@@ -70,6 +71,27 @@ final class WidgetDeepLinkTests: XCTestCase {
         XCTAssertNil(WidgetDeepLink.session(id: "   "))
         XCTAssertNil(WidgetDeepLink.message(id: "\n\t "))
     }
+}
+
+// MARK: - Family layout sizing
+
+final class WidgetLayoutSizeTests: XCTestCase {
+    func testSystemFamiliesMapToProgressivelyLargerLayouts() {
+        XCTAssertEqual(WidgetFamily.systemSmall.operatorLayoutSize, .small)
+        XCTAssertEqual(WidgetFamily.systemMedium.operatorLayoutSize, .medium)
+        XCTAssertEqual(WidgetFamily.systemLarge.operatorLayoutSize, .large)
+        #if os(iOS) || os(macOS)
+        XCTAssertEqual(WidgetFamily.systemExtraLarge.operatorLayoutSize, .extraLarge)
+        #endif
+    }
+
+    #if os(iOS)
+    func testAccessoryFamiliesShareAccessoryLayout() {
+        XCTAssertEqual(WidgetFamily.accessoryInline.operatorLayoutSize, .accessory)
+        XCTAssertEqual(WidgetFamily.accessoryCircular.operatorLayoutSize, .accessory)
+        XCTAssertEqual(WidgetFamily.accessoryRectangular.operatorLayoutSize, .accessory)
+    }
+    #endif
 }
 
 // MARK: - Display-state mapping

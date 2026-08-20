@@ -11,6 +11,14 @@
 import SwiftUI
 import WidgetKit
 
+enum WidgetLayoutSize: Equatable {
+    case accessory
+    case small
+    case medium
+    case large
+    case extraLarge
+}
+
 extension WidgetFamily {
     /// Lock Screen / accessory families are only offered on iOS/iPadOS in
     /// this app, so the predicate is guarded to compile everywhere.
@@ -25,6 +33,27 @@ extension WidgetFamily {
         #else
         return false
         #endif
+    }
+
+    var operatorLayoutSize: WidgetLayoutSize {
+        #if os(iOS)
+        if isAccessory {
+            return .accessory
+        }
+        #endif
+
+        switch self {
+        case .systemMedium:
+            return .medium
+        case .systemLarge:
+            return .large
+        #if os(iOS) || os(macOS)
+        case .systemExtraLarge:
+            return .extraLarge
+        #endif
+        default:
+            return .small
+        }
     }
 }
 
@@ -170,6 +199,7 @@ struct StatBlock: View {
     let label: String
     let value: String
     var privacySensitive: Bool = true
+    var compact: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -177,12 +207,78 @@ struct StatBlock: View {
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.title3.weight(.semibold))
+                .font(compact ? .callout.weight(.semibold) : .title3.weight(.semibold))
                 .foregroundStyle(.primary)
                 .monospacedDigit()
                 .privacySensitive(privacySensitive)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label): \(value)")
+    }
+}
+
+struct WidgetMetricValue: Identifiable {
+    let label: String
+    let value: String
+    var privacySensitive: Bool = true
+
+    var id: String { label }
+}
+
+struct WidgetMetricGrid: View {
+    let metrics: [WidgetMetricValue]
+    let columns: Int
+    var compact: Bool = false
+
+    var body: some View {
+        LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 8) {
+            ForEach(metrics) { metric in
+                StatBlock(
+                    label: metric.label,
+                    value: metric.value,
+                    privacySensitive: metric.privacySensitive,
+                    compact: compact
+                )
+            }
+        }
+    }
+
+    private var gridColumns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(minimum: 0), spacing: 8, alignment: .leading),
+            count: max(1, columns)
+        )
+    }
+}
+
+struct WidgetStatusBlock: View {
+    let label: String
+    let value: String
+    let systemImage: String
+    var tint: Color = .secondary
+    var detail: Text?
+    var privacySensitive: Bool = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Label(label.uppercased(), systemImage: systemImage)
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Text(value)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            if let detail {
+                detail
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .privacySensitive(privacySensitive)
+        .accessibilityElement(children: .combine)
     }
 }
