@@ -2,10 +2,7 @@
 //  QuestionsView.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Full questions management: browse by lifecycle state, preview audio,
-//  activate / deactivate / retire, and create a new question by recording
-//  or importing audio. Audio is transcoded to FLAC and uploaded via the
-//  operator's SAS slot before the question is created.
+//  Browse, preview, and manage the question lifecycle and audio.
 //
 
 #if !os(watchOS) && !os(tvOS)
@@ -50,6 +47,7 @@ public struct QuestionsView: View {
     @State private var isComposing = false
     @State private var generation = 0
     @State private var loadedPageCount = 0
+    @State private var loadedFilter: QuestionFilter?
 
     private let client: OperatorClient
     private let pageSize: Int
@@ -98,11 +96,12 @@ public struct QuestionsView: View {
                 handleCreated(created)
             }
         }
-        .autoRefresh {
-            await refreshLoadedPages()
-        }
-        .onChange(of: filter) { _, _ in
-            Task { await loadFirstPage() }
+        .autoRefresh(id: filter) {
+            if loadedFilter == filter {
+                await refreshLoadedPages()
+            } else {
+                await loadFirstPage()
+            }
         }
         .refreshableIfAvailable {
             await loadFirstPage()
@@ -250,17 +249,23 @@ public struct QuestionsView: View {
         generation += 1
         let requested = generation
         let selectedFilter = filter
+        if selectedFilter != loadedFilter {
+            questions = []
+            nextCursor = nil
+            loadedPageCount = 0
+        }
         loadState = .loadingInitial
         errorMessage = nil
         do {
             let page = try await client.fetchQuestions(cursor: nil, limit: pageSize, filter: selectedFilter.query)
-            guard requested == generation else { return }
+            guard requested == generation, selectedFilter == filter else { return }
             questions = page.items
             nextCursor = page.nextCursor
             loadedPageCount = 1
+            loadedFilter = selectedFilter
             loadState = nextCursor == nil ? .done : .idle
         } catch {
-            guard requested == generation else { return }
+            guard requested == generation, selectedFilter == filter else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to load questions."
             loadState = .idle
         }
@@ -271,7 +276,8 @@ public struct QuestionsView: View {
         generation += 1
         let requested = generation
         let pageCount = max(loadedPageCount, 1)
-        let query = filter.query
+        let selectedFilter = filter
+        let query = selectedFilter.query
         loadState = .loadingInitial
         do {
             let refreshed = try await reloadLoadedPages(
@@ -282,7 +288,7 @@ public struct QuestionsView: View {
                     return (page.items, page.nextCursor)
                 }
             )
-            guard requested == generation else { return }
+            guard requested == generation, selectedFilter == filter else { return }
             guard !Task.isCancelled else {
                 loadState = nextCursor == nil ? .done : .idle
                 return
@@ -293,7 +299,7 @@ public struct QuestionsView: View {
             errorMessage = nil
             loadState = nextCursor == nil ? .done : .idle
         } catch {
-            guard requested == generation else { return }
+            guard requested == generation, selectedFilter == filter else { return }
             loadState = nextCursor == nil ? .done : .idle
             guard !Task.isCancelled else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to refresh questions."
@@ -308,13 +314,13 @@ public struct QuestionsView: View {
         errorMessage = nil
         do {
             let page = try await client.fetchQuestions(cursor: cursor, limit: pageSize, filter: selectedFilter.query)
-            guard requested == generation else { return }
+            guard requested == generation, selectedFilter == filter else { return }
             questions.append(contentsOf: page.items)
             nextCursor = page.nextCursor
             loadedPageCount += 1
             loadState = nextCursor == nil ? .done : .idle
         } catch {
-            guard requested == generation else { return }
+            guard requested == generation, selectedFilter == filter else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to load more questions."
             loadState = .idle
         }

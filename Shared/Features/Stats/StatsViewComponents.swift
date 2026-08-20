@@ -81,22 +81,32 @@ struct StatsDigitTile: View {
     let max: Int
 
     var body: some View {
-        let intensity = max > 0 ? Double(count) / Double(max) : 0
-        VStack(spacing: 2) {
+        VStack(spacing: 4) {
             Text(digit)
                 .font(Theme.Fonts.bodyMedium.weight(.bold))
                 .foregroundStyle(Theme.Colors.textPrimary)
             Text("\(count)")
-                .font(Theme.Fonts.caption)
-                .foregroundStyle(Theme.Colors.textSecondary)
+                .font(Theme.Fonts.bodySmall.weight(.semibold))
+                .foregroundStyle(Theme.Colors.textPrimary)
                 .monospacedDigit()
+            StatsBarTrack(value: count, max: max)
+                .frame(height: 4)
         }
         .frame(maxWidth: .infinity)
+        .frame(minHeight: 58)
         .padding(.vertical, Theme.Spacing.small)
+        .padding(.horizontal, 6)
         .background(
-            RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                .fill(Theme.Colors.accent.opacity(0.15 + intensity * 0.55))
+            Theme.Colors.background,
+            in: RoundedRectangle(cornerRadius: Theme.cornerRadius)
         )
+        .overlay {
+            RoundedRectangle(cornerRadius: Theme.cornerRadius)
+                .stroke(Theme.Colors.textPrimary.opacity(0.16), lineWidth: 1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Digit \(digit)")
+        .accessibilityValue("\(count) \(count == 1 ? "time" : "times") dialed")
     }
 }
 
