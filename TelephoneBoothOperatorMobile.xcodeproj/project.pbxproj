@@ -3111,7 +3111,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.widgetsVision;
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.widgets;
 				SDKROOT = xros;
 				TARGETED_DEVICE_FAMILY = 7;
 			};
@@ -3151,7 +3151,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 9JALHNGRBQ;
@@ -3376,7 +3376,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.widgetsMac;
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.widgets;
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -3462,7 +3462,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.widgetsVision;
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.widgets;
 				SDKROOT = xros;
 				TARGETED_DEVICE_FAMILY = 7;
 			};
@@ -3594,7 +3594,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.widgetsMac;
+				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.widgets;
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -3650,7 +3650,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 9JALHNGRBQ;
