@@ -41,6 +41,10 @@ extension AuthManager {
     func prepareWidgetRefresh() async -> Bool {
         let cleanup = widgetCleanupTask
         _ = await cleanup?.value
+        guard await ensureValidToken() else { return false }
+        if authState == .unknown {
+            sessionRestored()
+        }
         guard authState == .signedIn else { return false }
         WidgetSnapshotStore.enableWrites()
         await WidgetRefreshCoordinator.shared.activate()

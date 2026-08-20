@@ -22,6 +22,20 @@ public enum WidgetRefreshScheduler {
             return .failed
         }
 
+        guard await AuthManager.shared.prepareWidgetRefresh() else {
+            logger.notice("Skipped widget refresh without a valid signed-in session")
+            return .failed
+        }
+
+        guard !Task.isCancelled else {
+            logger.notice("Widget refresh was cancelled while preparing its session")
+            return .failed
+        }
+
+        #if os(iOS) || os(macOS) || os(visionOS)
+        resume()
+        #endif
+
         let result = await WidgetRefreshCoordinator.shared.refresh(using: OperatorClient.shared)
 
         guard !Task.isCancelled else {
@@ -131,12 +145,6 @@ extension WidgetRefreshScheduler {
     }
 
     private static func handle(_ task: BGAppRefreshTask) {
-        guard isSchedulingEnabled else {
-            logger.debug("Discarded widget background refresh task while stopped")
-            task.setTaskCompleted(success: false)
-            return
-        }
-
         let completion = WidgetBackgroundTaskCompletion(task: task)
         let refreshOperation = Task { @MainActor in
             let result = await refreshNow()

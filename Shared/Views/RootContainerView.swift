@@ -361,8 +361,6 @@ public struct RootContainerView: View {
     @MainActor
     private func refreshWidgetSnapshot() async {
         #if os(iOS) || os(macOS) || os(visionOS)
-        guard await AuthManager.shared.prepareWidgetRefresh() else { return }
-        WidgetRefreshScheduler.resume()
         _ = await WidgetRefreshScheduler.refreshNow()
         #endif
     }

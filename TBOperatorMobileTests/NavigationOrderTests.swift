@@ -45,6 +45,9 @@ final class NavigationOrderTests: XCTestCase {
             XCTUnwrap(URL(string: "tboperator://messages?filter=unsupported")),
             XCTUnwrap(URL(string: "tboperator://messages?filter=review&filter=received")),
             XCTUnwrap(URL(string: "tboperator://messages/message%2F123")),
+            XCTUnwrap(URL(string: "tboperator://messages/.")),
+            XCTUnwrap(URL(string: "tboperator://messages/..")),
+            XCTUnwrap(URL(string: "tboperator://sessions/%2E%2E")),
             XCTUnwrap(URL(string: "tboperator://sessions/")),
             XCTUnwrap(URL(string: "tboperator://sessions/session-123/extra")),
             XCTUnwrap(URL(string: "tboperator://dashboard#fragment"))

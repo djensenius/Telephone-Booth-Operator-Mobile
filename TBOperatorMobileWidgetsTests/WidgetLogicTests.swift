@@ -56,6 +56,8 @@ final class WidgetDeepLinkTests: XCTestCase {
         XCTAssertNil(WidgetDeepLink.message(id: #"a\b"#))
         XCTAssertNil(WidgetDeepLink.message(id: "a?b"))
         XCTAssertNil(WidgetDeepLink.message(id: "a#b"))
+        XCTAssertNil(WidgetDeepLink.message(id: "."))
+        XCTAssertNil(WidgetDeepLink.message(id: ".."))
     }
 
     func testIdentifierIsTrimmedBeforeEncoding() throws {

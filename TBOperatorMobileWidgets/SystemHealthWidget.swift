@@ -72,7 +72,6 @@ struct SystemHealthWidgetView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("System health \(severity.displayName)")
     }
 
     private func header(severity: WidgetSnapshot.HealthSeverity, cacheStale: Bool) -> some View {
@@ -94,6 +93,12 @@ struct SystemHealthWidgetView: View {
                     .foregroundStyle(severity.tint)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            cacheStale
+                ? "System health \(severity.displayName), data is stale"
+                : "System health \(severity.displayName)"
+        )
     }
 
     private func compactMetrics(_ health: WidgetSnapshot.SystemHealth) -> some View {
@@ -130,6 +135,7 @@ struct SystemHealthWidgetView: View {
         HStack(spacing: 4) {
             Image(systemName: sourceStale ? "exclamationmark.triangle.fill" : "clock")
                 .imageScale(.small)
+                .accessibilityHidden(true)
             Text("Source \(health.sourceUpdatedAt, style: .relative)")
             if sourceStale {
                 Spacer(minLength: 4)
@@ -140,7 +146,6 @@ struct SystemHealthWidgetView: View {
         .font(.caption2)
         .foregroundStyle(sourceStale ? AnyShapeStyle(Theme.Colors.warning) : AnyShapeStyle(.tertiary))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(sourceStale ? "Telemetry delayed. Source updated" : "Source updated")
     }
 
     private func connectivitySymbol(_ connected: Bool?) -> String {

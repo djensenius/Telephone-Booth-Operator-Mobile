@@ -15,6 +15,8 @@ enum DeepLinkIdentifier {
     static func isValid(_ value: String) -> Bool {
         guard !value.isEmpty,
               value == value.trimmingCharacters(in: .whitespacesAndNewlines),
+              value != ".",
+              value != "..",
               !value.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else {
             return false
         }

@@ -112,6 +112,31 @@ final class AuthTests: XCTestCase {
     }
 
     @MainActor
+    func testPrepareWidgetRefreshRestoresUsableCachedSession() async throws {
+        let manager = AuthManager.shared
+        manager.signOut()
+        let stored = manager.storeTokens(
+            OIDCTokens(
+                accessToken: "widget-access-\(UUID().uuidString)",
+                refreshToken: "widget-refresh-\(UUID().uuidString)",
+                idToken: nil,
+                expiresIn: 3_600,
+                tokenType: "Bearer"
+            )
+        )
+        try XCTSkipUnless(stored, "Keychain unavailable in this environment")
+        defer { manager.signOut() }
+
+        manager.authState = .unknown
+        manager.sessionRestoreFailed = true
+
+        let prepared = await manager.prepareWidgetRefresh()
+        XCTAssertTrue(prepared)
+        XCTAssertEqual(manager.authState, .signedIn)
+        XCTAssertFalse(manager.sessionRestoreFailed)
+    }
+
+    @MainActor
     func testKeychainWriteFailedErrorHasDescription() {
         let error = AuthError.keychainWriteFailed
         XCTAssertNotNil(error.errorDescription)

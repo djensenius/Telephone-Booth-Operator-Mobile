@@ -94,12 +94,21 @@ struct WidgetUpdatedFooter: View {
         HStack(spacing: 4) {
             Image(systemName: stale ? "clock.badge.exclamationmark" : "clock")
                 .imageScale(.small)
+                .accessibilityHidden(true)
             Text(date, style: .relative)
         }
         .font(.caption2)
         .foregroundStyle(stale ? AnyShapeStyle(Theme.Colors.warning) : AnyShapeStyle(.tertiary))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(stale ? "Data is stale. Updated" : "Updated")
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: Text {
+        if stale {
+            Text("Data is stale. Updated \(date, style: .relative)")
+        } else {
+            Text("Updated \(date, style: .relative)")
+        }
     }
 }
 
