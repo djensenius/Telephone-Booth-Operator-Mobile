@@ -98,7 +98,8 @@ struct ActivitySummaryWidgetView: View {
                     label: "Booth",
                     value: summary.boothState.widgetDisplayName,
                     systemImage: summary.boothState.widgetSymbol,
-                    tint: summary.boothState.widgetTint
+                    tint: summary.boothState.widgetTint,
+                    staleAsOf: entry.summaryState.staleAsOf
                 )
                 WidgetMetricGrid(
                     metrics: [
@@ -112,7 +113,8 @@ struct ActivitySummaryWidgetView: View {
                         )
                     ],
                     columns: 2,
-                    compact: true
+                    compact: true,
+                    staleAsOf: entry.summaryState.staleAsOf
                 )
                 .frame(maxWidth: .infinity)
                 systemHealthBlock
@@ -129,7 +131,8 @@ struct ActivitySummaryWidgetView: View {
                 value: severity.displayName,
                 systemImage: severity.symbolName,
                 tint: severity.tint,
-                privacySensitive: false
+                privacySensitive: false,
+                staleAsOf: entry.systemHealthState.staleAsOf
             )
         } else {
             WidgetStatusBlock(
@@ -242,6 +245,7 @@ struct ActivityTrendChart: View {
 struct WidgetActivityTrendSection: View {
     let activity: WidgetSnapshot.Activity
     var height: CGFloat = 64
+    var staleAsOf: Date?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -250,12 +254,16 @@ struct WidgetActivityTrendSection: View {
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 4)
-                Text("\(activity.pickups) pickups · \(activity.messages) messages")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .privacySensitive()
+                if let staleAsOf {
+                    WidgetStaleBadge(asOf: staleAsOf)
+                } else {
+                    Text("\(activity.pickups) pickups · \(activity.messages) messages")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .privacySensitive()
+                }
             }
             if hasSignal {
                 ActivityTrendChart(buckets: activity.buckets)
@@ -270,13 +278,20 @@ struct WidgetActivityTrendSection: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            "Last 24 hours: \(activity.pickups) pickups, \(activity.messages) messages"
-        )
+        .accessibilityLabel(accessibilityLabel)
     }
 
     private var hasSignal: Bool {
         activity.buckets.contains { $0.pickups > 0 || $0.messages > 0 }
+    }
+
+    private var accessibilityLabel: Text {
+        let counts = "\(activity.pickups) pickups, \(activity.messages) messages"
+        if let staleAsOf {
+            return Text("Last 24 hours: \(counts). Data is stale. Updated \(staleAsOf, style: .relative)")
+        } else {
+            return Text("Last 24 hours: \(counts)")
+        }
     }
 }
 

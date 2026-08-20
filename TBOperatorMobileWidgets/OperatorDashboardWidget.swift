@@ -80,7 +80,8 @@ struct OperatorDashboardWidgetView: View {
                     WidgetMetricGrid(
                         metrics: countMetrics(summary),
                         columns: 2,
-                        compact: true
+                        compact: true,
+                        staleAsOf: entry.summaryState.staleAsOf
                     )
                 } else {
                     sectionUnavailable("Counts unavailable")
@@ -126,7 +127,11 @@ struct OperatorDashboardWidgetView: View {
                     healthRow
                     if let activity = entry.activityState.value {
                         Divider()
-                        WidgetActivityTrendSection(activity: activity, height: 78)
+                        WidgetActivityTrendSection(
+                            activity: activity,
+                            height: 78,
+                            staleAsOf: entry.activityState.staleAsOf
+                        )
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -157,7 +162,7 @@ struct OperatorDashboardWidgetView: View {
                 }
                 Spacer(minLength: 0)
                 WidgetUpdatedFooter(
-                    date: summary.boothUpdatedAt,
+                    date: entry.summaryState.asOf ?? summary.boothUpdatedAt,
                     stale: entry.summaryState.isStale
                 )
             }
@@ -176,7 +181,8 @@ struct OperatorDashboardWidgetView: View {
                 value: severity.displayName,
                 systemImage: severity.symbolName,
                 tint: severity.tint,
-                privacySensitive: false
+                privacySensitive: false,
+                staleAsOf: entry.systemHealthState.staleAsOf
             )
         } else {
             WidgetStatusBlock(
@@ -195,7 +201,8 @@ struct OperatorDashboardWidgetView: View {
                 label: "Message",
                 value: message.status.displayName,
                 systemImage: "waveform",
-                tint: message.status.widgetTint
+                tint: message.status.widgetTint,
+                staleAsOf: entry.latestMessageState.staleAsOf
             )
         } else {
             WidgetStatusBlock(
@@ -223,6 +230,9 @@ struct OperatorDashboardWidgetView: View {
                     Text(summary.boothUpdatedAt, style: .relative)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if let staleAsOf = entry.summaryState.staleAsOf {
+                        WidgetStaleBadge(asOf: staleAsOf)
+                    }
                 }
                 Spacer()
                 if let mode = summary.runtimeMode, mode.shouldDisplayBadge {
@@ -252,7 +262,11 @@ struct OperatorDashboardWidgetView: View {
     @ViewBuilder
     private var countsRow: some View {
         if let summary = entry.summaryState.value {
-            WidgetMetricGrid(metrics: countMetrics(summary), columns: 4)
+            WidgetMetricGrid(
+                metrics: countMetrics(summary),
+                columns: 4,
+                staleAsOf: entry.summaryState.staleAsOf
+            )
         } else {
             sectionUnavailable("Counts unavailable")
         }
@@ -262,10 +276,16 @@ struct OperatorDashboardWidgetView: View {
     private var healthRow: some View {
         if let health = entry.systemHealthState.value {
             VStack(alignment: .leading, spacing: 6) {
-                Text("System")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
+                HStack {
+                    Text("System")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                    Spacer()
+                    if let staleAsOf = entry.systemHealthState.staleAsOf {
+                        WidgetStaleBadge(asOf: staleAsOf)
+                    }
+                }
                 HStack {
                     dashboardMetric("CPU", Self.temp(health.cpuTemperatureCelsius))
                     Spacer()
@@ -298,13 +318,18 @@ struct OperatorDashboardWidgetView: View {
                         .privacySensitive()
                 }
                 Spacer()
-                Text(message.occurredAt, style: .relative)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .privacySensitive()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(message.occurredAt, style: .relative)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .privacySensitive()
+                    if let staleAsOf = entry.latestMessageState.staleAsOf {
+                        WidgetStaleBadge(asOf: staleAsOf)
+                    }
+                }
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Latest message \(message.status.displayName)")
+            .accessibilityLabel(latestMessageAccessibilityLabel(message))
         } else {
             sectionUnavailable("No recent message")
         }
@@ -314,7 +339,11 @@ struct OperatorDashboardWidgetView: View {
     private var stackedActivity: some View {
         if let activity = entry.activityState.value {
             Divider()
-            WidgetActivityTrendSection(activity: activity, height: 36)
+            WidgetActivityTrendSection(
+                activity: activity,
+                height: 36,
+                staleAsOf: entry.activityState.staleAsOf
+            )
         }
     }
 
@@ -323,7 +352,7 @@ struct OperatorDashboardWidgetView: View {
             || entry.systemHealthState.isStale
             || entry.latestMessageState.isStale
             || entry.activityState.isStale
-        let stamp = entry.summaryState.asOf ?? entry.systemHealthState.asOf ?? entry.date
+        let stamp = entry.oldestSectionAsOf ?? entry.date
         return WidgetUpdatedFooter(date: stamp, stale: stale)
     }
 
@@ -349,6 +378,16 @@ struct OperatorDashboardWidgetView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label) \(value)")
+    }
+
+    private func latestMessageAccessibilityLabel(
+        _ message: WidgetSnapshot.LatestMessage
+    ) -> Text {
+        let label = "Latest message \(message.status.displayName)"
+        if let staleAsOf = entry.latestMessageState.staleAsOf {
+            return Text("\(label). Data is stale. Updated \(staleAsOf, style: .relative)")
+        }
+        return Text(label)
     }
 
     private func sectionUnavailable(_ text: String) -> some View {

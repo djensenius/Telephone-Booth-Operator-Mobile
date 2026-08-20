@@ -143,11 +143,25 @@ struct WidgetUpdatedFooter: View {
 
 /// Inline "Stale" pill used in headers and rectangular accessories.
 struct WidgetStaleBadge: View {
+    var asOf: Date?
+
+    init(asOf: Date? = nil) {
+        self.asOf = asOf
+    }
+
     var body: some View {
         Label("Stale", systemImage: "clock.badge.exclamationmark")
             .font(.caption2.weight(.semibold))
             .foregroundStyle(Theme.Colors.warning)
-            .accessibilityLabel("Data is stale")
+            .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var accessibilityLabel: Text {
+        if let asOf {
+            Text("Data is stale. Updated \(asOf, style: .relative)")
+        } else {
+            Text("Data is stale")
+        }
     }
 }
 
@@ -229,16 +243,22 @@ struct WidgetMetricGrid: View {
     let metrics: [WidgetMetricValue]
     let columns: Int
     var compact: Bool = false
+    var staleAsOf: Date?
 
     var body: some View {
-        LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 8) {
-            ForEach(metrics) { metric in
-                StatBlock(
-                    label: metric.label,
-                    value: metric.value,
-                    privacySensitive: metric.privacySensitive,
-                    compact: compact
-                )
+        VStack(alignment: .leading, spacing: staleAsOf == nil ? 0 : 3) {
+            if let staleAsOf {
+                WidgetStaleBadge(asOf: staleAsOf)
+            }
+            LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 8) {
+                ForEach(metrics) { metric in
+                    StatBlock(
+                        label: metric.label,
+                        value: metric.value,
+                        privacySensitive: metric.privacySensitive,
+                        compact: compact
+                    )
+                }
             }
         }
     }
@@ -258,19 +278,33 @@ struct WidgetStatusBlock: View {
     var tint: Color = .secondary
     var detail: Text?
     var privacySensitive: Bool = true
+    var staleAsOf: Date?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Label(label.uppercased(), systemImage: systemImage)
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            HStack(spacing: 4) {
+                Label(label.uppercased(), systemImage: systemImage)
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if staleAsOf != nil {
+                    Image(systemName: "clock.badge.exclamationmark")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(Theme.Colors.warning)
+                        .accessibilityHidden(true)
+                }
+            }
             Text(value)
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(tint)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            if let detail {
+            if let staleAsOf {
+                Text("Updated \(staleAsOf, style: .relative)")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.Colors.warning)
+                    .lineLimit(1)
+            } else if let detail {
                 detail
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
@@ -280,5 +314,6 @@ struct WidgetStatusBlock: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .privacySensitive(privacySensitive)
         .accessibilityElement(children: .combine)
+        .accessibilityValue(staleAsOf == nil ? "" : "Data is stale")
     }
 }

@@ -28,7 +28,9 @@ families use two columns to pair that answer with related counts or status.
 Large families combine the primary widget with booth, queue, system,
 latest-message, and 24-hour activity sections when those snapshot slices are
 available. The dashboard uses the extra-large width for a two-column
-operational overview.
+operational overview. Supplemental sections retain their own freshness state:
+if one endpoint is stale while the primary widget is current, that section
+shows its own stale age instead of inheriting the primary section's status.
 
 Every supported family has a named `#Preview` in its widget source file so it
 can be reviewed in the Xcode canvas. The iOS-only preview catalog also covers

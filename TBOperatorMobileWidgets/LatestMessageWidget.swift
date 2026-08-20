@@ -102,7 +102,8 @@ struct LatestMessageWidgetView: View {
                 WidgetMetricGrid(
                     metrics: summaryMetrics(summary),
                     columns: 2,
-                    compact: true
+                    compact: true,
+                    staleAsOf: entry.summaryState.staleAsOf
                 )
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             } else {
@@ -134,10 +135,18 @@ struct LatestMessageWidgetView: View {
             }
             Divider()
             if let summary = entry.summaryState.value {
-                WidgetMetricGrid(metrics: summaryMetrics(summary), columns: 4)
+                WidgetMetricGrid(
+                    metrics: summaryMetrics(summary),
+                    columns: 4,
+                    staleAsOf: entry.summaryState.staleAsOf
+                )
             }
             if let activity = entry.activityState.value {
-                WidgetActivityTrendSection(activity: activity, height: 54)
+                WidgetActivityTrendSection(
+                    activity: activity,
+                    height: 54,
+                    staleAsOf: entry.activityState.staleAsOf
+                )
             }
             Spacer(minLength: 0)
             WidgetUpdatedFooter(date: message.refreshedAt, stale: stale)
@@ -190,7 +199,8 @@ struct LatestMessageWidgetView: View {
                 value: summary.boothState.widgetDisplayName,
                 systemImage: summary.boothState.widgetSymbol,
                 tint: summary.boothState.widgetTint,
-                detail: Text(summary.boothUpdatedAt, style: .relative)
+                detail: Text(summary.boothUpdatedAt, style: .relative),
+                staleAsOf: entry.summaryState.staleAsOf
             )
         } else {
             WidgetStatusBlock(
@@ -211,7 +221,8 @@ struct LatestMessageWidgetView: View {
                 systemImage: severity.symbolName,
                 tint: severity.tint,
                 detail: Text(health.sourceUpdatedAt, style: .relative),
-                privacySensitive: false
+                privacySensitive: false,
+                staleAsOf: entry.systemHealthState.staleAsOf
             )
         } else {
             WidgetStatusBlock(

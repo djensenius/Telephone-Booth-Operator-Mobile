@@ -169,7 +169,11 @@ struct CallsTodayWidgetView: View {
             }
             Divider()
             if let activity = entry.activityState.value {
-                WidgetActivityTrendSection(activity: activity, height: 56)
+                WidgetActivityTrendSection(
+                    activity: activity,
+                    height: 56,
+                    staleAsOf: entry.activityState.staleAsOf
+                )
             } else {
                 Text("24-hour activity is not available yet.")
                     .font(.caption)
@@ -245,7 +249,8 @@ struct CallsTodayWidgetView: View {
                 value: message.status.displayName,
                 systemImage: "waveform",
                 tint: message.status.widgetTint,
-                detail: Text(message.occurredAt, style: .relative)
+                detail: Text(message.occurredAt, style: .relative),
+                staleAsOf: entry.latestMessageState.staleAsOf
             )
         } else {
             WidgetStatusBlock(
@@ -266,7 +271,8 @@ struct CallsTodayWidgetView: View {
                 systemImage: severity.symbolName,
                 tint: severity.tint,
                 detail: Text(health.sourceUpdatedAt, style: .relative),
-                privacySensitive: false
+                privacySensitive: false,
+                staleAsOf: entry.systemHealthState.staleAsOf
             )
         } else {
             WidgetStatusBlock(

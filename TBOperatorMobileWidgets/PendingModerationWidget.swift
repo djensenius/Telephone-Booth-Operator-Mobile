@@ -220,7 +220,8 @@ struct PendingModerationWidgetView: View {
                 value: message.status.displayName,
                 systemImage: "waveform",
                 tint: message.status.widgetTint,
-                detail: Text(message.occurredAt, style: .relative)
+                detail: Text(message.occurredAt, style: .relative),
+                staleAsOf: entry.latestMessageState.staleAsOf
             )
         } else {
             WidgetStatusBlock(
@@ -241,7 +242,8 @@ struct PendingModerationWidgetView: View {
                 systemImage: severity.symbolName,
                 tint: severity.tint,
                 detail: Text(health.sourceUpdatedAt, style: .relative),
-                privacySensitive: false
+                privacySensitive: false,
+                staleAsOf: entry.systemHealthState.staleAsOf
             )
         } else {
             WidgetStatusBlock(

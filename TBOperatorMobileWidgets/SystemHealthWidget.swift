@@ -112,13 +112,16 @@ struct SystemHealthWidgetView: View {
             Divider()
             relatedSummary
             if let activity = entry.activityState.value {
-                WidgetActivityTrendSection(activity: activity, height: 52)
+                WidgetActivityTrendSection(
+                    activity: activity,
+                    height: 52,
+                    staleAsOf: entry.activityState.staleAsOf
+                )
             }
             Spacer(minLength: 0)
             footer(health, sourceStale: sourceStale)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
@@ -130,7 +133,8 @@ struct SystemHealthWidgetView: View {
                     value: summary.boothState.widgetDisplayName,
                     systemImage: summary.boothState.widgetSymbol,
                     tint: summary.boothState.widgetTint,
-                    detail: Text(summary.boothUpdatedAt, style: .relative)
+                    detail: Text(summary.boothUpdatedAt, style: .relative),
+                    staleAsOf: entry.summaryState.staleAsOf
                 )
                 WidgetMetricGrid(
                     metrics: [
@@ -144,7 +148,8 @@ struct SystemHealthWidgetView: View {
                         )
                     ],
                     columns: 2,
-                    compact: true
+                    compact: true,
+                    staleAsOf: entry.summaryState.staleAsOf
                 )
                 .frame(maxWidth: .infinity)
                 latestMessageBlock
@@ -164,7 +169,8 @@ struct SystemHealthWidgetView: View {
                 value: message.status.displayName,
                 systemImage: "waveform",
                 tint: message.status.widgetTint,
-                detail: Text(message.occurredAt, style: .relative)
+                detail: Text(message.occurredAt, style: .relative),
+                staleAsOf: entry.latestMessageState.staleAsOf
             )
         } else {
             WidgetStatusBlock(
