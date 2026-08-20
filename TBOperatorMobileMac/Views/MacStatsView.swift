@@ -311,12 +311,17 @@ extension MacStatsView {
 
     private func callsSection(_ overview: StatsOverview) -> some View {
         let interactions = overview.interactionMetrics
+        let actions = overview.actionMetrics
         return GroupBox("Pickups") {
             VStack(alignment: .leading, spacing: Theme.Spacing.small) {
                 LabeledContent("Total", value: num(interactions.total))
                 LabeledContent("In progress now", value: num(interactions.inProgressNow))
                 LabeledContent("No selection", value: num(interactions.noSelection))
                 LabeledContent("Messages left", value: num(interactions.messagesLeft))
+                LabeledContent(
+                    "Messages listened",
+                    value: StatsFormat.optionalNumberString(actions.messagePlaybackStarts)
+                )
                 LabeledContent("Message left rate", value: StatsFormat.percentString(overview.completionRate))
                 LabeledContent("Avg duration", value: StatsFormat.durationString(interactions.averageDurationMs))
                 LabeledContent("Longest pickup", value: StatsFormat.durationString(interactions.longestDurationMs))

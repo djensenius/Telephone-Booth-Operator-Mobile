@@ -137,6 +137,7 @@ struct TVStatsView: View {
 
     private func callsCard(_ overview: StatsOverview) -> some View {
         let interactions = overview.interactionMetrics
+        let actions = overview.actionMetrics
         return TVFocusCard {
             VStack(alignment: .leading, spacing: 16) {
                 TVCardHeader(title: "Pickups", systemImage: "phone.connection.fill")
@@ -144,12 +145,13 @@ struct TVStatsView: View {
                 TVKeyValueRow(key: "In progress now", value: number(interactions.inProgressNow))
                 TVKeyValueRow(key: "No selection", value: number(interactions.noSelection))
                 TVKeyValueRow(key: "Messages left", value: number(interactions.messagesLeft))
+                TVKeyValueRow(
+                    key: "Messages listened",
+                    value: StatsFormat.optionalNumberString(actions.messagePlaybackStarts)
+                )
                 TVKeyValueRow(key: "Message left rate", value: StatsFormat.percentString(overview.completionRate))
                 TVKeyValueRow(key: "Avg duration", value: StatsFormat.durationString(interactions.averageDurationMs))
-                TVKeyValueRow(
-                    key: "Longest pickup",
-                    value: StatsFormat.durationString(interactions.longestDurationMs)
-                )
+                TVKeyValueRow(key: "Longest pickup", value: StatsFormat.durationString(interactions.longestDurationMs))
                 let outcomes = overview.outcomesInDisplayOrder()
                 if !outcomes.isEmpty {
                     Divider().overlay(Theme.Colors.textSecondary.opacity(0.25))
