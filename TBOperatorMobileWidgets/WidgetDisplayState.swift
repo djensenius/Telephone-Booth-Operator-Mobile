@@ -44,6 +44,11 @@ enum WidgetSectionState<Value> {
         return false
     }
 
+    var staleAsOf: Date? {
+        if case let .stale(_, asOf) = self { return asOf }
+        return nil
+    }
+
     /// True when the host has written at least one snapshot but this
     /// particular section has not been filled in yet.
     var isMissingSection: Bool {
@@ -84,6 +89,17 @@ extension WidgetSnapshotEntry {
 
     var activityState: WidgetSectionState<WidgetSnapshot.Activity> {
         sectionState(snapshot?.activity, asOf: \.refreshedAt)
+    }
+
+    var oldestSectionAsOf: Date? {
+        [
+            summaryState.asOf,
+            latestMessageState.asOf,
+            systemHealthState.asOf,
+            activityState.asOf
+        ]
+        .compactMap { $0 }
+        .min()
     }
 
     /// Upcoming instants at which any present section's freshness changes.

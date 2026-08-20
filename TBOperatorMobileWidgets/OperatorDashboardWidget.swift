@@ -2,8 +2,8 @@
 //  OperatorDashboardWidget.swift
 //  TBOperatorMobileWidgets
 //
-//  A combined "everything at a glance" widget for the large and extra
-//  large families: booth state, queue/pickup counts, system health,
+//  A combined "everything at a glance" widget for the medium, large,
+//  and extra-large families: booth state, queue/pickup counts, system health,
 //  latest-message status/time, and overall freshness. Each section
 //  degrades independently when its snapshot slice is missing.
 //
@@ -20,9 +20,9 @@ struct OperatorDashboardWidget: Widget {
 
     private var families: [WidgetFamily] {
         #if os(iOS) || os(macOS)
-        [.systemLarge, .systemExtraLarge]
+        [.systemMedium, .systemLarge, .systemExtraLarge]
         #else
-        [.systemLarge]
+        [.systemMedium, .systemLarge]
         #endif
     }
 
@@ -62,6 +62,8 @@ struct OperatorDashboardWidgetView: View {
                 systemImage: "square.grid.2x2",
                 message: "Open the app to load the dashboard."
             )
+        } else if family.operatorLayoutSize == .medium {
+            compactLayout
         } else if isWide {
             wideLayout
         } else {
@@ -69,8 +71,33 @@ struct OperatorDashboardWidgetView: View {
         }
     }
 
+    private var compactLayout: some View {
+        HStack(alignment: .top, spacing: 14) {
+            compactBooth
+            Divider()
+            VStack(alignment: .leading, spacing: 8) {
+                if let summary = entry.summaryState.value {
+                    WidgetMetricGrid(
+                        metrics: countMetrics(summary),
+                        columns: 2,
+                        compact: true,
+                        staleAsOf: entry.summaryState.staleAsOf
+                    )
+                } else {
+                    sectionUnavailable("Counts unavailable")
+                }
+                HStack(alignment: .top, spacing: 10) {
+                    compactHealth
+                    compactMessage
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
     private var stackedLayout: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             boothHeader
             Divider()
             countsRow
@@ -78,6 +105,7 @@ struct OperatorDashboardWidgetView: View {
             healthRow
             Divider()
             latestMessageRow
+            stackedActivity
             Spacer(minLength: 0)
             footer
         }
@@ -97,6 +125,14 @@ struct OperatorDashboardWidgetView: View {
                 Divider()
                 VStack(alignment: .leading, spacing: 12) {
                     healthRow
+                    if let activity = entry.activityState.value {
+                        Divider()
+                        WidgetActivityTrendSection(
+                            activity: activity,
+                            height: 78,
+                            staleAsOf: entry.activityState.staleAsOf
+                        )
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -107,6 +143,75 @@ struct OperatorDashboardWidgetView: View {
     }
 
     // MARK: - Sections
+
+    @ViewBuilder
+    private var compactBooth: some View {
+        if let summary = entry.summaryState.value {
+            VStack(alignment: .leading, spacing: 6) {
+                Label("Booth", systemImage: summary.boothState.widgetSymbol)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(summary.boothState.widgetTint)
+                    .widgetAccentable()
+                Text(summary.boothState.widgetDisplayName)
+                    .font(.title3.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+                    .privacySensitive()
+                if let mode = summary.runtimeMode, mode.shouldDisplayBadge {
+                    RuntimeModeBadge(mode: mode)
+                }
+                Spacer(minLength: 0)
+                WidgetUpdatedFooter(
+                    date: entry.summaryState.asOf ?? summary.boothUpdatedAt,
+                    stale: entry.summaryState.isStale
+                )
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+        } else {
+            sectionUnavailable("Booth unavailable")
+        }
+    }
+
+    @ViewBuilder
+    private var compactHealth: some View {
+        if let health = entry.systemHealthState.value {
+            let severity = health.effectiveSeverity(at: entry.date)
+            WidgetStatusBlock(
+                label: "System",
+                value: severity.displayName,
+                systemImage: severity.symbolName,
+                tint: severity.tint,
+                privacySensitive: false,
+                staleAsOf: entry.systemHealthState.staleAsOf
+            )
+        } else {
+            WidgetStatusBlock(
+                label: "System",
+                value: "Unavailable",
+                systemImage: "cpu",
+                privacySensitive: false
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var compactMessage: some View {
+        if let message = entry.latestMessageState.value {
+            WidgetStatusBlock(
+                label: "Message",
+                value: message.status.displayName,
+                systemImage: "waveform",
+                tint: message.status.widgetTint,
+                staleAsOf: entry.latestMessageState.staleAsOf
+            )
+        } else {
+            WidgetStatusBlock(
+                label: "Message",
+                value: "None yet",
+                systemImage: "waveform"
+            )
+        }
+    }
 
     @ViewBuilder
     private var boothHeader: some View {
@@ -125,6 +230,9 @@ struct OperatorDashboardWidgetView: View {
                     Text(summary.boothUpdatedAt, style: .relative)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if let staleAsOf = entry.summaryState.staleAsOf {
+                        WidgetStaleBadge(asOf: staleAsOf)
+                    }
                 }
                 Spacer()
                 if let mode = summary.runtimeMode, mode.shouldDisplayBadge {
@@ -154,15 +262,11 @@ struct OperatorDashboardWidgetView: View {
     @ViewBuilder
     private var countsRow: some View {
         if let summary = entry.summaryState.value {
-            HStack(alignment: .top) {
-                StatBlock(label: "Pending", value: "\(summary.pendingMessages)")
-                Spacer()
-                StatBlock(label: "Pickups", value: "\(summary.interactionsToday)")
-                Spacer()
-                StatBlock(label: "Received", value: "\(summary.receivedToday)")
-                Spacer()
-                StatBlock(label: "Clients", value: "\(summary.wsClients)")
-            }
+            WidgetMetricGrid(
+                metrics: countMetrics(summary),
+                columns: 4,
+                staleAsOf: entry.summaryState.staleAsOf
+            )
         } else {
             sectionUnavailable("Counts unavailable")
         }
@@ -172,10 +276,16 @@ struct OperatorDashboardWidgetView: View {
     private var healthRow: some View {
         if let health = entry.systemHealthState.value {
             VStack(alignment: .leading, spacing: 6) {
-                Text("System")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
+                HStack {
+                    Text("System")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+                    Spacer()
+                    if let staleAsOf = entry.systemHealthState.staleAsOf {
+                        WidgetStaleBadge(asOf: staleAsOf)
+                    }
+                }
                 HStack {
                     dashboardMetric("CPU", Self.temp(health.cpuTemperatureCelsius))
                     Spacer()
@@ -208,15 +318,32 @@ struct OperatorDashboardWidgetView: View {
                         .privacySensitive()
                 }
                 Spacer()
-                Text(message.occurredAt, style: .relative)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .privacySensitive()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(message.occurredAt, style: .relative)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .privacySensitive()
+                    if let staleAsOf = entry.latestMessageState.staleAsOf {
+                        WidgetStaleBadge(asOf: staleAsOf)
+                    }
+                }
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Latest message \(message.status.displayName)")
+            .accessibilityLabel(latestMessageAccessibilityLabel(message))
         } else {
             sectionUnavailable("No recent message")
+        }
+    }
+
+    @ViewBuilder
+    private var stackedActivity: some View {
+        if let activity = entry.activityState.value {
+            Divider()
+            WidgetActivityTrendSection(
+                activity: activity,
+                height: 36,
+                staleAsOf: entry.activityState.staleAsOf
+            )
         }
     }
 
@@ -224,11 +351,21 @@ struct OperatorDashboardWidgetView: View {
         let stale = entry.summaryState.isStale
             || entry.systemHealthState.isStale
             || entry.latestMessageState.isStale
-        let stamp = entry.summaryState.asOf ?? entry.systemHealthState.asOf ?? entry.date
+            || entry.activityState.isStale
+        let stamp = entry.oldestSectionAsOf ?? entry.date
         return WidgetUpdatedFooter(date: stamp, stale: stale)
     }
 
     // MARK: - Small helpers
+
+    private func countMetrics(_ summary: WidgetSnapshot.Summary) -> [WidgetMetricValue] {
+        [
+            WidgetMetricValue(label: "Pending", value: "\(summary.pendingMessages)"),
+            WidgetMetricValue(label: "Pickups", value: "\(summary.interactionsToday)"),
+            WidgetMetricValue(label: "Received", value: "\(summary.receivedToday)"),
+            WidgetMetricValue(label: "Clients", value: "\(summary.wsClients)")
+        ]
+    }
 
     private func dashboardMetric(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 1) {
@@ -241,6 +378,16 @@ struct OperatorDashboardWidgetView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label) \(value)")
+    }
+
+    private func latestMessageAccessibilityLabel(
+        _ message: WidgetSnapshot.LatestMessage
+    ) -> Text {
+        let label = "Latest message \(message.status.displayName)"
+        if let staleAsOf = entry.latestMessageState.staleAsOf {
+            return Text("\(label). Data is stale. Updated \(staleAsOf, style: .relative)")
+        }
+        return Text(label)
     }
 
     private func sectionUnavailable(_ text: String) -> some View {
@@ -276,3 +423,17 @@ struct OperatorDashboardWidgetView: View {
     WidgetSnapshotEntry.sample(minutesAgo: 45, treatAsFresh: false)
     WidgetSnapshotEntry.noSnapshot()
 }
+
+#Preview("Dashboard · medium", as: .systemMedium) {
+    OperatorDashboardWidget()
+} timeline: {
+    WidgetSnapshotEntry.sample()
+}
+
+#if os(iOS) || os(macOS)
+#Preview("Dashboard · extra large", as: .systemExtraLarge) {
+    OperatorDashboardWidget()
+} timeline: {
+    WidgetSnapshotEntry.sample()
+}
+#endif

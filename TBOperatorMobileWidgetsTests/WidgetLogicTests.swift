@@ -15,6 +15,7 @@
 //
 
 import Foundation
+import WidgetKit
 import XCTest
 
 // MARK: - Deep links
@@ -72,6 +73,27 @@ final class WidgetDeepLinkTests: XCTestCase {
     }
 }
 
+// MARK: - Family layout sizing
+
+final class WidgetLayoutSizeTests: XCTestCase {
+    func testSystemFamiliesMapToProgressivelyLargerLayouts() {
+        XCTAssertEqual(WidgetFamily.systemSmall.operatorLayoutSize, .small)
+        XCTAssertEqual(WidgetFamily.systemMedium.operatorLayoutSize, .medium)
+        XCTAssertEqual(WidgetFamily.systemLarge.operatorLayoutSize, .large)
+        #if os(iOS) || os(macOS)
+        XCTAssertEqual(WidgetFamily.systemExtraLarge.operatorLayoutSize, .extraLarge)
+        #endif
+    }
+
+    #if os(iOS)
+    func testAccessoryFamiliesShareAccessoryLayout() {
+        XCTAssertEqual(WidgetFamily.accessoryInline.operatorLayoutSize, .accessory)
+        XCTAssertEqual(WidgetFamily.accessoryCircular.operatorLayoutSize, .accessory)
+        XCTAssertEqual(WidgetFamily.accessoryRectangular.operatorLayoutSize, .accessory)
+    }
+    #endif
+}
+
 // MARK: - Display-state mapping
 
 final class WidgetDisplayStateTests: XCTestCase {
@@ -85,6 +107,7 @@ final class WidgetDisplayStateTests: XCTestCase {
         }
         XCTAssertNil(state.value)
         XCTAssertNil(state.asOf)
+        XCTAssertNil(state.staleAsOf)
         XCTAssertFalse(state.isStale)
         XCTAssertFalse(state.isMissingSection)
     }
@@ -110,6 +133,7 @@ final class WidgetDisplayStateTests: XCTestCase {
         XCTAssertEqual(summary.pendingMessages, 2)
         XCTAssertEqual(asOf, now.addingTimeInterval(-4 * 60))
         XCTAssertFalse(state.isStale)
+        XCTAssertNil(state.staleAsOf)
         XCTAssertNotNil(state.value)
     }
 
@@ -122,6 +146,7 @@ final class WidgetDisplayStateTests: XCTestCase {
         }
         XCTAssertTrue(state.isStale)
         XCTAssertEqual(state.asOf, now.addingTimeInterval(-45 * 60))
+        XCTAssertEqual(state.staleAsOf, now.addingTimeInterval(-45 * 60))
         XCTAssertNotNil(state.value)
     }
 
@@ -153,6 +178,21 @@ final class WidgetDisplayStateTests: XCTestCase {
             return
         }
         XCTAssertFalse(state.isStale)
+    }
+
+    func testOldestSectionDateTracksIndependentlyStaleData() {
+        let fresh = now.addingTimeInterval(-5 * 60)
+        let stale = now.addingTimeInterval(-45 * 60)
+        let entry = WidgetSnapshotEntry.allSections(
+            refreshedAt: fresh,
+            sourceUpdatedAt: fresh,
+            now: now,
+            activityRefreshedAt: stale
+        )
+
+        XCTAssertFalse(entry.summaryState.isStale)
+        XCTAssertTrue(entry.activityState.isStale)
+        XCTAssertEqual(entry.oldestSectionAsOf, stale)
     }
 }
 
@@ -286,8 +326,14 @@ private extension WidgetSnapshotEntry {
         refreshedAt: Date,
         sourceUpdatedAt: Date,
         now: Date,
+        latestMessageRefreshedAt: Date? = nil,
+        systemHealthRefreshedAt: Date? = nil,
+        activityRefreshedAt: Date? = nil,
         isPlaceholder: Bool = false
     ) -> WidgetSnapshotEntry {
+        let messageRefreshedAt = latestMessageRefreshedAt ?? refreshedAt
+        let healthRefreshedAt = systemHealthRefreshedAt ?? refreshedAt
+        let overviewRefreshedAt = activityRefreshedAt ?? refreshedAt
         let snapshot = WidgetSnapshot(
             summary: WidgetSnapshot.Summary(
                 boothState: .idle,
@@ -304,8 +350,8 @@ private extension WidgetSnapshotEntry {
             latestMessage: WidgetSnapshot.LatestMessage(
                 id: "m1",
                 status: .received,
-                occurredAt: refreshedAt,
-                refreshedAt: refreshedAt
+                occurredAt: messageRefreshedAt,
+                refreshedAt: messageRefreshedAt
             ),
             systemHealth: WidgetSnapshot.SystemHealth(
                 boothId: "booth",
@@ -315,15 +361,15 @@ private extension WidgetSnapshotEntry {
                 routerTemperatureCelsius: 40,
                 tailscaleConnected: true,
                 sourceUpdatedAt: sourceUpdatedAt,
-                refreshedAt: refreshedAt
+                refreshedAt: healthRefreshedAt
             ),
             activity: WidgetSnapshot.Activity(
                 pickups: 1,
                 messages: 1,
                 buckets: [],
-                rangeStart: refreshedAt.addingTimeInterval(-3600),
-                rangeEnd: refreshedAt,
-                refreshedAt: refreshedAt
+                rangeStart: overviewRefreshedAt.addingTimeInterval(-3600),
+                rangeEnd: overviewRefreshedAt,
+                refreshedAt: overviewRefreshedAt
             ),
             writtenAt: refreshedAt
         )

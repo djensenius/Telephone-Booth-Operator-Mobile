@@ -99,4 +99,39 @@ struct CallInProgressLiveActivity: Widget {
         .activityBackgroundTint(.black.opacity(0.7))
     }
 }
+
+private let callPreviewAttributes = CallInProgressAttributes(
+    boothName: "Bell Canada Booth",
+    sessionId: "preview-session"
+)
+
+private let callPreviewState = CallInProgressAttributes.ContentState(
+    boothState: "connected",
+    startedAt: .now.addingTimeInterval(-93),
+    digitsDialed: "514 555 0123"
+)
+
+#Preview("Call · Lock Screen", as: .content, using: callPreviewAttributes) {
+    CallInProgressLiveActivity()
+} contentStates: {
+    callPreviewState
+}
+
+#Preview("Call · Dynamic Island expanded", as: .dynamicIsland(.expanded), using: callPreviewAttributes) {
+    CallInProgressLiveActivity()
+} contentStates: {
+    callPreviewState
+}
+
+#Preview("Call · Dynamic Island compact", as: .dynamicIsland(.compact), using: callPreviewAttributes) {
+    CallInProgressLiveActivity()
+} contentStates: {
+    callPreviewState
+}
+
+#Preview("Call · Dynamic Island minimal", as: .dynamicIsland(.minimal), using: callPreviewAttributes) {
+    CallInProgressLiveActivity()
+} contentStates: {
+    callPreviewState
+}
 #endif
