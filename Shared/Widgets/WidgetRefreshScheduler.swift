@@ -76,6 +76,7 @@ import BackgroundTasks
 extension WidgetRefreshScheduler {
     private static var hasRegistered = false
     private static var isSchedulingEnabled = false
+    static let backgroundTaskLaunchQueue = DispatchQueue.main
 
     public static func register() {
         guard !hasRegistered else {
@@ -85,7 +86,8 @@ extension WidgetRefreshScheduler {
 
         let registered = BGTaskScheduler.shared.register(
             forTaskWithIdentifier: taskIdentifier,
-            using: nil
+            // A nil queue runs the actor-isolated handler on a background queue.
+            using: backgroundTaskLaunchQueue
         ) { task in
             guard let refreshTask = task as? BGAppRefreshTask else {
                 logger.error("Received unexpected background task type for widget refresh")

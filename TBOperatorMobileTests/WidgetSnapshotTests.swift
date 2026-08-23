@@ -9,6 +9,13 @@ import XCTest
 final class WidgetSnapshotModelTests: XCTestCase {
     private let referenceDate = Date(timeIntervalSince1970: 2_000_000_000)
 
+    @MainActor
+    func testBackgroundWidgetRefreshLaunchesOnMainActorQueue() {
+        XCTAssertTrue(
+            WidgetRefreshScheduler.backgroundTaskLaunchQueue === DispatchQueue.main
+        )
+    }
+
     func testLegacySnapshotDecodesIntoSummarySection() throws {
         let data = Data(
             """
