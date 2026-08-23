@@ -241,21 +241,33 @@ private struct DashboardOverviewCard: View {
     @ViewBuilder
     private var metrics: some View {
         if let stats {
-            HStack(spacing: Theme.Spacing.small) {
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: Theme.Spacing.small),
+                    GridItem(.flexible())
+                ],
+                alignment: .leading,
+                spacing: Theme.Spacing.small
+            ) {
                 DashboardMetric(
                     label: "Pickups today",
                     value: stats.interactionsToday,
                     symbol: "phone.fill"
                 )
                 DashboardMetric(
-                    label: "Messages",
-                    value: stats.messages.receivedToday,
+                    label: "Messages today",
+                    value: stats.messages.availableToday,
                     symbol: "waveform"
                 )
                 DashboardMetric(
                     label: "To review",
                     value: stats.messages.badgeCount,
                     symbol: "tray.full.fill"
+                )
+                DashboardMetric(
+                    label: "Listens today",
+                    value: stats.actions?.messagePlaybackStarts,
+                    symbol: "ear"
                 )
             }
         } else {
@@ -304,7 +316,7 @@ private struct DashboardBadgePresentation {
 
 private struct DashboardMetric: View {
     let label: String
-    let value: Int
+    let value: Int?
     let symbol: String
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -313,7 +325,7 @@ private struct DashboardMetric: View {
                 .foregroundStyle(Theme.Colors.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
-            Text(value.formatted())
+            Text(value?.formatted() ?? "—")
                 .font(Theme.Fonts.headerLarge().monospacedDigit())
                 .foregroundStyle(Theme.Colors.textPrimary)
         }
@@ -323,7 +335,9 @@ private struct DashboardMetric: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Theme.Colors.textPrimary.opacity(0.06))
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(label))
+        .accessibilityValue(Text(value?.formatted() ?? "Unavailable"))
     }
 }
 

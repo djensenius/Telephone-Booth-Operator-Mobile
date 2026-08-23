@@ -56,12 +56,14 @@ final class BoothStatusDisplayCollapseTests: XCTestCase {
 
         XCTAssertEqual(series.total, 3)
         XCTAssertEqual(series.points.map(\.date), [
-            dayStartedAt,
             now.addingTimeInterval(10),
-            now.addingTimeInterval(20),
-            through
+            now.addingTimeInterval(20)
         ])
-        XCTAssertEqual(series.points.map(\.count), [0, 1, 3, 3])
+        XCTAssertEqual(series.points.map(\.count), [1, 3])
+        XCTAssertEqual(
+            series.chartDomain,
+            now.addingTimeInterval(10)...now.addingTimeInterval(20)
+        )
     }
 
     func testCallsTodaySeriesIncludesExactMidnightAndHandlesNoCalls() {
@@ -78,9 +80,15 @@ final class BoothStatusDisplayCollapseTests: XCTestCase {
         )
 
         XCTAssertEqual(midnight.total, 1)
-        XCTAssertEqual(midnight.points.map(\.count), [1, 1])
+        XCTAssertEqual(midnight.points.map(\.date), [now])
+        XCTAssertEqual(midnight.points.map(\.count), [1])
+        XCTAssertEqual(
+            midnight.chartDomain,
+            now.addingTimeInterval(-30)...now.addingTimeInterval(30)
+        )
         XCTAssertEqual(empty.total, 0)
-        XCTAssertEqual(empty.points.map(\.count), [0, 0])
+        XCTAssertTrue(empty.points.isEmpty)
+        XCTAssertNil(empty.chartDomain)
         XCTAssertEqual(empty.yAxisValues, [0, 1])
     }
 
@@ -274,6 +282,8 @@ final class BoothStatusLiveStoreCompatibilityTests: XCTestCase {
         XCTAssertEqual(stats.interactions?.today, 5)
         XCTAssertEqual(stats.interactionsToday, 5)
         XCTAssertEqual(stats.interactionsInProgress, 3)
+        XCTAssertEqual(stats.messages.availableToday, 1)
+        XCTAssertEqual(stats.actions?.messagePlaybackStarts, 4)
     }
 
     func testStatusUpdatesKeepAdditiveInteractionsFromCurrentSummary() throws {
@@ -290,6 +300,8 @@ final class BoothStatusLiveStoreCompatibilityTests: XCTestCase {
         XCTAssertEqual(stats.interactions?.today, 5)
         XCTAssertEqual(stats.interactionsToday, 5)
         XCTAssertEqual(stats.interactionsInProgress, 3)
+        XCTAssertEqual(stats.messages.availableToday, 1)
+        XCTAssertEqual(stats.actions?.messagePlaybackStarts, 4)
     }
 
     private func makeSummary(booth: BoothStatus) -> StatsSummary {
@@ -298,10 +310,12 @@ final class BoothStatusLiveStoreCompatibilityTests: XCTestCase {
             messages: StatsSummary.Messages(
                 pending: 1,
                 receivedToday: 1,
+                availableToday: 1,
                 latestId: nil
             ),
             calls: .init(today: 2, inProgress: 0),
             interactions: .init(today: 5, inProgress: 3),
+            actions: .init(messagePlaybackStarts: 4),
             realtime: .init(wsClients: 1),
             generatedAt: now
         )

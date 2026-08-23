@@ -13,6 +13,7 @@ public struct StatsSummary: Codable, Sendable, Hashable {
     public let messages: Messages
     public let calls: Calls
     public let interactions: Calls?
+    public let actions: Actions?
     public let realtime: Realtime
     public let generatedAt: Date
     public let dayStartedAt: Date?
@@ -25,17 +26,22 @@ public struct StatsSummary: Codable, Sendable, Hashable {
         /// from older operator builds (which omit it) still decode.
         public let awaitingModeration: Int?
         public let receivedToday: Int
+        /// Messages created today that remain available to the booth. Optional
+        /// for compatibility with older operator builds.
+        public let availableToday: Int?
         public let latestId: UUID?
 
         public init(
             pending: Int,
             awaitingModeration: Int? = nil,
             receivedToday: Int,
+            availableToday: Int? = nil,
             latestId: UUID?
         ) {
             self.pending = pending
             self.awaitingModeration = awaitingModeration
             self.receivedToday = receivedToday
+            self.availableToday = availableToday
             self.latestId = latestId
         }
 
@@ -49,6 +55,14 @@ public struct StatsSummary: Codable, Sendable, Hashable {
         public let inProgress: Int
     }
 
+    public struct Actions: Codable, Sendable, Hashable {
+        public let messagePlaybackStarts: Int
+
+        public init(messagePlaybackStarts: Int) {
+            self.messagePlaybackStarts = messagePlaybackStarts
+        }
+    }
+
     public struct Realtime: Codable, Sendable, Hashable {
         public let wsClients: Int
     }
@@ -58,6 +72,7 @@ public struct StatsSummary: Codable, Sendable, Hashable {
         messages: Messages,
         calls: Calls,
         interactions: Calls? = nil,
+        actions: Actions? = nil,
         realtime: Realtime,
         generatedAt: Date,
         dayStartedAt: Date? = nil,
@@ -67,6 +82,7 @@ public struct StatsSummary: Codable, Sendable, Hashable {
         self.messages = messages
         self.calls = calls
         self.interactions = interactions
+        self.actions = actions
         self.realtime = realtime
         self.generatedAt = generatedAt
         self.dayStartedAt = dayStartedAt
@@ -85,9 +101,16 @@ public extension StatsSummary {
             state: .idle,
             updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
         ),
-        messages: Messages(pending: 2, awaitingModeration: 2, receivedToday: 7, latestId: nil),
+        messages: Messages(
+            pending: 2,
+            awaitingModeration: 2,
+            receivedToday: 7,
+            availableToday: 6,
+            latestId: nil
+        ),
         calls: Calls(today: 4, inProgress: 0),
         interactions: Calls(today: 4, inProgress: 0),
+        actions: Actions(messagePlaybackStarts: 3),
         realtime: Realtime(wsClients: 1),
         generatedAt: Date(timeIntervalSince1970: 1_700_000_000),
         dayStartedAt: nil,

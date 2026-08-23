@@ -59,6 +59,17 @@ public struct MessageListView: View {
         }
         .background(Theme.Colors.background)
         .searchable(text: $searchText, prompt: "Search transcripts")
+        .navigationDestination(for: String.self) { messageId in
+            MessageDetailView(
+                messageId: messageId,
+                client: client,
+                onMessageUpdate: { updated in apply(updated) },
+                shouldDismissAfterDecision: { updated in
+                    filter.shouldDismissDetail(afterDecisionTo: updated.status)
+                },
+                onMessageDelete: { id in messages.removeAll { $0.id == id } }
+            )
+        }
         .autoRefresh(id: filter) {
             await refresh()
         }
@@ -153,14 +164,6 @@ public struct MessageListView: View {
             }
         }
         .operatorListStyle()
-        .navigationDestination(for: String.self) { messageId in
-            MessageDetailView(
-                messageId: messageId,
-                client: client,
-                onMessageUpdate: { updated in apply(updated) },
-                onMessageDelete: { id in messages.removeAll { $0.id == id } }
-            )
-        }
     }
 
     #if os(macOS)

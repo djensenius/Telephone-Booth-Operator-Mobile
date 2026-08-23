@@ -14,6 +14,16 @@ final class NavigationOrderTests: XCTestCase {
         XCTAssertEqual(MessageListFilter.review.requestedStatuses, [.received, .pending])
     }
 
+    func testMessageFilterDismissesDetailWhenDecisionLeavesGroup() {
+        XCTAssertTrue(MessageListFilter.review.shouldDismissDetail(afterDecisionTo: .approved))
+        XCTAssertTrue(MessageListFilter.review.shouldDismissDetail(afterDecisionTo: .rejected))
+        XCTAssertFalse(MessageListFilter.all.shouldDismissDetail(afterDecisionTo: .approved))
+        XCTAssertFalse(MessageListFilter.approved.shouldDismissDetail(afterDecisionTo: .approved))
+        XCTAssertTrue(MessageListFilter.approved.shouldDismissDetail(afterDecisionTo: .rejected))
+        XCTAssertFalse(MessageListFilter.rejected.shouldDismissDetail(afterDecisionTo: .rejected))
+        XCTAssertTrue(MessageListFilter.rejected.shouldDismissDetail(afterDecisionTo: .approved))
+    }
+
     func testParsesSupportedAppNavigationURLs() throws {
         let dashboard = try XCTUnwrap(URL(string: "tboperator://dashboard"))
         let stats = try XCTUnwrap(URL(string: "tboperator://stats"))
