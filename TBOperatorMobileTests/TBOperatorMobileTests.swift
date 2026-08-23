@@ -22,11 +22,15 @@ final class TBOperatorMobileTests: XCTestCase {
           "messages": {
             "pending": 3,
             "receivedToday": 12,
+            "availableToday": 10,
             "latestId": "33333333-3333-3333-3333-333333333333"
           },
           "calls": {
             "today": 8,
             "inProgress": 1
+          },
+          "actions": {
+            "messagePlaybackStarts": 6
           },
           "realtime": {
             "wsClients": 4
@@ -41,11 +45,13 @@ final class TBOperatorMobileTests: XCTestCase {
         XCTAssertTrue(summary.booth.state.isCallActive)
         XCTAssertEqual(summary.messages.pending, 3)
         XCTAssertEqual(summary.messages.receivedToday, 12)
+        XCTAssertEqual(summary.messages.availableToday, 10)
         XCTAssertEqual(summary.calls.today, 8)
         XCTAssertEqual(summary.calls.inProgress, 1)
         XCTAssertNil(summary.interactions)
         XCTAssertEqual(summary.interactionsToday, 8)
         XCTAssertEqual(summary.interactionsInProgress, 1)
+        XCTAssertEqual(summary.actions?.messagePlaybackStarts, 6)
         XCTAssertEqual(summary.realtime.wsClients, 4)
 
         let reencoded = try OperatorJSON.encoder.encode(summary)
@@ -69,6 +75,8 @@ final class TBOperatorMobileTests: XCTestCase {
         XCTAssertEqual(summary.booth.state, .idle)
         XCTAssertNil(summary.booth.currentQuestionId)
         XCTAssertEqual(summary.interactionsToday, 0)
+        XCTAssertNil(summary.messages.availableToday)
+        XCTAssertNil(summary.actions)
     }
 
     func testOperatorMeRoundTrip() throws {

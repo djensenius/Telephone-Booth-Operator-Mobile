@@ -91,6 +91,10 @@ public enum MessageListFilter: String, CaseIterable, Identifiable, Sendable, Has
         }
     }
 
+    public func shouldDismissDetail(afterDecisionTo status: MessageStatus) -> Bool {
+        !includes(status)
+    }
+
     /// Accepts the legacy widget `received` value while making `review` the
     /// canonical route for the combined operator queue.
     public init?(deepLinkValue: String) {

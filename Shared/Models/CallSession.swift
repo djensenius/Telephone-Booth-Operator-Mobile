@@ -164,18 +164,15 @@ public struct CallsTodaySeries: Sendable, Equatable {
                 return $0.startedAt < $1.startedAt
             }
 
-        var values = [(date: dayStartedAt, count: 0)]
+        var values: [(date: Date, count: Int)] = []
+        var runningCount = 0
         for session in starts {
-            let nextCount = values.last.map { $0.count + 1 } ?? 1
+            runningCount += 1
             if values.last?.date == session.startedAt {
-                values[values.count - 1].count = nextCount
+                values[values.count - 1].count = runningCount
             } else {
-                values.append((session.startedAt, nextCount))
+                values.append((session.startedAt, runningCount))
             }
-        }
-
-        if values.last?.date != through {
-            values.append((through, values.last?.count ?? 0))
         }
 
         self.points = values.enumerated().map { index, value in
@@ -184,6 +181,12 @@ public struct CallsTodaySeries: Sendable, Equatable {
         self.total = starts.count
         self.dayStartedAt = dayStartedAt
         self.through = through
+    }
+
+    public var chartDomain: ClosedRange<Date>? {
+        guard let first = points.first?.date, let last = points.last?.date else { return nil }
+        guard first == last else { return first...last }
+        return first.addingTimeInterval(-30)...first.addingTimeInterval(30)
     }
 
     public var yAxisValues: [Int] {

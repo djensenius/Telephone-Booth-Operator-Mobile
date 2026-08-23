@@ -36,16 +36,19 @@ public struct MessageDetailView: View {
     @State private var showDeleteConfirmation = false
     private let client: OperatorClient
     private let onMessageUpdate: (Message) -> Void
+    private let shouldDismissAfterDecision: (Message) -> Bool
     private let onMessageDelete: (String) -> Void
     public init(
         messageId: String,
         client: OperatorClient = .shared,
         onMessageUpdate: @escaping (Message) -> Void = { _ in },
+        shouldDismissAfterDecision: @escaping (Message) -> Bool = { _ in false },
         onMessageDelete: @escaping (String) -> Void = { _ in }
     ) {
         self.messageId = messageId
         self.client = client
         self.onMessageUpdate = onMessageUpdate
+        self.shouldDismissAfterDecision = shouldDismissAfterDecision
         self.onMessageDelete = onMessageDelete
     }
     public var body: some View {
@@ -479,8 +482,11 @@ private extension MessageDetailView {
             statusMessage = "Message \(updated.status.displayName.lowercased())."
             message = updated
             onMessageUpdate(updated)
-            await PendingMessagesStore.shared.refresh(using: client)
             decisionNotes = ""
+            if shouldDismissAfterDecision(updated) {
+                dismiss()
+            }
+            await PendingMessagesStore.shared.refresh(using: client)
         } catch {
             let verb = decision == .approve ? "approve" : "reject"
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't \(verb) this message."

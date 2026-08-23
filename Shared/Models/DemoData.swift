@@ -42,10 +42,12 @@ public enum DemoData {
             pending: 3,
             awaitingModeration: 4,
             receivedToday: 18,
+            availableToday: 15,
             latestId: UUID(uuidString: "22222222-2222-2222-2222-222222222222")
         ),
         calls: StatsSummary.Calls(today: 27, inProgress: 1),
         interactions: StatsSummary.Calls(today: 27, inProgress: 1),
+        actions: StatsSummary.Actions(messagePlaybackStarts: 11),
         realtime: StatsSummary.Realtime(wsClients: 4),
         generatedAt: now,
         dayStartedAt: Calendar.current.startOfDay(for: now),
@@ -144,6 +146,7 @@ public enum DemoData {
                 today: callsToday.count,
                 inProgress: callsToday.filter { $0.endedAt == nil }.count
             ),
+            actions: statsSummary.actions,
             realtime: statsSummary.realtime,
             generatedAt: reference,
             dayStartedAt: dayStartedAt,

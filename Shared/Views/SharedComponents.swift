@@ -410,7 +410,7 @@ private struct CallsTodayChart: View {
                 }
             }
         }
-        .chartXScale(domain: series.dayStartedAt...xAxisEnd)
+        .chartXScale(domain: chartDomain)
         .chartYScale(domain: 0...max(1, series.total + 1))
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 3)) { value in
@@ -449,8 +449,9 @@ private struct CallsTodayChart: View {
         )
     }
 
-    private var xAxisEnd: Date {
-        max(series.through, series.dayStartedAt.addingTimeInterval(60))
+    private var chartDomain: ClosedRange<Date> {
+        series.chartDomain
+            ?? (series.dayStartedAt...series.dayStartedAt.addingTimeInterval(60))
     }
 }
 #endif

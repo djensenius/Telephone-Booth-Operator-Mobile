@@ -232,7 +232,7 @@ struct TVCallsTodayCard: View {
             }
         }
         .frame(height: 230)
-        .chartXScale(domain: series.dayStartedAt...xAxisEnd(for: series))
+        .chartXScale(domain: chartDomain(for: series))
         .chartYScale(domain: 0...max(1, series.total + 1))
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 6)) { value in
@@ -275,8 +275,9 @@ struct TVCallsTodayCard: View {
         "\(series.total) \(series.total == 1 ? "pickup" : "pickups") since midnight"
     }
 
-    private func xAxisEnd(for series: CallsTodaySeries) -> Date {
-        max(series.through, series.dayStartedAt.addingTimeInterval(60))
+    private func chartDomain(for series: CallsTodaySeries) -> ClosedRange<Date> {
+        series.chartDomain
+            ?? (series.dayStartedAt...series.dayStartedAt.addingTimeInterval(60))
     }
 }
 
