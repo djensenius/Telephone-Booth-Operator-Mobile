@@ -16,7 +16,7 @@ settings:
     SWIFT_VERSION: "6"
     SWIFT_STRICT_CONCURRENCY: complete
     DEVELOPMENT_TEAM: 9JALHNGRBQ
-    MARKETING_VERSION: "0.4.6"
+    MARKETING_VERSION: "0.4.7"
     CURRENT_PROJECT_VERSION: "8"
     DEAD_CODE_STRIPPING: YES
     ENABLE_USER_SCRIPT_SANDBOXING: YES
@@ -145,7 +145,6 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.widgets
-        MARKETING_VERSION: "0.4.7"
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: false
         ENABLE_HARDENED_RUNTIME: true
@@ -262,7 +261,6 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile
         PRODUCT_NAME: Operator
-        MARKETING_VERSION: "0.4.7"
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: false
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
