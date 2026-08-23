@@ -73,6 +73,12 @@ public enum WidgetRefreshScheduler {
 #if canImport(BackgroundTasks) && (os(iOS) || os(visionOS))
 import BackgroundTasks
 
+typealias WidgetBackgroundTaskRegistrar = (
+    _ identifier: String,
+    _ queue: DispatchQueue,
+    _ launchHandler: @escaping (BGTask) -> Void
+) -> Bool
+
 extension WidgetRefreshScheduler {
     private static var hasRegistered = false
     private static var isSchedulingEnabled = false
@@ -83,17 +89,12 @@ extension WidgetRefreshScheduler {
             return
         }
 
-        let registered = BGTaskScheduler.shared.register(
-            forTaskWithIdentifier: taskIdentifier,
-            using: nil
-        ) { task in
-            guard let refreshTask = task as? BGAppRefreshTask else {
-                logger.error("Received unexpected background task type for widget refresh")
-                task.setTaskCompleted(success: false)
-                schedule()
-                return
-            }
-            handle(refreshTask)
+        let registered = registerTask { identifier, queue, launchHandler in
+            BGTaskScheduler.shared.register(
+                forTaskWithIdentifier: identifier,
+                using: queue,
+                launchHandler: launchHandler
+            )
         }
 
         guard registered else {
@@ -105,6 +106,22 @@ extension WidgetRefreshScheduler {
         logger.debug("Registered widget background refresh task")
         if isSchedulingEnabled {
             schedule()
+        }
+    }
+
+    static func registerTask(using registrar: WidgetBackgroundTaskRegistrar) -> Bool {
+        registrar(
+            taskIdentifier,
+            // A nil queue runs the actor-isolated handler on a background queue.
+            DispatchQueue.main
+        ) { task in
+            guard let refreshTask = task as? BGAppRefreshTask else {
+                logger.error("Received unexpected background task type for widget refresh")
+                task.setTaskCompleted(success: false)
+                schedule()
+                return
+            }
+            handle(refreshTask)
         }
     }
 
