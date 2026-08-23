@@ -145,6 +145,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.widgets
+        MARKETING_VERSION: "0.4.7"
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: false
         ENABLE_HARDENED_RUNTIME: true
@@ -261,6 +262,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile
         PRODUCT_NAME: Operator
+        MARKETING_VERSION: "0.4.7"
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: false
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
