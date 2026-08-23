@@ -10,10 +10,15 @@ final class WidgetSnapshotModelTests: XCTestCase {
     private let referenceDate = Date(timeIntervalSince1970: 2_000_000_000)
 
     @MainActor
-    func testBackgroundWidgetRefreshLaunchesOnMainActorQueue() {
-        XCTAssertTrue(
-            WidgetRefreshScheduler.backgroundTaskLaunchQueue === DispatchQueue.main
-        )
+    func testBackgroundWidgetRefreshRegistersOnMainActorQueue() {
+        var registeredQueue: DispatchQueue?
+
+        _ = WidgetRefreshScheduler.registerTask { _, queue, _ in
+            registeredQueue = queue
+            return false
+        }
+
+        XCTAssertTrue(registeredQueue === DispatchQueue.main)
     }
 
     func testLegacySnapshotDecodesIntoSummarySection() throws {
