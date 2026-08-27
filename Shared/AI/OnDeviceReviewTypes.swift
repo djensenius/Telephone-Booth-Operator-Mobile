@@ -189,7 +189,7 @@ public enum OnDeviceReviewLogic {
         let reasonSummary: String?
         if flagged {
             recommendation = .reject
-            reasonSummary = "The message appears to contain direct harmful content."
+            reasonSummary = "The message appears unsuitable for public playback."
         } else if score > 0.5 {
             recommendation = .review
             reasonSummary = "The on-device model was not confident enough to recommend approval."

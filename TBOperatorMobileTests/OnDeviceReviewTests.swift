@@ -389,7 +389,10 @@ final class OnDeviceReviewTests: XCTestCase {
             model: "test-model"
         )
         XCTAssertEqual(rejected.recommendation, .reject)
-        XCTAssertNotNil(rejected.reasonSummary)
+        XCTAssertEqual(
+            rejected.reasonSummary,
+            "The message appears unsuitable for public playback."
+        )
     }
     func testContextualModerationAdjudicationApprovesDescription() {
         let baseline = OnDeviceReviewLogic.moderation(

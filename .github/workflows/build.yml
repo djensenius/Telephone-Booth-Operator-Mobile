@@ -20,15 +20,15 @@ jobs:
       matrix:
         include:
           - scheme: TBOperatorMobile
-            destination: 'platform=iOS Simulator,name=iPhone 17 Pro'
+            destination: 'platform=iOS Simulator,name=iPhone 17,OS=latest'
           - scheme: TBOperatorMobileMac
             destination: 'platform=macOS'
           - scheme: TBOperatorMobileVision
-            destination: 'platform=visionOS Simulator,name=Apple Vision Pro'
+            destination: 'platform=visionOS Simulator,name=Apple Vision Pro,OS=latest'
           - scheme: TBOperatorMobileTV
-            destination: 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation)'
+            destination: 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation),OS=latest'
           - scheme: TBOperatorMobileWatch
-            destination: 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm)'
+            destination: 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm),OS=latest'
     steps:
       - uses: actions/checkout@v4
       - name: Show toolchain
@@ -84,7 +84,7 @@ jobs:
           xcodebuild \
             -project TelephoneBoothOperatorMobile.xcodeproj \
             -scheme TBOperatorMobile \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             test
