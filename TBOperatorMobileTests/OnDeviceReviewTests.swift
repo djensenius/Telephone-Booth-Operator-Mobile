@@ -428,6 +428,31 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(verdict.maxScore, 0.9)
         XCTAssertNotNil(verdict.reasonSummary)
     }
+    func testDeclinedModerationAdjudicationPreservesRejection() {
+        let baseline = OnDeviceReviewLogic.moderation(
+            flagged: true,
+            severityScore: 0.9,
+            model: "test-model"
+        )
+        let verdict = AppleModerationService.declinedAdjudicationModeration(
+            baseline: baseline,
+            model: "test-model"
+        )
+        XCTAssertTrue(verdict.flagged)
+        XCTAssertEqual(verdict.recommendation, .reject)
+        XCTAssertEqual(verdict.maxScore, 0.9)
+        XCTAssertEqual(verdict.reasonSummary, baseline.reasonSummary)
+    }
+    func testDeclinedModerationAdjudicationWithoutBaselineNeedsReview() {
+        let verdict = AppleModerationService.declinedAdjudicationModeration(
+            baseline: nil,
+            model: "test-model"
+        )
+        XCTAssertFalse(verdict.flagged)
+        XCTAssertEqual(verdict.recommendation, .review)
+        XCTAssertEqual(verdict.maxScore, 0)
+        XCTAssertNotNil(verdict.reasonSummary)
+    }
     func testLowConfidenceModerationAdjudicationNeedsReview() {
         let verdict = AppleModerationService.adjudicatedModeration(
             baseline: nil,

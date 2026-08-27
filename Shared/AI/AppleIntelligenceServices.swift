@@ -315,6 +315,13 @@ public actor AppleModerationService: TextModerating {
         )
     }
 
+    static func declinedAdjudicationModeration(
+        baseline: ModerationVerdict?,
+        model: String
+    ) -> ModerationVerdict {
+        baseline ?? OnDeviceReviewLogic.inconclusiveModeration(model: model)
+    }
+
     public func moderate(_ input: String) async throws -> ModerationVerdict {
         let model = SystemLanguageModel(
             useCase: .general,
@@ -347,10 +354,10 @@ public actor AppleModerationService: TextModerating {
             guard FoundationModelsSupport.isDeclined(error) else {
                 throw FoundationModelsSupport.map(error)
             }
-            if let baseline, baseline.recommendation == .review {
-                return baseline
-            }
-            return OnDeviceReviewLogic.inconclusiveModeration(model: Self.modelIdentifier)
+            return Self.declinedAdjudicationModeration(
+                baseline: baseline,
+                model: Self.modelIdentifier
+            )
         }
     }
 
