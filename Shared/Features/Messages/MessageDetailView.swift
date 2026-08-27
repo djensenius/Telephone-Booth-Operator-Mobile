@@ -66,7 +66,7 @@ public struct MessageDetailView: View {
                     if message.latestTranscription != nil || !transcriptions.isEmpty {
                         transcriptCard(message)
                     }
-                    if message.latestTranscription?.translationStatus != nil {
+                    if message.latestTranscription?.shouldDisplayTranslation == true {
                         translationCard(message)
                     }
                     if message.latestApplicableModeration != nil {
@@ -115,10 +115,10 @@ public struct MessageDetailView: View {
     }
     private func appleIntelligenceCard(_ message: Message) -> some View {
             VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-                SectionHeader(text: "Transcribe, Translate, & Review")
+                SectionHeader(text: "Transcribe & Review")
                 Text(
-                    "Creates a fresh transcript, English translation, and suggested action "
-                        + "on this device, then saves all three to the Operator."
+                    "Creates a fresh transcript and suggested action on this device, "
+                        + "translating non-English messages before review."
                 )
                 .font(Theme.Fonts.bodySmall)
                 .foregroundStyle(Theme.Colors.textSecondary)
@@ -157,7 +157,7 @@ public struct MessageDetailView: View {
                                 await load()
                             }
                         } label: {
-                            Label("Transcribe, Translate, & Review", systemImage: "waveform")
+                            Label("Transcribe & Review", systemImage: "waveform")
                                 .font(Theme.Fonts.bodySmall.weight(.semibold))
                         }
                         .buttonStyle(.borderedProminent)
@@ -190,7 +190,7 @@ private extension MessageDetailView {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
             SectionHeader(text: "English Translation")
             if let transcription = message.latestTranscription {
-                if let translation = transcription.completedTranslation {
+                if let translation = transcription.displayableTranslation {
                     Text(translation)
                         .font(Theme.Fonts.bodyLarge)
                         .foregroundStyle(Theme.Colors.textPrimary)

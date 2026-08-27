@@ -6,6 +6,35 @@
 
 import Foundation
 
+public enum MessageTranslationLanguage {
+    public static let targetLanguage = "en"
+
+    public static func shouldTranslate(
+        sourceLanguage: String?,
+        targetLanguage: String = MessageTranslationLanguage.targetLanguage
+    ) -> Bool {
+        guard let sourceCode = primaryLanguageCode(sourceLanguage),
+              let targetCode = primaryLanguageCode(targetLanguage) else {
+            return true
+        }
+        return sourceCode != targetCode
+    }
+
+    private static func primaryLanguageCode(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let identifier = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !identifier.isEmpty,
+              let code = Locale(identifier: identifier).language.languageCode?.identifier,
+              (2...3).contains(code.count),
+              code.unicodeScalars.allSatisfy({
+                  (65...90).contains($0.value) || (97...122).contains($0.value)
+              }) else {
+            return nil
+        }
+        return code.lowercased()
+    }
+}
+
 public enum MessageStatus: Codable, Sendable, Hashable {
     case uploading
     case received
@@ -388,6 +417,18 @@ public struct Transcription: Codable, Sendable, Equatable, Identifiable {
         }
         return translatedText
     }
+
+    public var shouldDisplayTranslation: Bool {
+        translationStatus != nil
+            && MessageTranslationLanguage.shouldTranslate(
+                sourceLanguage: language,
+                targetLanguage: translatedLanguage ?? MessageTranslationLanguage.targetLanguage
+            )
+    }
+
+    public var displayableTranslation: String? {
+        shouldDisplayTranslation ? completedTranslation : nil
+    }
 }
 
 public struct TranscriptionList: Codable, Sendable, Equatable {
@@ -520,7 +561,7 @@ public enum MessageDecision: String, Codable, Sendable, Hashable {
 
 extension Message {
     public var bestDisplayText: String? {
-        if let translation = latestTranscription?.completedTranslation {
+        if let translation = latestTranscription?.displayableTranslation {
             return translation
         }
         guard let transcript = latestTranscription?.text?

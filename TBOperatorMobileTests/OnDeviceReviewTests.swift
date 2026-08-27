@@ -354,6 +354,18 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(result.targetLanguage, "en")
         XCTAssertEqual(result.model, "test-model")
     }
+    func testTranslationIsSkippedForMatchingPrimaryLanguage() {
+        XCTAssertFalse(OnDeviceReviewLogic.shouldTranslate(sourceLanguage: "en"))
+        XCTAssertFalse(OnDeviceReviewLogic.shouldTranslate(sourceLanguage: "en-US"))
+        XCTAssertFalse(
+            OnDeviceReviewLogic.shouldTranslate(
+                sourceLanguage: "fr-CA",
+                targetLanguage: "fr-FR"
+            )
+        )
+        XCTAssertTrue(OnDeviceReviewLogic.shouldTranslate(sourceLanguage: "fr-CA"))
+        XCTAssertTrue(OnDeviceReviewLogic.shouldTranslate(sourceLanguage: nil))
+    }
     func testModerationNormalization() {
         let verdict = OnDeviceReviewLogic.moderation(
             flagged: false,
@@ -503,6 +515,7 @@ final class OnDeviceReviewTests: XCTestCase {
         )
         XCTAssertEqual(transcription.completedTranslation, "hello")
         XCTAssertEqual(transcription.translationProvider, .macApp)
+        XCTAssertTrue(transcription.shouldDisplayTranslation)
     }
     func testModerationSurvivesAnIdenticalTranslationRetry() {
         let translationDate = Date(timeIntervalSince1970: 20)
@@ -725,8 +738,25 @@ extension OnDeviceReviewTests {
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
     func testClaimedModerationGeneratesTranslationFirstWhenMissing() async throws {
-        let message = DemoData.message(id: "demo-message-3")
-        let sourceText = try XCTUnwrap(message.latestTranscription?.text)
+        let originalMessage = DemoData.message(id: "demo-message-3")
+        let original = try XCTUnwrap(originalMessage.latestTranscription)
+        let transcription = Transcription(
+            id: original.id,
+            messageId: original.messageId,
+            provider: original.provider,
+            model: original.model,
+            status: original.status,
+            text: original.text,
+            language: "fr-CA",
+            durationMs: original.durationMs,
+            latencyMs: original.latencyMs,
+            error: original.error,
+            requestedById: original.requestedById,
+            createdAt: original.createdAt,
+            completedAt: original.completedAt
+        )
+        let message = originalMessage.replacingLatestTranscription(transcription)
+        let sourceText = try XCTUnwrap(transcription.text)
         let claim = MessageProcessingClaim(
             message: message,
             needs: [.moderation],
@@ -758,6 +788,53 @@ extension OnDeviceReviewTests {
     }
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testClaimedEnglishModerationSkipsTranslation() async throws {
+        let sourceText = "Already English"
+        let transcription = Transcription(
+            id: "english-transcript",
+            messageId: "demo-message-3",
+            provider: .onDevice,
+            model: "apple-speech-analyzer",
+            status: .succeeded,
+            text: sourceText,
+            language: "en-CA",
+            durationMs: nil,
+            latencyMs: nil,
+            error: nil,
+            requestedById: nil,
+            createdAt: .distantPast,
+            completedAt: .distantPast,
+            translationStatus: .succeeded,
+            translatedText: "Stored text that should not be reviewed",
+            translatedLanguage: "en",
+            translationProvider: .push,
+            translationModel: "worker",
+            translationCompletedAt: .distantPast
+        )
+        let message = DemoData.message(id: "demo-message-3")
+            .replacingLatestTranscription(transcription)
+        let claim = MessageProcessingClaim(
+            message: message,
+            needs: [.translation, .moderation],
+            leaseToken: String(repeating: "a", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: nil
+        )
+        let recorder = ProcessingOrderRecorder()
+        let processor = makeProcessor(
+            translator: RecordingTranslator(recorder: recorder),
+            moderator: RecordingModerator(recorder: recorder, reasonSummary: "Reviewed directly.")
+        )
+
+        let result = try await processor.process(claim: claim)
+        let calls = await recorder.recordedCalls()
+
+        XCTAssertEqual(calls, [.moderation(sourceText)])
+        XCTAssertNil(result.translation)
+        XCTAssertEqual(result.moderation?.inputSha256, ReviewTextSnapshot.sha256(sourceText))
+    }
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
     func testManualProcessorPersistsModerationReason() async throws {
         let message = DemoData.message(id: "demo-message-3")
         let client = StubReviewClient(message: message)
@@ -771,8 +848,12 @@ extension OnDeviceReviewTests {
         await processor.refreshAvailability()
         await processor.process(message: message, sourceLanguage: "en", client: client)
         let saved = try await client.fetchMessage(id: message.id)
+        let counts = await client.counts()
+        let calls = await recorder.recordedCalls()
 
         XCTAssertEqual(saved.latestApplicableModeration?.reasonSummary, reason)
+        XCTAssertEqual(calls, [.moderation("bonjour")])
+        XCTAssertEqual(counts.translations, 0)
     }
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)

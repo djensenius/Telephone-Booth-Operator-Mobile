@@ -143,6 +143,18 @@ public enum PromptSafety {
 }
 
 public enum OnDeviceReviewLogic {
+    public static let translationTargetLanguage = MessageTranslationLanguage.targetLanguage
+
+    public static func shouldTranslate(
+        sourceLanguage: String?,
+        targetLanguage: String = translationTargetLanguage
+    ) -> Bool {
+        MessageTranslationLanguage.shouldTranslate(
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage
+        )
+    }
+
     public static func noSpeechReview(durationMs: Int?) -> MessageProcessingReviewResult {
         let isLikelyHangup = durationMs.map { $0 <= 3_000 } ?? false
         return MessageProcessingReviewResult(
@@ -162,7 +174,7 @@ public enum OnDeviceReviewLogic {
         return TranslationResult(
             translatedText: normalizedTranslationText(text),
             sourceLanguage: (detected == "und" || detected == "unknown") ? fallback : detected ?? fallback,
-            targetLanguage: "en",
+            targetLanguage: translationTargetLanguage,
             model: model
         )
     }
@@ -287,11 +299,11 @@ extension OnDeviceMessageProcessor {
         }
         let hasCurrentTranslation = !needs.contains(.transcription)
             && claim.message.latestTranscription?.completedTranslation != nil
-        // English moderation claims can omit `.translation`, while the manual
-        // path always translates before reviewing. Keep both paths on the same
-        // Foundation Models sequence when no current translation exists.
-        if needs.contains(.translation)
-            || needs.contains(.moderation) && !hasCurrentTranslation {
+        // Moderation uses an English translation when needed, but reviews
+        // English transcripts directly.
+        let shouldTranslate = OnDeviceReviewLogic.shouldTranslate(sourceLanguage: result.language)
+        if shouldTranslate && (needs.contains(.translation)
+            || needs.contains(.moderation) && !hasCurrentTranslation) {
             result.translation = try await processTranslation(
                 claim,
                 text: result.text,
@@ -302,7 +314,8 @@ extension OnDeviceMessageProcessor {
             result.moderation = try await processModeration(
                 claim,
                 translatedText: result.translation?.translatedText,
-                text: result.text
+                text: result.text,
+                language: result.language
             )
         }
 
@@ -401,10 +414,14 @@ extension OnDeviceMessageProcessor {
     private func processModeration(
         _ claim: MessageProcessingClaim,
         translatedText: String?,
-        text: String?
+        text: String?,
+        language: String?
     ) async throws -> MessageProcessingModerationResult {
+        let existingTranslation = OnDeviceReviewLogic.shouldTranslate(sourceLanguage: language)
+            ? claim.message.latestTranscription?.completedTranslation
+            : nil
         let input = translatedText
-            ?? claim.message.latestTranscription?.completedTranslation
+            ?? existingTranslation
             ?? text
         guard let input, !input.isEmpty else {
             throw OnDeviceServiceError.badRequest("The claimed message has no text to review.")
