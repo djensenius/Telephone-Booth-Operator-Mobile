@@ -206,45 +206,6 @@ public enum OnDeviceReviewLogic {
         )
     }
 
-    public static func adjudicatedModeration(
-        baseline: ModerationVerdict?,
-        isContextualDescription: Bool,
-        confidence: Double,
-        model: String
-    ) -> ModerationVerdict {
-        let normalizedConfidence = min(max(confidence.isFinite ? confidence : 0, 0), 1)
-        guard normalizedConfidence >= 0.6 else {
-            return ModerationVerdict(
-                flagged: false,
-                recommendation: .review,
-                maxScore: max(baseline?.maxScore ?? 0, 0.51),
-                model: model,
-                reasonSummary: """
-                The on-device model could not confidently distinguish direct harmful content \
-                from contextual language.
-                """
-            )
-        }
-        if isContextualDescription {
-            return ModerationVerdict(
-                flagged: false,
-                recommendation: .approve,
-                maxScore: min(baseline?.maxScore ?? 1, 1 - normalizedConfidence),
-                model: model
-            )
-        }
-        return ModerationVerdict(
-            flagged: true,
-            recommendation: .reject,
-            maxScore: max(baseline?.maxScore ?? 0, normalizedConfidence),
-            model: model,
-            reasonSummary: """
-            The message directly communicates harmful conduct rather than merely \
-            describing or reporting it.
-            """
-        )
-    }
-
     /// A verdict for text the on-device model would not classify. The message is
     /// neither flagged nor scored, because nothing was actually judged — it is
     /// only routed to a person.

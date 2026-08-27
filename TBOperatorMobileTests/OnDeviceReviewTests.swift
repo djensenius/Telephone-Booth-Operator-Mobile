@@ -397,7 +397,7 @@ final class OnDeviceReviewTests: XCTestCase {
             severityScore: 0.9,
             model: "test-model"
         )
-        let verdict = OnDeviceReviewLogic.adjudicatedModeration(
+        let verdict = AppleModerationService.adjudicatedModeration(
             baseline: baseline,
             isContextualDescription: true,
             confidence: 0.8,
@@ -414,7 +414,7 @@ final class OnDeviceReviewTests: XCTestCase {
             severityScore: 0.75,
             model: "test-model"
         )
-        let verdict = OnDeviceReviewLogic.adjudicatedModeration(
+        let verdict = AppleModerationService.adjudicatedModeration(
             baseline: baseline,
             isContextualDescription: false,
             confidence: 0.9,
@@ -426,7 +426,7 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertNotNil(verdict.reasonSummary)
     }
     func testLowConfidenceModerationAdjudicationNeedsReview() {
-        let verdict = OnDeviceReviewLogic.adjudicatedModeration(
+        let verdict = AppleModerationService.adjudicatedModeration(
             baseline: nil,
             isContextualDescription: true,
             confidence: 0.59,

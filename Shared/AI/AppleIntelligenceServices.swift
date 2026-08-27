@@ -297,6 +297,45 @@ public actor AppleModerationService: TextModerating {
 
     public init() {}
 
+    static func adjudicatedModeration(
+        baseline: ModerationVerdict?,
+        isContextualDescription: Bool,
+        confidence: Double,
+        model: String
+    ) -> ModerationVerdict {
+        let normalizedConfidence = min(max(confidence.isFinite ? confidence : 0, 0), 1)
+        guard normalizedConfidence >= 0.6 else {
+            return ModerationVerdict(
+                flagged: false,
+                recommendation: .review,
+                maxScore: max(baseline?.maxScore ?? 0, 0.51),
+                model: model,
+                reasonSummary: """
+                The on-device model could not confidently distinguish direct harmful content \
+                from contextual language.
+                """
+            )
+        }
+        if isContextualDescription {
+            return ModerationVerdict(
+                flagged: false,
+                recommendation: .approve,
+                maxScore: min(baseline?.maxScore ?? 1, 1 - normalizedConfidence),
+                model: model
+            )
+        }
+        return ModerationVerdict(
+            flagged: true,
+            recommendation: .reject,
+            maxScore: max(baseline?.maxScore ?? 0, normalizedConfidence),
+            model: model,
+            reasonSummary: """
+            The message directly communicates harmful conduct rather than merely \
+            describing or reporting it.
+            """
+        )
+    }
+
     public func moderate(_ input: String) async throws -> ModerationVerdict {
         let model = SystemLanguageModel(
             useCase: .general,
@@ -319,7 +358,7 @@ public actor AppleModerationService: TextModerating {
 
         do {
             let adjudication = try await adjudicate(input, model: model)
-            return OnDeviceReviewLogic.adjudicatedModeration(
+            return Self.adjudicatedModeration(
                 baseline: baseline,
                 isContextualDescription: adjudication.context == .contextualDescription,
                 confidence: adjudication.confidence,
