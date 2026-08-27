@@ -428,30 +428,41 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(verdict.maxScore, 0.9)
         XCTAssertNotNil(verdict.reasonSummary)
     }
-    func testDeclinedModerationAdjudicationPreservesRejection() {
+    func testModerationAdjudicationFailurePreservesRejection() throws {
         let baseline = OnDeviceReviewLogic.moderation(
             flagged: true,
             severityScore: 0.9,
             model: "test-model"
         )
-        let verdict = AppleModerationService.declinedAdjudicationModeration(
-            baseline: baseline,
-            model: "test-model"
+        let verdict = try XCTUnwrap(
+            AppleModerationService.adjudicationFailureFallback(
+                baseline: baseline,
+                wasDeclined: false,
+                model: "test-model"
+            )
         )
-        XCTAssertTrue(verdict.flagged)
-        XCTAssertEqual(verdict.recommendation, .reject)
-        XCTAssertEqual(verdict.maxScore, 0.9)
-        XCTAssertEqual(verdict.reasonSummary, baseline.reasonSummary)
+        XCTAssertEqual(verdict, baseline)
     }
-    func testDeclinedModerationAdjudicationWithoutBaselineNeedsReview() {
-        let verdict = AppleModerationService.declinedAdjudicationModeration(
-            baseline: nil,
-            model: "test-model"
+    func testDeclinedModerationAdjudicationWithoutBaselineNeedsReview() throws {
+        let verdict = try XCTUnwrap(
+            AppleModerationService.adjudicationFailureFallback(
+                baseline: nil,
+                wasDeclined: true,
+                model: "test-model"
+            )
         )
         XCTAssertFalse(verdict.flagged)
         XCTAssertEqual(verdict.recommendation, .review)
         XCTAssertEqual(verdict.maxScore, 0)
         XCTAssertNotNil(verdict.reasonSummary)
+    }
+    func testModerationAdjudicationFailureWithoutBaselinePropagates() {
+        let verdict = AppleModerationService.adjudicationFailureFallback(
+            baseline: nil,
+            wasDeclined: false,
+            model: "test-model"
+        )
+        XCTAssertNil(verdict)
     }
     func testLowConfidenceModerationAdjudicationNeedsReview() {
         let verdict = AppleModerationService.adjudicatedModeration(

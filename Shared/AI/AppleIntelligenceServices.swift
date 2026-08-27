@@ -315,11 +315,18 @@ public actor AppleModerationService: TextModerating {
         )
     }
 
-    static func declinedAdjudicationModeration(
+    static func adjudicationFailureFallback(
         baseline: ModerationVerdict?,
+        wasDeclined: Bool,
         model: String
-    ) -> ModerationVerdict {
-        baseline ?? OnDeviceReviewLogic.inconclusiveModeration(model: model)
+    ) -> ModerationVerdict? {
+        if let baseline {
+            return baseline
+        }
+        guard wasDeclined else {
+            return nil
+        }
+        return OnDeviceReviewLogic.inconclusiveModeration(model: model)
     }
 
     public func moderate(_ input: String) async throws -> ModerationVerdict {
@@ -351,13 +358,14 @@ public actor AppleModerationService: TextModerating {
                 model: Self.modelIdentifier
             )
         } catch let error as LanguageModelSession.GenerationError {
-            guard FoundationModelsSupport.isDeclined(error) else {
-                throw FoundationModelsSupport.map(error)
-            }
-            return Self.declinedAdjudicationModeration(
+            if let fallback = Self.adjudicationFailureFallback(
                 baseline: baseline,
+                wasDeclined: FoundationModelsSupport.isDeclined(error),
                 model: Self.modelIdentifier
-            )
+            ) {
+                return fallback
+            }
+            throw FoundationModelsSupport.map(error)
         }
     }
 
