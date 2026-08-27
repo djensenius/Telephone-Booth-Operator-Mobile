@@ -66,7 +66,7 @@ private actor RefreshCoordinator {
 @Observable
 @MainActor
 public final class AuthManager {
-    public static let shared = AuthManager()
+    public static let shared = AuthManager(keychainStore: SystemKeychainStore())
 
     public enum AuthState: Sendable {
         case unknown
@@ -98,6 +98,9 @@ public final class AuthManager {
     private let refreshCoordinator = RefreshCoordinator()
 
     @ObservationIgnored
+    let keychainStore: any KeychainStoring
+
+    @ObservationIgnored
     var restoreRetryTask: Task<Void, Never>?
 
     /// Bumped for every scheduled retry loop so a cancelled loop can't clear
@@ -115,7 +118,8 @@ public final class AuthManager {
     @ObservationIgnored
     var urlSession: URLSession = .shared
 
-    private init() {
+    init(keychainStore: any KeychainStoring) {
+        self.keychainStore = keychainStore
         migrateKeychainAccessibility()
         let hasRefreshToken = getKeychainItem(account: "oidc_refresh_token") != nil
         if getAccessToken() != nil {

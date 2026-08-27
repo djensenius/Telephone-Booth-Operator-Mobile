@@ -49,7 +49,7 @@ final class AuthTests: XCTestCase {
     func testOIDCEndpointsCarryTrailingSlash() {
         // Authentik's global OAuth endpoints strict-match on the trailing slash;
         // `appendingPathComponent` without `isDirectory: true` would 404.
-        let manager = AuthManager.shared
+        let manager = makeAuthManager()
         XCTAssertTrue(manager.tokenURL.absoluteString.hasSuffix("/token/"),
                       "tokenURL must carry trailing slash, got \(manager.tokenURL)")
         XCTAssertTrue(manager.deviceAuthorizationURL.absoluteString.hasSuffix("/device/"),
@@ -58,7 +58,7 @@ final class AuthTests: XCTestCase {
 
     @MainActor
     func testStoreTokensSucceedsOnFirstWrite() {
-        let manager = AuthManager.shared
+        let manager = makeAuthManager()
         let tokens = OIDCTokens(
             accessToken: "test-access-\(UUID().uuidString)",
             refreshToken: "test-refresh-\(UUID().uuidString)",
@@ -74,7 +74,7 @@ final class AuthTests: XCTestCase {
 
     @MainActor
     func testStoreTokensUpdateOverwritesExisting() {
-        let manager = AuthManager.shared
+        let manager = makeAuthManager()
         let first = OIDCTokens(
             accessToken: "first-access-\(UUID().uuidString)",
             refreshToken: "first-refresh-\(UUID().uuidString)",
@@ -98,7 +98,7 @@ final class AuthTests: XCTestCase {
 
     @MainActor
     func testStoreTokensReturnsTrueWithoutRefreshToken() {
-        let manager = AuthManager.shared
+        let manager = makeAuthManager()
         let tokens = OIDCTokens(
             accessToken: "access-only-\(UUID().uuidString)",
             refreshToken: nil,
@@ -113,8 +113,7 @@ final class AuthTests: XCTestCase {
 
     @MainActor
     func testPrepareWidgetRefreshRestoresUsableCachedSession() async throws {
-        let manager = AuthManager.shared
-        manager.signOut()
+        let manager = makeAuthManager()
         let stored = manager.storeTokens(
             OIDCTokens(
                 accessToken: "widget-access-\(UUID().uuidString)",
@@ -124,7 +123,7 @@ final class AuthTests: XCTestCase {
                 tokenType: "Bearer"
             )
         )
-        try XCTSkipUnless(stored, "Keychain unavailable in this environment")
+        XCTAssertTrue(stored)
         defer { manager.signOut() }
 
         manager.authState = .unknown
@@ -151,7 +150,7 @@ final class AuthTests: XCTestCase {
     /// constantly.
     @MainActor
     func testValidateSessionExpiredTokenTransientFailureKeepsSession() async {
-        let manager = AuthManager.shared
+        let manager = makeAuthManager()
         // Store an already-expired token
         let expiredTokens = OIDCTokens(
             accessToken: "expired-access-\(UUID().uuidString)",
@@ -230,7 +229,7 @@ final class AuthTests: XCTestCase {
     /// Expired token + successful refresh → should sign in.
     @MainActor
     func testValidateSessionExpiredTokenSuccessfulRefreshSignsIn() async {
-        let manager = AuthManager.shared
+        let manager = makeAuthManager()
         // Store an already-expired token with a refresh token
         let expiredTokens = OIDCTokens(
             accessToken: "expired-access-\(UUID().uuidString)",
@@ -260,7 +259,7 @@ final class AuthTests: XCTestCase {
     /// (the token is still usable).
     @MainActor
     func testValidateSessionUnexpiredTokenTransientFailureStaysSignedIn() async {
-        let manager = AuthManager.shared
+        let manager = makeAuthManager()
         // Store a token that expires in the future (but within the "soon" window
         // so refresh is attempted)
         let soonTokens = OIDCTokens(
@@ -290,7 +289,7 @@ final class AuthTests: XCTestCase {
     /// No refresh token at all → should sign out.
     @MainActor
     func testValidateSessionNoRefreshTokenSignsOut() async {
-        let manager = AuthManager.shared
+        let manager = makeAuthManager()
         // Store access token only (no refresh token)
         let tokens = OIDCTokens(
             accessToken: "orphan-access-\(UUID().uuidString)",
@@ -313,7 +312,8 @@ final class AuthTests: XCTestCase {
 
     @MainActor
     func testKeychainItemsUseThisDeviceOnlyAccessibility() {
-        let manager = AuthManager.shared
+        let keychain = TestKeychainStore()
+        let manager = AuthManager(keychainStore: keychain)
         let tokens = OIDCTokens(
             accessToken: "thisdevice-access-\(UUID().uuidString)",
             refreshToken: "thisdevice-refresh-\(UUID().uuidString)",
@@ -323,26 +323,9 @@ final class AuthTests: XCTestCase {
         )
         manager.storeTokens(tokens)
 
-        // Read back the accessibility attribute for the access token
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "org.davidjensenius.TelephoneBoothOperatorMobile.oidc",
-            kSecAttrAccount as String: "oidc_access_token",
-            kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecReturnAttributes as String: true
-        ]
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
-        XCTAssertEqual(status, noErr)
-        guard let attrs = item as? [String: Any] else {
-            XCTFail("Expected dictionary attributes from keychain query")
-            manager.signOut()
-            return
-        }
-        let accessible = attrs[kSecAttrAccessible as String] as? String
         XCTAssertEqual(
-            accessible,
-            kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String,
+            keychain.accessibilityByAccount["oidc_access_token"],
+            .afterFirstUnlockThisDeviceOnly,
             "Token should use AfterFirstUnlockThisDeviceOnly accessibility"
         )
         manager.signOut()
@@ -352,15 +335,14 @@ final class AuthTests: XCTestCase {
 
     @MainActor
     func testBrokerAccessTokenReturnsNilWhenSignedOut() async {
-        let manager = AuthManager.shared
-        manager.signOut()
+        let manager = makeAuthManager()
         let brokered = await manager.brokerAccessTokenForWatch()
         XCTAssertNil(brokered, "Broker must not vend a token when signed out")
     }
 
     @MainActor
     func testBrokerAccessTokenVendsCurrentAccessToken() async throws {
-        let manager = AuthManager.shared
+        let manager = makeAuthManager()
         let token = "broker-access-\(UUID().uuidString)"
         let stored = manager.storeTokens(OIDCTokens(
             accessToken: token,
@@ -369,9 +351,7 @@ final class AuthTests: XCTestCase {
             expiresIn: 3600,
             tokenType: "Bearer"
         ))
-        // Keychain writes need a signed host; skip where it's unavailable
-        // (e.g. unsigned simulator runs return errSecMissingEntitlement).
-        try XCTSkipUnless(stored, "Keychain unavailable in this environment")
+        XCTAssertTrue(stored)
 
         let brokered = await manager.brokerAccessTokenForWatch()
         XCTAssertEqual(brokered?.accessToken, token,
@@ -383,6 +363,51 @@ final class AuthTests: XCTestCase {
             XCTFail("Expected a brokered expiry")
         }
         manager.signOut()
+    }
+
+    @MainActor
+    private func makeAuthManager() -> AuthManager {
+        AuthManager(keychainStore: TestKeychainStore())
+    }
+}
+
+@MainActor
+final class TestKeychainStore: KeychainStoring {
+    private var values: [String: String] = [:]
+    private(set) var accessibilityByAccount: [String: KeychainAccessibility] = [:]
+
+    func migrateAccessibility(
+        service: String,
+        accounts: [String],
+        to accessibility: KeychainAccessibility
+    ) {
+        for account in accounts where values[key(service: service, account: account)] != nil {
+            accessibilityByAccount[account] = accessibility
+        }
+    }
+
+    func set(
+        service: String,
+        account: String,
+        value: String,
+        accessibility: KeychainAccessibility
+    ) -> Bool {
+        values[key(service: service, account: account)] = value
+        accessibilityByAccount[account] = accessibility
+        return true
+    }
+
+    func get(service: String, account: String) -> String? {
+        values[key(service: service, account: account)]
+    }
+
+    func delete(service: String, account: String) {
+        values.removeValue(forKey: key(service: service, account: account))
+        accessibilityByAccount.removeValue(forKey: account)
+    }
+
+    private func key(service: String, account: String) -> String {
+        "\(service):\(account)"
     }
 }
 

@@ -18,7 +18,7 @@ final class OperatorClientRetryTests: XCTestCase {
 
     @MainActor
     func testOperatorClientRefreshesAndRetriesAfter401() async throws {
-        let auth = AuthManager.shared
+        let auth = makeAuthManager()
         let seed = OIDCTokens(
             accessToken: "stale-access-\(UUID().uuidString)",
             refreshToken: "valid-refresh-\(UUID().uuidString)",
@@ -55,7 +55,7 @@ final class OperatorClientRetryTests: XCTestCase {
 
     @MainActor
     func testOperatorClientSurfaces401WhenRefreshFails() async throws {
-        let auth = AuthManager.shared
+        let auth = makeAuthManager()
         let seed = OIDCTokens(
             accessToken: "stale-access-\(UUID().uuidString)",
             refreshToken: "doomed-refresh-\(UUID().uuidString)",
@@ -104,7 +104,7 @@ final class OperatorClientRetryTests: XCTestCase {
         config.isDemoMode = false
         defer { config.isDemoMode = previousDemoMode }
 
-        let auth = AuthManager.shared
+        let auth = makeAuthManager()
         auth.signOut()
         XCTAssertNil(auth.getAccessToken(), "Precondition: no bearer may be stored")
 
@@ -132,7 +132,8 @@ final class OperatorClientRetryTests: XCTestCase {
 
     @MainActor
     func testClaimMessageProcessingUsesLeaseEndpointAndContractBody() async throws {
-        let auth = AuthManager.shared
+        ClaimRequestURLProtocol.reset()
+        let auth = makeAuthManager()
         XCTAssertTrue(auth.storeTokens(
             OIDCTokens(
                 accessToken: "claim-access-\(UUID().uuidString)",
@@ -176,6 +177,11 @@ final class OperatorClientRetryTests: XCTestCase {
 
         XCTAssertTrue(all.items.contains { $0.status == .archived })
         XCTAssertFalse(defaultList.items.contains { $0.status == .archived })
+    }
+
+    @MainActor
+    private func makeAuthManager() -> AuthManager {
+        AuthManager(keychainStore: TestKeychainStore())
     }
 }
 
@@ -322,6 +328,13 @@ private final class ClaimRequestURLProtocol: URLProtocol {
     nonisolated(unsafe) static var body: Data?
     private static let lock = NSLock()
 
+    static func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+        path = nil
+        body = nil
+    }
+
     override static func canInit(with request: URLRequest) -> Bool { true }
     override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func stopLoading() {}
@@ -329,7 +342,7 @@ private final class ClaimRequestURLProtocol: URLProtocol {
     override func startLoading() {
         Self.lock.lock()
         Self.path = request.url?.path
-        Self.body = request.httpBody
+        Self.body = request.httpBody ?? request.httpBodyStream.flatMap(Self.readData)
         Self.lock.unlock()
         let response = HTTPURLResponse(
             url: request.url!,
@@ -360,5 +373,21 @@ private final class ClaimRequestURLProtocol: URLProtocol {
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: body)
         client?.urlProtocolDidFinishLoading(self)
+    }
+
+    private static func readData(from stream: InputStream) -> Data? {
+        stream.open()
+        defer { stream.close() }
+
+        var data = Data()
+        let bufferSize = 4_096
+        var buffer = [UInt8](repeating: 0, count: bufferSize)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&buffer, maxLength: bufferSize)
+            guard count >= 0 else { return nil }
+            if count == 0 { break }
+            data.append(buffer, count: count)
+        }
+        return data
     }
 }
