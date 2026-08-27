@@ -830,8 +830,51 @@ extension OnDeviceReviewTests {
         let calls = await recorder.recordedCalls()
 
         XCTAssertEqual(calls, [.moderation(sourceText)])
-        XCTAssertNil(result.translation)
+        XCTAssertEqual(result.translation?.translatedText, sourceText)
+        XCTAssertEqual(result.translation?.translatedLanguage, "en")
+        XCTAssertEqual(result.translation?.model, "same-language-pass-through")
         XCTAssertEqual(result.moderation?.inputSha256, ReviewTextSnapshot.sha256(sourceText))
+    }
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testClaimedEnglishTranslationOnlyCompletesWithoutModelCall() async throws {
+        let sourceText = "Already English"
+        let transcription = Transcription(
+            id: "english-transcript",
+            messageId: "demo-message-3",
+            provider: .onDevice,
+            model: "apple-speech-analyzer",
+            status: .succeeded,
+            text: sourceText,
+            language: "en-US",
+            durationMs: nil,
+            latencyMs: nil,
+            error: nil,
+            requestedById: nil,
+            createdAt: .distantPast,
+            completedAt: .distantPast
+        )
+        let message = DemoData.message(id: "demo-message-3")
+            .replacingLatestTranscription(transcription)
+        let claim = MessageProcessingClaim(
+            message: message,
+            needs: [.translation],
+            leaseToken: String(repeating: "a", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: nil
+        )
+        let recorder = ProcessingOrderRecorder()
+        let processor = makeProcessor(
+            translator: RecordingTranslator(recorder: recorder),
+            moderator: RecordingModerator(recorder: recorder, reasonSummary: "")
+        )
+
+        let result = try await processor.process(claim: claim)
+        let calls = await recorder.recordedCalls()
+
+        XCTAssertEqual(calls, [])
+        XCTAssertEqual(result.translation?.translatedText, sourceText)
+        XCTAssertNil(result.moderation)
     }
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)

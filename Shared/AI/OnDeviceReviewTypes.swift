@@ -309,6 +309,11 @@ extension OnDeviceMessageProcessor {
                 text: result.text,
                 language: result.language
             )
+        } else if needs.contains(.translation) {
+            result.translation = try sameLanguageTranslation(
+                claim,
+                text: result.text
+            )
         }
         if needs.contains(.moderation) {
             result.moderation = try await processModeration(
@@ -322,7 +327,7 @@ extension OnDeviceMessageProcessor {
         guard result.hasOutput else {
             throw OnDeviceServiceError.badRequest("The claimed message had no processable work.")
         }
-        stage = .savingModeration
+        stage = result.moderation == nil ? .savingTranslation : .savingModeration
         return MessageProcessingCompleteRequest(
             leaseToken: claim.leaseToken,
             transcription: result.transcription,
@@ -408,6 +413,24 @@ extension OnDeviceMessageProcessor {
             translatedText: translation.translatedText,
             translatedLanguage: translation.targetLanguage,
             model: translation.model
+        )
+    }
+
+    private func sameLanguageTranslation(
+        _ claim: MessageProcessingClaim,
+        text: String?
+    ) throws -> MessageProcessingTranslationResult {
+        guard let text, !text.isEmpty else {
+            throw OnDeviceServiceError.badRequest("The claimed message has no transcript to save.")
+        }
+        return MessageProcessingTranslationResult(
+            transcriptionId: claim.message.latestTranscription?.id,
+            expectedTranslationSha256: ReviewTextSnapshot.sha256(
+                claim.message.latestTranscription?.translationSnapshotText
+            ),
+            translatedText: text,
+            translatedLanguage: OnDeviceReviewLogic.translationTargetLanguage,
+            model: "same-language-pass-through"
         )
     }
 
