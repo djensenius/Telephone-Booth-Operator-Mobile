@@ -186,18 +186,62 @@ public enum OnDeviceReviewLogic {
     ) -> ModerationVerdict {
         let score = min(max(severityScore.isFinite ? severityScore : 0, 0), 1)
         let recommendation: ModerationRecommendation
+        let reasonSummary: String?
         if flagged {
             recommendation = .reject
+            reasonSummary = "The message appears to contain direct harmful content."
         } else if score > 0.5 {
             recommendation = .review
+            reasonSummary = "The on-device model was not confident enough to recommend approval."
         } else {
             recommendation = .approve
+            reasonSummary = nil
         }
         return ModerationVerdict(
             flagged: flagged,
             recommendation: recommendation,
             maxScore: score,
-            model: model
+            model: model,
+            reasonSummary: reasonSummary
+        )
+    }
+
+    public static func adjudicatedModeration(
+        baseline: ModerationVerdict?,
+        isContextualDescription: Bool,
+        confidence: Double,
+        model: String
+    ) -> ModerationVerdict {
+        let normalizedConfidence = min(max(confidence.isFinite ? confidence : 0, 0), 1)
+        guard normalizedConfidence >= 0.6 else {
+            return ModerationVerdict(
+                flagged: false,
+                recommendation: .review,
+                maxScore: max(baseline?.maxScore ?? 0, 0.51),
+                model: model,
+                reasonSummary: """
+                The on-device model could not confidently distinguish direct harmful content \
+                from contextual language.
+                """
+            )
+        }
+        if isContextualDescription {
+            return ModerationVerdict(
+                flagged: false,
+                recommendation: .approve,
+                maxScore: min(baseline?.maxScore ?? 1, 1 - normalizedConfidence),
+                model: model
+            )
+        }
+        return ModerationVerdict(
+            flagged: true,
+            recommendation: .reject,
+            maxScore: max(baseline?.maxScore ?? 0, normalizedConfidence),
+            model: model,
+            reasonSummary: """
+            The message directly communicates harmful conduct rather than merely \
+            describing or reporting it.
+            """
         )
     }
 

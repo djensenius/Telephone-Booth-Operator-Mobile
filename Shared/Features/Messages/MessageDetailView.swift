@@ -304,10 +304,15 @@ private extension MessageDetailView {
                     StatRow(label: "Max score", value: String(format: "%.2f", score))
                 }
                 if let reason = moderation.reasonSummary, !reason.isEmpty {
-                    Text(reason)
-                        .font(Theme.Fonts.bodySmall)
-                        .foregroundStyle(Theme.Colors.textSecondary)
-                        .padding(.top, Theme.Spacing.small)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+                        Text("Reason")
+                            .font(Theme.Fonts.caption.weight(.semibold))
+                            .foregroundStyle(Theme.Colors.textSecondary)
+                        Text(reason)
+                            .font(Theme.Fonts.bodySmall)
+                            .foregroundStyle(Theme.Colors.textPrimary)
+                    }
+                    .padding(.top, Theme.Spacing.small)
                 }
             }
         }

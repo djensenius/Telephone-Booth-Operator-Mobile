@@ -44,9 +44,12 @@
   SpeechAnalyzer, translate to English with Foundation Models, and generate an
   advisory moderation recommendation. The app then persists those results
   through the Operator API; it does not call the Transcription HTTP service.
-  If the on-device model declines to classify a transcript, the app retries
-  once with neutral wording and otherwise records an unflagged "review"
-  suggestion with a reason, rather than a false positive.
+  The moderation pass judges the speaker's meaning in context rather than
+  isolated sensitive words. Concerning or initially declined results receive a
+  second speech-act check that distinguishes direct harmful conduct from
+  reports, descriptions, metaphors, reflections, and requests for help. A
+  rejection includes a reason; unresolved model refusals become an unflagged
+  "review" suggestion rather than a false positive.
 - While an eligible app scene is active, its automatic processor claims one
   `/v1/message-processing` lease at a time and heartbeats it. Before moderation,
   it translates non-English transcripts to English and reviews English

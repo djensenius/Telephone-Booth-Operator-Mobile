@@ -374,12 +374,68 @@ final class OnDeviceReviewTests: XCTestCase {
         )
         XCTAssertEqual(verdict.recommendation, .review)
         XCTAssertEqual(verdict.maxScore, 0.75)
+        XCTAssertNotNil(verdict.reasonSummary)
         let invalid = OnDeviceReviewLogic.moderation(
             flagged: false,
             severityScore: .infinity,
             model: "test-model"
         )
         XCTAssertEqual(invalid.maxScore, 0)
+        XCTAssertEqual(invalid.recommendation, .approve)
+        XCTAssertNil(invalid.reasonSummary)
+        let rejected = OnDeviceReviewLogic.moderation(
+            flagged: true,
+            severityScore: 0.9,
+            model: "test-model"
+        )
+        XCTAssertEqual(rejected.recommendation, .reject)
+        XCTAssertNotNil(rejected.reasonSummary)
+    }
+    func testContextualModerationAdjudicationApprovesDescription() {
+        let baseline = OnDeviceReviewLogic.moderation(
+            flagged: true,
+            severityScore: 0.9,
+            model: "test-model"
+        )
+        let verdict = OnDeviceReviewLogic.adjudicatedModeration(
+            baseline: baseline,
+            isContextualDescription: true,
+            confidence: 0.8,
+            model: "test-model"
+        )
+        XCTAssertFalse(verdict.flagged)
+        XCTAssertEqual(verdict.recommendation, .approve)
+        XCTAssertEqual(verdict.maxScore, 0.2, accuracy: 0.000_001)
+        XCTAssertNil(verdict.reasonSummary)
+    }
+    func testDirectModerationAdjudicationRejectsWithReason() {
+        let baseline = OnDeviceReviewLogic.moderation(
+            flagged: false,
+            severityScore: 0.75,
+            model: "test-model"
+        )
+        let verdict = OnDeviceReviewLogic.adjudicatedModeration(
+            baseline: baseline,
+            isContextualDescription: false,
+            confidence: 0.9,
+            model: "test-model"
+        )
+        XCTAssertTrue(verdict.flagged)
+        XCTAssertEqual(verdict.recommendation, .reject)
+        XCTAssertEqual(verdict.maxScore, 0.9)
+        XCTAssertNotNil(verdict.reasonSummary)
+    }
+    func testLowConfidenceModerationAdjudicationNeedsReview() {
+        let verdict = OnDeviceReviewLogic.adjudicatedModeration(
+            baseline: nil,
+            isContextualDescription: true,
+            confidence: 0.59,
+            model: "test-model"
+        )
+        XCTAssertFalse(verdict.flagged)
+        XCTAssertEqual(verdict.recommendation, .review)
+        XCTAssertEqual(verdict.maxScore, 0.51)
+        XCTAssertNotNil(verdict.reasonSummary)
     }
     func testInconclusiveModerationIsUnflaggedReview() {
         let verdict = OnDeviceReviewLogic.inconclusiveModeration(model: "test-model")
