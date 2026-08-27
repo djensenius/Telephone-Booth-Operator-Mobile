@@ -408,7 +408,7 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(verdict.maxScore, 0.2, accuracy: 0.000_001)
         XCTAssertNil(verdict.reasonSummary)
     }
-    func testDirectModerationAdjudicationRejectsWithReason() {
+    func testDirectlyUnsuitableModerationAdjudicationRejectsWithReason() {
         let baseline = OnDeviceReviewLogic.moderation(
             flagged: false,
             severityScore: 0.75,

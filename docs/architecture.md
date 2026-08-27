@@ -46,7 +46,7 @@
   through the Operator API; it does not call the Transcription HTTP service.
   The moderation pass judges the speaker's meaning in context rather than
   isolated sensitive words. Concerning or initially declined results receive a
-  second speech-act check that distinguishes direct harmful conduct from
+  second speech-act check that distinguishes directly unsuitable content from
   reports, descriptions, metaphors, reflections, and requests for help. A
   rejection includes a reason; unresolved model refusals become an unflagged
   "review" suggestion rather than a false positive.
