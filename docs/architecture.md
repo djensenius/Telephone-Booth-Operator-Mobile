@@ -46,10 +46,10 @@
   through the Operator API; it does not call the Transcription HTTP service.
   The moderation pass judges the speaker's meaning in context rather than
   isolated sensitive words. Concerning or initially declined results receive a
-  second speech-act check that distinguishes directly unsuitable content from
-  reports, descriptions, metaphors, reflections, and requests for help. A
-  rejection includes a reason; unresolved model refusals become an unflagged
-  "review" suggestion rather than a false positive.
+  second check that can approve clearly non-graphic, otherwise suitable context
+  such as reports, metaphors, reflections, and requests for help. All other
+  outcomes preserve the initial rejection or review, and unresolved model
+  refusals become an unflagged "review" suggestion rather than a false positive.
 - While an eligible app scene is active, its automatic processor claims one
   `/v1/message-processing` lease at a time and heartbeats it. Before moderation,
   it translates non-English transcripts to English and reviews English

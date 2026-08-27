@@ -399,7 +399,7 @@ final class OnDeviceReviewTests: XCTestCase {
         )
         let verdict = AppleModerationService.adjudicatedModeration(
             baseline: baseline,
-            isContextualDescription: true,
+            isContextualAndSuitable: true,
             confidence: 0.8,
             model: "test-model"
         )
@@ -408,15 +408,15 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(verdict.maxScore, 0.2, accuracy: 0.000_001)
         XCTAssertNil(verdict.reasonSummary)
     }
-    func testDirectlyUnsuitableModerationAdjudicationRejectsWithReason() {
+    func testUnsafeContextPreservesRejectionWithReason() {
         let baseline = OnDeviceReviewLogic.moderation(
-            flagged: false,
-            severityScore: 0.75,
+            flagged: true,
+            severityScore: 0.9,
             model: "test-model"
         )
         let verdict = AppleModerationService.adjudicatedModeration(
             baseline: baseline,
-            isContextualDescription: false,
+            isContextualAndSuitable: false,
             confidence: 0.9,
             model: "test-model"
         )
@@ -428,13 +428,13 @@ final class OnDeviceReviewTests: XCTestCase {
     func testLowConfidenceModerationAdjudicationNeedsReview() {
         let verdict = AppleModerationService.adjudicatedModeration(
             baseline: nil,
-            isContextualDescription: true,
+            isContextualAndSuitable: true,
             confidence: 0.59,
             model: "test-model"
         )
         XCTAssertFalse(verdict.flagged)
         XCTAssertEqual(verdict.recommendation, .review)
-        XCTAssertEqual(verdict.maxScore, 0.51)
+        XCTAssertEqual(verdict.maxScore, 0)
         XCTAssertNotNil(verdict.reasonSummary)
     }
     func testInconclusiveModerationIsUnflaggedReview() {
