@@ -55,7 +55,8 @@ final class OnDeviceAudioFetcherTests: XCTestCase {
                 maxBytes: 16
             ) { _ in true }
         }
-        XCTAssertTrue(AudioFetcherURLProtocol.stopLoadingWasCalled)
+        let stopLoadingWasCalled = await AudioFetcherURLProtocol.waitForStopLoading()
+        XCTAssertTrue(stopLoadingWasCalled)
 
         AudioFetcherURLProtocol.scenario = .body(audio)
         await assertFetchError(.hashMismatch) {
@@ -168,7 +169,8 @@ private final class AudioFetcherURLProtocol: URLProtocol {
 
     nonisolated(unsafe) static var scenario = Scenario.body(Data())
     nonisolated(unsafe) static var lastRequest: URLRequest?
-    nonisolated(unsafe) static var stopLoadingWasCalled = false
+    private static let streamingLock = NSLock()
+    private nonisolated(unsafe) static var stopLoadingWasCalled = false
     private let stateLock = NSLock()
     private var stopped = false
 
@@ -176,14 +178,30 @@ private final class AudioFetcherURLProtocol: URLProtocol {
     override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     static func resetStreamingState() {
-        stopLoadingWasCalled = false
+        streamingLock.withLock {
+            stopLoadingWasCalled = false
+        }
+    }
+
+    static func waitForStopLoading() async -> Bool {
+        for _ in 0..<100 {
+            if wasStopLoadingCalled { return true }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return false
+    }
+
+    private static var wasStopLoadingCalled: Bool {
+        streamingLock.withLock { stopLoadingWasCalled }
     }
 
     override func stopLoading() {
         stateLock.lock()
         stopped = true
-        Self.stopLoadingWasCalled = true
         stateLock.unlock()
+        Self.streamingLock.withLock {
+            Self.stopLoadingWasCalled = true
+        }
     }
 
     override func startLoading() {
