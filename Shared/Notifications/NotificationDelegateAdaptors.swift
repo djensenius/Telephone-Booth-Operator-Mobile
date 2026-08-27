@@ -83,16 +83,24 @@ public final class TBOperatorAppDelegate: NSObject, UIApplicationDelegate, UNUse
     #if !os(tvOS)
     nonisolated public func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        didReceive response: UNNotificationResponse
-    ) async {
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping @Sendable () -> Void
+    ) {
         let content = response.notification.request.content
-        if let target = NotificationManager.navigationTarget(
+        let target = NotificationManager.navigationTarget(
             categoryIdentifier: content.categoryIdentifier,
             userInfo: content.userInfo
-        ) {
-            await NotificationManager.shared.route(to: target)
+        )
+        Task { @MainActor in
+            if let target {
+                NotificationManager.shared.route(to: target)
+            }
+            // UIKit performs foreground state restoration when this returns.
+            // Complete on the main actor instead of the async protocol bridge's
+            // cooperative-pool executor.
+            completionHandler()
+            await PendingMessagesStore.shared.refresh(using: .shared)
         }
-        await PendingMessagesStore.shared.refresh(using: .shared)
     }
     #endif
 }
