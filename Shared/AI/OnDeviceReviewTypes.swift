@@ -186,18 +186,23 @@ public enum OnDeviceReviewLogic {
     ) -> ModerationVerdict {
         let score = min(max(severityScore.isFinite ? severityScore : 0, 0), 1)
         let recommendation: ModerationRecommendation
+        let reasonSummary: String?
         if flagged {
             recommendation = .reject
+            reasonSummary = "The message appears unsuitable for public playback."
         } else if score > 0.5 {
             recommendation = .review
+            reasonSummary = "The on-device model was not confident enough to recommend approval."
         } else {
             recommendation = .approve
+            reasonSummary = nil
         }
         return ModerationVerdict(
             flagged: flagged,
             recommendation: recommendation,
             maxScore: score,
-            model: model
+            model: model,
+            reasonSummary: reasonSummary
         )
     }
 

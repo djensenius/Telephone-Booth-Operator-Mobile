@@ -167,7 +167,7 @@ struct WatchModerationDetailView: View {
                     .font(.body)
             }
             if let reason = msg.latestApplicableModeration?.reasonSummary, !reason.isEmpty {
-                Text(reason)
+                Text("Reason: \(reason)")
                     .font(.caption)
                     .foregroundStyle(Theme.Colors.warning)
             }
