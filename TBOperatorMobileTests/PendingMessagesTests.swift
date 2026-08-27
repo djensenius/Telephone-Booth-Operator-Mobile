@@ -220,8 +220,7 @@ final class StatsOverviewCompatibilityTests: XCTestCase {
         appConfig.isDemoMode = false
         defer { appConfig.isDemoMode = previousDemoMode }
 
-        let auth = AuthManager.shared
-        auth.signOut()
+        let auth = AuthManager(keychainStore: TestKeychainStore())
         let stored = auth.storeTokens(
             OIDCTokens(
                 accessToken: "stats-access-\(UUID().uuidString)",
@@ -231,7 +230,7 @@ final class StatsOverviewCompatibilityTests: XCTestCase {
                 tokenType: "Bearer"
             )
         )
-        try XCTSkipUnless(stored, "Keychain unavailable in this environment")
+        XCTAssertTrue(stored)
         defer { auth.signOut() }
         StatsDigitRecoveryURLProtocol.reset()
         let configuration = URLSessionConfiguration.ephemeral

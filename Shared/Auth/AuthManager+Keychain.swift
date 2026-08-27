@@ -10,23 +10,42 @@ import os
 
 private let logger = authManagerLogger
 
-extension AuthManager {
+enum KeychainAccessibility: Equatable {
+    case afterFirstUnlockThisDeviceOnly
+}
 
-    static let keychainService = "org.davidjensenius.TelephoneBoothOperatorMobile.oidc"
+@MainActor
+protocol KeychainStoring {
+    func migrateAccessibility(
+        service: String,
+        accounts: [String],
+        to accessibility: KeychainAccessibility
+    )
+    func set(
+        service: String,
+        account: String,
+        value: String,
+        accessibility: KeychainAccessibility
+    ) -> Bool
+    func get(service: String, account: String) -> String?
+    func delete(service: String, account: String)
+}
 
-    /// Migrates existing Keychain items from `kSecAttrAccessibleAfterFirstUnlock`
-    /// to `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`. This prevents tokens
-    /// from being restored to other devices via iCloud Backup.
-    func migrateKeychainAccessibility() {
-        let accounts = ["oidc_access_token", "oidc_refresh_token", "oidc_token_expiry"]
+@MainActor
+struct SystemKeychainStore: KeychainStoring {
+    func migrateAccessibility(
+        service: String,
+        accounts: [String],
+        to accessibility: KeychainAccessibility
+    ) {
         for account in accounts {
             let query: [String: Any] = [
                 kSecClass as String: kSecClassGenericPassword,
-                kSecAttrService as String: Self.keychainService,
+                kSecAttrService as String: service,
                 kSecAttrAccount as String: account
             ]
             let update: [String: Any] = [
-                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+                kSecAttrAccessible as String: securityAccessibility(accessibility)
             ]
             let status = SecItemUpdate(query as CFDictionary, update as CFDictionary)
             if status == noErr {
@@ -39,17 +58,21 @@ extension AuthManager {
         }
     }
 
-    @discardableResult
-    func setKeychainItem(account: String, value: String) -> Bool {
+    func set(
+        service: String,
+        account: String,
+        value: String,
+        accessibility: KeychainAccessibility
+    ) -> Bool {
         guard let data = value.data(using: .utf8) else { return false }
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.keychainService,
+            kSecAttrService as String: service,
             kSecAttrAccount as String: account
         ]
         let updateAttrs: [String: Any] = [
             kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            kSecAttrAccessible as String: securityAccessibility(accessibility)
         ]
         let updateStatus = SecItemUpdate(
             query as CFDictionary, updateAttrs as CFDictionary
@@ -60,7 +83,7 @@ extension AuthManager {
         if updateStatus == errSecItemNotFound {
             var addAttrs = query
             addAttrs[kSecValueData as String] = data
-            addAttrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            addAttrs[kSecAttrAccessible as String] = securityAccessibility(accessibility)
             let addStatus = SecItemAdd(addAttrs as CFDictionary, nil)
             if addStatus == noErr {
                 return true
@@ -76,10 +99,10 @@ extension AuthManager {
         return false
     }
 
-    func getKeychainItem(account: String) -> String? {
+    func get(service: String, account: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.keychainService,
+            kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecMatchLimit as String: kSecMatchLimitOne,
             kSecReturnData as String: true
@@ -90,12 +113,57 @@ extension AuthManager {
         return String(data: data, encoding: .utf8)
     }
 
-    func deleteKeychainItem(account: String) {
+    func delete(service: String, account: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.keychainService,
+            kSecAttrService as String: service,
             kSecAttrAccount as String: account
         ]
         SecItemDelete(query as CFDictionary)
+    }
+
+    private func securityAccessibility(
+        _ accessibility: KeychainAccessibility
+    ) -> CFString {
+        switch accessibility {
+        case .afterFirstUnlockThisDeviceOnly:
+            kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        }
+    }
+}
+
+extension AuthManager {
+
+    static let keychainService = "org.davidjensenius.TelephoneBoothOperatorMobile.oidc"
+    static let tokenAccessibility = KeychainAccessibility.afterFirstUnlockThisDeviceOnly
+
+    /// Migrates existing Keychain items from `kSecAttrAccessibleAfterFirstUnlock`
+    /// to `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`. This prevents tokens
+    /// from being restored to other devices via iCloud Backup.
+    func migrateKeychainAccessibility() {
+        let accounts = ["oidc_access_token", "oidc_refresh_token", "oidc_token_expiry"]
+        keychainStore.migrateAccessibility(
+            service: Self.keychainService,
+            accounts: accounts,
+            to: Self.tokenAccessibility
+        )
+    }
+
+    @discardableResult
+    func setKeychainItem(account: String, value: String) -> Bool {
+        keychainStore.set(
+            service: Self.keychainService,
+            account: account,
+            value: value,
+            accessibility: Self.tokenAccessibility
+        )
+    }
+
+    func getKeychainItem(account: String) -> String? {
+        keychainStore.get(service: Self.keychainService, account: account)
+    }
+
+    func deleteKeychainItem(account: String) {
+        keychainStore.delete(service: Self.keychainService, account: account)
     }
 }
