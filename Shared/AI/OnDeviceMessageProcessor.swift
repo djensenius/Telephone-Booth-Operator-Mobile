@@ -55,7 +55,7 @@ public final class OnDeviceMessageProcessor {
             case .savingTranscript: return "Saving transcript…"
             case .savingTranslation: return "Saving translation…"
             case .savingModeration: return "Saving suggestion…"
-            case .completed: return "Transcript, translation, and suggestion saved."
+            case .completed: return "On-device results saved."
             case .failed(let message): return message
             }
         }
@@ -94,7 +94,8 @@ public final class OnDeviceMessageProcessor {
         let transcript: String
         let language: String?
         let transcriptionModel: String
-        let translation: TranslationResult
+        let translation: TranslationResult?
+        let moderationInput: String
         let moderation: ModerationVerdict
         let requestedById: String
         let expectedTranslationSha256: String?
@@ -218,28 +219,27 @@ extension OnDeviceMessageProcessor {
             }
             let trimmedTranscript = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
 
-            stage = .translating
-            let translation = try await translator.translate(
+            let transcriptionLanguage = selection.language
+                ?? selection.locale.language.languageCode?.identifier
+            let translation = try await translateIfNeeded(
                 trimmedTranscript,
-                sourceLanguage: sourceLanguage
+                sourceLanguage: transcriptionLanguage
             )
             guard generation == currentGeneration else { return }
-            guard !translation.translatedText.isEmpty else {
-                fail("On-device translation produced no text.")
-                return
-            }
 
             stage = .moderating
-            let moderation = try await moderator.moderate(translation.translatedText)
+            let moderationInput = translation?.translatedText ?? trimmedTranscript
+            let moderation = try await moderator.moderate(moderationInput)
             guard generation == currentGeneration else { return }
 
             pendingResult = PendingResult(
                 messageId: currentMessage.id,
                 baseline: SourceSnapshot(currentMessage),
                 transcript: trimmedTranscript,
-                language: translation.sourceLanguage ?? selection.language,
+                language: translation?.sourceLanguage ?? transcriptionLanguage,
                 transcriptionModel: "apple-speech-analyzer",
                 translation: translation,
+                moderationInput: moderationInput,
                 moderation: moderation,
                 requestedById: requestedById,
                 expectedTranslationSha256: nil,
@@ -292,7 +292,7 @@ extension OnDeviceMessageProcessor {
                     fail("This message changed during on-device processing. Run it again.")
                     return
                 }
-                pending.step = .translation
+                pending.step = pending.translation == nil ? .moderation : .translation
                 pendingResult = pending
             }
 
@@ -302,11 +302,9 @@ extension OnDeviceMessageProcessor {
 
             stage = .savingModeration
             let current = try await client.fetchMessage(id: pending.messageId)
-            guard current.latestTranscription?.id == pending.transcriptionId,
-                  Self.trimmed(current.latestTranscription?.translatedText)
-                    == Self.trimmed(pending.translation.translatedText) else {
+            guard Self.matchesModerationInput(current.latestTranscription, pending: pending) else {
                 pendingResult = nil
-                fail("The translation changed before its suggestion could be saved.")
+                fail("The review text changed before its suggestion could be saved.")
                 return
             }
             if current.latestApplicableModeration?.transcriptionId == pending.transcriptionId,
@@ -318,7 +316,7 @@ extension OnDeviceMessageProcessor {
             }
             let moderationBody = MessageModerationRequest(
                 transcriptionId: pending.transcriptionId,
-                inputSha256: ReviewTextSnapshot.sha256(pending.translation.translatedText),
+                inputSha256: ReviewTextSnapshot.sha256(pending.moderationInput),
                 flagged: pending.moderation.flagged,
                 recommendation: pending.moderation.recommendation,
                 maxScore: pending.moderation.maxScore,
@@ -337,10 +335,30 @@ extension OnDeviceMessageProcessor {
         }
     }
 
+    private func translateIfNeeded(
+        _ text: String,
+        sourceLanguage: String?
+    ) async throws -> TranslationResult? {
+        guard OnDeviceReviewLogic.shouldTranslate(sourceLanguage: sourceLanguage) else {
+            return nil
+        }
+        stage = .translating
+        let translation = try await translator.translate(text, sourceLanguage: sourceLanguage)
+        guard !translation.translatedText.isEmpty else {
+            throw OnDeviceServiceError.badRequest("On-device translation produced no text.")
+        }
+        return translation
+    }
+
     private func persistTranslation(
         _ pending: inout PendingResult,
         client: any MessageReviewPersisting
     ) async throws -> Bool {
+        guard let translation = pending.translation else {
+            pending.step = .moderation
+            pendingResult = pending
+            return true
+        }
         stage = .savingTranslation
         let current = try await client.fetchMessage(id: pending.messageId)
         guard current.latestTranscription?.id == pending.transcriptionId,
@@ -362,9 +380,9 @@ extension OnDeviceMessageProcessor {
                 body: MessageTranslationRequest(
                     transcriptionId: pending.transcriptionId,
                     expectedTranslationSha256: pending.expectedTranslationSha256,
-                    translatedText: pending.translation.translatedText,
-                    translatedLanguage: pending.translation.targetLanguage,
-                    model: pending.translation.model
+                    translatedText: translation.translatedText,
+                    translatedLanguage: translation.targetLanguage,
+                    model: translation.model
                 )
             )
         }
@@ -436,11 +454,23 @@ extension OnDeviceMessageProcessor {
         _ existing: Transcription?,
         pending: PendingResult
     ) -> Bool {
-        existing?.translationStatus == .succeeded
-            && trimmed(existing?.translatedText) == trimmed(pending.translation.translatedText)
+        guard let translation = pending.translation else { return false }
+        return existing?.translationStatus == .succeeded
+            && trimmed(existing?.translatedText) == trimmed(translation.translatedText)
             && existing?.translationProvider == .onDevice
-            && existing?.translationModel == pending.translation.model
-            && existing?.translatedLanguage == pending.translation.targetLanguage
+            && existing?.translationModel == translation.model
+            && existing?.translatedLanguage == translation.targetLanguage
+    }
+
+    private static func matchesModerationInput(
+        _ existing: Transcription?,
+        pending: PendingResult
+    ) -> Bool {
+        guard existing?.id == pending.transcriptionId else { return false }
+        if pending.translation != nil {
+            return trimmed(existing?.translatedText) == trimmed(pending.moderationInput)
+        }
+        return trimmed(existing?.text) == trimmed(pending.moderationInput)
     }
 
     private static func describe(_ error: any Error) -> String {
