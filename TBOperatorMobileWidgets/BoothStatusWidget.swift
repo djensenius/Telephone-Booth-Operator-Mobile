@@ -158,11 +158,8 @@ struct BoothStatusWidgetView: View {
                 .foregroundStyle(summary.boothState.widgetTint)
                 .font(.title3.weight(.semibold))
                 .widgetAccentable()
-            Text("Booth")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-            Spacer()
+            WidgetHeaderTitle(title: "Booth")
+            Spacer(minLength: 4)
             if stale {
                 WidgetStaleBadge()
             } else if let mode = summary.runtimeMode, mode.shouldDisplayBadge {

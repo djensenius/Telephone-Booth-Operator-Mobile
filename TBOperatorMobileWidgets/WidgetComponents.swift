@@ -125,6 +125,8 @@ struct WidgetUpdatedFooter: View {
                 .imageScale(.small)
                 .accessibilityHidden(true)
             Text(date, style: .relative)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
         .font(.caption2)
         .foregroundStyle(stale ? AnyShapeStyle(Theme.Colors.warning) : AnyShapeStyle(.tertiary))
@@ -144,16 +146,25 @@ struct WidgetUpdatedFooter: View {
 /// Inline "Stale" pill used in headers and rectangular accessories.
 struct WidgetStaleBadge: View {
     var asOf: Date?
+    @Environment(\.widgetFamily) private var family
 
     init(asOf: Date? = nil) {
         self.asOf = asOf
     }
 
     var body: some View {
-        Label("Stale", systemImage: "clock.badge.exclamationmark")
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(Theme.Colors.warning)
-            .accessibilityLabel(accessibilityLabel)
+        Group {
+            if family.operatorLayoutSize == .small {
+                Image(systemName: "clock.badge.exclamationmark")
+            } else {
+                Label("Stale", systemImage: "clock.badge.exclamationmark")
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(Theme.Colors.warning)
+        .accessibilityLabel(accessibilityLabel)
     }
 
     private var accessibilityLabel: Text {
@@ -162,6 +173,21 @@ struct WidgetStaleBadge: View {
         } else {
             Text("Data is stale")
         }
+    }
+}
+
+struct WidgetHeaderTitle: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .textCase(.uppercase)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .allowsTightening(true)
+            .layoutPriority(1)
     }
 }
 

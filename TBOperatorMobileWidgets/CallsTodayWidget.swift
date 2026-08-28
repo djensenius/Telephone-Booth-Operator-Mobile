@@ -117,6 +117,8 @@ struct CallsTodayWidgetView: View {
                 Text("\(summary.interactionsInProgress) in progress")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.Colors.error)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .privacySensitive()
             } else {
                 Text("None active")
@@ -204,11 +206,8 @@ struct CallsTodayWidgetView: View {
                 .foregroundStyle(.tint)
                 .font(.title3.weight(.semibold))
                 .widgetAccentable()
-            Text("Pickups")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-            Spacer()
+            WidgetHeaderTitle(title: "Pickups")
+            Spacer(minLength: 4)
             if stale {
                 WidgetStaleBadge()
             } else if summary.interactionsInProgress > 0 {
@@ -229,6 +228,9 @@ struct CallsTodayWidgetView: View {
             .foregroundStyle(.primary)
             .monospacedDigit()
             .contentTransition(.numericText())
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+            .allowsTightening(true)
             .privacySensitive()
     }
 

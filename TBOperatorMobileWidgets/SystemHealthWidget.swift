@@ -187,17 +187,16 @@ struct SystemHealthWidgetView: View {
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(severity.tint)
                 .widgetAccentable()
-            Text(family == .systemSmall ? "System" : "System health")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-            Spacer()
+            WidgetHeaderTitle(title: family == .systemSmall ? "System" : "System health")
+            Spacer(minLength: 4)
             if cacheStale {
                 WidgetStaleBadge()
             } else {
                 Text(severity.displayName)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(severity.tint)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
         }
         .accessibilityElement(children: .combine)

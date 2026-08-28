@@ -66,11 +66,8 @@ struct ActivitySummaryWidgetView: View {
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(.tint)
                     .widgetAccentable()
-                Text("Last 24 hours")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                Spacer()
+                WidgetHeaderTitle(title: "Last 24 hours")
+                Spacer(minLength: 4)
                 if stale { WidgetStaleBadge() }
             }
             HStack(spacing: 16) {
