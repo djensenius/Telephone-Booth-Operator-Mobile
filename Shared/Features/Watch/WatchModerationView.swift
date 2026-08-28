@@ -16,6 +16,7 @@ struct WatchModerationView: View {
     @State private var messages: [Message] = []
     @State private var errorMessage: String?
     @State private var isRefreshing = false
+    @State private var notificationScope: DeliveredNotificationScope?
 
     private let client: OperatorClient
 
@@ -53,6 +54,7 @@ struct WatchModerationView: View {
         .autoRefresh {
             await refresh()
         }
+        .notificationVisibilityScope(notificationScope)
     }
 
     private var emptyState: some View {
@@ -90,6 +92,12 @@ struct WatchModerationView: View {
         messages = combined.sorted { lhs, rhs in
             (lhs.receivedAt ?? lhs.createdAt) > (rhs.receivedAt ?? rhs.createdAt)
         }
+        let scope: DeliveredNotificationScope =
+            pending != nil && received != nil
+                ? .allMessages
+                : .messages(ids: Set(messages.map(\.id)))
+        notificationScope = scope
+        await NotificationManager.shared.clearDeliveredNotifications(in: scope)
     }
 }
 
@@ -133,6 +141,7 @@ struct WatchModerationDetailView: View {
 
     @State private var message: Message?
     @State private var errorMessage: String?
+    @State private var notificationScope: DeliveredNotificationScope?
 
     var body: some View {
         ScrollView {
@@ -150,6 +159,7 @@ struct WatchModerationDetailView: View {
         .autoRefresh {
             await load()
         }
+        .notificationVisibilityScope(notificationScope)
     }
 
     private func detail(_ msg: Message) -> some View {
@@ -177,6 +187,9 @@ struct WatchModerationDetailView: View {
     private func load() async {
         do {
             message = try await client.fetchMessage(id: messageId)
+            let scope = DeliveredNotificationScope.messages(ids: [messageId])
+            notificationScope = scope
+            await NotificationManager.shared.clearDeliveredNotifications(in: scope)
         } catch {
             errorMessage = "Couldn't load message."
         }

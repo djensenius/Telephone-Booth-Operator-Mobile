@@ -6,13 +6,21 @@
 //
 import SwiftUI
 
+private struct CallNotificationAcknowledgementID: Equatable {
+    let revision: UInt
+    let isActive: Bool
+}
+
 public struct StatusDashboardView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.automaticRefreshEnabled) private var automaticRefreshEnabled
     @State private var auth = AuthManager.shared
     @State private var config = AppConfig.shared
     @State private var profile: OperatorMe?
     @State private var errorMessage: String?
     @State private var isRefreshing = false
     @State private var liveStore: BoothStatusLiveStore
+    @State private var notificationScope: DeliveredNotificationScope?
 
     private let client: OperatorClient
 
@@ -44,6 +52,20 @@ public struct StatusDashboardView: View {
         .task {
             await refresh()
         }
+        .task(
+            id: CallNotificationAcknowledgementID(
+                revision: liveStore.callsTodayRefreshRevision,
+                isActive: scenePhase == .active && automaticRefreshEnabled
+            )
+        ) {
+            guard liveStore.callsTodayRefreshRevision > 0,
+                  scenePhase == .active,
+                  automaticRefreshEnabled,
+                  !Task.isCancelled else { return }
+            notificationScope = .allCalls
+            await NotificationManager.shared.clearDeliveredNotifications(in: .allCalls)
+        }
+        .notificationVisibilityScope(notificationScope)
         .boothStatusLive(liveStore)
     }
 
@@ -52,9 +74,9 @@ public struct StatusDashboardView: View {
         errorMessage = nil
         defer { isRefreshing = false }
         async let meResult = capture { try await client.fetchMe() }
-        async let storeRefresh: Void = liveStore.refreshNow()
+        async let callsRefresh: Void = liveStore.refreshNow()
         let meOutcome = await meResult
-        await storeRefresh
+        await callsRefresh
         if let newMe = try? meOutcome.get() {
             profile = newMe
         } else if profile == nil {

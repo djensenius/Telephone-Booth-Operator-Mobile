@@ -31,6 +31,7 @@ public final class BoothStatusLiveStore {
     public internal(set) var callsTodaySessions: [CallSession] = []
     public internal(set) var callsTodayStartedAt: Date?
     public internal(set) var hasLoadedCallsToday = false
+    public internal(set) var callsTodayRefreshRevision: UInt = 0
     public private(set) var connection: ConnectionState = .offline
     public private(set) var lastError: String?
 
@@ -478,6 +479,7 @@ public final class BoothStatusLiveStore {
         callsTodaySessions = DemoData.rebasedSessions()
         callsTodayStartedAt = demoStats.dayStartedAt
         hasLoadedCallsToday = true
+        callsTodayRefreshRevision &+= 1
         connection = .polling
         lastError = nil
         systemUnavailable = false

@@ -71,6 +71,7 @@ extension BoothStatusLiveStore {
                     return $0.startedAt < $1.startedAt
                 }
             hasLoadedCallsToday = true
+                callsTodayRefreshRevision &+= 1
         }
     }
 

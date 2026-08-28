@@ -18,6 +18,7 @@ public struct SessionListView: View {
     @State private var errorMessage: String?
     @State private var generation = 0
     @State private var loadedPageCount = 0
+    @State private var notificationScope: DeliveredNotificationScope?
 
     private let client: OperatorClient
     private let pageSize: Int
@@ -53,6 +54,7 @@ public struct SessionListView: View {
         .refreshableIfAvailable {
             await loadFirstPage()
         }
+        .notificationVisibilityScope(notificationScope)
     }
 
     private var list: some View {
@@ -130,10 +132,15 @@ public struct SessionListView: View {
         do {
             let page = try await client.fetchSessions(cursor: nil, limit: pageSize)
             guard requested == generation else { return }
+            guard !Task.isCancelled else {
+                loadState = .idle
+                return
+            }
             sessions = page.items
             nextCursor = page.nextCursor
             loadedPageCount = 1
             loadState = nextCursor == nil ? .done : .idle
+            await acknowledgeLoadedSessions()
         } catch {
             guard requested == generation else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to load sessions."
@@ -166,6 +173,7 @@ public struct SessionListView: View {
             loadedPageCount = refreshed.pageCount
             errorMessage = nil
             loadState = nextCursor == nil ? .done : .idle
+            await acknowledgeLoadedSessions()
         } catch {
             guard requested == generation else { return }
             loadState = nextCursor == nil ? .done : .idle
@@ -191,6 +199,11 @@ public struct SessionListView: View {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to load more sessions."
             loadState = .idle
         }
+    }
+
+    private func acknowledgeLoadedSessions() async {
+        notificationScope = .allCalls
+        await NotificationManager.shared.clearDeliveredNotifications(in: .allCalls)
     }
 }
 

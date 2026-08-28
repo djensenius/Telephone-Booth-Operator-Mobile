@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  MessageListView.swift
 //  TelephoneBoothOperatorMobile
@@ -20,6 +21,7 @@ public struct MessageListView: View {
     @State private var deletingMessageIds: Set<String> = []
     @State private var deleteCandidate: Message?
     @State private var refreshGeneration = 0
+    @State private var notificationScope: DeliveredNotificationScope?
     #if os(macOS)
     @State private var hoveredMessageId: String?
     #endif
@@ -73,12 +75,16 @@ public struct MessageListView: View {
         .autoRefresh(id: filter) {
             await refresh()
         }
+        .onChange(of: filter) {
+            notificationScope = nil
+        }
         .onChange(of: routeRevision) {
             filter = routeFilter
         }
         .task {
             await watchMessageUpdates()
         }
+        .notificationVisibilityScope(notificationScope)
         .refreshableIfAvailable {
             await refresh()
         }
@@ -289,6 +295,12 @@ public struct MessageListView: View {
             let list = try await fetchMessages(for: filter)
             guard !Task.isCancelled, generation == refreshGeneration else { return }
             messages = list
+            let scope: DeliveredNotificationScope =
+                filter == .all || filter == .review
+                    ? .allMessages
+                    : .messages(ids: Set(list.map(\.id)))
+            notificationScope = scope
+            await NotificationManager.shared.clearDeliveredNotifications(in: scope)
         } catch {
             guard !Task.isCancelled, generation == refreshGeneration else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to load messages."
@@ -356,6 +368,17 @@ public struct MessageListView: View {
                     guard !Task.isCancelled else { return }
                     if case .message(let message) = envelope {
                         apply(message)
+                        if filter.includes(message.status) {
+                            let descriptor = NotificationManager.deliveredNotificationDescriptor(
+                                categoryIdentifier: "BOOTH_MESSAGE",
+                                userInfo: ["messageId": message.id]
+                            )
+                            if NotificationManager.shared.isViewingNotification(descriptor) {
+                                await NotificationManager.shared.clearDeliveredNotifications(
+                                    in: .messages(ids: [message.id])
+                                )
+                            }
+                        }
                     }
                 }
             } catch is CancellationError {
