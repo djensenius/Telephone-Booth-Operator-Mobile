@@ -60,7 +60,7 @@ public struct SystemView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Theme.Colors.background)
-        .refreshableIfAvailable { await liveStore.refreshNow() }
+        .refreshableIfAvailable { _ = await liveStore.refreshNow() }
         .boothStatusLive(liveStore)
     }
 }

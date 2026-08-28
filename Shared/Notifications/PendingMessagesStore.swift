@@ -26,6 +26,8 @@ import os
 @Observable
 public final class PendingMessagesStore {
     public static let shared = PendingMessagesStore()
+    typealias BadgeSetter = @Sendable (Int) async throws -> Void
+    typealias WidgetStatsApplier = @Sendable (StatsSummary) async -> Void
 
     /// Number of messages awaiting moderation — the badge value.
     public private(set) var pendingCount: Int = 0
@@ -39,8 +41,18 @@ public final class PendingMessagesStore {
     private let pollInterval: Duration = .seconds(25)
     private var pollingTask: Task<Void, Never>?
     private var countRevision: UInt = 0
+    private let badgeSetter: BadgeSetter
+    private let widgetStatsApplier: WidgetStatsApplier
 
-    private init() {}
+    init(
+        badgeSetter: @escaping BadgeSetter = PendingMessagesStore.setSystemBadge,
+        widgetStatsApplier: @escaping WidgetStatsApplier = { stats in
+            WidgetRefreshCoordinator.shared.apply(stats: stats)
+        }
+    ) {
+        self.badgeSetter = badgeSetter
+        self.widgetStatsApplier = widgetStatsApplier
+    }
 
     /// Starts the background poll loop. Idempotent: a second call while a
     /// loop is already running (e.g. a second iPad window) is a no-op.
@@ -69,10 +81,14 @@ public final class PendingMessagesStore {
 
     /// Fetches the latest count once and updates the badge + widget snapshot.
     public func refresh(using client: OperatorClient) async {
+        await refresh { try await client.fetchStatsSummary() }
+    }
+
+    func refresh(fetchStats: () async throws -> StatsSummary) async {
         countRevision &+= 1
         let revision = countRevision
         do {
-            let stats = try await client.fetchStatsSummary()
+            let stats = try await fetchStats()
             await applyCount(stats.messages.badgeCount, stats: stats, revision: revision)
         } catch {
             // Transient failures (offline, token refresh) are expected; keep
@@ -91,7 +107,7 @@ public final class PendingMessagesStore {
         guard revision == countRevision else { return }
         pendingCount = count
         if let stats {
-            await WidgetRefreshCoordinator.shared.apply(stats: stats)
+            await widgetStatsApplier(stats)
             guard revision == countRevision else { return }
         }
         await setApplicationBadge(count, revision: revision)
@@ -103,7 +119,7 @@ public final class PendingMessagesStore {
         var badgeRevision = revision
         do {
             while true {
-                try await UNUserNotificationCenter.current().setBadgeCount(badgeCount)
+                try await badgeSetter(badgeCount)
                 guard badgeRevision != countRevision else { return }
                 badgeCount = pendingCount
                 badgeRevision = countRevision
@@ -111,6 +127,12 @@ public final class PendingMessagesStore {
         } catch {
             logger.debug("Failed to set app badge: \(error.localizedDescription, privacy: .public)")
         }
+        #endif
+    }
+
+    private nonisolated static func setSystemBadge(_ count: Int) async throws {
+        #if !os(watchOS)
+        try await UNUserNotificationCenter.current().setBadgeCount(count)
         #endif
     }
 }

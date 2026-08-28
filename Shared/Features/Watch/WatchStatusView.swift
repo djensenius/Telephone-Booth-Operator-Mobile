@@ -107,7 +107,7 @@ struct WatchStatusView: View {
     func refresh() async {
         isRefreshing = true
         defer { isRefreshing = false }
-        await liveStore.refreshNow()
+        _ = await liveStore.refreshNow()
     }
 }
 

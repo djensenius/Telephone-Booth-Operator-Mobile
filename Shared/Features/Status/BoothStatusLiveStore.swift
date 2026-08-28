@@ -87,7 +87,7 @@ public final class BoothStatusLiveStore {
         connection = .offline
     }
 
-    public func refreshNow() async {
+    public func refreshNow() async -> Bool {
         await refreshFromREST()
     }
 
@@ -140,7 +140,7 @@ public final class BoothStatusLiveStore {
         var isInitialSeed = true
         while !Task.isCancelled {
             if isInitialSeed || connection != .live {
-                await refreshFromREST()
+                _ = await refreshFromREST()
             } else {
                 // The live socket owns status/history; keep the summary counts
                 // and call sessions fresh because the socket carries neither.
@@ -170,10 +170,10 @@ public final class BoothStatusLiveStore {
         }
     }
 
-    private func refreshFromREST() async {
+    private func refreshFromREST() async -> Bool {
         if demoMode || config.isDemoMode {
             applyDemoData()
-            return
+            return true
         }
         let client = self.client
         async let statusResult = attempt { try await client.fetchBoothStatus() }
@@ -214,6 +214,7 @@ public final class BoothStatusLiveStore {
             if connection != .live { connection = .polling }
             lastError = nil
         }
+        return summary.sessions != nil
     }
 
     /// Applies the outcome of the `/v1/system/current` REST request. The double

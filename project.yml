@@ -80,89 +80,11 @@ targets:
         com.apple.security.application-groups:
           - group.org.davidjensenius.TelephoneBoothOperatorMobile
     dependencies:
-      - target: TBOperatorMobileNotificationService
-        embed: true
       - target: TBOperatorMobileWidgets
         embed: true
       - target: TBOperatorMobileWatch
         embed: true
         codeSign: true
-
-  TBOperatorMobileNotificationService:
-    type: app-extension
-    platform: iOS
-    sources:
-      - path: TBOperatorMobileNotificationService
-        excludes:
-          - "**/.DS_Store"
-      - path: Shared/Notifications/MessageNotificationAggregation.swift
-    info:
-      path: TBOperatorMobileNotificationService/Info.plist
-      properties:
-        CFBundleDisplayName: Message Notifications
-        CFBundleShortVersionString: $(MARKETING_VERSION)
-        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        NSExtension:
-          NSExtensionPointIdentifier: com.apple.usernotifications.service
-          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.notification-service
-        CODE_SIGN_STYLE: Automatic
-        GENERATE_INFOPLIST_FILE: false
-        APPLICATION_EXTENSION_API_ONLY: YES
-        SKIP_INSTALL: YES
-
-  TBOperatorMobileNotificationServiceMac:
-    type: app-extension
-    platform: macOS
-    sources:
-      - path: TBOperatorMobileNotificationService
-        excludes:
-          - "**/.DS_Store"
-      - path: Shared/Notifications/MessageNotificationAggregation.swift
-    info:
-      path: TBOperatorMobileNotificationService/Info.plist
-      properties:
-        CFBundleDisplayName: Message Notifications
-        CFBundleShortVersionString: $(MARKETING_VERSION)
-        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        NSExtension:
-          NSExtensionPointIdentifier: com.apple.usernotifications.service
-          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.notification-service.mac
-        CODE_SIGN_STYLE: Automatic
-        GENERATE_INFOPLIST_FILE: false
-        APPLICATION_EXTENSION_API_ONLY: YES
-        SKIP_INSTALL: YES
-        ENABLE_APP_SANDBOX: true
-
-  TBOperatorMobileNotificationServiceVision:
-    type: app-extension
-    platform: visionOS
-    sources:
-      - path: TBOperatorMobileNotificationService
-        excludes:
-          - "**/.DS_Store"
-      - path: Shared/Notifications/MessageNotificationAggregation.swift
-    info:
-      path: TBOperatorMobileNotificationService/Info.plist
-      properties:
-        CFBundleDisplayName: Message Notifications
-        CFBundleShortVersionString: $(MARKETING_VERSION)
-        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        NSExtension:
-          NSExtensionPointIdentifier: com.apple.usernotifications.service
-          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.notification-service.vision
-        CODE_SIGN_STYLE: Automatic
-        GENERATE_INFOPLIST_FILE: false
-        APPLICATION_EXTENSION_API_ONLY: YES
-        SKIP_INSTALL: YES
 
   TBOperatorMobileWidgets:
     type: app-extension
@@ -359,8 +281,6 @@ targets:
         com.apple.security.application-groups:
           - group.org.davidjensenius.TelephoneBoothOperatorMobile
     dependencies:
-      - target: TBOperatorMobileNotificationServiceMac
-        embed: true
       - target: TBOperatorMobileWidgetsMac
         embed: true
 
@@ -409,8 +329,6 @@ targets:
         com.apple.security.application-groups:
           - group.org.davidjensenius.TelephoneBoothOperatorMobile
     dependencies:
-      - target: TBOperatorMobileNotificationServiceVision
-        embed: true
       - target: TBOperatorMobileWidgetsVision
         embed: true
 
