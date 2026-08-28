@@ -17,6 +17,12 @@ final class NotificationTests: XCTestCase {
             ),
             3
         )
+        XCTAssertEqual(
+            MessageNotificationAggregation.count(
+                userInfo: ["aps": ["badge": NSNumber(value: 4)]]
+            ),
+            4
+        )
     }
 
     func testMobileDevicePreferencesRoundTrip() throws {
