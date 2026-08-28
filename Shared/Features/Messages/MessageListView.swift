@@ -75,6 +75,9 @@ public struct MessageListView: View {
         .autoRefresh(id: filter) {
             await refresh()
         }
+        .onChange(of: filter) {
+            notificationScope = nil
+        }
         .onChange(of: routeRevision) {
             filter = routeFilter
         }
@@ -281,7 +284,6 @@ public struct MessageListView: View {
     private func refresh() async {
         refreshGeneration += 1
         let generation = refreshGeneration
-        notificationScope = nil
         loading = true
         errorMessage = nil
         defer {
