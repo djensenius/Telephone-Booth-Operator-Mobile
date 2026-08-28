@@ -457,7 +457,9 @@ public final class NotificationManager {
     }
 
     nonisolated static func hasModerationQueuePayload(_ userInfo: [AnyHashable: Any]) -> Bool {
-        userInfo["awaitingModeration"] != nil || userInfo["awaiting_moderation"] != nil
+        userInfo["notificationKind"] as? String == "messageQueue"
+            || userInfo["awaitingModeration"] != nil
+            || userInfo["awaiting_moderation"] != nil
     }
 
     private static func currentPlatform() -> MobileDevicePlatform {

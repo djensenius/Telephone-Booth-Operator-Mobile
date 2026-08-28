@@ -85,6 +85,14 @@ final class NotificationTests: XCTestCase {
         XCTAssertEqual(target, .reviewQueue)
     }
 
+    func testGenericQueueNotificationRoutesToReviewQueue() {
+        let target = NotificationManager.navigationTarget(
+            categoryIdentifier: "BOOTH_MESSAGE",
+            userInfo: ["notificationKind": "messageQueue"]
+        )
+        XCTAssertEqual(target, .reviewQueue)
+    }
+
     func testViewingMessageListClearsMessageNotifications() {
         XCTAssertTrue(
             NotificationManager.shouldClearDeliveredNotification(
