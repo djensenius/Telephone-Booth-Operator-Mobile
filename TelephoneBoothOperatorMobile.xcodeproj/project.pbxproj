@@ -206,6 +206,7 @@
 		3D61A2751CD3FE80320AF368 /* OperatorMe.swift in Sources */ = {isa = PBXBuildFile; fileRef = A57C08F65970EB67A8553EE3 /* OperatorMe.swift */; };
 		3D6E429085CA2C71849631DA /* BoothStatusLiveStore+Order.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4DEF3C86F4C3A28612BB10 /* BoothStatusLiveStore+Order.swift */; };
 		3DC7F72A92A7E89186721181 /* OIDCTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BE9BD68121808A0D4098A1E /* OIDCTokens.swift */; };
+		3E27B30081B198B03DFEE915 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 003570E8CA3441DFAC46F1FD /* NotificationService.swift */; };
 		3E5AF914A0EDA9CA33DA8178 /* ThermalsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C560ED9D69583DB0D9EAA22 /* ThermalsView.swift */; };
 		3E99F83CF866DC1B01DC0A1A /* StatusDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 523ED08FA179138D88929462 /* StatusDashboardView.swift */; };
 		3ECB9B81AA1399D0A2D08622 /* WatchAuthSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62BA58628D22FD39165708EA /* WatchAuthSync.swift */; };
@@ -397,6 +398,7 @@
 		742199D67D654174741A2BF6 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD213C066A1ED5C88C257364 /* LoginView.swift */; };
 		745E63C95DF600F8C61A3992 /* DemoData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 025EEA4173BB3957480E4F12 /* DemoData.swift */; };
 		748F8DA46F6AE791734A7FD5 /* ThermalsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C560ED9D69583DB0D9EAA22 /* ThermalsView.swift */; };
+		74C1C024672017E47D688E66 /* TBOperatorMobileNotificationServiceVision.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BD5FDACD2C3EF40660AD54FA /* TBOperatorMobileNotificationServiceVision.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		74C366A4D48F398AF318C8B2 /* StatsRangeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724B6B4233C3DD7269C98F54 /* StatsRangeControls.swift */; };
 		74EB3CC861C447E2C44B2ABB /* WidgetPreviewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE3E8B8E04838B41E41ED8A0 /* WidgetPreviewData.swift */; };
 		751255045B47E37454534573 /* AuthManager+Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51752040B579CB8D1DF9C9E1 /* AuthManager+Keychain.swift */; };
@@ -506,6 +508,7 @@
 		9A0E83135EB15C27C14D3444 /* StatusSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6634FDFD7E3022DE6661687E /* StatusSocket.swift */; };
 		9A75379D6540B7679FF31042 /* WatchStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A21BECE44874DB7894E4438 /* WatchStatsView.swift */; };
 		9A75BE39C5034DEB21B9F747 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900E3F3400BB880E51017F36 /* LiveActivityManager.swift */; };
+		9ABC8DAF8700159EFE47DD2D /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 003570E8CA3441DFAC46F1FD /* NotificationService.swift */; };
 		9ADDD048A7F24C851E3333F9 /* AuthManager+WatchBroker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 033EB3A12A9F77AE3836B353 /* AuthManager+WatchBroker.swift */; };
 		9AE9766742E401D04F3515F8 /* DemoData+Audit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 624CE24BB477C15DCD71D004 /* DemoData+Audit.swift */; };
 		9B0E8D08BA4AD7AD083BD279 /* StatsSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CFC7130E78140C090241C06 /* StatsSummary.swift */; };
@@ -566,6 +569,7 @@
 		AC4D570E22082A3F35D31AFB /* TVThermalsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CABCA7376A7DD9EA00982C50 /* TVThermalsView.swift */; };
 		ACCD62D88C488C1C5B8DBC5B /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8137409DB2002406C2D59F7A /* WidgetSnapshot.swift */; };
 		ACFA6CEAC296F8E3BEC15D8E /* TBOperatorMobileWatchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4712BB66C17DA005792F6F5 /* TBOperatorMobileWatchTests.swift */; };
+		AD53EA4D888CED6B1E6D485D /* MessageNotificationAggregation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EA5E16A101F32D149C6733C /* MessageNotificationAggregation.swift */; };
 		AD783E49C39353451CC0FFDA /* AudioPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3C34EB268955BCF1FD490F3 /* AudioPlayerView.swift */; };
 		AD89A827BBEF9EE41894022E /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 190F88131D518227F08BD9A3 /* StatsView.swift */; };
 		AD98CC65E20666404D954806 /* Upload.swift in Sources */ = {isa = PBXBuildFile; fileRef = D33A7CC36603D8135036DF1E /* Upload.swift */; };
@@ -730,12 +734,14 @@
 		E22E1493419E9E7CBDDE6230 /* CallInProgressLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44FFDF69DAD6CC776A80C3ED /* CallInProgressLiveActivity.swift */; };
 		E24555EDF4A197D491001E06 /* OperatorError.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0FEC3DF654FFCDBFDF7B9C5 /* OperatorError.swift */; };
 		E2818152EA9D4F01E48B1ED3 /* BoothStatusDisplayCollapseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9E3531E5FC7ABA81A2539A /* BoothStatusDisplayCollapseTests.swift */; };
+		E29B762314ABDB46A016C41E /* TBOperatorMobileNotificationServiceMac.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D807849B9CFC59CE01A3AED6 /* TBOperatorMobileNotificationServiceMac.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E36469F443DB7006AE010C6A /* BoothSystemSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C353F9CDCC7922E78A322C61 /* BoothSystemSnapshot.swift */; };
 		E3B2956266C08FC383F61996 /* NotificationSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A58F0A1D6582D1806CE4E408 /* NotificationSettingsSection.swift */; };
 		E3EEE1016E14C5751EB93801 /* SystemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 630A2D2EA236558C49928840 /* SystemView.swift */; };
 		E4746D067BC6111AC6D3CC99 /* AuditLogEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = EED04A40DB6639BA8DB1DB8B /* AuditLogEntry.swift */; };
 		E4CAEFC798868F69739F5797 /* QuestionAudioEncoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5C83D708DB733AF714ABA0 /* QuestionAudioEncoderTests.swift */; };
 		E4E00E99A417E88D736AA1A5 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD213C066A1ED5C88C257364 /* LoginView.swift */; };
+		E4ECBAEFCFE6462E12CBC789 /* MessageNotificationAggregation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EA5E16A101F32D149C6733C /* MessageNotificationAggregation.swift */; };
 		E51F92EC5102322345A3D1CC /* CallSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9596BEC9DF2776F880EA70F /* CallSession.swift */; };
 		E5956D5D15A4E567A360F1E5 /* TVEventsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C505CE755893EF91EE418C16 /* TVEventsView.swift */; };
 		E63569D62A65FB7AA238E697 /* IDTokenValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52A996BE5D42DD1C1952B12 /* IDTokenValidator.swift */; };
@@ -868,6 +874,13 @@
 			remoteGlobalIDString = 4A47F610A11EE2109713BC3B;
 			remoteInfo = TBOperatorMobileMac;
 		};
+		88F3C660C1B1AAA4957AEC37 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2B2680F45392B6F974ECC1D7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A9756A98223638FF887EAD66;
+			remoteInfo = TBOperatorMobileNotificationServiceMac;
+		};
 		9D1303539E72B2690413D7C8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 2B2680F45392B6F974ECC1D7 /* Project object */;
@@ -888,6 +901,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4C458E35B31E08CA32F0C3AB;
 			remoteInfo = TBOperatorMobileWidgetsMac;
+		};
+		E3CB291025AB91CD6AB45F19 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2B2680F45392B6F974ECC1D7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E9D202A787885C2C5E5A3231;
+			remoteInfo = TBOperatorMobileNotificationServiceVision;
 		};
 		E4F9A90E5F83AC3E86C87F81 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -916,6 +936,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
+				E29B762314ABDB46A016C41E /* TBOperatorMobileNotificationServiceMac.appex in Embed Foundation Extensions */,
 				5DEAC2F6C4BDFE68C16FD465 /* TBOperatorMobileWidgetsMac.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
@@ -939,6 +960,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
+				74C1C024672017E47D688E66 /* TBOperatorMobileNotificationServiceVision.appex in Embed Foundation Extensions */,
 				7C323227F4BE557F4101EFCC /* TBOperatorMobileWidgetsVision.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
@@ -1100,6 +1122,7 @@
 		BAFFC7B9FF0AD511172567F7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BC14B5CC47E2604D90DAE5E6 /* OnDeviceAudioFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceAudioFetcher.swift; sourceTree = "<group>"; };
 		BC712492411B65630FDA18B9 /* OnDeviceReviewTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceReviewTypes.swift; sourceTree = "<group>"; };
+		BD5FDACD2C3EF40660AD54FA /* TBOperatorMobileNotificationServiceVision.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = TBOperatorMobileNotificationServiceVision.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD93C2FF68DAC8696AA764E0 /* Question.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Question.swift; sourceTree = "<group>"; };
 		BE0293D5460A48D26243E0A7 /* LatestMessageWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LatestMessageWidget.swift; sourceTree = "<group>"; };
 		BE3E8B8E04838B41E41ED8A0 /* WidgetPreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPreviewData.swift; sourceTree = "<group>"; };
@@ -1120,6 +1143,7 @@
 		D33A7CC36603D8135036DF1E /* Upload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Upload.swift; sourceTree = "<group>"; };
 		D52A996BE5D42DD1C1952B12 /* IDTokenValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IDTokenValidator.swift; sourceTree = "<group>"; };
 		D7AAEFF91C5EB2CC5B459446 /* ThermalModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThermalModelsTests.swift; sourceTree = "<group>"; };
+		D807849B9CFC59CE01A3AED6 /* TBOperatorMobileNotificationServiceMac.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TBOperatorMobileNotificationServiceMac.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D913F41CF93E2A8EE119A0F0 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		D95B29B530069E8A6FA12891 /* OperatorJSON.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperatorJSON.swift; sourceTree = "<group>"; };
 		DA1EE744E32DF3BDCB962963 /* MessageListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageListView.swift; sourceTree = "<group>"; };
@@ -1517,6 +1541,8 @@
 				833C61477E6ACD862ACD1BAA /* TBOperatorMobileMac.app */,
 				EF82DE622771064D6E1A74EE /* TBOperatorMobileMacTests.xctest */,
 				0866C144FE66A30D191D4313 /* TBOperatorMobileNotificationService.appex */,
+				D807849B9CFC59CE01A3AED6 /* TBOperatorMobileNotificationServiceMac.appex */,
+				BD5FDACD2C3EF40660AD54FA /* TBOperatorMobileNotificationServiceVision.appex */,
 				DCFA0AB24888F1432EDD5ABC /* TBOperatorMobileTests.xctest */,
 				7037F65F660FA295067270FD /* TBOperatorMobileTV.app */,
 				EB17F4B9CEC57CBFAC21C2E6 /* TBOperatorMobileTVTests.xctest */,
@@ -1816,6 +1842,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				AD4AD7424678714B8D8F327D /* PBXTargetDependency */,
 				AACEAB273FE1498C97D99172 /* PBXTargetDependency */,
 			);
 			name = TBOperatorMobileMac;
@@ -1853,6 +1880,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				E5ADCD23A1231C3887EA2F3E /* PBXTargetDependency */,
 				69B8CF51891A35A910E747F2 /* PBXTargetDependency */,
 			);
 			name = TBOperatorMobileVision;
@@ -1877,6 +1905,23 @@
 			);
 			productName = TBOperatorMobileNotificationService;
 			productReference = 0866C144FE66A30D191D4313 /* TBOperatorMobileNotificationService.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		A9756A98223638FF887EAD66 /* TBOperatorMobileNotificationServiceMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E3ED6518C62A6179C4582400 /* Build configuration list for PBXNativeTarget "TBOperatorMobileNotificationServiceMac" */;
+			buildPhases = (
+				7883E4DA6845441252FE020B /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TBOperatorMobileNotificationServiceMac;
+			packageProductDependencies = (
+			);
+			productName = TBOperatorMobileNotificationServiceMac;
+			productReference = D807849B9CFC59CE01A3AED6 /* TBOperatorMobileNotificationServiceMac.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		C58C6FD56A4AA671700B8ED3 /* TBOperatorMobileWidgets */ = {
@@ -1965,6 +2010,23 @@
 			productName = TBOperatorMobileWatch;
 			productReference = F8032074CE9DCC9846FBAC1B /* TBOperatorMobileWatch.app */;
 			productType = "com.apple.product-type.application";
+		};
+		E9D202A787885C2C5E5A3231 /* TBOperatorMobileNotificationServiceVision */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B2D0ED7D117150B4E1DC1C99 /* Build configuration list for PBXNativeTarget "TBOperatorMobileNotificationServiceVision" */;
+			buildPhases = (
+				3596ADE45120AC6B132A8277 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TBOperatorMobileNotificationServiceVision;
+			packageProductDependencies = (
+			);
+			productName = TBOperatorMobileNotificationServiceVision;
+			productReference = BD5FDACD2C3EF40660AD54FA /* TBOperatorMobileNotificationServiceVision.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		EBB4F07764C04815F55A3C9B /* TBOperatorMobileVisionTests */ = {
 			isa = PBXNativeTarget;
@@ -2075,6 +2137,10 @@
 						DevelopmentTeam = 9JALHNGRBQ;
 						ProvisioningStyle = Automatic;
 					};
+					A9756A98223638FF887EAD66 = {
+						DevelopmentTeam = 9JALHNGRBQ;
+						ProvisioningStyle = Automatic;
+					};
 					C58C6FD56A4AA671700B8ED3 = {
 						DevelopmentTeam = 9JALHNGRBQ;
 						ProvisioningStyle = Automatic;
@@ -2090,6 +2156,10 @@
 						DevelopmentTeam = 9JALHNGRBQ;
 					};
 					E1606AB971FC8E4E16A1375F = {
+						DevelopmentTeam = 9JALHNGRBQ;
+						ProvisioningStyle = Automatic;
+					};
+					E9D202A787885C2C5E5A3231 = {
 						DevelopmentTeam = 9JALHNGRBQ;
 						ProvisioningStyle = Automatic;
 					};
@@ -2124,6 +2194,8 @@
 			targets = (
 				FDDE76584B9EC36E383EF62C /* TBOperatorMobile */,
 				5865ABA4FA346B91108F352D /* TBOperatorMobileNotificationService */,
+				A9756A98223638FF887EAD66 /* TBOperatorMobileNotificationServiceMac */,
+				E9D202A787885C2C5E5A3231 /* TBOperatorMobileNotificationServiceVision */,
 				C58C6FD56A4AA671700B8ED3 /* TBOperatorMobileWidgets */,
 				4C458E35B31E08CA32F0C3AB /* TBOperatorMobileWidgetsMac */,
 				D4480B45B44C343675016D57 /* TBOperatorMobileWidgetsVision */,
@@ -2493,6 +2565,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3596ADE45120AC6B132A8277 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AD53EA4D888CED6B1E6D485D /* MessageNotificationAggregation.swift in Sources */,
+				3E27B30081B198B03DFEE915 /* NotificationService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		38B2CC2DA01A0DC57FAFA0F2 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2573,6 +2654,15 @@
 				858C1A8F9E5C8FCF810C057F /* WidgetSnapshot.swift in Sources */,
 				0FD058507304040FBD6870CF /* WidgetSnapshotProvider.swift in Sources */,
 				2014AA3BBC101D0E4EB05B1A /* WidgetSnapshotStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7883E4DA6845441252FE020B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E4ECBAEFCFE6462E12CBC789 /* MessageNotificationAggregation.swift in Sources */,
+				9ABC8DAF8700159EFE47DD2D /* NotificationService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3134,6 +3224,11 @@
 			target = 4C458E35B31E08CA32F0C3AB /* TBOperatorMobileWidgetsMac */;
 			targetProxy = DD7F6B2178D46691B1834CB2 /* PBXContainerItemProxy */;
 		};
+		AD4AD7424678714B8D8F327D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A9756A98223638FF887EAD66 /* TBOperatorMobileNotificationServiceMac */;
+			targetProxy = 88F3C660C1B1AAA4957AEC37 /* PBXContainerItemProxy */;
+		};
 		B03F2CCD8A4DF1836303B2BE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4A47F610A11EE2109713BC3B /* TBOperatorMobileMac */;
@@ -3148,6 +3243,11 @@
 			isa = PBXTargetDependency;
 			target = 4F8BB5FD8CB50CE70817C083 /* TBOperatorMobileVision */;
 			targetProxy = E4F9A90E5F83AC3E86C87F81 /* PBXContainerItemProxy */;
+		};
+		E5ADCD23A1231C3887EA2F3E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E9D202A787885C2C5E5A3231 /* TBOperatorMobileNotificationServiceVision */;
+			targetProxy = E3CB291025AB91CD6AB45F19 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -3200,6 +3300,26 @@
 				PRODUCT_BUNDLE_IDENTIFIER = org.davidjensenius.TelephoneBoothOperatorMobile.widgets;
 				SDKROOT = xros;
 				TARGETED_DEVICE_FAMILY = 7;
+			};
+			name = Debug;
+		};
+		11150AF2275A47D36299A86B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobileNotificationService/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "org.davidjensenius.TelephoneBoothOperatorMobile.notification-service.mac";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
 			};
 			name = Debug;
 		};
@@ -3339,6 +3459,25 @@
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TBOperatorMobileWatch.app/TBOperatorMobileWatch";
 			};
 			name = Debug;
+		};
+		2788A884CD0162BB7CE5FF3E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobileNotificationService/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "org.davidjensenius.TelephoneBoothOperatorMobile.notification-service.vision";
+				SDKROOT = xros;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 7;
+			};
+			name = Release;
 		};
 		27DE6FE911ECAC73A7A3BCFE /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -3573,6 +3712,26 @@
 			};
 			name = Release;
 		};
+		9CF14308ABA623460EA7653E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobileNotificationService/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "org.davidjensenius.TelephoneBoothOperatorMobile.notification-service.mac";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
 		AB38EC6712B0A2959ED2263E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -3646,6 +3805,25 @@
 				TARGETED_DEVICE_FAMILY = 4;
 			};
 			name = Release;
+		};
+		C792402DBF601EC8F6F4782E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = TBOperatorMobileNotificationService/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "org.davidjensenius.TelephoneBoothOperatorMobile.notification-service.vision";
+				SDKROOT = xros;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 7;
+			};
+			name = Debug;
 		};
 		C93D5F374542563F6CB46D8E /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -3939,6 +4117,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		B2D0ED7D117150B4E1DC1C99 /* Build configuration list for PBXNativeTarget "TBOperatorMobileNotificationServiceVision" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C792402DBF601EC8F6F4782E /* Debug */,
+				2788A884CD0162BB7CE5FF3E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		B6B3A2416E458FD67C080547 /* Build configuration list for PBXNativeTarget "TBOperatorMobileVision" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -3971,6 +4158,15 @@
 			buildConfigurations = (
 				948DC85D0EE18481375F91BF /* Debug */,
 				5E41966E75B3E224F21E1E95 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E3ED6518C62A6179C4582400 /* Build configuration list for PBXNativeTarget "TBOperatorMobileNotificationServiceMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				11150AF2275A47D36299A86B /* Debug */,
+				9CF14308ABA623460EA7653E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

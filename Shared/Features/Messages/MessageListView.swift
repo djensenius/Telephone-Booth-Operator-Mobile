@@ -367,9 +367,15 @@ public struct MessageListView: View {
                     if case .message(let message) = envelope {
                         apply(message)
                         if filter.includes(message.status) {
-                            await NotificationManager.shared.clearDeliveredNotifications(
-                                in: .messages(ids: [message.id])
+                            let descriptor = NotificationManager.deliveredNotificationDescriptor(
+                                categoryIdentifier: "BOOTH_MESSAGE",
+                                userInfo: ["messageId": message.id]
                             )
+                            if NotificationManager.shared.isViewingNotification(descriptor) {
+                                await NotificationManager.shared.clearDeliveredNotifications(
+                                    in: .messages(ids: [message.id])
+                                )
+                            }
                         }
                     }
                 }
