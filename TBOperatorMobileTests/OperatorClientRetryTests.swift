@@ -180,12 +180,88 @@ final class OperatorClientRetryTests: XCTestCase {
     }
 
     @MainActor
+    func testQuestionMessagesRequestUsesNestedEndpointAndOpaqueCursor() async throws {
+        let appConfig = AppConfig.shared
+        let previousDemoMode = appConfig.isDemoMode
+        appConfig.isDemoMode = false
+        defer { appConfig.isDemoMode = previousDemoMode }
+
+        QuestionMessagesURLProtocol.reset()
+        let auth = makeAuthManager()
+        XCTAssertTrue(auth.storeTokens(
+            OIDCTokens(
+                accessToken: "answers-access-\(UUID().uuidString)",
+                refreshToken: "answers-refresh-\(UUID().uuidString)",
+                idToken: nil,
+                expiresIn: 3_600,
+                tokenType: "Bearer"
+            )
+        ))
+        defer { auth.signOut() }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [QuestionMessagesURLProtocol.self]
+        let client = OperatorClient(
+            config: appConfig,
+            auth: auth,
+            session: URLSession(configuration: configuration)
+        )
+        let questionId = "11111111-1111-4111-8111-111111111111"
+        let page = try await client.fetchQuestionMessages(
+            questionId: questionId,
+            cursor: "opaque_cursor-1",
+            limit: 25
+        )
+
+        let url = try XCTUnwrap(QuestionMessagesURLProtocol.url)
+        XCTAssertEqual(url.path, "/v1/questions/\(questionId)/messages")
+        let queryItems = try XCTUnwrap(
+            URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
+        )
+        let query = Dictionary(uniqueKeysWithValues: queryItems.map { ($0.name, $0.value) })
+        XCTAssertEqual(query["cursor"], "opaque_cursor-1")
+        XCTAssertEqual(query["limit"], "25")
+        XCTAssertEqual(page.nextCursor, "opaque-next.cursor_2")
+    }
+
+    @MainActor
     private func makeAuthManager() -> AuthManager {
         AuthManager(keychainStore: TestKeychainStore())
     }
 }
 
 // MARK: - URL protocol mocks
+
+private final class QuestionMessagesURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var url: URL?
+    private static let lock = NSLock()
+
+    static func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+        url = nil
+    }
+
+    override static func canInit(with request: URLRequest) -> Bool { true }
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func stopLoading() {}
+
+    override func startLoading() {
+        Self.lock.lock()
+        Self.url = request.url
+        Self.lock.unlock()
+        let response = HTTPURLResponse(
+            url: request.url!,
+            statusCode: 200,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        let body = Data(#"{"items":[],"nextCursor":"opaque-next.cursor_2"}"#.utf8)
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+}
 
 /// Returns 401 on the first `/v1/auth/me`, then 200 after the client
 /// successfully exchanges the refresh token at `/token`.

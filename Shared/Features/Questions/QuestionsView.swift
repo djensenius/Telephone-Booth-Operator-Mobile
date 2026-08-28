@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  QuestionsView.swift
 //  TelephoneBoothOperatorMobile
@@ -136,6 +137,7 @@ public struct QuestionsView: View {
             ForEach(questions) { question in
                 QuestionRow(
                     question: question,
+                    client: client,
                     isExpanded: expandedId == question.id,
                     canManage: isAdmin,
                     onToggle: { toggle(question.id) },
@@ -375,6 +377,7 @@ public struct QuestionsView: View {
 
 struct QuestionRow: View {
     let question: Question
+    let client: OperatorClient
     let isExpanded: Bool
     let canManage: Bool
     let onToggle: () -> Void
@@ -425,6 +428,21 @@ struct QuestionRow: View {
                 AudioPlayerView(audio: question.audio)
                     .padding(.top, Theme.Spacing.small)
             }
+
+            NavigationLink {
+                MessageListView(
+                    questionId: question.id,
+                    questionPrompt: question.prompt,
+                    client: client
+                )
+                .navigationTitle("Answers")
+            } label: {
+                Label("View answers", systemImage: "waveform")
+                    .font(Theme.Fonts.bodySmall.weight(.semibold))
+                    .foregroundStyle(Theme.Colors.accent)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("View answers to \(question.prompt)")
         }
         .padding(.vertical, Theme.Spacing.small)
         .contextMenu {

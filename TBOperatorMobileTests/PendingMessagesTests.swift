@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  PendingMessagesTests.swift
 //
@@ -130,6 +131,150 @@ final class PendingMessagesTests: XCTestCase {
         }
     }
 
+    func testMessagePageDecodesMissingAndOpaqueCursor() throws {
+        let missing = try OperatorJSON.decoder.decode(
+            MessagePage.self,
+            from: Data(#"{"items":[]}"#.utf8)
+        )
+        let opaque = try OperatorJSON.decoder.decode(
+            MessagePage.self,
+            from: Data(#"{"items":[],"nextCursor":"opaque.cursor_2"}"#.utf8)
+        )
+
+        XCTAssertNil(missing.nextCursor)
+        XCTAssertEqual(opaque.nextCursor, "opaque.cursor_2")
+    }
+
+    func testDemoQuestionMessagesFilterAndPageAfterCursorRowDeletion() async throws {
+        let client = OperatorClient(config: .shared, auth: .shared, demoMode: true)
+        let questionId = try XCTUnwrap(DemoData.questions.first?.id)
+        let first = try await client.fetchQuestionMessages(questionId: questionId, limit: 2)
+        let cursor = try XCTUnwrap(first.nextCursor)
+
+        XCTAssertEqual(first.items.map(\.id), ["demo-message-3", "demo-message-2"])
+        try await client.deleteMessage(id: "demo-message-2")
+
+        let second = try await client.fetchQuestionMessages(
+            questionId: questionId,
+            cursor: cursor,
+            limit: 2
+        )
+        let unrelated = try await client.fetchQuestionMessages(
+            questionId: "demo-question-2"
+        )
+
+        XCTAssertEqual(second.items.map(\.id), ["demo-message-1"])
+        XCTAssertNil(second.nextCursor)
+        XCTAssertTrue(unrelated.items.isEmpty)
+    }
+
+    func testQuestionModeIncludesOnlyMatchingAnswers() throws {
+        let matching = DemoData.message(id: "demo-message-1")
+        let unrelated = Message(
+            id: "unrelated",
+            status: matching.status,
+            installationId: matching.installationId,
+            questionId: "another-question",
+            notes: matching.notes,
+            createdAt: matching.createdAt,
+            receivedAt: matching.receivedAt,
+            audio: matching.audio,
+            latestTranscription: matching.latestTranscription,
+            latestModeration: matching.latestModeration
+        )
+        let mode = MessageListMode.question(
+            id: try XCTUnwrap(matching.questionId),
+            prompt: "Prompt"
+        )
+
+        XCTAssertTrue(mode.includes(matching, filter: .all))
+        XCTAssertFalse(mode.includes(unrelated, filter: .all))
+        XCTAssertFalse(mode.shouldDismissDetail(afterDecisionTo: .approved, filter: .all))
+    }
+
+    func testQuestionModeScopesNotificationsToLoadedAnswerIds() throws {
+        let messages = [
+            DemoData.message(id: "demo-message-1"),
+            DemoData.message(id: "demo-message-2")
+        ]
+        let questionId = try XCTUnwrap(messages.first?.questionId)
+        let scope = MessageListMode.question(
+            id: questionId,
+            prompt: "Prompt"
+        ).notificationScope(for: messages, filter: .all)
+
+        XCTAssertEqual(scope, .messages(ids: Set(messages.map(\.id))))
+    }
+
+    func testQuestionModeOnlyAllowsActionsForCurrentInstallation() {
+        let message = DemoData.message(id: "demo-message-1")
+        let activeInstallationId = DemoData.installations.first(where: \.isActive)?.id
+        let mode = MessageListMode.question(
+            id: message.questionId ?? "question",
+            prompt: "Prompt"
+        )
+
+        XCTAssertEqual(message.installationId, activeInstallationId)
+        XCTAssertEqual(
+            mode.actionAccess(
+                for: message,
+                installationState: .available(currentInstallationId: activeInstallationId)
+            ),
+            .writable
+        )
+        XCTAssertEqual(
+            mode.actionAccess(
+                for: message,
+                installationState: .available(currentInstallationId: "archived-installation")
+            ),
+            .readOnlyArchived
+        )
+        XCTAssertEqual(
+            mode.actionAccess(for: message, installationState: .loading),
+            .checking
+        )
+        XCTAssertEqual(
+            mode.actionAccess(for: message, installationState: .unavailable),
+            .readOnlyUnavailable
+        )
+        XCTAssertEqual(
+            MessageListMode.queue.actionAccess(
+                for: message,
+                installationState: .unavailable
+            ),
+            .writable
+        )
+        XCTAssertEqual(
+            MessageActionAccess.installationScoped(
+                messageInstallationId: nil,
+                currentInstallationId: nil
+            ),
+            .readOnlyArchived
+        )
+    }
+
+    func testQuestionPagesDeduplicateAndKeepNewestServerOrder() {
+        let older = DemoData.message(id: "demo-message-1")
+        let newer = Message(
+            id: "answer-2",
+            status: .pending,
+            installationId: older.installationId,
+            questionId: older.questionId,
+            notes: nil,
+            createdAt: older.createdAt.addingTimeInterval(60),
+            receivedAt: older.receivedAt?.addingTimeInterval(60),
+            audio: older.audio,
+            latestTranscription: older.latestTranscription,
+            latestModeration: older.latestModeration
+        )
+        let updatedOlder = older.applyingDecision(.approve, notes: nil)
+
+        let merged = [older, newer, updatedOlder].deduplicatedNewestFirst()
+
+        XCTAssertEqual(merged.map(\.id), [newer.id, older.id])
+        XCTAssertEqual(merged.last?.status, .approved)
+    }
+
     func testLiveMessageUpdateInsertsAndSortsMissingMessage() {
         let older = DemoData.message(id: "older")
         var messages = [older]
@@ -158,6 +303,74 @@ final class PendingMessagesTests: XCTestCase {
         messages.applyLiveUpdate(message, isIncluded: false)
 
         XCTAssertTrue(messages.isEmpty)
+    }
+
+    func testQuestionModeIgnoresUnknownSocketUpdatesBeyondLoadedWindow() throws {
+        let newest = DemoData.message(id: "demo-message-3")
+        let oldest = DemoData.message(id: "demo-message-2")
+        let questionId = try XCTUnwrap(newest.questionId)
+        let olderUnloaded = Message(
+            id: "older-unloaded",
+            status: .approved,
+            installationId: oldest.installationId,
+            questionId: questionId,
+            notes: nil,
+            createdAt: oldest.createdAt.addingTimeInterval(-60),
+            receivedAt: oldest.receivedAt?.addingTimeInterval(-60),
+            audio: oldest.audio,
+            latestTranscription: oldest.latestTranscription,
+            latestModeration: oldest.latestModeration
+        )
+        let mode = MessageListMode.question(id: questionId, prompt: "Prompt")
+
+        XCTAssertEqual(
+            mode.liveUpdateDisposition(
+                for: olderUnloaded,
+                loadedMessages: [newest, oldest],
+                hasMore: true,
+                filter: .all
+            ),
+            .ignore
+        )
+        XCTAssertEqual(
+            mode.liveUpdateDisposition(
+                for: olderUnloaded,
+                loadedMessages: [newest, oldest],
+                hasMore: false,
+                filter: .all
+            ),
+            .upsert
+        )
+    }
+
+    func testRefreshMutationsOverrideStaleSnapshot() {
+        let original = DemoData.message(id: "demo-message-1")
+        let removed = DemoData.message(id: "demo-message-2")
+        let approved = original.applyingDecision(.approve, notes: nil)
+
+        let reconciled = [original, removed].applying([
+            .upsert(approved),
+            .remove(removed.id)
+        ])
+
+        XCTAssertEqual(reconciled.map(\.id), [approved.id])
+        XCTAssertEqual(reconciled.first?.status, .approved)
+    }
+
+    func testRefreshOnlyAppliesMutationsNewerThanRequest() {
+        let original = DemoData.message(id: "demo-message-1")
+        let approved = original.applyingDecision(.approve, notes: nil)
+        let rejected = original.applyingDecision(.reject, notes: nil)
+        let mutations = [
+            MessageListMutationRecord(sequence: 1, mutation: .remove(original.id)),
+            MessageListMutationRecord(sequence: 2, mutation: .upsert(rejected))
+        ]
+
+        let reconciled = [approved].applying(mutations.mutations(after: 1))
+
+        XCTAssertEqual(reconciled.map(\.id), [original.id])
+        XCTAssertEqual(reconciled.first?.status, .rejected)
+        XCTAssertTrue(mutations.mutations(after: 2).isEmpty)
     }
 }
 

@@ -657,6 +657,7 @@ public extension DemoData {
         return Message(
             id: id,
             status: status,
+            installationId: installations.first(where: \.isActive)?.id,
             questionId: questions.first?.id,
             notes: nil,
             createdAt: createdAt,
