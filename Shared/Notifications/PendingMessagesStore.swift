@@ -46,12 +46,14 @@ public final class PendingMessagesStore {
 
     init(
         badgeSetter: @escaping BadgeSetter = PendingMessagesStore.setSystemBadge,
-        widgetStatsApplier: @escaping WidgetStatsApplier = { stats in
-            _ = await WidgetRefreshCoordinator.shared.apply(stats: stats)
-        }
+        widgetStatsApplier: @escaping WidgetStatsApplier = PendingMessagesStore.applyWidgetStats
     ) {
         self.badgeSetter = badgeSetter
         self.widgetStatsApplier = widgetStatsApplier
+    }
+
+    nonisolated static func applyWidgetStats(_ stats: StatsSummary) async {
+        _ = await WidgetRefreshCoordinator.shared.apply(stats: stats)
     }
 
     /// Starts the background poll loop. Idempotent: a second call while a
