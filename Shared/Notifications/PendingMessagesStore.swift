@@ -47,7 +47,7 @@ public final class PendingMessagesStore {
     init(
         badgeSetter: @escaping BadgeSetter = PendingMessagesStore.setSystemBadge,
         widgetStatsApplier: @escaping WidgetStatsApplier = { stats in
-            WidgetRefreshCoordinator.shared.apply(stats: stats)
+            _ = await WidgetRefreshCoordinator.shared.apply(stats: stats)
         }
     ) {
         self.badgeSetter = badgeSetter
