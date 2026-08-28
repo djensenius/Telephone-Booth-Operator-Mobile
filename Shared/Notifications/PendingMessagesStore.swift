@@ -38,6 +38,7 @@ public final class PendingMessagesStore {
     /// How often the poll loop refreshes while the shell is visible.
     private let pollInterval: Duration = .seconds(25)
     private var pollingTask: Task<Void, Never>?
+    private var countRevision: UInt = 0
 
     private init() {}
 
@@ -61,14 +62,18 @@ public final class PendingMessagesStore {
     public func stopPolling() {
         pollingTask?.cancel()
         pollingTask = nil
-        Task { await applyCount(0, stats: nil) }
+        countRevision &+= 1
+        let revision = countRevision
+        Task { await applyCount(0, stats: nil, revision: revision) }
     }
 
     /// Fetches the latest count once and updates the badge + widget snapshot.
     public func refresh(using client: OperatorClient) async {
+        countRevision &+= 1
+        let revision = countRevision
         do {
             let stats = try await client.fetchStatsSummary()
-            await applyCount(stats.messages.badgeCount, stats: stats)
+            await applyCount(stats.messages.badgeCount, stats: stats, revision: revision)
         } catch {
             // Transient failures (offline, token refresh) are expected; keep
             // the last known count rather than zeroing the badge.
@@ -77,21 +82,32 @@ public final class PendingMessagesStore {
     }
 
     public func applyNotificationCount(_ count: Int) async {
-        await applyCount(max(0, count), stats: nil)
+        countRevision &+= 1
+        let revision = countRevision
+        await applyCount(max(0, count), stats: nil, revision: revision)
     }
 
-    private func applyCount(_ count: Int, stats: StatsSummary?) async {
+    private func applyCount(_ count: Int, stats: StatsSummary?, revision: UInt) async {
+        guard revision == countRevision else { return }
         pendingCount = count
         if let stats {
             await WidgetRefreshCoordinator.shared.apply(stats: stats)
+            guard revision == countRevision else { return }
         }
-        await setApplicationBadge(count)
+        await setApplicationBadge(count, revision: revision)
     }
 
-    private func setApplicationBadge(_ count: Int) async {
+    private func setApplicationBadge(_ count: Int, revision: UInt) async {
         #if !os(watchOS)
+        var badgeCount = count
+        var badgeRevision = revision
         do {
-            try await UNUserNotificationCenter.current().setBadgeCount(count)
+            while true {
+                try await UNUserNotificationCenter.current().setBadgeCount(badgeCount)
+                guard badgeRevision != countRevision else { return }
+                badgeCount = pendingCount
+                badgeRevision = countRevision
+            }
         } catch {
             logger.debug("Failed to set app badge: \(error.localizedDescription, privacy: .public)")
         }
