@@ -74,9 +74,9 @@ public struct StatusDashboardView: View {
         errorMessage = nil
         defer { isRefreshing = false }
         async let meResult = capture { try await client.fetchMe() }
-        async let callsRefreshSucceeded = liveStore.refreshNow()
+        async let callsRefresh: Void = liveStore.refreshNow()
         let meOutcome = await meResult
-        _ = await callsRefreshSucceeded
+        await callsRefresh
         if let newMe = try? meOutcome.get() {
             profile = newMe
         } else if profile == nil {
