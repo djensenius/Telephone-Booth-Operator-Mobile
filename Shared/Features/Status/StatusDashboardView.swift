@@ -56,7 +56,7 @@ public struct StatusDashboardView: View {
         async let meResult = capture { try await client.fetchMe() }
         async let callsRefreshSucceeded = liveStore.refreshNow()
         let meOutcome = await meResult
-        if liveStore.status != nil, await callsRefreshSucceeded {
+        if await callsRefreshSucceeded, !Task.isCancelled {
             notificationScope = .allCalls
             await NotificationManager.shared.clearDeliveredNotifications(in: .allCalls)
         }
