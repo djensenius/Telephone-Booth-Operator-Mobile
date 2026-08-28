@@ -102,7 +102,7 @@ extension NotificationManager {
             }
             return ids.contains(messageId)
         case .allCalls:
-            return descriptor.categoryIdentifier == Category.call
+            return descriptor.categoryIdentifier == Category.call || descriptor.sessionId != nil
         case .session(let id):
             return descriptor.sessionId == id
         }

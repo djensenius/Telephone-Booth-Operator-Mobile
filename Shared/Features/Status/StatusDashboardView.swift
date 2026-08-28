@@ -57,7 +57,7 @@ public struct StatusDashboardView: View {
         async let storeRefresh: Void = liveStore.refreshNow()
         let meOutcome = await meResult
         await storeRefresh
-        if liveStore.status != nil {
+        if liveStore.status != nil, liveStore.lastError == nil {
             notificationScope = .allCalls
             await NotificationManager.shared.clearDeliveredNotifications(in: .allCalls)
         }

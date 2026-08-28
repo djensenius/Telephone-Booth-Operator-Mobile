@@ -171,6 +171,13 @@ final class NotificationTests: XCTestCase {
                 in: .allCalls
             )
         )
+        XCTAssertTrue(
+            NotificationManager.shouldClearDeliveredNotification(
+                categoryIdentifier: "",
+                userInfo: ["sessionId": "session-123"],
+                in: .allCalls
+            )
+        )
         XCTAssertFalse(
             NotificationManager.shouldClearDeliveredNotification(
                 categoryIdentifier: "BOOTH_MESSAGE",
