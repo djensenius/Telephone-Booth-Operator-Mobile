@@ -112,6 +112,8 @@ struct PendingModerationWidgetView: View {
                 Text("\(summary.receivedToday) received today")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                     .privacySensitive()
             }
             WidgetUpdatedFooter(date: summary.refreshedAt, stale: stale)
@@ -182,11 +184,8 @@ struct PendingModerationWidgetView: View {
                 .foregroundStyle(.tint)
                 .font(.title3.weight(.semibold))
                 .widgetAccentable()
-            Text("Pending")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-            Spacer()
+            WidgetHeaderTitle(title: "Pending")
+            Spacer(minLength: 4)
             if stale { WidgetStaleBadge() }
         }
     }
@@ -200,6 +199,9 @@ struct PendingModerationWidgetView: View {
             .foregroundStyle(.primary)
             .monospacedDigit()
             .contentTransition(.numericText())
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
+            .allowsTightening(true)
             .privacySensitive()
     }
 

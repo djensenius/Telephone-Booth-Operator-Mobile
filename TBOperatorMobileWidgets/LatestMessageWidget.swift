@@ -160,11 +160,8 @@ struct LatestMessageWidgetView: View {
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.tint)
                 .widgetAccentable()
-            Text("Latest message")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-            Spacer()
+            WidgetHeaderTitle(title: "Latest message")
+            Spacer(minLength: 4)
             if stale { WidgetStaleBadge() }
         }
     }
