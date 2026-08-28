@@ -29,6 +29,9 @@ public enum DeliveredNotificationScope: Equatable, Sendable {
 
 extension NotificationManager {
     public func clearDeliveredNotifications(in scope: DeliveredNotificationScope) async {
+        #if os(tvOS)
+        return
+        #else
         let center = UNUserNotificationCenter.current()
         let notifications = await center.deliveredNotifications()
         let identifiers = notifications.compactMap { notification in
@@ -41,6 +44,7 @@ extension NotificationManager {
         }
         guard !identifiers.isEmpty else { return }
         center.removeDeliveredNotifications(withIdentifiers: identifiers)
+        #endif
     }
 
     func markNotificationScopeVisible(_ scope: DeliveredNotificationScope, id: UUID) {
@@ -172,6 +176,9 @@ public final class TBOperatorAppDelegate: NSObject, UIApplicationDelegate, UNUse
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
+        #if os(tvOS)
+        return []
+        #else
         let content = notification.request.content
         let notificationCount = MessageNotificationAggregation.count(userInfo: content.userInfo)
         Task {
@@ -188,6 +195,7 @@ public final class TBOperatorAppDelegate: NSObject, UIApplicationDelegate, UNUse
             return []
         }
         return [.banner, .list, .sound, .badge]
+        #endif
     }
 
     #if !os(tvOS)
