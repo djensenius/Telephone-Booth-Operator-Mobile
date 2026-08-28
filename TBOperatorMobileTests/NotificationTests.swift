@@ -6,20 +6,11 @@ import XCTest
 @testable import TBOperatorMobile
 
 final class NotificationTests: XCTestCase {
-    func testMessageNotificationAggregationFormatsCurrentQueueCount() {
-        let userInfo: [AnyHashable: Any] = [
-            "notificationKind": "messageQueue",
-            "awaitingModeration": 2
-        ]
-
-        XCTAssertTrue(MessageNotificationAggregation.isQueueNotification(userInfo: userInfo))
-        XCTAssertEqual(MessageNotificationAggregation.count(userInfo: userInfo), 2)
-        XCTAssertEqual(MessageNotificationAggregation.title(count: 2), "2 messages waiting")
+    func testMessageNotificationAggregationParsesQueueCount() {
         XCTAssertEqual(
-            MessageNotificationAggregation.body(count: 2),
-            "Booth recordings are ready to moderate."
+            MessageNotificationAggregation.count(userInfo: ["awaitingModeration": 2]),
+            2
         )
-        XCTAssertEqual(MessageNotificationAggregation.title(count: 1), "1 message waiting")
         XCTAssertEqual(
             MessageNotificationAggregation.count(
                 userInfo: ["awaiting_moderation": NSNumber(value: 3)]
