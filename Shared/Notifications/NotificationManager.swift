@@ -65,6 +65,7 @@ public final class NotificationManager {
     private var registrationTask: Task<Void, Never>?
     private var registrationGeneration: UInt = 0
     private var registrationEnabled = false
+    var visibleNotificationScopes: [UUID: DeliveredNotificationScope] = [:]
     /// Debounce interval for coalescing rapid preference changes.
     private let debounceInterval: Duration
 
@@ -74,7 +75,7 @@ public final class NotificationManager {
         static let preferences = "notifications.preferences"
     }
 
-    private enum Category {
+    enum Category {
         static let call = "BOOTH_CALL"
         static let message = "BOOTH_MESSAGE"
     }
@@ -211,6 +212,7 @@ public final class NotificationManager {
         syncTask?.cancel()
         syncTask = nil
         pendingPreferences = nil
+        visibleNotificationScopes.removeAll()
         navigationStore.clearPendingTarget()
         clearLocalRegistration()
         unregisterForRemoteNotifications()
@@ -442,7 +444,7 @@ public final class NotificationManager {
         #endif
     }
 
-    private nonisolated static func stringValue(
+    nonisolated static func stringValue(
         for keys: [String],
         in userInfo: [AnyHashable: Any]
     ) -> String? {
@@ -454,7 +456,7 @@ public final class NotificationManager {
         return nil
     }
 
-    private nonisolated static func hasModerationQueuePayload(_ userInfo: [AnyHashable: Any]) -> Bool {
+    nonisolated static func hasModerationQueuePayload(_ userInfo: [AnyHashable: Any]) -> Bool {
         userInfo["awaitingModeration"] != nil || userInfo["awaiting_moderation"] != nil
     }
 

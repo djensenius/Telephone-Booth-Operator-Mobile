@@ -17,6 +17,7 @@ public struct SessionDetailView: View {
     @State private var detail: CallSessionDetail?
     @State private var loading = false
     @State private var errorMessage: String?
+    @State private var notificationScope: DeliveredNotificationScope?
 
     private let client: OperatorClient
 
@@ -50,6 +51,7 @@ public struct SessionDetailView: View {
         .autoRefresh {
             await load()
         }
+        .notificationVisibilityScope(notificationScope)
         .refreshableIfAvailable {
             await load()
         }
@@ -113,6 +115,9 @@ public struct SessionDetailView: View {
         defer { loading = false }
         do {
             detail = try await client.fetchSession(id: sessionId)
+            let scope = DeliveredNotificationScope.session(id: sessionId)
+            notificationScope = scope
+            await NotificationManager.shared.clearDeliveredNotifications(in: scope)
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Couldn't load this session."
         }

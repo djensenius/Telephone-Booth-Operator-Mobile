@@ -34,6 +34,7 @@ public struct MessageDetailView: View {
     @State private var usesDemoData = false
     @State private var deleting = false
     @State private var showDeleteConfirmation = false
+    @State private var notificationScope: DeliveredNotificationScope?
     private let client: OperatorClient
     private let onMessageUpdate: (Message) -> Void
     private let shouldDismissAfterDecision: (Message) -> Bool
@@ -97,6 +98,7 @@ public struct MessageDetailView: View {
         .task(id: sourceLanguage) {
             await onDeviceProcessor.refreshAvailability(sourceLanguage: sourceLanguage)
         }
+        .notificationVisibilityScope(notificationScope)
         .refreshableIfAvailable {
             await load()
         }
@@ -443,6 +445,9 @@ private extension MessageDetailView {
         if let newMessage {
             message = newMessage
             onMessageUpdate(newMessage)
+            let scope = DeliveredNotificationScope.messages(ids: [messageId])
+            notificationScope = scope
+            await NotificationManager.shared.clearDeliveredNotifications(in: scope)
             if sourceLanguage.isEmpty {
                 sourceLanguage = newMessage.latestTranscription?.language ?? ""
             }

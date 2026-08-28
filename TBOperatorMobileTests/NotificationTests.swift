@@ -6,6 +6,28 @@ import XCTest
 @testable import TBOperatorMobile
 
 final class NotificationTests: XCTestCase {
+    func testMessageNotificationAggregationFormatsCurrentQueueCount() {
+        let userInfo: [AnyHashable: Any] = [
+            "notificationKind": "messageQueue",
+            "awaitingModeration": 2
+        ]
+
+        XCTAssertTrue(MessageNotificationAggregation.isQueueNotification(userInfo: userInfo))
+        XCTAssertEqual(MessageNotificationAggregation.count(userInfo: userInfo), 2)
+        XCTAssertEqual(MessageNotificationAggregation.title(count: 2), "2 messages waiting")
+        XCTAssertEqual(
+            MessageNotificationAggregation.body(count: 2),
+            "Booth recordings are ready to moderate."
+        )
+        XCTAssertEqual(MessageNotificationAggregation.title(count: 1), "1 message waiting")
+        XCTAssertEqual(
+            MessageNotificationAggregation.count(
+                userInfo: ["awaiting_moderation": NSNumber(value: 3)]
+            ),
+            3
+        )
+    }
+
     func testMobileDevicePreferencesRoundTrip() throws {
         let prefs = MobileDevicePreferences(
             callStarted: false,
@@ -70,6 +92,127 @@ final class NotificationTests: XCTestCase {
             userInfo: ["awaitingModeration": 12, "threshold": 10]
         )
         XCTAssertEqual(target, .reviewQueue)
+    }
+
+    func testViewingMessageListClearsMessageNotifications() {
+        XCTAssertTrue(
+            NotificationManager.shouldClearDeliveredNotification(
+                categoryIdentifier: "BOOTH_MESSAGE",
+                userInfo: [:],
+                in: .allMessages
+            )
+        )
+        XCTAssertTrue(
+            NotificationManager.shouldClearDeliveredNotification(
+                categoryIdentifier: "",
+                userInfo: ["message_id": "message-123"],
+                in: .allMessages
+            )
+        )
+        XCTAssertFalse(
+            NotificationManager.shouldClearDeliveredNotification(
+                categoryIdentifier: "BOOTH_CALL",
+                userInfo: ["sessionId": "session-123"],
+                in: .allMessages
+            )
+        )
+    }
+
+    func testViewingMessageDetailOnlyClearsMatchingNotification() {
+        let scope = DeliveredNotificationScope.messages(ids: ["message-123"])
+
+        XCTAssertTrue(
+            NotificationManager.shouldClearDeliveredNotification(
+                categoryIdentifier: "BOOTH_MESSAGE",
+                userInfo: ["messageId": "message-123"],
+                in: scope
+            )
+        )
+        XCTAssertFalse(
+            NotificationManager.shouldClearDeliveredNotification(
+                categoryIdentifier: "BOOTH_MESSAGE",
+                userInfo: ["messageId": "message-456"],
+                in: scope
+            )
+        )
+        XCTAssertFalse(
+            NotificationManager.shouldClearDeliveredNotification(
+                categoryIdentifier: "BOOTH_MESSAGE",
+                userInfo: [:],
+                in: scope
+            )
+        )
+    }
+
+    func testViewingSessionOnlyClearsMatchingNotification() {
+        let scope = DeliveredNotificationScope.session(id: "session-123")
+
+        XCTAssertTrue(
+            NotificationManager.shouldClearDeliveredNotification(
+                categoryIdentifier: "BOOTH_CALL",
+                userInfo: ["session_id": "session-123"],
+                in: scope
+            )
+        )
+        XCTAssertFalse(
+            NotificationManager.shouldClearDeliveredNotification(
+                categoryIdentifier: "BOOTH_CALL",
+                userInfo: ["session_id": "session-456"],
+                in: scope
+            )
+        )
+    }
+
+    func testViewingDashboardClearsCallNotifications() {
+        XCTAssertTrue(
+            NotificationManager.shouldClearDeliveredNotification(
+                categoryIdentifier: "BOOTH_CALL",
+                userInfo: [:],
+                in: .allCalls
+            )
+        )
+        XCTAssertFalse(
+            NotificationManager.shouldClearDeliveredNotification(
+                categoryIdentifier: "BOOTH_MESSAGE",
+                userInfo: ["messageId": "message-123"],
+                in: .allCalls
+            )
+        )
+    }
+
+    @MainActor
+    func testVisibleScopeSuppressesOnlyMatchingForegroundNotifications() {
+        let manager = NotificationManager()
+        let scopeId = UUID()
+
+        manager.markNotificationScopeVisible(.allMessages, id: scopeId)
+
+        XCTAssertTrue(
+            manager.isViewingNotification(
+                NotificationManager.deliveredNotificationDescriptor(
+                    categoryIdentifier: "BOOTH_MESSAGE",
+                    userInfo: ["messageId": "message-123"]
+                )
+            )
+        )
+        XCTAssertFalse(
+            manager.isViewingNotification(
+                NotificationManager.deliveredNotificationDescriptor(
+                    categoryIdentifier: "BOOTH_CALL",
+                    userInfo: ["sessionId": "session-123"]
+                )
+            )
+        )
+
+        manager.markNotificationScopeHidden(id: scopeId)
+        XCTAssertFalse(
+            manager.isViewingNotification(
+                NotificationManager.deliveredNotificationDescriptor(
+                    categoryIdentifier: "BOOTH_MESSAGE",
+                    userInfo: ["messageId": "message-123"]
+                )
+            )
+        )
     }
 
     @MainActor

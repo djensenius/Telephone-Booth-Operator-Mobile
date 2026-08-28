@@ -15,6 +15,7 @@ struct WatchLatestMessageView: View {
     @State private var message: Message?
     @State private var errorMessage: String?
     @State private var isRefreshing = false
+    @State private var notificationScope: DeliveredNotificationScope?
 
     private let client: OperatorClient
 
@@ -42,6 +43,7 @@ struct WatchLatestMessageView: View {
         .autoRefresh {
             await refresh()
         }
+        .notificationVisibilityScope(notificationScope)
     }
 
     private func messageCard(_ msg: Message) -> some View {
@@ -102,6 +104,15 @@ struct WatchLatestMessageView: View {
         do {
             let list = try await client.fetchMessages(status: nil, since: nil, limit: 1)
             message = list.items.first
+            if let message {
+                let scope = DeliveredNotificationScope.messages(ids: [message.id])
+                notificationScope = scope
+                await NotificationManager.shared.clearDeliveredNotifications(
+                    in: scope
+                )
+            } else {
+                notificationScope = nil
+            }
         } catch {
             if message == nil {
                 errorMessage = "Couldn't load the latest message."

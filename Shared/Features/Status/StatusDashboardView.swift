@@ -13,6 +13,7 @@ public struct StatusDashboardView: View {
     @State private var errorMessage: String?
     @State private var isRefreshing = false
     @State private var liveStore: BoothStatusLiveStore
+    @State private var notificationScope: DeliveredNotificationScope?
 
     private let client: OperatorClient
 
@@ -44,6 +45,7 @@ public struct StatusDashboardView: View {
         .task {
             await refresh()
         }
+        .notificationVisibilityScope(notificationScope)
         .boothStatusLive(liveStore)
     }
 
@@ -55,6 +57,10 @@ public struct StatusDashboardView: View {
         async let storeRefresh: Void = liveStore.refreshNow()
         let meOutcome = await meResult
         await storeRefresh
+        if liveStore.status != nil {
+            notificationScope = .allCalls
+            await NotificationManager.shared.clearDeliveredNotifications(in: .allCalls)
+        }
         if let newMe = try? meOutcome.get() {
             profile = newMe
         } else if profile == nil {

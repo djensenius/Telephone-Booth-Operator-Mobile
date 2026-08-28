@@ -76,6 +76,10 @@ public final class PendingMessagesStore {
         }
     }
 
+    public func applyNotificationCount(_ count: Int) async {
+        await applyCount(max(0, count), stats: nil)
+    }
+
     private func applyCount(_ count: Int, stats: StatsSummary?) async {
         pendingCount = count
         if let stats {
