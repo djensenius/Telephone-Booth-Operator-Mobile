@@ -6,7 +6,14 @@
 //
 import SwiftUI
 
+private struct CallNotificationAcknowledgementID: Equatable {
+    let revision: UInt
+    let isActive: Bool
+}
+
 public struct StatusDashboardView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.automaticRefreshEnabled) private var automaticRefreshEnabled
     @State private var auth = AuthManager.shared
     @State private var config = AppConfig.shared
     @State private var profile: OperatorMe?
@@ -45,6 +52,19 @@ public struct StatusDashboardView: View {
         .task {
             await refresh()
         }
+        .task(
+            id: CallNotificationAcknowledgementID(
+                revision: liveStore.callsTodayRefreshRevision,
+                isActive: scenePhase == .active && automaticRefreshEnabled
+            )
+        ) {
+            guard liveStore.callsTodayRefreshRevision > 0,
+                  scenePhase == .active,
+                  automaticRefreshEnabled,
+                  !Task.isCancelled else { return }
+            notificationScope = .allCalls
+            await NotificationManager.shared.clearDeliveredNotifications(in: .allCalls)
+        }
         .notificationVisibilityScope(notificationScope)
         .boothStatusLive(liveStore)
     }
@@ -56,10 +76,7 @@ public struct StatusDashboardView: View {
         async let meResult = capture { try await client.fetchMe() }
         async let callsRefreshSucceeded = liveStore.refreshNow()
         let meOutcome = await meResult
-        if await callsRefreshSucceeded, !Task.isCancelled {
-            notificationScope = .allCalls
-            await NotificationManager.shared.clearDeliveredNotifications(in: .allCalls)
-        }
+        _ = await callsRefreshSucceeded
         if let newMe = try? meOutcome.get() {
             profile = newMe
         } else if profile == nil {

@@ -34,6 +34,7 @@ extension NotificationManager {
         #else
         let center = UNUserNotificationCenter.current()
         let notifications = await center.deliveredNotifications()
+        guard !Task.isCancelled else { return }
         let identifiers = notifications.compactMap { notification in
             let content = notification.request.content
             return Self.shouldClearDeliveredNotification(
