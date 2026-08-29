@@ -11,9 +11,162 @@
 
 import SwiftUI
 
+enum MessageListMode: Equatable, Sendable {
+    case queue
+    case question(id: String, prompt: String)
+
+    var questionId: String? {
+        guard case .question(let id, _) = self else { return nil }
+        return id
+    }
+
+    var questionPrompt: String? {
+        guard case .question(_, let prompt) = self else { return nil }
+        return prompt
+    }
+
+    var isQuestion: Bool {
+        questionId != nil
+    }
+
+    func includes(_ message: Message, filter: MessageListFilter) -> Bool {
+        switch self {
+        case .queue:
+            return filter.includes(message.status)
+        case .question(let id, _):
+            return message.questionId == id
+        }
+    }
+
+    func shouldDismissDetail(afterDecisionTo status: MessageStatus, filter: MessageListFilter) -> Bool {
+        switch self {
+        case .queue:
+            return filter.shouldDismissDetail(afterDecisionTo: status)
+        case .question:
+            return false
+        }
+    }
+
+    func notificationScope(
+        for messages: [Message],
+        filter: MessageListFilter
+    ) -> DeliveredNotificationScope {
+        switch self {
+        case .queue where filter == .all || filter == .review:
+            return .allMessages
+        case .queue, .question:
+            return .messages(ids: Set(messages.map(\.id)))
+        }
+    }
+
+    func liveUpdateDisposition(
+        for message: Message,
+        loadedMessages: [Message],
+        hasMore: Bool,
+        filter: MessageListFilter
+    ) -> MessageLiveUpdateDisposition {
+        let isLoaded = loadedMessages.contains { $0.id == message.id }
+        guard includes(message, filter: filter) else {
+            return isLoaded ? .remove : .ignore
+        }
+        guard case .question = self, !isLoaded, hasMore, let oldest = loadedMessages.oldest else {
+            return .upsert
+        }
+        return message.isNewer(than: oldest) ? .upsert : .ignore
+    }
+
+    func actionAccess(
+        for message: Message,
+        installationState: MessageInstallationAccessState
+    ) -> MessageActionAccess {
+        guard case .question = self else { return .writable }
+        switch installationState {
+        case .loading:
+            return .checking
+        case .available(let currentInstallationId):
+            return .installationScoped(
+                messageInstallationId: message.installationId,
+                currentInstallationId: currentInstallationId
+            )
+        case .unavailable:
+            return .readOnlyUnavailable
+        }
+    }
+}
+
+enum MessageLiveUpdateDisposition: Equatable, Sendable {
+    case upsert
+    case remove
+    case ignore
+}
+
+enum MessageInstallationAccessState: Equatable, Sendable {
+    case loading
+    case available(currentInstallationId: String?)
+    case unavailable
+}
+
+enum MessageActionAccess: Equatable, Sendable {
+    case writable
+    case checking
+    case readOnlyArchived
+    case readOnlyUnavailable
+
+    static func installationScoped(
+        messageInstallationId: String?,
+        currentInstallationId: String?
+    ) -> MessageActionAccess {
+        guard let messageInstallationId,
+              let currentInstallationId,
+              messageInstallationId == currentInstallationId else {
+            return .readOnlyArchived
+        }
+        return .writable
+    }
+
+    var readOnlyReason: String? {
+        switch self {
+        case .writable:
+            return nil
+        case .checking:
+            return "Checking installation status — actions are temporarily disabled."
+        case .readOnlyArchived:
+            return "Archived installation — this recording is read-only."
+        case .readOnlyUnavailable:
+            return "Installation status is unavailable — this recording is read-only."
+        }
+    }
+}
+
+enum MessageListMutation: Equatable, Sendable {
+    case upsert(Message)
+    case remove(String)
+
+    var messageId: String {
+        switch self {
+        case .upsert(let message): return message.id
+        case .remove(let id): return id
+        }
+    }
+}
+
+struct MessageListMutationRecord: Equatable, Sendable {
+    let sequence: UInt
+    let mutation: MessageListMutation
+}
+
+private struct MessageListRefreshID: Equatable {
+    let filter: MessageListFilter
+    let questionId: String?
+}
+
+// swiftlint:disable:next type_body_length
 public struct MessageListView: View {
+    @Environment(\.automaticRefreshEnabled) private var automaticRefreshEnabled
+    @Environment(\.scenePhase) private var scenePhase
     @State private var messages: [Message] = []
     @State private var loading = false
+    @State private var loadingMore = false
     @State private var errorMessage: String?
     @State private var filter: MessageListFilter
     @State private var searchText = ""
@@ -22,6 +175,14 @@ public struct MessageListView: View {
     @State private var deleteCandidate: Message?
     @State private var refreshGeneration = 0
     @State private var notificationScope: DeliveredNotificationScope?
+    @State private var nextCursor: String?
+    @State private var loadedPageCount = 0
+    @State private var isVisible = false
+    @State private var latestMutationSequence: UInt = 0
+    @State private var pendingMutations: [MessageListMutationRecord] = []
+    @State private var installationAccessState: MessageInstallationAccessState = .loading
+    @State private var installationAccessError: String?
+    @State private var installationAccessRevision: UInt = 0
     #if os(macOS)
     @State private var hoveredMessageId: String?
     #endif
@@ -29,6 +190,8 @@ public struct MessageListView: View {
     private let socket: StatusSocket
     private let routeFilter: MessageListFilter
     private let routeRevision: UInt
+    private let mode: MessageListMode
+    private let pageSize: Int
 
     public init(
         client: OperatorClient = .shared,
@@ -40,19 +203,41 @@ public struct MessageListView: View {
         self.socket = socket ?? (client.demoMode ? .demo : .shared)
         self.routeFilter = routeFilter
         self.routeRevision = routeRevision
+        self.mode = .queue
+        self.pageSize = 50
         _filter = State(initialValue: routeFilter)
+    }
+
+    public init(
+        questionId: String,
+        questionPrompt: String,
+        client: OperatorClient = .shared,
+        socket: StatusSocket? = nil,
+        pageSize: Int = 50
+    ) {
+        self.client = client
+        self.socket = socket ?? (client.demoMode ? .demo : .shared)
+        self.routeFilter = .all
+        self.routeRevision = 0
+        self.mode = .question(id: questionId, prompt: questionPrompt)
+        self.pageSize = pageSize
+        _filter = State(initialValue: .all)
     }
 
     public var body: some View {
         VStack(spacing: 0) {
-            filterPicker
+            if let questionPrompt = mode.questionPrompt {
+                questionContext(questionPrompt)
+            } else {
+                filterPicker
+            }
 
             Group {
                 if loading && messages.isEmpty {
                     ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Theme.Colors.background)
-                } else if filteredMessages.isEmpty {
+                } else if messages.isEmpty {
                     emptyState
                 } else {
                     list
@@ -65,21 +250,39 @@ public struct MessageListView: View {
             MessageDetailView(
                 messageId: messageId,
                 client: client,
+                readOnlyReason: readOnlyReason(for: messageId),
+                enforceInstallationReadOnly: mode.isQuestion,
+                socket: socket,
                 onMessageUpdate: { updated in apply(updated) },
                 shouldDismissAfterDecision: { updated in
-                    filter.shouldDismissDetail(afterDecisionTo: updated.status)
+                    mode.shouldDismissDetail(
+                        afterDecisionTo: updated.status,
+                        filter: filter
+                    )
                 },
-                onMessageDelete: { id in messages.removeAll { $0.id == id } }
+                onMessageDelete: { id in removeMessage(id: id) }
             )
         }
-        .autoRefresh(id: filter) {
+        .autoRefresh(
+            id: MessageListRefreshID(filter: filter, questionId: mode.questionId)
+        ) {
             await refresh()
         }
         .onChange(of: filter) {
-            notificationScope = nil
+            if !mode.isQuestion {
+                notificationScope = nil
+            }
         }
         .onChange(of: routeRevision) {
-            filter = routeFilter
+            if !mode.isQuestion {
+                filter = routeFilter
+            }
+        }
+        .onAppear {
+            isVisible = true
+        }
+        .onDisappear {
+            isVisible = false
         }
         .task {
             await watchMessageUpdates()
@@ -114,17 +317,32 @@ public struct MessageListView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
+            if let installationAccessError {
+                BannerView(message: installationAccessError, kind: .info)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
+            if filteredMessages.isEmpty {
+                noMatchesRow
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
             ForEach(filteredMessages) { message in
+                let actionAccess = mode.actionAccess(
+                    for: message,
+                    installationState: installationAccessState
+                )
                 NavigationLink(value: message.id) {
                     MessageRow(
                         message: message,
-                        isDeciding: isPerformingAction(on: message)
+                        isDeciding: isPerformingAction(on: message),
+                        readOnlyReason: actionAccess.readOnlyReason
                     )
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 #if os(macOS)
                 .overlay(alignment: .trailing) {
-                    if hoveredMessageId == message.id {
+                    if hoveredMessageId == message.id, actionAccess == .writable {
                         quickActions(for: message)
                             .padding(.horizontal, Theme.Spacing.small)
                             .padding(.vertical, 4)
@@ -140,10 +358,14 @@ public struct MessageListView: View {
                 #endif
                 .operatorListRowBackground()
                 .contextMenu {
-                    actionButtons(for: message)
+                    if actionAccess == .writable {
+                        actionButtons(for: message)
+                    }
                 }
                 .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                    if message.canBeDecided, message.status != .approved {
+                    if actionAccess == .writable,
+                       message.canBeDecided,
+                       message.status != .approved {
                         Button {
                             Task { await decide(message, as: .approve) }
                         } label: {
@@ -153,23 +375,91 @@ public struct MessageListView: View {
                     }
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    if message.canBeDecided, message.status != .rejected {
+                    if actionAccess == .writable,
+                       message.canBeDecided,
+                       message.status != .rejected {
                         Button(role: .destructive) {
                             Task { await decide(message, as: .reject) }
                         } label: {
                             Label("Reject", systemImage: "xmark.circle.fill")
                         }
                     }
-                    Button(role: .destructive) {
-                        deleteCandidate = message
-                    } label: {
-                        Label("Delete permanently", systemImage: "trash.fill")
+                    if actionAccess == .writable {
+                        Button(role: .destructive) {
+                            deleteCandidate = message
+                        } label: {
+                            Label("Delete permanently", systemImage: "trash.fill")
+                        }
+                        .tint(
+                            message.recommendsPermanentDelete
+                                ? Theme.Colors.error
+                                : Theme.Colors.textSecondary
+                        )
                     }
-                    .tint(message.recommendsPermanentDelete ? Theme.Colors.error : Theme.Colors.textSecondary)
                 }
+            }
+            if mode.isQuestion, nextCursor != nil {
+                loadMoreFooter
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
             }
         }
         .operatorListStyle()
+    }
+
+    private var noMatchesRow: some View {
+        VStack(spacing: Theme.Spacing.medium) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 28))
+                .foregroundStyle(Theme.Colors.textSecondary)
+            Text(emptyTitle)
+                .font(Theme.Fonts.bodyLarge)
+                .foregroundStyle(Theme.Colors.textPrimary)
+        }
+        .padding(Theme.Spacing.extraLarge)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func questionContext(_ prompt: String) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+            Text("Question")
+                .font(Theme.Fonts.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(Theme.Colors.accent)
+            Text(prompt)
+                .font(Theme.Fonts.bodyLarge)
+                .foregroundStyle(Theme.Colors.textPrimary)
+            Text("Every recording linked to this prompt, newest first.")
+                .font(Theme.Fonts.bodySmall)
+                .foregroundStyle(Theme.Colors.textSecondary)
+        }
+        .padding(.horizontal, Theme.Spacing.medium)
+        .padding(.vertical, Theme.Spacing.small)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.Colors.secondaryBackground)
+    }
+
+    @ViewBuilder
+    private var loadMoreFooter: some View {
+        if loadingMore {
+            HStack {
+                Spacer()
+                ProgressView()
+                Spacer()
+            }
+            .padding(.vertical, Theme.Spacing.medium)
+        } else {
+            Button {
+                Task { await loadMoreAnswers() }
+            } label: {
+                Text("Load more answers")
+                    .font(Theme.Fonts.bodyMedium)
+                    .foregroundStyle(Theme.Colors.accent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Theme.Spacing.medium)
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     #if os(macOS)
@@ -269,21 +559,31 @@ public struct MessageListView: View {
     }
 
     private var emptyTitle: String {
-        if errorMessage != nil { return "Couldn't load messages" }
-        if !searchText.isEmpty { return "No matching messages" }
+        if errorMessage != nil {
+            return mode.isQuestion ? "Couldn't load answers" : "Couldn't load messages"
+        }
+        if !searchText.isEmpty {
+            return mode.isQuestion ? "No matching answers" : "No matching messages"
+        }
+        if mode.isQuestion { return "No answers yet" }
         if filter != .all { return "No \(filter.title.lowercased()) messages" }
         return "No messages yet"
     }
 
     private var filteredMessages: [Message] {
         messages.filter { message in
-            filter.includes(message.status) && message.matchesSearch(searchText)
+            mode.includes(message, filter: filter) && message.matchesSearch(searchText)
         }
     }
 
     private func refresh() async {
+        if mode.isQuestion {
+            await refreshQuestionAnswers()
+            return
+        }
         refreshGeneration += 1
         let generation = refreshGeneration
+        let mutationSequence = latestMutationSequence
         loading = true
         errorMessage = nil
         defer {
@@ -294,20 +594,109 @@ public struct MessageListView: View {
         do {
             let list = try await fetchMessages(for: filter)
             guard !Task.isCancelled, generation == refreshGeneration else { return }
-            messages = list
-            let scope: DeliveredNotificationScope =
-                filter == .all || filter == .review
-                    ? .allMessages
-                    : .messages(ids: Set(list.map(\.id)))
-            notificationScope = scope
-            await NotificationManager.shared.clearDeliveredNotifications(in: scope)
+            messages = list.applying(pendingMutations.mutations(after: mutationSequence))
+            pendingMutations.removeAll()
+            nextCursor = nil
+            loadedPageCount = 0
+            await acknowledgeLoadedMessages()
         } catch {
             guard !Task.isCancelled, generation == refreshGeneration else { return }
             errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to load messages."
         }
     }
 
+    private func refreshQuestionAnswers() async {
+        guard let questionId = mode.questionId, !loadingMore else { return }
+        refreshGeneration += 1
+        let generation = refreshGeneration
+        let mutationSequence = latestMutationSequence
+        let pageCount = max(loadedPageCount, 1)
+        loading = true
+        errorMessage = nil
+        defer {
+            if generation == refreshGeneration {
+                loading = false
+            }
+        }
+        do {
+            let refreshed = try await reloadLoadedPages(
+                pageCount: pageCount,
+                isCurrent: { generation == refreshGeneration },
+                fetchPage: { cursor in
+                    let page = try await client.fetchQuestionMessages(
+                        questionId: questionId,
+                        cursor: cursor,
+                        limit: pageSize
+                    )
+                    return (page.items, page.nextCursor)
+                }
+            )
+            guard !Task.isCancelled, generation == refreshGeneration else { return }
+            messages = refreshed.items.applying(
+                pendingMutations.mutations(after: mutationSequence)
+            )
+            pendingMutations.removeAll()
+            nextCursor = refreshed.nextCursor
+            loadedPageCount = refreshed.pageCount
+            await refreshQuestionInstallationAccess()
+            await acknowledgeLoadedMessages()
+        } catch is CancellationError {
+            return
+        } catch {
+            guard !Task.isCancelled, generation == refreshGeneration else { return }
+            errorMessage = (error as? LocalizedError)?.errorDescription
+                ?? "Failed to load answers for this question."
+        }
+    }
+
+    private func loadMoreAnswers() async {
+        guard let questionId = mode.questionId,
+              let cursor = nextCursor,
+              !loading,
+              !loadingMore else {
+            return
+        }
+        let generation = refreshGeneration
+        let mutationSequence = latestMutationSequence
+        loadingMore = true
+        errorMessage = nil
+        defer { loadingMore = false }
+        do {
+            let page = try await client.fetchQuestionMessages(
+                questionId: questionId,
+                cursor: cursor,
+                limit: pageSize
+            )
+            guard !Task.isCancelled, generation == refreshGeneration else { return }
+            messages = (messages + page.items).applying(
+                pendingMutations.mutations(after: mutationSequence)
+            )
+            pendingMutations.removeAll()
+            nextCursor = page.nextCursor
+            loadedPageCount += 1
+            await acknowledgeLoadedMessages()
+        } catch {
+            guard !Task.isCancelled, generation == refreshGeneration else { return }
+            errorMessage = (error as? LocalizedError)?.errorDescription
+                ?? "Failed to load more answers."
+        }
+    }
+
+    private func acknowledgeLoadedMessages() async {
+        let scope = mode.notificationScope(for: messages, filter: filter)
+        notificationScope = scope
+        guard isVisible, scenePhase == .active, automaticRefreshEnabled else { return }
+        await NotificationManager.shared.clearDeliveredNotifications(in: scope)
+    }
+
     private func decide(_ message: Message, as decision: MessageDecision) async {
+        guard mode.actionAccess(
+            for: message,
+            installationState: installationAccessState
+        ) == .writable else {
+            errorMessage = "This recording belongs to a read-only installation."
+            return
+        }
         guard !decidingMessageIds.contains(message.id) else { return }
         decidingMessageIds.insert(message.id)
         errorMessage = nil
@@ -324,6 +713,13 @@ public struct MessageListView: View {
     }
 
     private func delete(_ message: Message) async {
+        guard mode.actionAccess(
+            for: message,
+            installationState: installationAccessState
+        ) == .writable else {
+            errorMessage = "This recording belongs to a read-only installation."
+            return
+        }
         guard !deletingMessageIds.contains(message.id) else { return }
         deleteCandidate = nil
         deletingMessageIds.insert(message.id)
@@ -331,7 +727,7 @@ public struct MessageListView: View {
         defer { deletingMessageIds.remove(message.id) }
         do {
             try await client.deleteMessage(id: message.id)
-            messages.removeAll { $0.id == message.id }
+            removeMessage(id: message.id)
             await PendingMessagesStore.shared.refresh(using: client)
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription
@@ -340,7 +736,60 @@ public struct MessageListView: View {
     }
 
     private func apply(_ updated: Message) {
-        messages.applyLiveUpdate(updated, isIncluded: filter.includes(updated.status))
+        let mutation: MessageListMutation = mode.includes(updated, filter: filter)
+            ? .upsert(updated)
+            : .remove(updated.id)
+        apply(mutation)
+    }
+
+    private func apply(_ mutation: MessageListMutation) {
+        latestMutationSequence &+= 1
+        pendingMutations.removeAll { $0.mutation.messageId == mutation.messageId }
+        pendingMutations.append(
+            MessageListMutationRecord(
+                sequence: latestMutationSequence,
+                mutation: mutation
+            )
+        )
+        messages.apply(mutation)
+        updateQuestionNotificationScope()
+    }
+
+    private func removeMessage(id: String) {
+        apply(.remove(id))
+    }
+
+    private func updateQuestionNotificationScope() {
+        guard mode.isQuestion else { return }
+        notificationScope = mode.notificationScope(for: messages, filter: filter)
+    }
+
+    private func readOnlyReason(for messageId: String) -> String? {
+        guard mode.isQuestion else { return nil }
+        guard let message = messages.first(where: { $0.id == messageId }) else {
+            return MessageActionAccess.checking.readOnlyReason
+        }
+        return mode.actionAccess(
+            for: message,
+            installationState: installationAccessState
+        ).readOnlyReason
+    }
+
+    private func refreshQuestionInstallationAccess() async {
+        guard mode.isQuestion else { return }
+        let revision = installationAccessRevision
+        do {
+            let current = try await client.fetchCurrentInstallation()
+            guard !Task.isCancelled, revision == installationAccessRevision else { return }
+            installationAccessState = .available(currentInstallationId: current?.id)
+            installationAccessError = nil
+        } catch is CancellationError {
+            return
+        } catch {
+            guard !Task.isCancelled, revision == installationAccessRevision else { return }
+            installationAccessState = .unavailable
+            installationAccessError = "Couldn't verify installation status. Actions are disabled."
+        }
     }
 
     private func fetchMessages(for filter: MessageListFilter) async throws -> [Message] {
@@ -366,19 +815,13 @@ public struct MessageListView: View {
             do {
                 for try await envelope in socket.subscribe() {
                     guard !Task.isCancelled else { return }
-                    if case .message(let message) = envelope {
-                        apply(message)
-                        if filter.includes(message.status) {
-                            let descriptor = NotificationManager.deliveredNotificationDescriptor(
-                                categoryIdentifier: "BOOTH_MESSAGE",
-                                userInfo: ["messageId": message.id]
-                            )
-                            if NotificationManager.shared.isViewingNotification(descriptor) {
-                                await NotificationManager.shared.clearDeliveredNotifications(
-                                    in: .messages(ids: [message.id])
-                                )
-                            }
-                        }
+                    switch envelope {
+                    case .message(let message):
+                        await handleLiveMessage(message)
+                    case .installation(let installation):
+                        handleInstallationUpdate(installation)
+                    case .status, .system, .work, .unknown:
+                        break
                     }
                 }
             } catch is CancellationError {
@@ -391,26 +834,116 @@ public struct MessageListView: View {
             try? await Task.sleep(for: .seconds(2))
         }
     }
+
+    private func handleLiveMessage(_ message: Message) async {
+        let disposition = mode.liveUpdateDisposition(
+            for: message,
+            loadedMessages: messages,
+            hasMore: nextCursor != nil,
+            filter: filter
+        )
+        switch disposition {
+        case .upsert:
+            apply(.upsert(message))
+        case .remove:
+            apply(.remove(message.id))
+        case .ignore:
+            return
+        }
+        guard disposition == .upsert else { return }
+
+        let descriptor = NotificationManager.deliveredNotificationDescriptor(
+            categoryIdentifier: "BOOTH_MESSAGE",
+            userInfo: ["messageId": message.id]
+        )
+        let isViewingQuestionAnswers = mode.isQuestion
+            && isVisible
+            && scenePhase == .active
+            && automaticRefreshEnabled
+        guard isViewingQuestionAnswers
+                || NotificationManager.shared.isViewingNotification(descriptor) else {
+            return
+        }
+        await NotificationManager.shared.clearDeliveredNotifications(
+            in: .messages(ids: [message.id])
+        )
+    }
+
+    private func handleInstallationUpdate(_ installation: Installation) {
+        guard mode.isQuestion else { return }
+        installationAccessRevision &+= 1
+        if installation.isActive, installation.endedAt == nil {
+            installationAccessState = .available(currentInstallationId: installation.id)
+            installationAccessError = nil
+            return
+        }
+        if case .available(let currentInstallationId) = installationAccessState,
+           currentInstallationId == installation.id {
+            installationAccessState = .available(currentInstallationId: nil)
+            installationAccessError = nil
+        }
+    }
 }
 
 extension Array where Element == Message {
     mutating func applyLiveUpdate(_ updated: Message, isIncluded: Bool) {
-        guard isIncluded else {
-            removeAll { $0.id == updated.id }
-            return
+        apply(isIncluded ? .upsert(updated) : .remove(updated.id))
+    }
+
+    mutating func apply(_ mutation: MessageListMutation) {
+        switch mutation {
+        case .upsert(let message):
+            self = (filter { $0.id != message.id } + [message]).deduplicatedNewestFirst()
+        case .remove(let id):
+            removeAll { $0.id == id }
         }
-        if let index = firstIndex(where: { $0.id == updated.id }) {
-            self[index] = updated
-        } else {
-            append(updated)
+    }
+
+    func applying(_ mutations: [MessageListMutation]) -> [Message] {
+        var result = deduplicatedNewestFirst()
+        for mutation in mutations {
+            result.apply(mutation)
         }
-        sort { $0.createdAt > $1.createdAt }
+        return result
+    }
+
+    func deduplicatedNewestFirst() -> [Message] {
+        var messagesById: [String: Message] = [:]
+        for message in self {
+            messagesById[message.id] = message
+        }
+        return messagesById.values.sorted {
+            $0.isNewer(than: $1)
+        }
+    }
+
+    var oldest: Message? {
+        self.min { $0.isOlder(than: $1) }
+    }
+}
+
+private extension Message {
+    func isNewer(than other: Message) -> Bool {
+        if createdAt != other.createdAt { return createdAt > other.createdAt }
+        return id > other.id
+    }
+
+    func isOlder(than other: Message) -> Bool {
+        if createdAt != other.createdAt { return createdAt < other.createdAt }
+        return id < other.id
+    }
+}
+
+extension Array where Element == MessageListMutationRecord {
+    func mutations(after sequence: UInt) -> [MessageListMutation] {
+        filter { $0.sequence > sequence }.map(\.mutation)
     }
 }
 
 struct MessageRow: View {
     let message: Message
     let isDeciding: Bool
+    let readOnlyReason: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.small) {
@@ -460,6 +993,11 @@ struct MessageRow: View {
                         .padding(.vertical, 3)
                         .background(Theme.Colors.error.opacity(0.12), in: Capsule())
                 }
+            }
+            if let readOnlyReason {
+                Label(readOnlyReason, systemImage: "lock.fill")
+                    .font(Theme.Fonts.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
         }
         .padding(.vertical, Theme.Spacing.small)

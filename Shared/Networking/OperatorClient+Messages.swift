@@ -5,6 +5,46 @@
 
 import Foundation
 
+private struct DemoQuestionMessageCursor {
+    let createdAt: TimeInterval
+    let id: String
+}
+
+private func encodeDemoQuestionMessageCursor(_ message: Message) -> String {
+    Data("\(message.createdAt.timeIntervalSince1970)\t\(message.id)".utf8)
+        .base64EncodedString()
+        .replacingOccurrences(of: "+", with: "-")
+        .replacingOccurrences(of: "/", with: "_")
+        .replacingOccurrences(of: "=", with: "")
+}
+
+private func decodeDemoQuestionMessageCursor(_ raw: String) -> DemoQuestionMessageCursor? {
+    var base64 = raw
+        .replacingOccurrences(of: "-", with: "+")
+        .replacingOccurrences(of: "_", with: "/")
+    let padding = (4 - base64.count % 4) % 4
+    base64.append(String(repeating: "=", count: padding))
+    guard let data = Data(base64Encoded: base64),
+          let decoded = String(data: data, encoding: .utf8),
+          let separator = decoded.firstIndex(of: "\t"),
+          let createdAt = TimeInterval(decoded[..<separator]) else {
+        return nil
+    }
+    let id = String(decoded[decoded.index(after: separator)...])
+    guard !id.isEmpty else { return nil }
+    return DemoQuestionMessageCursor(createdAt: createdAt, id: id)
+}
+
+private func isMessage(_ message: Message, olderThan cursor: DemoQuestionMessageCursor) -> Bool {
+    let createdAt = message.createdAt.timeIntervalSince1970
+    return createdAt < cursor.createdAt || (createdAt == cursor.createdAt && message.id < cursor.id)
+}
+
+private func newestMessageFirst(_ lhs: Message, _ rhs: Message) -> Bool {
+    if lhs.createdAt != rhs.createdAt { return lhs.createdAt > rhs.createdAt }
+    return lhs.id > rhs.id
+}
+
 extension OperatorClient {
     public func fetchMessages(
         status: MessageStatus? = nil,
@@ -23,6 +63,38 @@ extension OperatorClient {
             query.append(URLQueryItem(name: "since", value: OperatorJSON.iso8601String(from: since)))
         }
         return try await get("/v1/messages", query: query)
+    }
+
+    public func fetchQuestionMessages(
+        questionId: String,
+        cursor: String? = nil,
+        limit: Int = 50
+    ) async throws -> MessagePage {
+        if await usesDemoData {
+            guard (1...200).contains(limit) else {
+                throw OperatorError.httpError(status: 400, body: "invalid_limit")
+            }
+            var messages = DemoData.messages
+                .map { demoMessageOverrides[$0.id] ?? $0 }
+                .filter {
+                    !demoDeletedMessageIDs.contains($0.id) && $0.questionId == questionId
+                }
+                .sorted(by: newestMessageFirst)
+            if let cursor {
+                guard let decoded = decodeDemoQuestionMessageCursor(cursor) else {
+                    throw OperatorError.httpError(status: 400, body: "invalid_cursor")
+                }
+                messages = messages.filter { isMessage($0, olderThan: decoded) }
+            }
+            let pageItems = Array(messages.prefix(limit))
+            let nextCursor = messages.count > limit
+                ? pageItems.last.map(encodeDemoQuestionMessageCursor)
+                : nil
+            return MessagePage(items: pageItems, nextCursor: nextCursor)
+        }
+        var query = [URLQueryItem(name: "limit", value: String(limit))]
+        if let cursor { query.append(URLQueryItem(name: "cursor", value: cursor)) }
+        return try await get("/v1/questions/\(questionId)/messages", query: query)
     }
 
     public func fetchMessage(id: String) async throws -> Message {

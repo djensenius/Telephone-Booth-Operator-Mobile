@@ -551,6 +551,16 @@ public struct MessageList: Codable, Sendable, Equatable {
     }
 }
 
+public struct MessagePage: Codable, Sendable, Equatable {
+    public let items: [Message]
+    public let nextCursor: String?
+
+    public init(items: [Message], nextCursor: String?) {
+        self.items = items
+        self.nextCursor = nextCursor
+    }
+}
+
 /// A human moderation decision. The moderation result is only ever an advisory
 /// suggestion — approving or rejecting a message is always an explicit
 /// operator action recorded server-side against the acting operator.

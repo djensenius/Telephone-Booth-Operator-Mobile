@@ -9,6 +9,13 @@
 
 #if !os(watchOS) && !os(tvOS)
 import SwiftUI
+
+private enum MessageInstallationLookup: Sendable {
+    case notRequired
+    case available(currentInstallationId: String?)
+    case unavailable
+}
+
 public struct MessageDetailView: View {
     @Environment(\.dismiss) private var dismiss
     public let messageId: String
@@ -35,22 +42,33 @@ public struct MessageDetailView: View {
     @State private var deleting = false
     @State private var showDeleteConfirmation = false
     @State private var notificationScope: DeliveredNotificationScope?
+    @State private var readOnlyReason: String?
+    @State private var installationAccessRevision: UInt = 0
+    @State private var latestInstallationUpdate: Installation?
     private let client: OperatorClient
+    private let socket: StatusSocket
+    private let enforceInstallationReadOnly: Bool
     private let onMessageUpdate: (Message) -> Void
     private let shouldDismissAfterDecision: (Message) -> Bool
     private let onMessageDelete: (String) -> Void
     public init(
         messageId: String,
         client: OperatorClient = .shared,
+        readOnlyReason: String? = nil,
+        enforceInstallationReadOnly: Bool = false,
+        socket: StatusSocket? = nil,
         onMessageUpdate: @escaping (Message) -> Void = { _ in },
         shouldDismissAfterDecision: @escaping (Message) -> Bool = { _ in false },
         onMessageDelete: @escaping (String) -> Void = { _ in }
     ) {
         self.messageId = messageId
         self.client = client
+        self.socket = socket ?? (client.demoMode ? .demo : .shared)
+        self.enforceInstallationReadOnly = enforceInstallationReadOnly
         self.onMessageUpdate = onMessageUpdate
         self.shouldDismissAfterDecision = shouldDismissAfterDecision
         self.onMessageDelete = onMessageDelete
+        _readOnlyReason = State(initialValue: readOnlyReason)
     }
     public var body: some View {
         ScrollView {
@@ -61,9 +79,14 @@ public struct MessageDetailView: View {
                 if let statusMessage {
                     BannerView(message: statusMessage, kind: .info)
                 }
+                if let readOnlyReason {
+                    BannerView(message: readOnlyReason, kind: .info)
+                }
                 if let message {
                     audioCard(message)
-                    appleIntelligenceCard(message)
+                    if readOnlyReason == nil {
+                        appleIntelligenceCard(message)
+                    }
                     if message.latestTranscription != nil || !transcriptions.isEmpty {
                         transcriptCard(message)
                     }
@@ -73,7 +96,11 @@ public struct MessageDetailView: View {
                     if message.latestApplicableModeration != nil {
                         moderationCard(message)
                     }
-                    decisionCard(message)
+                    if readOnlyReason == nil {
+                        decisionCard(message)
+                    } else {
+                        readOnlyDecisionCard(message)
+                    }
                     MessageMetadataCard(
                         message: message,
                         questionMetadata: questionMetadata
@@ -97,6 +124,9 @@ public struct MessageDetailView: View {
         }
         .task(id: sourceLanguage) {
             await onDeviceProcessor.refreshAvailability(sourceLanguage: sourceLanguage)
+        }
+        .task {
+            await watchInstallationUpdates()
         }
         .notificationVisibilityScope(notificationScope)
         .refreshableIfAvailable {
@@ -212,7 +242,10 @@ private extension MessageDetailView {
                         originalText: translation,
                         editTitle: "Edit translation",
                         saveTitle: "Save corrected translation",
-                        disabled: usesDemoData || onDeviceProcessor.isRunning || savingCorrection,
+                        disabled: readOnlyReason != nil
+                            || usesDemoData
+                            || onDeviceProcessor.isRunning
+                            || savingCorrection,
                         onEdit: {
                             translationCorrectionTranscriptionId = transcription.id
                             translationCorrectionSHA256 =
@@ -263,7 +296,10 @@ private extension MessageDetailView {
                         originalText: text,
                         editTitle: "Edit transcript",
                         saveTitle: "Save corrected transcript",
-                        disabled: usesDemoData || onDeviceProcessor.isRunning || savingCorrection,
+                        disabled: readOnlyReason != nil
+                            || usesDemoData
+                            || onDeviceProcessor.isRunning
+                            || savingCorrection,
                         onEdit: {
                             transcriptCorrectionSnapshot = latest
                         },
@@ -395,6 +431,20 @@ private extension MessageDetailView {
         .padding(Theme.Spacing.large)
         .glassCardBackground()
     }
+    private func readOnlyDecisionCard(_ message: Message) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
+            SectionHeader(text: "Decision")
+            if message.status == .approved || message.status == .rejected {
+                StatRow(label: "Current decision", value: message.status.displayName)
+            }
+            Text(readOnlyReason ?? "This recording is read-only.")
+                .font(Theme.Fonts.bodySmall)
+                .foregroundStyle(Theme.Colors.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Spacing.large)
+        .glassCardBackground()
+    }
     @ViewBuilder
     private func decisionButton(_ decision: MessageDecision, isCurrent: Bool) -> some View {
         let title = decision == .approve
@@ -439,10 +489,25 @@ private extension MessageDetailView {
         loading = true
         errorMessage = nil
         defer { loading = false }
+        let accessRevision = installationAccessRevision
         async let messageTask: Message? = (try? await client.fetchMessage(id: messageId))
         async let listTask: TranscriptionList? = (try? await client.fetchTranscriptions(messageId: messageId))
-        let (newMessage, newList) = await (messageTask, listTask)
+        async let installationTask = resolveInstallationAccess()
+        let (newMessage, newList, installationLookup) = await (
+            messageTask,
+            listTask,
+            installationTask
+        )
         if let newMessage {
+            apply(
+                installationLookup,
+                to: newMessage,
+                requestRevision: accessRevision
+            )
+            if let latestInstallationUpdate,
+               accessRevision != installationAccessRevision {
+                apply(latestInstallationUpdate, to: newMessage)
+            }
             message = newMessage
             onMessageUpdate(newMessage)
             let scope = DeliveredNotificationScope.messages(ids: [messageId])
@@ -479,6 +544,7 @@ private extension MessageDetailView {
         }
     }
     func decide(_ decision: MessageDecision) async {
+        guard requireWritable() else { return }
         deciding = true
         errorMessage = nil
         statusMessage = nil
@@ -503,6 +569,7 @@ private extension MessageDetailView {
         }
     }
     func deleteMessage() async {
+        guard requireWritable() else { return }
         guard !deleting else { return }
         deleting = true
         errorMessage = nil
@@ -518,6 +585,7 @@ private extension MessageDetailView {
         }
     }
     func saveTranscriptCorrection(_ current: Message) async {
+        guard requireWritable() else { return }
         guard !savingCorrection else { return }
         savingCorrection = true
         errorMessage = nil
@@ -546,6 +614,7 @@ private extension MessageDetailView {
         }
     }
     func saveTranslationCorrection(_ current: Message) async {
+        guard requireWritable() else { return }
         guard !savingCorrection else { return }
         savingCorrection = true
         errorMessage = nil
@@ -571,6 +640,79 @@ private extension MessageDetailView {
         } catch {
             errorMessage = (error as? LocalizedError)?.errorDescription
                 ?? "Couldn't save the corrected translation."
+        }
+    }
+    private func requireWritable() -> Bool {
+        guard let readOnlyReason else { return true }
+        errorMessage = readOnlyReason
+        return false
+    }
+    private func resolveInstallationAccess() async -> MessageInstallationLookup {
+        guard enforceInstallationReadOnly else { return .notRequired }
+        do {
+            let current = try await client.fetchCurrentInstallation()
+            return .available(currentInstallationId: current?.id)
+        } catch is CancellationError {
+            return .notRequired
+        } catch {
+            return .unavailable
+        }
+    }
+    private func apply(
+        _ lookup: MessageInstallationLookup,
+        to message: Message,
+        requestRevision: UInt
+    ) {
+        guard enforceInstallationReadOnly,
+              requestRevision == installationAccessRevision else {
+            return
+        }
+        switch lookup {
+        case .notRequired:
+            break
+        case .available(let currentInstallationId):
+            readOnlyReason = MessageActionAccess.installationScoped(
+                messageInstallationId: message.installationId,
+                currentInstallationId: currentInstallationId
+            ).readOnlyReason
+        case .unavailable:
+            readOnlyReason = MessageActionAccess.readOnlyUnavailable.readOnlyReason
+        }
+    }
+    private func watchInstallationUpdates() async {
+        guard enforceInstallationReadOnly else { return }
+        while !Task.isCancelled {
+            do {
+                for try await envelope in socket.subscribe() {
+                    guard !Task.isCancelled else { return }
+                    if case .installation(let installation) = envelope {
+                        apply(installation)
+                    }
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                // The periodic detail refresh remains the fallback while the
+                // live connection retries.
+            }
+            guard !Task.isCancelled else { return }
+            try? await Task.sleep(for: .seconds(2))
+        }
+    }
+    private func apply(_ installation: Installation) {
+        installationAccessRevision &+= 1
+        latestInstallationUpdate = installation
+        guard let message else { return }
+        apply(installation, to: message)
+    }
+    private func apply(_ installation: Installation, to message: Message) {
+        if installation.isActive, installation.endedAt == nil {
+            readOnlyReason = MessageActionAccess.installationScoped(
+                messageInstallationId: message.installationId,
+                currentInstallationId: installation.id
+            ).readOnlyReason
+        } else if installation.id == message.installationId {
+            readOnlyReason = MessageActionAccess.readOnlyArchived.readOnlyReason
         }
     }
 }
