@@ -400,7 +400,7 @@ private extension MessageDetailView {
                     .lineLimit(1...4)
                     .font(Theme.Fonts.bodySmall)
                     .disabled(deciding)
-                HStack(spacing: Theme.Spacing.medium) {
+                HStack(spacing: Theme.Spacing.extraLarge) {
                     decisionButton(.approve, isCurrent: message.status == .approved)
                     decisionButton(.reject, isCurrent: message.status == .rejected)
                 }
@@ -423,6 +423,7 @@ private extension MessageDetailView {
             .buttonStyle(.borderedProminent)
             .tint(Theme.Colors.error)
             .disabled(deciding || deleting)
+            .padding(.top, Theme.Spacing.small)
             if deleting {
                 ProgressView()
             }
@@ -461,8 +462,9 @@ private extension MessageDetailView {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
+            .controlSize(.large)
             .tint(tint)
-            .disabled(deciding)
+            .disabled(deciding || deleting)
         } else {
             Button {
                 Task { await decide(decision) }
@@ -472,8 +474,9 @@ private extension MessageDetailView {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
+            .controlSize(.large)
             .tint(tint)
-            .disabled(deciding)
+            .disabled(deciding || deleting)
         }
     }
     private func recommendationColor(_ recommendation: ModerationRecommendation) -> Color {
@@ -545,6 +548,7 @@ private extension MessageDetailView {
     }
     func decide(_ decision: MessageDecision) async {
         guard requireWritable() else { return }
+        guard !deciding, !deleting else { return }
         deciding = true
         errorMessage = nil
         statusMessage = nil
@@ -570,7 +574,7 @@ private extension MessageDetailView {
     }
     func deleteMessage() async {
         guard requireWritable() else { return }
-        guard !deleting else { return }
+        guard !deleting, !deciding else { return }
         deleting = true
         errorMessage = nil
         defer { deleting = false }
