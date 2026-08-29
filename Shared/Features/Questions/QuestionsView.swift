@@ -54,6 +54,7 @@ public struct QuestionsView: View {
     @State private var loadedFilter: QuestionFilter?
     @State private var messageCountsByQuestionID: [String: Int] = [:]
     @State private var messageCountRevisions: [String: UInt] = [:]
+    @State private var questionSnapshotsByID: [String: Question] = [:]
 
     private let client: OperatorClient
     private let pageSize: Int
@@ -245,6 +246,7 @@ public struct QuestionsView: View {
 
     private func handleCreated(_ created: Question) {
         actionError = nil
+        recordQuestionSnapshot(created)
         recordKnownMessageCount(from: created)
         // Show the new question if it belongs in the current filter.
         if filter == .all || filter.query == .status(created.status) {
@@ -337,15 +339,18 @@ public struct QuestionsView: View {
     ) -> [Question] {
         return fetchedQuestions.map { question in
             let cachedCount = messageCountsByQuestionID[question.id]
+            let reconciled: Question
             if messageCountRevisions[question.id] != requestedCountRevisions[question.id],
                let cachedCount {
-                return question.updatingMessageCount(cachedCount)
-            }
-            if let messageCount = question.messageCount {
+                reconciled = question.updatingMessageCount(cachedCount)
+            } else if let messageCount = question.messageCount {
                 messageCountsByQuestionID[question.id] = messageCount
-                return question
+                reconciled = question
+            } else {
+                reconciled = question.updatingMessageCount(cachedCount)
             }
-            return question.updatingMessageCount(cachedCount)
+            recordQuestionSnapshot(reconciled)
+            return reconciled
         }
     }
 
@@ -415,7 +420,8 @@ public struct QuestionsView: View {
     }
 
     private func applyUpdate(_ updated: Question) {
-        let current = questions.first(where: { $0.id == updated.id })
+        let current = questionSnapshotsByID[updated.id]
+            ?? questions.first(where: { $0.id == updated.id })
         let merged = updated
             .preservingMessageCount(from: current ?? updated)
             .updatingMessageCount(
@@ -423,6 +429,7 @@ public struct QuestionsView: View {
                     ?? current?.messageCount
                     ?? messageCountsByQuestionID[updated.id]
             )
+        recordQuestionSnapshot(merged)
         recordKnownMessageCount(from: merged)
         if filter != .all && filter.query != .status(updated.status) {
             // No longer matches the active filter — drop it from the list.
@@ -434,19 +441,28 @@ public struct QuestionsView: View {
         }
     }
 
+}
+
+extension QuestionsView {
     private func recordKnownMessageCount(from question: Question) {
         guard let messageCount = question.messageCount else { return }
         messageCountsByQuestionID[question.id] = messageCount
         messageCountRevisions[question.id, default: 0] &+= 1
     }
-}
 
-extension QuestionsView {
+    private func recordQuestionSnapshot(_ question: Question) {
+        questionSnapshotsByID[question.id] = question
+    }
+
     @ViewBuilder
     private func questionDestination(for destination: QuestionNavigationDestination) -> some View {
         switch destination {
         case .detail(let id):
-            if let question = questions.first(where: { $0.id == id }) {
+            if let question = Self.detailQuestion(
+                id: id,
+                visibleQuestions: questions,
+                snapshotsByID: questionSnapshotsByID
+            ) {
                 QuestionDetailView(
                     question: question,
                     client: client,
@@ -462,6 +478,14 @@ extension QuestionsView {
                 )
             }
         }
+    }
+
+    static func detailQuestion(
+        id: String,
+        visibleQuestions: [Question],
+        snapshotsByID: [String: Question]
+    ) -> Question? {
+        snapshotsByID[id] ?? visibleQuestions.first(where: { $0.id == id })
     }
 
     static func shouldLoadFirstPage(

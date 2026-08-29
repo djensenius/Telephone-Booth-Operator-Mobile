@@ -180,6 +180,7 @@ final class NavigationOrderTests: XCTestCase {
         XCTAssertEqual(OperatorTab.thermals.rawValue, "thermals")
     }
 
+    @MainActor
     func testQuestionListInitialLoadDecisionHandlesOverflowPresentationAndFilterChanges() {
         XCTAssertTrue(
             QuestionsView.shouldLoadFirstPage(
@@ -230,6 +231,20 @@ final class NavigationOrderTests: XCTestCase {
                 hasLoadedPage: false,
                 isLoading: false
             )
+        )
+    }
+
+    @MainActor
+    func testQuestionDetailSurvivesRemovalFromCurrentFilter() throws {
+        let question = try XCTUnwrap(DemoData.questions.first)
+
+        XCTAssertEqual(
+            QuestionsView.detailQuestion(
+                id: question.id,
+                visibleQuestions: [],
+                snapshotsByID: [question.id: question]
+            ),
+            question
         )
     }
 }
