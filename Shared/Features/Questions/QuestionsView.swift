@@ -10,6 +10,10 @@
 
 import SwiftUI
 
+enum QuestionNavigationDestination: Hashable {
+    case detail(id: String)
+}
+
 public struct QuestionsView: View {
     enum QuestionFilter: String, CaseIterable, Identifiable {
         case all
@@ -82,6 +86,9 @@ public struct QuestionsView: View {
             content
         }
         .background(Theme.Colors.background)
+        .navigationDestination(for: QuestionNavigationDestination.self) { destination in
+            questionDestination(for: destination)
+        }
         .toolbar {
             if isAdmin {
                 ToolbarItem(placement: .primaryAction) {
@@ -143,10 +150,7 @@ public struct QuestionsView: View {
             ForEach(questions) { question in
                 QuestionRow(
                     question: question,
-                    client: client,
                     canManage: isAdmin,
-                    onQuestionUpdate: { updated in applyUpdate(updated) },
-                    onQuestionRetired: { id in handleRetired(id) },
                     onActivate: { Task { await activate(question) } },
                     onDeactivate: { Task { await deactivate(question) } },
                     onDelete: { Task { await retire(question) } }
@@ -438,6 +442,28 @@ public struct QuestionsView: View {
 }
 
 extension QuestionsView {
+    @ViewBuilder
+    private func questionDestination(for destination: QuestionNavigationDestination) -> some View {
+        switch destination {
+        case .detail(let id):
+            if let question = questions.first(where: { $0.id == id }) {
+                QuestionDetailView(
+                    question: question,
+                    client: client,
+                    canManage: isAdmin,
+                    onQuestionUpdate: { updated in applyUpdate(updated) },
+                    onQuestionRetired: { retiredID in handleRetired(retiredID) }
+                )
+            } else {
+                ContentUnavailableView(
+                    "Question unavailable",
+                    systemImage: "questionmark.bubble",
+                    description: Text("Return to Questions and try again.")
+                )
+            }
+        }
+    }
+
     static func shouldLoadFirstPage(
         filter: QuestionFilter,
         loadedFilter: QuestionFilter?,
@@ -449,25 +475,14 @@ extension QuestionsView {
 
 struct QuestionRow: View {
     let question: Question
-    let client: OperatorClient
     let canManage: Bool
-    let onQuestionUpdate: (Question) -> Void
-    let onQuestionRetired: (String) -> Void
     let onActivate: () -> Void
     let onDeactivate: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: Theme.Spacing.small) {
-            NavigationLink {
-                QuestionDetailView(
-                    question: question,
-                    client: client,
-                    canManage: canManage,
-                    onQuestionUpdate: onQuestionUpdate,
-                    onQuestionRetired: onQuestionRetired
-                )
-            } label: {
+            NavigationLink(value: QuestionNavigationDestination.detail(id: question.id)) {
                 HStack(alignment: .top, spacing: Theme.Spacing.medium) {
                     Image(systemName: "quote.opening")
                         .foregroundStyle(Theme.Colors.accent)

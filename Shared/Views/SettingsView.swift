@@ -18,12 +18,15 @@ public struct SettingsView: View {
     @State private var notifications = NotificationManager.shared
 
     private let isModal: Bool
+    private let embedsInNavigationStack: Bool
 
-    /// - Parameter isModal: `true` when shown as a sheet (adds a "Done"
-    ///   button). Pass `false` when embedded as a tab so the chrome stays
-    ///   native to the host shell.
-    public init(isModal: Bool = true) {
+    /// - Parameters:
+    ///   - isModal: `true` when shown as a sheet (adds a "Done" button).
+    ///   - embedsInNavigationStack: `false` when the host already owns the
+    ///     navigation stack.
+    public init(isModal: Bool = true, embedsInNavigationStack: Bool = true) {
         self.isModal = isModal
+        self.embedsInNavigationStack = embedsInNavigationStack
     }
 
     #if os(iOS) || os(tvOS)
@@ -50,123 +53,132 @@ public struct SettingsView: View {
     }
     #endif
 
+    @ViewBuilder
     public var body: some View {
-        NavigationStack {
-            Form {
-                if config.isDemoMode {
-                    Section {
-                        Button {
-                            config.disableDemoMode()
-                            dismiss()
-                        } label: {
-                            Label("Exit Demo Mode", systemImage: "sparkles")
-                        }
-                    } footer: {
-                        Text("Demo mode uses bundled sample data and never contacts the operator API.")
-                    }
-                    .themedSettingsRowBackground()
-                }
+        if embedsInNavigationStack {
+            NavigationStack {
+                settingsContent
+            }
+        } else {
+            settingsContent
+        }
+    }
 
-                #if os(iOS) || os(tvOS)
+    private var settingsContent: some View {
+        Form {
+            if config.isDemoMode {
                 Section {
-                    Picker("Theme", selection: $config.iosThemeMode) {
-                        ForEach(themeModes) { mode in
-                            Text(mode.displayName).tag(mode)
-                        }
-                    }
-                    .accessibilityLabel("Theme selection")
-                } header: {
-                    Text("Appearance")
-                } footer: {
-                    Text(themeFooter)
-                }
-                .themedSettingsRowBackground()
-                #endif
-
-                #if os(tvOS)
-                Section {
-                    Toggle("Ambient screensaver", isOn: $config.tvScreensaverEnabled)
-                    if config.tvScreensaverEnabled {
-                        Picker("Start after", selection: $config.tvScreensaverIdleSeconds) {
-                            ForEach(AppConfig.tvScreensaverIdleOptions, id: \.self) { seconds in
-                                Text(idleLabel(seconds)).tag(seconds)
-                            }
-                        }
-                    }
-                } header: {
-                    Text("Screensaver")
-                } footer: {
-                    Text("Replaces the tvOS system screensaver with a burn-in-safe wall that " +
-                         "spotlights live booth stats. While it's on, the system screensaver " +
-                         "stays disabled; turning it off restores the system screensaver.")
-                }
-                .themedSettingsRowBackground()
-                #endif
-
-                Section {
-                    ServerURLField()
-                } header: {
-                    Text("Operator API")
-                } footer: {
-                    Text("Point at a staging or self-hosted operator instance. " +
-                         "Include the scheme (https://) but no trailing slash.")
-                }
-                .themedSettingsRowBackground()
-
-                Section {
-                    #if os(watchOS) || os(tvOS)
-                    OIDCDetailsView()
-                    #else
-                    DisclosureGroup {
-                        OIDCDetailsView()
+                    Button {
+                        config.disableDemoMode()
+                        dismiss()
                     } label: {
-                        Label("OIDC details", systemImage: "lock.shield")
+                        Label("Exit Demo Mode", systemImage: "sparkles")
                     }
-                    #endif
-                } header: {
-                    Text("Authentication")
                 } footer: {
-                    Text("OIDC settings come from the build's Info.plist and " +
-                         "are not editable at runtime.")
+                    Text("Demo mode uses bundled sample data and never contacts the operator API.")
                 }
                 .themedSettingsRowBackground()
+            }
 
-                if auth.isSignedIn {
-                    #if !os(tvOS)
-                    NotificationSettingsSection(notifications: notifications)
-                        .themedSettingsRowBackground()
-                    #endif
-                    Section {
-                        Button(role: .destructive) {
-                            Task {
-                                await auth.signOutRevokingNotifications()
-                                dismiss()
-                            }
-                        } label: {
-                            Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
+            #if os(iOS) || os(tvOS)
+            Section {
+                Picker("Theme", selection: $config.iosThemeMode) {
+                    ForEach(themeModes) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .accessibilityLabel("Theme selection")
+            } header: {
+                Text("Appearance")
+            } footer: {
+                Text(themeFooter)
+            }
+            .themedSettingsRowBackground()
+            #endif
+
+            #if os(tvOS)
+            Section {
+                Toggle("Ambient screensaver", isOn: $config.tvScreensaverEnabled)
+                if config.tvScreensaverEnabled {
+                    Picker("Start after", selection: $config.tvScreensaverIdleSeconds) {
+                        ForEach(AppConfig.tvScreensaverIdleOptions, id: \.self) { seconds in
+                            Text(idleLabel(seconds)).tag(seconds)
                         }
                     }
-                    .themedSettingsRowBackground()
                 }
+            } header: {
+                Text("Screensaver")
+            } footer: {
+                Text("Replaces the tvOS system screensaver with a burn-in-safe wall that " +
+                     "spotlights live booth stats. While it's on, the system screensaver " +
+                     "stays disabled; turning it off restores the system screensaver.")
             }
-            .themedSettingsFormBackground()
-            .navigationTitle("Settings")
-            #if os(macOS)
-            .formStyle(.grouped)
-            .frame(minWidth: 480, idealWidth: 540)
+            .themedSettingsRowBackground()
             #endif
-            #if !os(tvOS)
-            .toolbar {
-                if isModal {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Done") { dismiss() }
+
+            Section {
+                ServerURLField()
+            } header: {
+                Text("Operator API")
+            } footer: {
+                Text("Point at a staging or self-hosted operator instance. " +
+                     "Include the scheme (https://) but no trailing slash.")
+            }
+            .themedSettingsRowBackground()
+
+            Section {
+                #if os(watchOS) || os(tvOS)
+                OIDCDetailsView()
+                #else
+                DisclosureGroup {
+                    OIDCDetailsView()
+                } label: {
+                    Label("OIDC details", systemImage: "lock.shield")
+                }
+                #endif
+            } header: {
+                Text("Authentication")
+            } footer: {
+                Text("OIDC settings come from the build's Info.plist and " +
+                     "are not editable at runtime.")
+            }
+            .themedSettingsRowBackground()
+
+            if auth.isSignedIn {
+                #if !os(tvOS)
+                NotificationSettingsSection(notifications: notifications)
+                    .themedSettingsRowBackground()
+                #endif
+                Section {
+                    Button(role: .destructive) {
+                        Task {
+                            await auth.signOutRevokingNotifications()
+                            dismiss()
+                        }
+                    } label: {
+                        Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
                     }
                 }
+                .themedSettingsRowBackground()
             }
-            #endif
-            .task {
-                await notifications.refreshAuthorizationStatus()
+        }
+        .themedSettingsFormBackground()
+        .navigationTitle("Settings")
+        #if os(macOS)
+        .formStyle(.grouped)
+        .frame(minWidth: 480, idealWidth: 540)
+        #endif
+        #if !os(tvOS)
+        .toolbar {
+            if isModal {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
             }
+        }
+        #endif
+        .task {
+            await notifications.refreshAuthorizationStatus()
         }
     }
 }

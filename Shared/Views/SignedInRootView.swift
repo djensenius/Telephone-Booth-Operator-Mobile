@@ -5,6 +5,9 @@
 //  Signed-in shell with platform-appropriate dashboard and navigation.
 //
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 public struct SignedInRootView: View {
     private let client: OperatorClient
@@ -36,78 +39,10 @@ public struct SignedInRootView: View {
 }
 
 #if !os(watchOS)
-/// Stable identifiers for the signed-in tabs, used to drive selection and to
-/// let screenshot automation open a specific tab via `-uiScreenshotTab`.
-enum OperatorTab: String, Hashable {
-    case dashboard, stats, sessions, messages, thermals, events, questions, instructions, audit, system, settings
-
-    var title: String {
-        switch self {
-        case .dashboard: return "Dashboard"
-        case .stats: return "Stats"
-        case .sessions: return "Sessions"
-        case .messages: return "Messages"
-        case .thermals: return "Thermals"
-        case .events: return "Events"
-        case .questions: return "Questions"
-        case .instructions: return "Instructions"
-        case .audit: return "Audit"
-        case .system: return "System"
-        case .settings: return "Settings"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .dashboard: return "gauge.with.dots.needle.bottom.50percent"
-        case .stats: return "chart.bar.fill"
-        case .sessions: return "phone.connection.fill"
-        case .messages: return "tray.full"
-        case .thermals: return "thermometer.variable.and.figure"
-        case .events: return "antenna.radiowaves.left.and.right"
-        case .questions: return "questionmark.bubble"
-        case .instructions: return "phone.badge.waveform"
-        case .audit: return "list.bullet.rectangle.portrait"
-        case .system: return "cpu"
-        case .settings: return "gearshape"
-        }
-    }
-
-    static func sharedNavigationOrder(
-        isAdmin: Bool,
-        includesSettings: Bool
-    ) -> [OperatorTab] {
-        var tabs: [OperatorTab] = [
-            .dashboard,
-            .stats,
-            .sessions,
-            .messages,
-            .thermals,
-            .events,
-            .questions
-        ]
-        if isAdmin {
-            tabs.append(contentsOf: [.instructions, .audit])
-        }
-        tabs.append(.system)
-        if includesSettings {
-            tabs.append(.settings)
-        }
-        return tabs
-    }
-
-    static func televisionNavigationOrder(isAdmin: Bool) -> [OperatorTab] {
-        var tabs: [OperatorTab] = [
-            .dashboard, .stats, .sessions, .thermals, .events
-        ]
-        if isAdmin { tabs.append(.audit) }
-        return tabs + [.system, .settings]
-    }
-}
-
 /// Unified, platform-adaptive signed-in shell. One `TabView` plus
 /// `.sidebarAdaptable` does the right thing on every supported platform.
 private struct OperatorShell: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     let client: OperatorClient
     let eventStream: EventStream
     let navigationStore: AppNavigationStore
@@ -118,6 +53,7 @@ private struct OperatorShell: View {
     @State private var messageFilter: MessageListFilter = .all
     @State private var messageRouteRevision: UInt = 0
     @State private var sessionPath: [String] = []
+    @State private var compactMorePath: NavigationPath
     #if os(tvOS)
     @State private var config = AppConfig.shared
     #endif
@@ -136,9 +72,61 @@ private struct OperatorShell: View {
             : .messages
         _selection = State(initialValue: requested ?? .dashboard)
         _messagePath = State(initialValue: LaunchEnv.screenshotMessageId.map { [$0] } ?? [])
+        var initialMorePath = NavigationPath()
+        if let requested, requested.isCompactMoreDestination {
+            initialMorePath.append(requested)
+        }
+        _compactMorePath = State(initialValue: initialMorePath)
     }
 
     var body: some View {
+        tabView
+        .tabViewStyle(.sidebarAdaptable)
+        .tint(Theme.Colors.accent)
+        .liveActivityObserver()
+        .environment(currentUser)
+        .task { pending.startPolling(using: client) }
+        .task { currentUser.start() }
+        .task { consumePendingNavigationTarget() }
+        .task(id: usesCompactTabNavigation) {
+            compactMorePath = NavigationPath()
+            if usesCompactTabNavigation {
+                if selection.isCompactMoreDestination {
+                    compactMorePath.append(selection)
+                }
+            } else if selection == .more {
+                selection = .dashboard
+            }
+        }
+        .onChange(of: navigationStore.routeGeneration) {
+            consumePendingNavigationTarget()
+        }
+        #if !os(tvOS) && canImport(Speech) && canImport(FoundationModels)
+        .automaticMessageProcessing(client: client)
+        #endif
+        #if os(tvOS)
+        .tvScreensaver(
+            enabled: config.tvScreensaverEnabled,
+            idleSeconds: config.tvScreensaverIdleSeconds,
+            client: client
+        )
+        #endif
+    }
+
+    @ViewBuilder
+    private var tabView: some View {
+        #if os(iOS)
+        if usesCompactTabNavigation {
+            compactTabView
+        } else {
+            adaptiveTabView
+        }
+        #else
+        adaptiveTabView
+        #endif
+    }
+
+    private var adaptiveTabView: some View {
         TabView(selection: $selection) {
             ForEach(visibleTabs, id: \.self) { tab in
                 #if os(tvOS)
@@ -153,25 +141,96 @@ private struct OperatorShell: View {
                 #endif
             }
         }
-        .tabViewStyle(.sidebarAdaptable)
-        .tint(Theme.Colors.accent)
-        .liveActivityObserver()
-        .environment(currentUser)
-        .task { pending.startPolling(using: client) }
-        .task { currentUser.start() }
-        .task { consumePendingNavigationTarget() }
-        .onChange(of: navigationStore.routeGeneration) {
-            consumePendingNavigationTarget()
+    }
+
+    #if os(iOS)
+    private var compactTabView: some View {
+        TabView(selection: compactTabSelection) {
+            ForEach(OperatorTab.compactPrimaryNavigationOrder, id: \.self) { tab in
+                Tab(tab.title, systemImage: tab.systemImage, value: tab) {
+                    tabContent(for: tab)
+                }
+                .badge(tab == .messages ? pending.pendingCount : 0)
+            }
+            Tab(OperatorTab.more.title, systemImage: OperatorTab.more.systemImage, value: .more) {
+                compactMoreNavigation
+            }
         }
-        #if !os(tvOS) && canImport(Speech) && canImport(FoundationModels)
-        .automaticMessageProcessing(client: client)
-        #endif
-        #if os(tvOS)
-        .tvScreensaver(
-            enabled: config.tvScreensaverEnabled,
-            idleSeconds: config.tvScreensaverIdleSeconds,
-            client: client
+    }
+
+    private var compactTabSelection: Binding<OperatorTab> {
+        Binding(
+            get: {
+                selection.isCompactPrimary ? selection : .more
+            },
+            set: { selected in
+                selection = selected
+                if selected != .more {
+                    compactMorePath = NavigationPath()
+                }
+            }
         )
+    }
+
+    private var compactMoreNavigation: some View {
+        NavigationStack(path: $compactMorePath) {
+            List {
+                ForEach(
+                    OperatorTab.compactMoreNavigationOrder(isAdmin: currentUser.isAdmin),
+                    id: \.self
+                ) { tab in
+                    NavigationLink(value: tab) {
+                        Label(tab.title, systemImage: tab.systemImage)
+                    }
+                    .operatorListRowBackground()
+                }
+            }
+            .operatorListStyle()
+            .navigationTitle("More")
+            .navigationDestination(for: OperatorTab.self) { tab in
+                compactMoreDestination(for: tab)
+                    .onAppear {
+                        selection = tab
+                    }
+            }
+        }
+        .automaticRefreshEnabled(compactTabSelection.wrappedValue == .more)
+        .onChange(of: compactMorePath.count) { _, count in
+            if count == 0, !selection.isCompactPrimary {
+                selection = .more
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func compactMoreDestination(for tab: OperatorTab) -> some View {
+        switch tab {
+        case .thermals:
+            ThermalsView(client: client).navigationTitle("Thermals")
+        case .events:
+            EventsFeedView(client: client, stream: eventStream).navigationTitle("Events")
+        case .questions:
+            QuestionsView(client: client, isAdmin: currentUser.isAdmin)
+                .navigationTitle("Questions")
+        case .instructions where currentUser.isAdmin:
+            InstructionsView(client: client).navigationTitle("Instructions")
+        case .audit where currentUser.isAdmin:
+            AuditLogView(client: client).navigationTitle("Audit")
+        case .system:
+            SystemView(client: client).navigationTitle("System")
+        case .settings:
+            SettingsView(isModal: false, embedsInNavigationStack: false)
+        default:
+            EmptyView()
+        }
+    }
+    #endif
+
+    private var usesCompactTabNavigation: Bool {
+        #if os(iOS)
+        UIDevice.current.userInterfaceIdiom == .phone || horizontalSizeClass == .compact
+        #else
+        false
         #endif
     }
 
@@ -219,6 +278,8 @@ private struct OperatorShell: View {
                 .automaticRefreshEnabled(selection == .system)
         case .settings:
             SettingsView(isModal: false)
+        case .more:
+            EmptyView()
         default:
             EmptyView()
         }
@@ -246,6 +307,8 @@ private struct OperatorShell: View {
             #else
             SettingsView(isModal: false)
             #endif
+        case .more:
+            EmptyView()
         default:
             EmptyView()
         }
@@ -295,6 +358,8 @@ private struct OperatorShell: View {
                 AuditLogView(client: client).navigationTitle("Audit")
             }
             .automaticRefreshEnabled(selection == .audit)
+        case .more:
+            EmptyView()
         default:
             EmptyView()
         }
@@ -344,17 +409,17 @@ private struct OperatorShell: View {
         guard let target = navigationStore.consumePendingTarget() else { return }
         switch target {
         case .dashboard:
-            selection = .dashboard
+            selectTab(.dashboard)
         case .stats:
-            selection = .stats
+            selectTab(.stats)
         case .sessions:
-            selection = .sessions
+            selectTab(.sessions)
             sessionPath = []
         case .session(let id):
-            selection = .sessions
+            selectTab(.sessions)
             sessionPath = [id]
         case .messages(let route):
-            selection = .messages
+            selectTab(.messages)
             switch route {
             case .list(let filter):
                 messagePath = []
@@ -364,10 +429,22 @@ private struct OperatorShell: View {
             }
             messageRouteRevision &+= 1
         case .thermals:
-            selection = .thermals
+            selectTab(.thermals)
         case .system:
-            selection = .system
+            selectTab(.system)
         }
+    }
+
+    private func selectTab(_ tab: OperatorTab) {
+        selection = tab
+        #if os(iOS)
+        if usesCompactTabNavigation, tab.isCompactMoreDestination {
+            compactMorePath = NavigationPath()
+            compactMorePath.append(tab)
+        } else if tab.isCompactPrimary {
+            compactMorePath = NavigationPath()
+        }
+        #endif
     }
 }
 #endif

@@ -158,6 +158,23 @@ final class NavigationOrderTests: XCTestCase {
         )
     }
 
+    func testCompactPhoneNavigationUsesOneAppOwnedMoreStack() {
+        XCTAssertEqual(
+            OperatorTab.compactPrimaryNavigationOrder,
+            [.dashboard, .stats, .sessions, .messages]
+        )
+        XCTAssertEqual(
+            OperatorTab.compactMoreNavigationOrder(isAdmin: false),
+            [.thermals, .events, .questions, .system, .settings]
+        )
+        XCTAssertEqual(
+            OperatorTab.compactMoreNavigationOrder(isAdmin: true),
+            [.thermals, .events, .questions, .instructions, .audit, .system, .settings]
+        )
+        XCTAssertFalse(OperatorTab.more.isCompactMoreDestination)
+        XCTAssertTrue(OperatorTab.questions.isCompactMoreDestination)
+    }
+
     func testTabIdentifiersRemainStable() {
         XCTAssertEqual(OperatorTab.messages.rawValue, "messages")
         XCTAssertEqual(OperatorTab.thermals.rawValue, "thermals")
@@ -183,6 +200,35 @@ final class NavigationOrderTests: XCTestCase {
                 filter: .all,
                 loadedFilter: .all,
                 hasQuestions: true
+            )
+        )
+    }
+
+    func testQuestionAnswersLoadWhenDetailIsPresented() {
+        let questionMode = MessageListMode.question(id: "question-123")
+
+        XCTAssertTrue(
+            questionMode.shouldLoadQuestionAnswersOnPresentation(
+                hasLoadedPage: false,
+                isLoading: false
+            )
+        )
+        XCTAssertFalse(
+            questionMode.shouldLoadQuestionAnswersOnPresentation(
+                hasLoadedPage: true,
+                isLoading: false
+            )
+        )
+        XCTAssertFalse(
+            questionMode.shouldLoadQuestionAnswersOnPresentation(
+                hasLoadedPage: false,
+                isLoading: true
+            )
+        )
+        XCTAssertFalse(
+            MessageListMode.queue.shouldLoadQuestionAnswersOnPresentation(
+                hasLoadedPage: false,
+                isLoading: false
             )
         )
     }
