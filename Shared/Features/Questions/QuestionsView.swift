@@ -43,7 +43,6 @@ public struct QuestionsView: View {
     @State private var loadState: LoadState = .idle
     @State private var errorMessage: String?
     @State private var actionError: String?
-    @State private var expandedId: String?
     @State private var filter: QuestionFilter = .all
     @State private var isComposing = false
     @State private var generation = 0
@@ -138,9 +137,9 @@ public struct QuestionsView: View {
                 QuestionRow(
                     question: question,
                     client: client,
-                    isExpanded: expandedId == question.id,
                     canManage: isAdmin,
-                    onToggle: { toggle(question.id) },
+                    onQuestionUpdate: { updated in applyUpdate(updated) },
+                    onQuestionRetired: { id in handleRetired(id) },
                     onActivate: { Task { await activate(question) } },
                     onDeactivate: { Task { await deactivate(question) } },
                     onDelete: { Task { await retire(question) } }
@@ -230,12 +229,6 @@ public struct QuestionsView: View {
         case .draft: return "No draft questions"
         case .active: return "No active questions"
         case .archived: return "No archived questions"
-        }
-    }
-
-    private func toggle(_ id: String) {
-        withAnimation(.snappy) {
-            expandedId = expandedId == id ? nil : id
         }
     }
 
@@ -352,14 +345,18 @@ public struct QuestionsView: View {
         actionError = nil
         do {
             try await client.deleteQuestion(id: question.id)
-            if filter == .all || filter == .archived {
-                // The retired question still belongs in this filter — refetch.
-                await refreshLoadedPages()
-            } else {
-                questions.removeAll { $0.id == question.id }
-            }
+            handleRetired(question.id)
         } catch {
             actionError = (error as? LocalizedError)?.errorDescription ?? "Couldn't retire question."
+        }
+    }
+
+    private func handleRetired(_ id: String) {
+        if filter == .all || filter == .archived {
+            // The retired question still belongs in this filter — refetch.
+            Task { await refreshLoadedPages() }
+        } else {
+            questions.removeAll { $0.id == id }
         }
     }
 
@@ -378,83 +375,78 @@ public struct QuestionsView: View {
 struct QuestionRow: View {
     let question: Question
     let client: OperatorClient
-    let isExpanded: Bool
     let canManage: Bool
-    let onToggle: () -> Void
+    let onQuestionUpdate: (Question) -> Void
+    let onQuestionRetired: (String) -> Void
     let onActivate: () -> Void
     let onDeactivate: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            HStack(alignment: .top, spacing: Theme.Spacing.medium) {
-                Button(action: onToggle) {
-                    HStack(alignment: .top, spacing: Theme.Spacing.medium) {
-                        Image(systemName: "quote.opening")
-                            .foregroundStyle(Theme.Colors.accent)
-                            .padding(.top, 2)
-                        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-                            Text(question.prompt)
-                                .font(Theme.Fonts.bodyMedium)
-                                .foregroundStyle(Theme.Colors.textPrimary)
-                                .multilineTextAlignment(.leading)
-                                .lineLimit(isExpanded ? nil : 2)
-                            HStack(spacing: Theme.Spacing.medium) {
-                                QuestionStatusBadge(status: question.status)
-                                Text(question.createdAt, format: .dateTime.month(.abbreviated).day().year())
+        HStack(alignment: .top, spacing: Theme.Spacing.small) {
+            NavigationLink {
+                QuestionDetailView(
+                    question: question,
+                    client: client,
+                    canManage: canManage,
+                    onQuestionUpdate: onQuestionUpdate,
+                    onQuestionRetired: onQuestionRetired
+                )
+            } label: {
+                HStack(alignment: .top, spacing: Theme.Spacing.medium) {
+                    Image(systemName: "quote.opening")
+                        .foregroundStyle(Theme.Colors.accent)
+                        .padding(.top, 2)
+                    VStack(alignment: .leading, spacing: Theme.Spacing.small) {
+                        Text(question.prompt)
+                            .font(Theme.Fonts.bodyMedium)
+                            .foregroundStyle(Theme.Colors.textPrimary)
+                            .multilineTextAlignment(.leading)
+                            .lineLimit(2)
+                        HStack(spacing: Theme.Spacing.medium) {
+                            QuestionStatusBadge(status: question.status)
+                            Text(question.createdAt, format: .dateTime.month(.abbreviated).day().year())
+                                .font(Theme.Fonts.caption)
+                                .foregroundStyle(Theme.Colors.textSecondary)
+                            if let duration = DurationFormatter.shortString(
+                                milliseconds: question.audio.durationMs
+                            ) {
+                                Label(duration, systemImage: "clock")
                                     .font(Theme.Fonts.caption)
                                     .foregroundStyle(Theme.Colors.textSecondary)
-                                if let duration = DurationFormatter.shortString(
-                                    milliseconds: question.audio.durationMs
-                                ) {
-                                    Label(duration, systemImage: "clock")
-                                        .font(Theme.Fonts.caption)
-                                        .foregroundStyle(Theme.Colors.textSecondary)
-                                }
                             }
                         }
-                        Spacer(minLength: 0)
                     }
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint(isExpanded ? "Hide audio preview" : "Show audio preview")
-
-                if canManage {
-                    actionsMenu
+                    Spacer(minLength: 0)
                 }
             }
+            .accessibilityHint("Open the question and its answers")
 
-            if isExpanded {
-                AudioPlayerView(audio: question.audio)
-                    .padding(.top, Theme.Spacing.small)
+            if canManage {
+                actionsMenu
             }
-
-            NavigationLink {
-                MessageListView(
-                    questionId: question.id,
-                    questionPrompt: question.prompt,
-                    client: client
-                )
-                .navigationTitle("Answers")
-            } label: {
-                Label("View answers", systemImage: "waveform")
-                    .font(Theme.Fonts.bodySmall.weight(.semibold))
-                    .foregroundStyle(Theme.Colors.accent)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("View answers to \(question.prompt)")
         }
         .padding(.vertical, Theme.Spacing.small)
         .contextMenu {
             if canManage {
-                actionButtons
+                QuestionActionButtons(
+                    question: question,
+                    onActivate: onActivate,
+                    onDeactivate: onDeactivate,
+                    onDelete: onDelete
+                )
             }
         }
     }
 
     private var actionsMenu: some View {
         Menu {
-            actionButtons
+            QuestionActionButtons(
+                question: question,
+                onActivate: onActivate,
+                onDeactivate: onDeactivate,
+                onDelete: onDelete
+            )
         } label: {
             Image(systemName: "ellipsis.circle")
                 .foregroundStyle(Theme.Colors.textSecondary)
@@ -464,9 +456,15 @@ struct QuestionRow: View {
         .fixedSize()
         .accessibilityLabel("Question actions")
     }
+}
 
-    @ViewBuilder
-    private var actionButtons: some View {
+private struct QuestionActionButtons: View {
+    let question: Question
+    let onActivate: () -> Void
+    let onDeactivate: () -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
         if question.status == .active {
             Button {
                 onDeactivate()
@@ -487,6 +485,156 @@ struct QuestionRow: View {
                 Label("Retire", systemImage: "trash")
             }
         }
+    }
+}
+
+private struct QuestionDetailView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var question: Question
+    @State private var isUpdating = false
+    @State private var actionError: String?
+
+    private let client: OperatorClient
+    private let canManage: Bool
+    private let onQuestionUpdate: (Question) -> Void
+    private let onQuestionRetired: (String) -> Void
+
+    init(
+        question: Question,
+        client: OperatorClient,
+        canManage: Bool,
+        onQuestionUpdate: @escaping (Question) -> Void,
+        onQuestionRetired: @escaping (String) -> Void
+    ) {
+        _question = State(initialValue: question)
+        self.client = client
+        self.canManage = canManage
+        self.onQuestionUpdate = onQuestionUpdate
+        self.onQuestionRetired = onQuestionRetired
+    }
+
+    var body: some View {
+        MessageListView(question: question, client: client)
+            .navigationTitle("Question")
+            #if os(iOS) || os(visionOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                if canManage {
+                    ToolbarItem(placement: .primaryAction) {
+                        if isUpdating {
+                            ProgressView()
+                        } else {
+                            Menu {
+                                QuestionActionButtons(
+                                    question: question,
+                                    onActivate: { Task { await activate() } },
+                                    onDeactivate: { Task { await deactivate() } },
+                                    onDelete: { Task { await retire() } }
+                                )
+                            } label: {
+                                Label("Question actions", systemImage: "ellipsis.circle")
+                            }
+                        }
+                    }
+                }
+            }
+            .alert(
+                "Couldn't update question",
+                isPresented: Binding(
+                    get: { actionError != nil },
+                    set: { if !$0 { actionError = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(actionError ?? "Please try again.")
+            }
+    }
+
+    private func activate() async {
+        await updateQuestion(
+            failureMessage: "Couldn't activate question."
+        ) {
+            try await client.activateQuestion(id: question.id)
+        }
+    }
+
+    private func deactivate() async {
+        await updateQuestion(
+            failureMessage: "Couldn't deactivate question."
+        ) {
+            try await client.deactivateQuestion(id: question.id)
+        }
+    }
+
+    private func updateQuestion(
+        failureMessage: String,
+        operation: () async throws -> Question
+    ) async {
+        guard !isUpdating else { return }
+        isUpdating = true
+        actionError = nil
+        defer { isUpdating = false }
+        do {
+            let updated = try await operation()
+            question = updated
+            onQuestionUpdate(updated)
+        } catch {
+            actionError = (error as? LocalizedError)?.errorDescription ?? failureMessage
+        }
+    }
+
+    private func retire() async {
+        guard !isUpdating else { return }
+        isUpdating = true
+        actionError = nil
+        defer { isUpdating = false }
+        do {
+            try await client.deleteQuestion(id: question.id)
+            onQuestionRetired(question.id)
+            dismiss()
+        } catch {
+            actionError = (error as? LocalizedError)?.errorDescription ?? "Couldn't retire question."
+        }
+    }
+}
+
+struct QuestionDetailCard: View {
+    let question: Question
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
+            HStack(alignment: .firstTextBaseline) {
+                SectionHeader(text: "Question")
+                Spacer()
+                QuestionStatusBadge(status: question.status)
+            }
+
+            Text(question.prompt)
+                .font(Theme.Fonts.headerLarge())
+                .foregroundStyle(Theme.Colors.textPrimary)
+                .textSelection(.enabled)
+
+            HStack(spacing: Theme.Spacing.medium) {
+                Label(
+                    question.createdAt.formatted(.dateTime.month(.abbreviated).day().year()),
+                    systemImage: "calendar"
+                )
+                if let duration = DurationFormatter.shortString(
+                    milliseconds: question.audio.durationMs
+                ) {
+                    Label(duration, systemImage: "clock")
+                }
+            }
+            .font(Theme.Fonts.caption)
+            .foregroundStyle(Theme.Colors.textSecondary)
+
+            AudioPlayerView(audio: question.audio)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Theme.Spacing.large)
+        .glassCardBackground()
     }
 }
 
