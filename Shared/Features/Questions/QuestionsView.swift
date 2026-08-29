@@ -48,6 +48,8 @@ public struct QuestionsView: View {
     @State private var generation = 0
     @State private var loadedPageCount = 0
     @State private var loadedFilter: QuestionFilter?
+    @State private var messageCountsByQuestionID: [String: Int] = [:]
+    @State private var messageCountRevisions: [String: UInt] = [:]
 
     private let client: OperatorClient
     private let pageSize: Int
@@ -96,8 +98,13 @@ public struct QuestionsView: View {
                 handleCreated(created)
             }
         }
-        .autoRefresh(id: filter) {
-            if loadedFilter != filter || loadState == .loadingInitial || loadState == .loadingMore {
+        .task(id: filter) {
+            // Overflow tabs can appear before adaptive tab selection updates.
+            await loadFirstPageIfNeeded()
+        }
+        .autoRefresh(id: filter, immediately: false) {
+            guard loadState != .loadingInitial, loadState != .loadingMore else { return }
+            if loadedFilter != filter || questions.isEmpty {
                 await loadFirstPage()
             } else {
                 await refreshLoadedPages()
@@ -234,16 +241,27 @@ public struct QuestionsView: View {
 
     private func handleCreated(_ created: Question) {
         actionError = nil
+        recordKnownMessageCount(from: created)
         // Show the new question if it belongs in the current filter.
         if filter == .all || filter.query == .status(created.status) {
             questions.insert(created, at: 0)
         }
     }
 
+    private func loadFirstPageIfNeeded() async {
+        guard Self.shouldLoadFirstPage(
+            filter: filter,
+            loadedFilter: loadedFilter,
+            hasQuestions: !questions.isEmpty
+        ) else { return }
+        await loadFirstPage()
+    }
+
     private func loadFirstPage() async {
         generation += 1
         let requested = generation
         let selectedFilter = filter
+        let requestedCountRevisions = messageCountRevisions
         if selectedFilter != loadedFilter {
             questions = []
             nextCursor = nil
@@ -254,15 +272,19 @@ public struct QuestionsView: View {
         do {
             let page = try await client.fetchQuestions(cursor: nil, limit: pageSize, filter: selectedFilter.query)
             guard requested == generation, selectedFilter == filter else { return }
-            questions = page.items
+            questions = reconcileMessageCounts(
+                in: page.items,
+                requestedCountRevisions: requestedCountRevisions
+            )
             nextCursor = page.nextCursor
             loadedPageCount = 1
             loadedFilter = selectedFilter
             loadState = nextCursor == nil ? .done : .idle
         } catch {
             guard requested == generation, selectedFilter == filter else { return }
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to load questions."
             loadState = .idle
+            guard !Task.isCancelled else { return }
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? "Failed to load questions."
         }
     }
 
@@ -273,6 +295,7 @@ public struct QuestionsView: View {
         let pageCount = max(loadedPageCount, 1)
         let selectedFilter = filter
         let query = selectedFilter.query
+        let requestedCountRevisions = messageCountRevisions
         loadState = .loadingInitial
         do {
             let refreshed = try await reloadLoadedPages(
@@ -288,7 +311,10 @@ public struct QuestionsView: View {
                 loadState = nextCursor == nil ? .done : .idle
                 return
             }
-            questions = refreshed.items
+            questions = reconcileMessageCounts(
+                in: refreshed.items,
+                requestedCountRevisions: requestedCountRevisions
+            )
             nextCursor = refreshed.nextCursor
             loadedPageCount = refreshed.pageCount
             errorMessage = nil
@@ -301,16 +327,40 @@ public struct QuestionsView: View {
         }
     }
 
+    private func reconcileMessageCounts(
+        in fetchedQuestions: [Question],
+        requestedCountRevisions: [String: UInt]
+    ) -> [Question] {
+        return fetchedQuestions.map { question in
+            let cachedCount = messageCountsByQuestionID[question.id]
+            if messageCountRevisions[question.id] != requestedCountRevisions[question.id],
+               let cachedCount {
+                return question.updatingMessageCount(cachedCount)
+            }
+            if let messageCount = question.messageCount {
+                messageCountsByQuestionID[question.id] = messageCount
+                return question
+            }
+            return question.updatingMessageCount(cachedCount)
+        }
+    }
+
     private func loadMore() async {
         guard let cursor = nextCursor, loadState == .idle else { return }
         let requested = generation
         let selectedFilter = filter
+        let requestedCountRevisions = messageCountRevisions
         loadState = .loadingMore
         errorMessage = nil
         do {
             let page = try await client.fetchQuestions(cursor: cursor, limit: pageSize, filter: selectedFilter.query)
             guard requested == generation, selectedFilter == filter else { return }
-            questions.append(contentsOf: page.items)
+            questions.append(
+                contentsOf: reconcileMessageCounts(
+                    in: page.items,
+                    requestedCountRevisions: requestedCountRevisions
+                )
+            )
             nextCursor = page.nextCursor
             loadedPageCount += 1
             loadState = nextCursor == nil ? .done : .idle
@@ -361,14 +411,39 @@ public struct QuestionsView: View {
     }
 
     private func applyUpdate(_ updated: Question) {
+        let current = questions.first(where: { $0.id == updated.id })
+        let merged = updated
+            .preservingMessageCount(from: current ?? updated)
+            .updatingMessageCount(
+                updated.messageCount
+                    ?? current?.messageCount
+                    ?? messageCountsByQuestionID[updated.id]
+            )
+        recordKnownMessageCount(from: merged)
         if filter != .all && filter.query != .status(updated.status) {
             // No longer matches the active filter — drop it from the list.
             questions.removeAll { $0.id == updated.id }
             return
         }
         if let index = questions.firstIndex(where: { $0.id == updated.id }) {
-            questions[index] = updated
+            questions[index] = merged
         }
+    }
+
+    private func recordKnownMessageCount(from question: Question) {
+        guard let messageCount = question.messageCount else { return }
+        messageCountsByQuestionID[question.id] = messageCount
+        messageCountRevisions[question.id, default: 0] &+= 1
+    }
+}
+
+extension QuestionsView {
+    static func shouldLoadFirstPage(
+        filter: QuestionFilter,
+        loadedFilter: QuestionFilter?,
+        hasQuestions: Bool
+    ) -> Bool {
+        loadedFilter != filter || !hasQuestions
     }
 }
 
@@ -408,12 +483,24 @@ struct QuestionRow: View {
                             Text(question.createdAt, format: .dateTime.month(.abbreviated).day().year())
                                 .font(Theme.Fonts.caption)
                                 .foregroundStyle(Theme.Colors.textSecondary)
-                            if let duration = DurationFormatter.shortString(
-                                milliseconds: question.audio.durationMs
-                            ) {
-                                Label(duration, systemImage: "clock")
+                        }
+                        if question.audio.durationMs != nil || question.messageCount != nil {
+                            HStack(spacing: Theme.Spacing.medium) {
+                                if let duration = DurationFormatter.shortString(
+                                    milliseconds: question.audio.durationMs
+                                ) {
+                                    Label(duration, systemImage: "clock")
+                                        .font(Theme.Fonts.caption)
+                                        .foregroundStyle(Theme.Colors.textSecondary)
+                                }
+                                if let messageCount = question.messageCount {
+                                    Label(
+                                        responseCountText(messageCount),
+                                        systemImage: "bubble.left.and.bubble.right"
+                                    )
                                     .font(Theme.Fonts.caption)
                                     .foregroundStyle(Theme.Colors.textSecondary)
+                                }
                             }
                         }
                     }
@@ -514,7 +601,13 @@ private struct QuestionDetailView: View {
     }
 
     var body: some View {
-        MessageListView(question: question, client: client)
+        MessageListView(
+            question: question,
+            client: client,
+            onQuestionMessageCountChange: { messageCount in
+                applyQuestionMessageCount(messageCount)
+            }
+        )
             .navigationTitle("Question")
             #if os(iOS) || os(visionOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -578,11 +671,22 @@ private struct QuestionDetailView: View {
         defer { isUpdating = false }
         do {
             let updated = try await operation()
-            question = updated
-            onQuestionUpdate(updated)
+            applyQuestionUpdate(updated)
         } catch {
             actionError = (error as? LocalizedError)?.errorDescription ?? failureMessage
         }
+    }
+
+    private func applyQuestionUpdate(_ updated: Question) {
+        let merged = updated.preservingMessageCount(from: question)
+        question = merged
+        onQuestionUpdate(merged)
+    }
+
+    private func applyQuestionMessageCount(_ messageCount: Int) {
+        let updated = question.updatingMessageCount(messageCount)
+        question = updated
+        onQuestionUpdate(updated)
     }
 
     private func retire() async {
@@ -626,6 +730,12 @@ struct QuestionDetailCard: View {
                 ) {
                     Label(duration, systemImage: "clock")
                 }
+                if let messageCount = question.messageCount {
+                    Label(
+                        responseCountText(messageCount),
+                        systemImage: "bubble.left.and.bubble.right"
+                    )
+                }
             }
             .font(Theme.Fonts.caption)
             .foregroundStyle(Theme.Colors.textSecondary)
@@ -636,6 +746,10 @@ struct QuestionDetailCard: View {
         .padding(Theme.Spacing.large)
         .glassCardBackground()
     }
+}
+
+private func responseCountText(_ count: Int) -> String {
+    "\(count) \(count == 1 ? "response" : "responses")"
 }
 
 struct QuestionStatusBadge: View {

@@ -12,6 +12,7 @@ public struct Question: Codable, Sendable, Equatable, Identifiable {
     public let audio: AudioRef
     public let createdAt: Date
     public let retiredAt: Date?
+    public let messageCount: Int?
 
     public init(
         id: String,
@@ -19,7 +20,8 @@ public struct Question: Codable, Sendable, Equatable, Identifiable {
         status: QuestionStatus = .draft,
         audio: AudioRef,
         createdAt: Date,
-        retiredAt: Date? = nil
+        retiredAt: Date? = nil,
+        messageCount: Int? = nil
     ) {
         self.id = id
         self.prompt = prompt
@@ -27,10 +29,11 @@ public struct Question: Codable, Sendable, Equatable, Identifiable {
         self.audio = audio
         self.createdAt = createdAt
         self.retiredAt = retiredAt
+        self.messageCount = messageCount
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, prompt, status, audio, createdAt, retiredAt
+        case id, prompt, status, audio, createdAt, retiredAt, messageCount
     }
 
     public init(from decoder: Decoder) throws {
@@ -42,6 +45,7 @@ public struct Question: Codable, Sendable, Equatable, Identifiable {
         audio = try container.decode(AudioRef.self, forKey: .audio)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         retiredAt = try container.decodeIfPresent(Date.self, forKey: .retiredAt)
+        messageCount = try container.decodeIfPresent(Int.self, forKey: .messageCount)
     }
 }
 
@@ -52,5 +56,24 @@ public struct QuestionList: Codable, Sendable, Equatable {
     public init(items: [Question], nextCursor: String?) {
         self.items = items
         self.nextCursor = nextCursor
+    }
+}
+
+extension Question {
+    func updatingMessageCount(_ messageCount: Int?) -> Question {
+        Question(
+            id: id,
+            prompt: prompt,
+            status: status,
+            audio: audio,
+            createdAt: createdAt,
+            retiredAt: retiredAt,
+            messageCount: messageCount
+        )
+    }
+
+    func preservingMessageCount(from previous: Question) -> Question {
+        guard messageCount == nil else { return self }
+        return updatingMessageCount(previous.messageCount)
     }
 }
