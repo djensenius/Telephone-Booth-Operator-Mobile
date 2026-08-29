@@ -13,16 +13,11 @@ import SwiftUI
 
 enum MessageListMode: Equatable, Sendable {
     case queue
-    case question(id: String, prompt: String)
+    case question(id: String)
 
     var questionId: String? {
-        guard case .question(let id, _) = self else { return nil }
+        guard case .question(let id) = self else { return nil }
         return id
-    }
-
-    var questionPrompt: String? {
-        guard case .question(_, let prompt) = self else { return nil }
-        return prompt
     }
 
     var isQuestion: Bool {
@@ -33,7 +28,7 @@ enum MessageListMode: Equatable, Sendable {
         switch self {
         case .queue:
             return filter.includes(message.status)
-        case .question(let id, _):
+        case .question(let id):
             return message.questionId == id
         }
     }
@@ -191,6 +186,7 @@ public struct MessageListView: View {
     private let routeFilter: MessageListFilter
     private let routeRevision: UInt
     private let mode: MessageListMode
+    private let question: Question?
     private let pageSize: Int
 
     public init(
@@ -204,13 +200,13 @@ public struct MessageListView: View {
         self.routeFilter = routeFilter
         self.routeRevision = routeRevision
         self.mode = .queue
+        self.question = nil
         self.pageSize = 50
         _filter = State(initialValue: routeFilter)
     }
 
     public init(
-        questionId: String,
-        questionPrompt: String,
+        question: Question,
         client: OperatorClient = .shared,
         socket: StatusSocket? = nil,
         pageSize: Int = 50
@@ -219,49 +215,27 @@ public struct MessageListView: View {
         self.socket = socket ?? (client.demoMode ? .demo : .shared)
         self.routeFilter = .all
         self.routeRevision = 0
-        self.mode = .question(id: questionId, prompt: questionPrompt)
+        self.mode = .question(id: question.id)
+        self.question = question
         self.pageSize = pageSize
         _filter = State(initialValue: .all)
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            if let questionPrompt = mode.questionPrompt {
-                questionContext(questionPrompt)
+        Group {
+            if mode.isQuestion {
+                questionList
             } else {
-                filterPicker
-            }
-
-            Group {
-                if loading && messages.isEmpty {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Theme.Colors.background)
-                } else if messages.isEmpty {
-                    emptyState
-                } else {
-                    list
+                VStack(spacing: 0) {
+                    filterPicker
+                    queueContent
                 }
             }
         }
         .background(Theme.Colors.background)
-        .searchable(text: $searchText, prompt: "Search transcripts")
+        .searchable(text: $searchText, prompt: searchPrompt)
         .navigationDestination(for: String.self) { messageId in
-            MessageDetailView(
-                messageId: messageId,
-                client: client,
-                readOnlyReason: readOnlyReason(for: messageId),
-                enforceInstallationReadOnly: mode.isQuestion,
-                socket: socket,
-                onMessageUpdate: { updated in apply(updated) },
-                shouldDismissAfterDecision: { updated in
-                    mode.shouldDismissDetail(
-                        afterDecisionTo: updated.status,
-                        filter: filter
-                    )
-                },
-                onMessageDelete: { id in removeMessage(id: id) }
-            )
+            messageDetail(messageId: messageId)
         }
         .autoRefresh(
             id: MessageListRefreshID(filter: filter, questionId: mode.questionId)
@@ -310,35 +284,107 @@ public struct MessageListView: View {
         }
     }
 
-    private var list: some View {
+    @ViewBuilder
+    private var queueContent: some View {
+        if loading && messages.isEmpty {
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Theme.Colors.background)
+        } else if messages.isEmpty {
+            emptyState
+        } else {
+            queueList
+        }
+    }
+
+    private var queueList: some View {
         List {
-            if let errorMessage {
-                BannerView(message: errorMessage, kind: .error)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-            }
-            if let installationAccessError {
-                BannerView(message: installationAccessError, kind: .info)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-            }
+            messageBanners
             if filteredMessages.isEmpty {
                 noMatchesRow
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
-            ForEach(filteredMessages) { message in
-                let actionAccess = mode.actionAccess(
-                    for: message,
-                    installationState: installationAccessState
-                )
-                NavigationLink(value: message.id) {
-                    MessageRow(
-                        message: message,
-                        isDeciding: isPerformingAction(on: message),
-                        readOnlyReason: actionAccess.readOnlyReason
+            messageRows
+        }
+        .operatorListStyle()
+    }
+
+    private var questionList: some View {
+        List {
+            if let question {
+                QuestionDetailCard(question: question)
+                    .listRowInsets(
+                        EdgeInsets(
+                            top: Theme.Spacing.medium,
+                            leading: Theme.Spacing.medium,
+                            bottom: Theme.Spacing.medium,
+                            trailing: Theme.Spacing.medium
+                        )
                     )
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
+
+            Section {
+                messageBanners
+                if loading && messages.isEmpty {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                        Spacer()
+                    }
+                    .padding(.vertical, Theme.Spacing.extraLarge)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                } else if filteredMessages.isEmpty {
+                    noMatchesRow
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                } else {
+                    messageRows
                 }
+
+                if nextCursor != nil {
+                    loadMoreFooter
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+            } header: {
+                HStack {
+                    Text("Answers")
+                    Spacer()
+                    if !messages.isEmpty {
+                        Text(filteredMessages.count, format: .number)
+                    }
+                }
+            }
+        }
+        .operatorListStyle()
+    }
+
+    @ViewBuilder
+    private var messageBanners: some View {
+        if let errorMessage {
+            BannerView(message: errorMessage, kind: .error)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+        if let installationAccessError {
+            BannerView(message: installationAccessError, kind: .info)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+    }
+
+    @ViewBuilder
+    private var messageRows: some View {
+        ForEach(filteredMessages) { message in
+            let actionAccess = mode.actionAccess(
+                for: message,
+                installationState: installationAccessState
+            )
+            messageLink(for: message, actionAccess: actionAccess)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 #if os(macOS)
                 .overlay(alignment: .trailing) {
@@ -397,19 +443,60 @@ public struct MessageListView: View {
                         )
                     }
                 }
+        }
+    }
+
+    @ViewBuilder
+    private func messageLink(
+        for message: Message,
+        actionAccess: MessageActionAccess
+    ) -> some View {
+        if mode.isQuestion {
+            NavigationLink {
+                messageDetail(messageId: message.id)
+            } label: {
+                MessageRow(
+                    message: message,
+                    isDeciding: isPerformingAction(on: message),
+                    readOnlyReason: actionAccess.readOnlyReason
+                )
             }
-            if mode.isQuestion, nextCursor != nil {
-                loadMoreFooter
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
+        } else {
+            NavigationLink(value: message.id) {
+                MessageRow(
+                    message: message,
+                    isDeciding: isPerformingAction(on: message),
+                    readOnlyReason: actionAccess.readOnlyReason
+                )
             }
         }
-        .operatorListStyle()
+    }
+
+    private func messageDetail(messageId: String) -> some View {
+        MessageDetailView(
+            messageId: messageId,
+            client: client,
+            readOnlyReason: readOnlyReason(for: messageId),
+            enforceInstallationReadOnly: mode.isQuestion,
+            socket: socket,
+            onMessageUpdate: { updated in apply(updated) },
+            shouldDismissAfterDecision: { updated in
+                mode.shouldDismissDetail(
+                    afterDecisionTo: updated.status,
+                    filter: filter
+                )
+            },
+            onMessageDelete: { id in removeMessage(id: id) }
+        )
+    }
+
+    private var searchPrompt: String {
+        mode.isQuestion ? "Search answers" : "Search transcripts"
     }
 
     private var noMatchesRow: some View {
         VStack(spacing: Theme.Spacing.medium) {
-            Image(systemName: "magnifyingglass")
+            Image(systemName: emptyIcon)
                 .font(.system(size: 28))
                 .foregroundStyle(Theme.Colors.textSecondary)
             Text(emptyTitle)
@@ -420,23 +507,9 @@ public struct MessageListView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func questionContext(_ prompt: String) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.small) {
-            Text("Question")
-                .font(Theme.Fonts.caption)
-                .fontWeight(.semibold)
-                .foregroundStyle(Theme.Colors.accent)
-            Text(prompt)
-                .font(Theme.Fonts.bodyLarge)
-                .foregroundStyle(Theme.Colors.textPrimary)
-            Text("Every recording linked to this prompt, newest first.")
-                .font(Theme.Fonts.bodySmall)
-                .foregroundStyle(Theme.Colors.textSecondary)
-        }
-        .padding(.horizontal, Theme.Spacing.medium)
-        .padding(.vertical, Theme.Spacing.small)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.Colors.secondaryBackground)
+    private var emptyIcon: String {
+        if !searchText.isEmpty { return "magnifyingglass" }
+        return mode.isQuestion ? "waveform" : "tray"
     }
 
     @ViewBuilder

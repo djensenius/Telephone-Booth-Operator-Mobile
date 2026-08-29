@@ -182,10 +182,7 @@ final class PendingMessagesTests: XCTestCase {
             latestTranscription: matching.latestTranscription,
             latestModeration: matching.latestModeration
         )
-        let mode = MessageListMode.question(
-            id: try XCTUnwrap(matching.questionId),
-            prompt: "Prompt"
-        )
+        let mode = MessageListMode.question(id: try XCTUnwrap(matching.questionId))
 
         XCTAssertTrue(mode.includes(matching, filter: .all))
         XCTAssertFalse(mode.includes(unrelated, filter: .all))
@@ -198,10 +195,8 @@ final class PendingMessagesTests: XCTestCase {
             DemoData.message(id: "demo-message-2")
         ]
         let questionId = try XCTUnwrap(messages.first?.questionId)
-        let scope = MessageListMode.question(
-            id: questionId,
-            prompt: "Prompt"
-        ).notificationScope(for: messages, filter: .all)
+        let scope = MessageListMode.question(id: questionId)
+            .notificationScope(for: messages, filter: .all)
 
         XCTAssertEqual(scope, .messages(ids: Set(messages.map(\.id))))
     }
@@ -209,10 +204,7 @@ final class PendingMessagesTests: XCTestCase {
     func testQuestionModeOnlyAllowsActionsForCurrentInstallation() {
         let message = DemoData.message(id: "demo-message-1")
         let activeInstallationId = DemoData.installations.first(where: \.isActive)?.id
-        let mode = MessageListMode.question(
-            id: message.questionId ?? "question",
-            prompt: "Prompt"
-        )
+        let mode = MessageListMode.question(id: message.questionId ?? "question")
 
         XCTAssertEqual(message.installationId, activeInstallationId)
         XCTAssertEqual(
@@ -321,7 +313,7 @@ final class PendingMessagesTests: XCTestCase {
             latestTranscription: oldest.latestTranscription,
             latestModeration: oldest.latestModeration
         )
-        let mode = MessageListMode.question(id: questionId, prompt: "Prompt")
+        let mode = MessageListMode.question(id: questionId)
 
         XCTAssertEqual(
             mode.liveUpdateDisposition(
