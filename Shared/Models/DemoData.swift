@@ -286,7 +286,12 @@ public enum DemoData {
     ]
 
     public static let questions: [Question] = [
-        question(id: "demo-question-1", prompt: "What is your favorite telephone memory?", durationMs: 9_000),
+        question(
+            id: "demo-question-1",
+            prompt: "What is your favorite telephone memory?",
+            durationMs: 9_000,
+            messageCount: 3
+        ),
         question(
             id: "demo-question-2",
             prompt: "Who would you call if this booth could reach the past?",
@@ -676,7 +681,8 @@ public extension DemoData {
         id: String,
         prompt: String,
         durationMs: Int,
-        status: QuestionStatus = .active
+        status: QuestionStatus = .active,
+        messageCount: Int = 0
     ) -> Question {
         Question(
             id: id,
@@ -688,7 +694,8 @@ public extension DemoData {
                 durationMs: durationMs
             ),
             createdAt: now.addingTimeInterval(-86_400),
-            retiredAt: status == .archived ? now.addingTimeInterval(-3_600) : nil
+            retiredAt: status == .archived ? now.addingTimeInterval(-3_600) : nil,
+            messageCount: messageCount
         )
     }
 

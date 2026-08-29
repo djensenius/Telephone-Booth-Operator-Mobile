@@ -105,21 +105,30 @@ public extension View {
         environment(\.automaticRefreshEnabled, enabled)
     }
 
-    /// Runs an immediate refresh and repeats it while this view is visible and
-    /// the app is active. Changing `id` restarts the loop immediately.
+    /// Repeats a refresh while this view is visible and the app is active.
+    /// Changing `id` restarts the loop.
     func autoRefresh<ID: Equatable>(
         id: ID,
         every interval: Duration = .seconds(30),
+        immediately: Bool = true,
         action: @escaping @MainActor @Sendable () async -> Void
     ) -> some View {
-        modifier(AutoRefreshModifier(id: id, interval: interval, action: action))
+        modifier(
+            AutoRefreshModifier(
+                id: id,
+                interval: interval,
+                immediately: immediately,
+                action: action
+            )
+        )
     }
 
     func autoRefresh(
         every interval: Duration = .seconds(30),
+        immediately: Bool = true,
         action: @escaping @MainActor @Sendable () async -> Void
     ) -> some View {
-        autoRefresh(id: false, every: interval, action: action)
+        autoRefresh(id: false, every: interval, immediately: immediately, action: action)
     }
 
     /// `.refreshable` is unavailable on tvOS. Apply it where supported,
@@ -172,15 +181,31 @@ public extension View {
 private struct AutoRefreshModifier<ID: Equatable>: ViewModifier {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.automaticRefreshEnabled) private var automaticRefreshEnabled
+    @State private var lastDelayedID: ID?
 
     let id: ID
     let interval: Duration
+    let immediately: Bool
     let action: @MainActor @Sendable () async -> Void
 
     func body(content: Content) -> some View {
         let shouldRefresh = automaticRefreshEnabled && scenePhase != .background
-        content.task(id: AutoRefreshTaskID(id: id, shouldRefresh: shouldRefresh)) {
+        content.task(
+            id: AutoRefreshTaskID(
+                id: id,
+                shouldRefresh: shouldRefresh,
+                immediately: immediately
+            )
+        ) {
             guard shouldRefresh else { return }
+            if !immediately, lastDelayedID != id {
+                lastDelayedID = id
+                do {
+                    try await Task.sleep(for: interval)
+                } catch {
+                    return
+                }
+            }
             while !Task.isCancelled {
                 await action()
                 do {
@@ -196,6 +221,7 @@ private struct AutoRefreshModifier<ID: Equatable>: ViewModifier {
 private struct AutoRefreshTaskID<ID: Equatable>: Equatable {
     let id: ID
     let shouldRefresh: Bool
+    let immediately: Bool
 }
 
 struct ReloadedPages<Item> {

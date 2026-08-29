@@ -162,4 +162,28 @@ final class NavigationOrderTests: XCTestCase {
         XCTAssertEqual(OperatorTab.messages.rawValue, "messages")
         XCTAssertEqual(OperatorTab.thermals.rawValue, "thermals")
     }
+
+    func testQuestionListInitialLoadDecisionHandlesOverflowPresentationAndFilterChanges() {
+        XCTAssertTrue(
+            QuestionsView.shouldLoadFirstPage(
+                filter: .all,
+                loadedFilter: nil,
+                hasQuestions: false
+            )
+        )
+        XCTAssertTrue(
+            QuestionsView.shouldLoadFirstPage(
+                filter: .active,
+                loadedFilter: .all,
+                hasQuestions: true
+            )
+        )
+        XCTAssertFalse(
+            QuestionsView.shouldLoadFirstPage(
+                filter: .all,
+                loadedFilter: .all,
+                hasQuestions: true
+            )
+        )
+    }
 }

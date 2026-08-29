@@ -38,13 +38,14 @@ extension OperatorClient {
         filter: QuestionListFilter = .nonArchived
     ) async throws -> QuestionList {
         if await usesDemoData {
+            let questions = DemoData.questions.map(demoQuestionWithCurrentMessageCount)
             let filtered = switch filter {
             case .nonArchived:
-                DemoData.questions.filter { $0.status != .archived }
+                questions.filter { $0.status != .archived }
             case .all:
-                DemoData.questions
+                questions
             case .status(let status):
-                DemoData.questions.filter { $0.status == status }
+                questions.filter { $0.status == status }
             }
             return QuestionList(items: Array(filtered.prefix(limit)), nextCursor: nil)
         }
@@ -60,7 +61,9 @@ extension OperatorClient {
     /// This keeps historical messages labeled after their question is archived.
     public func fetchQuestion(id: String) async throws -> Question? {
         if await usesDemoData {
-            return DemoData.questions.first { $0.id == id }
+            return DemoData.questions
+                .first { $0.id == id }
+                .map(demoQuestionWithCurrentMessageCount)
         }
         let list: QuestionList = try await get(
             "/v1/questions",
@@ -101,14 +104,26 @@ extension OperatorClient {
         guard let existing = DemoData.questions.first(where: { $0.id == id }) else {
             throw OperatorError.unauthenticated
         }
+        let current = demoQuestionWithCurrentMessageCount(existing)
         return Question(
-            id: existing.id,
-            prompt: existing.prompt,
+            id: current.id,
+            prompt: current.prompt,
             status: status,
-            audio: existing.audio,
-            createdAt: existing.createdAt,
-            retiredAt: nil
+            audio: current.audio,
+            createdAt: current.createdAt,
+            retiredAt: nil,
+            messageCount: current.messageCount
         )
+    }
+
+    private func demoQuestionWithCurrentMessageCount(_ question: Question) -> Question {
+        let count = DemoData.messages
+            .map { demoMessageOverrides[$0.id] ?? $0 }
+            .filter {
+                !demoDeletedMessageIDs.contains($0.id) && $0.questionId == question.id
+            }
+            .count
+        return question.updatingMessageCount(count)
     }
 
     /// `DELETE /v1/questions/{id}` — soft-deletes (retires) a question.

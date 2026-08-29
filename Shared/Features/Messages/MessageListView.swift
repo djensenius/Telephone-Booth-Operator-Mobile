@@ -9,7 +9,13 @@
 
 #if !os(watchOS) && !os(tvOS)
 
+import os
 import SwiftUI
+
+private let messageListLogger = Logger(
+    subsystem: "org.davidjensenius.TBOperatorMobile",
+    category: "MessageList"
+)
 
 enum MessageListMode: Equatable, Sendable {
     case queue
@@ -178,6 +184,8 @@ public struct MessageListView: View {
     @State private var installationAccessState: MessageInstallationAccessState = .loading
     @State private var installationAccessError: String?
     @State private var installationAccessRevision: UInt = 0
+    @State private var questionSnapshot: Question?
+    @State private var questionSummaryRevision: UInt = 0
     #if os(macOS)
     @State private var hoveredMessageId: String?
     #endif
@@ -188,6 +196,7 @@ public struct MessageListView: View {
     private let mode: MessageListMode
     private let question: Question?
     private let pageSize: Int
+    private let onQuestionMessageCountChange: (Int) -> Void
 
     public init(
         client: OperatorClient = .shared,
@@ -202,14 +211,17 @@ public struct MessageListView: View {
         self.mode = .queue
         self.question = nil
         self.pageSize = 50
+        self.onQuestionMessageCountChange = { _ in }
         _filter = State(initialValue: routeFilter)
+        _questionSnapshot = State(initialValue: nil)
     }
 
     public init(
         question: Question,
         client: OperatorClient = .shared,
         socket: StatusSocket? = nil,
-        pageSize: Int = 50
+        pageSize: Int = 50,
+        onQuestionMessageCountChange: @escaping (Int) -> Void = { _ in }
     ) {
         self.client = client
         self.socket = socket ?? (client.demoMode ? .demo : .shared)
@@ -218,7 +230,9 @@ public struct MessageListView: View {
         self.mode = .question(id: question.id)
         self.question = question
         self.pageSize = pageSize
+        self.onQuestionMessageCountChange = onQuestionMessageCountChange
         _filter = State(initialValue: .all)
+        _questionSnapshot = State(initialValue: question)
     }
 
     public var body: some View {
@@ -251,6 +265,13 @@ public struct MessageListView: View {
             if !mode.isQuestion {
                 filter = routeFilter
             }
+        }
+        .onChange(of: question) { _, updated in
+            guard let updated else { return }
+            questionSummaryRevision &+= 1
+            questionSnapshot = updated.preservingMessageCount(
+                from: questionSnapshot ?? updated
+            )
         }
         .onAppear {
             isVisible = true
@@ -312,7 +333,7 @@ public struct MessageListView: View {
 
     private var questionList: some View {
         List {
-            if let question {
+            if let question = displayedQuestion {
                 QuestionDetailCard(question: question)
                     .listRowInsets(
                         EdgeInsets(
@@ -649,6 +670,10 @@ public struct MessageListView: View {
         }
     }
 
+    private var displayedQuestion: Question? {
+        questionSnapshot
+    }
+
     private func refresh() async {
         if mode.isQuestion {
             await refreshQuestionAnswers()
@@ -711,6 +736,10 @@ public struct MessageListView: View {
             pendingMutations.removeAll()
             nextCursor = refreshed.nextCursor
             loadedPageCount = refreshed.pageCount
+            if nextCursor == nil {
+                setQuestionMessageCount(messages.count)
+            }
+            await refreshQuestionSummary()
             await refreshQuestionInstallationAccess()
             await acknowledgeLoadedMessages()
         } catch is CancellationError {
@@ -747,6 +776,9 @@ public struct MessageListView: View {
             pendingMutations.removeAll()
             nextCursor = page.nextCursor
             loadedPageCount += 1
+            if nextCursor == nil {
+                setQuestionMessageCount(messages.count)
+            }
             await acknowledgeLoadedMessages()
         } catch {
             guard !Task.isCancelled, generation == refreshGeneration else { return }
@@ -815,7 +847,9 @@ public struct MessageListView: View {
         apply(mutation)
     }
 
-    private func apply(_ mutation: MessageListMutation) {
+    @discardableResult
+    private func apply(_ mutation: MessageListMutation) -> Bool {
+        let containedMessage = messages.contains { $0.id == mutation.messageId }
         latestMutationSequence &+= 1
         pendingMutations.removeAll { $0.mutation.messageId == mutation.messageId }
         pendingMutations.append(
@@ -825,11 +859,18 @@ public struct MessageListView: View {
             )
         )
         messages.apply(mutation)
+        let containsMessage = messages.contains { $0.id == mutation.messageId }
+        if mode.isQuestion, containedMessage != containsMessage {
+            adjustQuestionMessageCount(by: containsMessage ? 1 : -1)
+        }
         updateQuestionNotificationScope()
+        return containedMessage != containsMessage
     }
 
     private func removeMessage(id: String) {
-        apply(.remove(id))
+        if apply(.remove(id)) {
+            Task { await refreshQuestionSummary() }
+        }
     }
 
     private func updateQuestionNotificationScope() {
@@ -862,6 +903,52 @@ public struct MessageListView: View {
             guard !Task.isCancelled, revision == installationAccessRevision else { return }
             installationAccessState = .unavailable
             installationAccessError = "Couldn't verify installation status. Actions are disabled."
+        }
+    }
+
+    private func adjustQuestionMessageCount(by adjustment: Int) {
+        if let messageCount = displayedQuestion?.messageCount {
+            setQuestionMessageCount(max(0, messageCount + adjustment))
+        } else if nextCursor == nil {
+            setQuestionMessageCount(messages.count)
+        }
+    }
+
+    private func setQuestionMessageCount(_ count: Int) {
+        guard let question = displayedQuestion else { return }
+        questionSummaryRevision &+= 1
+        let updated = question.updatingMessageCount(count)
+        questionSnapshot = updated
+        onQuestionMessageCountChange(count)
+    }
+
+    private func refreshQuestionSummary() async {
+        guard let questionId = mode.questionId else { return }
+        questionSummaryRevision &+= 1
+        let revision = questionSummaryRevision
+        do {
+            guard let updated = try await client.fetchQuestion(id: questionId) else {
+                messageListLogger.error("Question summary missing for \(questionId, privacy: .public)")
+                return
+            }
+            guard !Task.isCancelled,
+                  revision == questionSummaryRevision,
+                  let latestQuestion = displayedQuestion else {
+                return
+            }
+            let merged = latestQuestion.updatingMessageCount(
+                updated.messageCount ?? latestQuestion.messageCount
+            )
+            questionSnapshot = merged
+            if let messageCount = merged.messageCount {
+                onQuestionMessageCountChange(messageCount)
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            messageListLogger.error(
+                "Failed to refresh question summary: \(error.localizedDescription, privacy: .public)"
+            )
         }
     }
 
@@ -917,9 +1004,13 @@ public struct MessageListView: View {
         )
         switch disposition {
         case .upsert:
-            apply(.upsert(message))
+            if apply(.upsert(message)) {
+                await refreshQuestionSummary()
+            }
         case .remove:
-            apply(.remove(message.id))
+            if apply(.remove(message.id)) {
+                await refreshQuestionSummary()
+            }
         case .ignore:
             return
         }

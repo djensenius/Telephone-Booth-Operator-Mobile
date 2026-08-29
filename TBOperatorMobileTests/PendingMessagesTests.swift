@@ -522,6 +522,24 @@ final class StatsOverviewCompatibilityTests: XCTestCase {
     }
 }
 
+@MainActor
+final class DemoQuestionResponseCountTests: XCTestCase {
+    func testQuestionCountsTrackDeletedDemoMessages() async throws {
+        let client = OperatorClient(config: .shared, auth: .shared, demoMode: true)
+        let fetchedQuestion = try await client.fetchQuestion(id: "demo-question-1")
+        let question = try XCTUnwrap(fetchedQuestion)
+        XCTAssertEqual(question.messageCount, 3)
+
+        try await client.deleteMessage(id: "demo-message-1")
+
+        let fetchedUpdate = try await client.fetchQuestion(id: question.id)
+        let updated = try XCTUnwrap(fetchedUpdate)
+        XCTAssertEqual(updated.messageCount, 2)
+        let list = try await client.fetchQuestions(filter: .all)
+        XCTAssertEqual(list.items.first(where: { $0.id == question.id })?.messageCount, 2)
+    }
+}
+
 private final class StatsDigitRecoveryURLProtocol: URLProtocol {
     nonisolated(unsafe) private static var requests: [URL] = []
     nonisolated(unsafe) private static var shouldFailEventRequests = false

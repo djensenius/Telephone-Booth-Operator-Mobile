@@ -357,7 +357,9 @@ final class TBOperatorMobileTests: XCTestCase {
             XCTAssertEqual(status, decoded)
         }
     }
+}
 
+extension TBOperatorMobileTests {
     // MARK: - Question decoding
 
     func testQuestionDecodesFromOperatorJSON() throws {
@@ -366,6 +368,7 @@ final class TBOperatorMobileTests: XCTestCase {
           "id": "44444444-4444-4444-4444-444444444444",
           "prompt": "Tell me about your favourite phone call.",
           "status": "active",
+          "messageCount": 7,
           "audio": {
             "url": "https://example.com/q.flac",
             "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
@@ -381,6 +384,9 @@ final class TBOperatorMobileTests: XCTestCase {
         XCTAssertEqual(question.status, .active)
         XCTAssertEqual(question.audio.durationMs, 4321)
         XCTAssertNil(question.retiredAt)
+        XCTAssertEqual(question.messageCount, 7)
+        let preserved = question.updatingMessageCount(nil).preservingMessageCount(from: question)
+        XCTAssertEqual(preserved.messageCount, 7)
     }
 
     func testQuestionListPaging() throws {
@@ -406,6 +412,7 @@ final class TBOperatorMobileTests: XCTestCase {
         let page = try OperatorJSON.decoder.decode(QuestionList.self, from: Data(json.utf8))
         XCTAssertEqual(page.items.count, 1)
         XCTAssertEqual(page.items.first?.status, .draft)
+        XCTAssertNil(page.items.first?.messageCount)
         XCTAssertEqual(page.nextCursor, "55555555-5555-5555-5555-555555555556")
     }
 
