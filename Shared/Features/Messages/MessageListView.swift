@@ -30,6 +30,13 @@ enum MessageListMode: Equatable, Sendable {
         questionId != nil
     }
 
+    func shouldLoadQuestionAnswersOnPresentation(
+        hasLoadedPage: Bool,
+        isLoading: Bool
+    ) -> Bool {
+        isQuestion && !hasLoadedPage && !isLoading
+    }
+
     func includes(_ message: Message, filter: MessageListFilter) -> Bool {
         switch self {
         case .queue:
@@ -252,9 +259,13 @@ public struct MessageListView: View {
             messageDetail(messageId: messageId)
         }
         .autoRefresh(
-            id: MessageListRefreshID(filter: filter, questionId: mode.questionId)
+            id: MessageListRefreshID(filter: filter, questionId: mode.questionId),
+            immediately: !mode.isQuestion
         ) {
             await refresh()
+        }
+        .task(id: mode.questionId) {
+            await loadQuestionAnswersOnPresentationIfNeeded()
         }
         .onChange(of: filter) {
             if !mode.isQuestion {
@@ -674,6 +685,16 @@ public struct MessageListView: View {
         questionSnapshot
     }
 
+    private func loadQuestionAnswersOnPresentationIfNeeded() async {
+        guard mode.shouldLoadQuestionAnswersOnPresentation(
+            hasLoadedPage: loadedPageCount > 0,
+            isLoading: loading || loadingMore
+        ) else {
+            return
+        }
+        await refreshQuestionAnswers()
+    }
+
     private func refresh() async {
         if mode.isQuestion {
             await refreshQuestionAnswers()
@@ -704,7 +725,7 @@ public struct MessageListView: View {
     }
 
     private func refreshQuestionAnswers() async {
-        guard let questionId = mode.questionId, !loadingMore else { return }
+        guard let questionId = mode.questionId, !loading, !loadingMore else { return }
         refreshGeneration += 1
         let generation = refreshGeneration
         let mutationSequence = latestMutationSequence

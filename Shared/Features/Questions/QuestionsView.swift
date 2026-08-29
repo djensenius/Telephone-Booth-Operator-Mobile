@@ -10,6 +10,10 @@
 
 import SwiftUI
 
+enum QuestionNavigationDestination: Hashable {
+    case detail(id: String)
+}
+
 public struct QuestionsView: View {
     enum QuestionFilter: String, CaseIterable, Identifiable {
         case all
@@ -50,6 +54,7 @@ public struct QuestionsView: View {
     @State private var loadedFilter: QuestionFilter?
     @State private var messageCountsByQuestionID: [String: Int] = [:]
     @State private var messageCountRevisions: [String: UInt] = [:]
+    @State private var questionSnapshotsByID: [String: Question] = [:]
 
     private let client: OperatorClient
     private let pageSize: Int
@@ -82,6 +87,9 @@ public struct QuestionsView: View {
             content
         }
         .background(Theme.Colors.background)
+        .navigationDestination(for: QuestionNavigationDestination.self) { destination in
+            questionDestination(for: destination)
+        }
         .toolbar {
             if isAdmin {
                 ToolbarItem(placement: .primaryAction) {
@@ -143,10 +151,7 @@ public struct QuestionsView: View {
             ForEach(questions) { question in
                 QuestionRow(
                     question: question,
-                    client: client,
                     canManage: isAdmin,
-                    onQuestionUpdate: { updated in applyUpdate(updated) },
-                    onQuestionRetired: { id in handleRetired(id) },
                     onActivate: { Task { await activate(question) } },
                     onDeactivate: { Task { await deactivate(question) } },
                     onDelete: { Task { await retire(question) } }
@@ -241,6 +246,7 @@ public struct QuestionsView: View {
 
     private func handleCreated(_ created: Question) {
         actionError = nil
+        recordQuestionSnapshot(created)
         recordKnownMessageCount(from: created)
         // Show the new question if it belongs in the current filter.
         if filter == .all || filter.query == .status(created.status) {
@@ -333,15 +339,18 @@ public struct QuestionsView: View {
     ) -> [Question] {
         return fetchedQuestions.map { question in
             let cachedCount = messageCountsByQuestionID[question.id]
+            let reconciled: Question
             if messageCountRevisions[question.id] != requestedCountRevisions[question.id],
                let cachedCount {
-                return question.updatingMessageCount(cachedCount)
-            }
-            if let messageCount = question.messageCount {
+                reconciled = question.updatingMessageCount(cachedCount)
+            } else if let messageCount = question.messageCount {
                 messageCountsByQuestionID[question.id] = messageCount
-                return question
+                reconciled = question
+            } else {
+                reconciled = question.updatingMessageCount(cachedCount)
             }
-            return question.updatingMessageCount(cachedCount)
+            recordQuestionSnapshot(reconciled)
+            return reconciled
         }
     }
 
@@ -411,7 +420,8 @@ public struct QuestionsView: View {
     }
 
     private func applyUpdate(_ updated: Question) {
-        let current = questions.first(where: { $0.id == updated.id })
+        let current = questionSnapshotsByID[updated.id]
+            ?? questions.first(where: { $0.id == updated.id })
         let merged = updated
             .preservingMessageCount(from: current ?? updated)
             .updatingMessageCount(
@@ -419,6 +429,7 @@ public struct QuestionsView: View {
                     ?? current?.messageCount
                     ?? messageCountsByQuestionID[updated.id]
             )
+        recordQuestionSnapshot(merged)
         recordKnownMessageCount(from: merged)
         if filter != .all && filter.query != .status(updated.status) {
             // No longer matches the active filter — drop it from the list.
@@ -430,14 +441,53 @@ public struct QuestionsView: View {
         }
     }
 
+}
+
+extension QuestionsView {
     private func recordKnownMessageCount(from question: Question) {
         guard let messageCount = question.messageCount else { return }
         messageCountsByQuestionID[question.id] = messageCount
         messageCountRevisions[question.id, default: 0] &+= 1
     }
-}
 
-extension QuestionsView {
+    private func recordQuestionSnapshot(_ question: Question) {
+        questionSnapshotsByID[question.id] = question
+    }
+
+    @ViewBuilder
+    private func questionDestination(for destination: QuestionNavigationDestination) -> some View {
+        switch destination {
+        case .detail(let id):
+            if let question = Self.detailQuestion(
+                id: id,
+                visibleQuestions: questions,
+                snapshotsByID: questionSnapshotsByID
+            ) {
+                QuestionDetailView(
+                    question: question,
+                    client: client,
+                    canManage: isAdmin,
+                    onQuestionUpdate: { updated in applyUpdate(updated) },
+                    onQuestionRetired: { retiredID in handleRetired(retiredID) }
+                )
+            } else {
+                ContentUnavailableView(
+                    "Question unavailable",
+                    systemImage: "questionmark.bubble",
+                    description: Text("Return to Questions and try again.")
+                )
+            }
+        }
+    }
+
+    static func detailQuestion(
+        id: String,
+        visibleQuestions: [Question],
+        snapshotsByID: [String: Question]
+    ) -> Question? {
+        snapshotsByID[id] ?? visibleQuestions.first(where: { $0.id == id })
+    }
+
     static func shouldLoadFirstPage(
         filter: QuestionFilter,
         loadedFilter: QuestionFilter?,
@@ -449,25 +499,14 @@ extension QuestionsView {
 
 struct QuestionRow: View {
     let question: Question
-    let client: OperatorClient
     let canManage: Bool
-    let onQuestionUpdate: (Question) -> Void
-    let onQuestionRetired: (String) -> Void
     let onActivate: () -> Void
     let onDeactivate: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: Theme.Spacing.small) {
-            NavigationLink {
-                QuestionDetailView(
-                    question: question,
-                    client: client,
-                    canManage: canManage,
-                    onQuestionUpdate: onQuestionUpdate,
-                    onQuestionRetired: onQuestionRetired
-                )
-            } label: {
+            NavigationLink(value: QuestionNavigationDestination.detail(id: question.id)) {
                 HStack(alignment: .top, spacing: Theme.Spacing.medium) {
                     Image(systemName: "quote.opening")
                         .foregroundStyle(Theme.Colors.accent)
