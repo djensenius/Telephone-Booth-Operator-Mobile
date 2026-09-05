@@ -76,6 +76,24 @@ public struct MessageProcessingWorkEnvelope: Decodable, Sendable, Equatable {
 }
 
 public actor StatusSocket {
+    public enum ConnectionError: Error, LocalizedError {
+        case unsupportedPlatform
+
+        public var errorDescription: String? {
+            "Live WebSocket status is unavailable on watchOS. Use HTTPS polling instead."
+        }
+    }
+
+    // TN3135: normal watch apps cannot use WebSockets, even though the
+    // simulator allows them. The status store must use HTTPS polling.
+    public static var supportsLiveConnections: Bool {
+        #if os(watchOS)
+        false
+        #else
+        true
+        #endif
+    }
+
     @MainActor public static let shared = StatusSocket(
         config: AppConfig.shared,
         auth: AuthManager.shared
@@ -127,6 +145,11 @@ public actor StatusSocket {
     public nonisolated func subscribe() -> AsyncThrowingStream<WsStatusEnvelope, Error> {
         if demoMode {
             return DemoData.statusSocketStream()
+        }
+        guard Self.supportsLiveConnections else {
+            return AsyncThrowingStream { continuation in
+                continuation.finish(throwing: ConnectionError.unsupportedPlatform)
+            }
         }
         return AsyncThrowingStream { continuation in
             let task = Task { [weak self] in

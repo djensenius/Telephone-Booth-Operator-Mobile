@@ -6,6 +6,19 @@ import XCTest
 @testable import TBOperatorMobile
 
 final class StatusSocketTests: XCTestCase {
+    @MainActor
+    func testPhoneStatusStillStartsWithWebSocket() {
+        XCTAssertTrue(StatusSocket.supportsLiveConnections)
+        let store = BoothStatusLiveStore(
+            client: .demo,
+            socket: StatusSocket(maxMessageSize: 1024)
+        )
+        store.start()
+        XCTAssertEqual(store.connection, .connecting)
+        store.stop()
+        XCTAssertEqual(store.connection, .offline)
+    }
+
     func testDecodeStatusEnvelope() throws {
         let data = Data("""
         {

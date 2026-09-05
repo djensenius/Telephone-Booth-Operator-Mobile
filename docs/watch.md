@@ -45,10 +45,18 @@ instead of silently consuming the request.
 
 Page refreshes run only while the watch scene is active and that page is
 selected, with no detail or Settings covering it. Latest, Moderation, Stats,
-and message details use the shared 30-second refresh cadence. Status uses the
-shared live-status service, including its five-second REST fallback, only
-while visible and active. Opening Status no longer starts an additional
-one-shot refresh alongside that service.
+and message details use the shared 30-second refresh cadence. Status polls
+the authenticated HTTPS REST endpoints every five seconds, only while visible
+and active. Opening Status does not start an additional one-shot refresh
+alongside that service.
+
+The watch never opens a live WebSocket. Apple restricts that low-level
+networking API to specific watch use cases that do not include this operator
+console; the simulator does not enforce that restriction. See
+[Apple TN3135](https://developer.apple.com/documentation/technotes/tn3135-low-level-networking-on-watchos).
+Other platforms retain WebSocket updates with REST polling as a fallback.
+Real-device sign-in and foreground refresh must be exercised before release;
+simulator success alone does not establish watch networking compatibility.
 
 Initial loading, successful empty results, and errors are distinct. Status
 does not invent an idle state or zero counts before data arrives. Previously

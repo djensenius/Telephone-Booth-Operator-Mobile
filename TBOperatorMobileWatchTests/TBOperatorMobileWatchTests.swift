@@ -6,6 +6,48 @@ import XCTest
 @testable import TBOperatorMobileWatch
 
 @MainActor
+final class WatchStatusTransportTests: XCTestCase {
+    func testLiveWebSocketIsRejectedBeforeStartingDeviceNetworking() async {
+        XCTAssertFalse(StatusSocket.supportsLiveConnections)
+        let socket = StatusSocket(maxMessageSize: 1024)
+        do {
+            for try await _ in socket.subscribe() {
+                XCTFail("A watch must not open a live WebSocket")
+            }
+            XCTFail("Expected an explicit unsupported-platform error")
+        } catch StatusSocket.ConnectionError.unsupportedPlatform {
+            // The real device API must never be reached.
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testDemoStatusStreamRemainsAvailable() async throws {
+        var iterator = StatusSocket.demo.subscribe().makeAsyncIterator()
+        guard case .status = try await iterator.next() else {
+            return XCTFail("Demo mode should still emit a local status")
+        }
+    }
+
+    func testStatusStartsWithPollingAndLoadsWithoutWebSocket() async {
+        let store = BoothStatusLiveStore(
+            client: .demo,
+            socket: StatusSocket(maxMessageSize: 1024)
+        )
+        store.start()
+        defer { store.stop() }
+        XCTAssertEqual(store.connection, .polling)
+
+        await store.refreshNow()
+
+        XCTAssertNotNil(store.status)
+        XCTAssertNotNil(store.stats)
+        XCTAssertEqual(store.connection, .polling)
+        XCTAssertNil(store.lastError)
+    }
+}
+
+@MainActor
 final class TBOperatorMobileWatchTests: XCTestCase {
     private enum Failure: Error { case offline }
 
