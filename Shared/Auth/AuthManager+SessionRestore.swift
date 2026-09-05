@@ -39,7 +39,7 @@ extension AuthManager {
             } else if getAccessToken() != nil, !isTokenExpired() {
                 sessionRestored()
                 logger.info("validateSession: phone unreachable, cached token still valid")
-            } else {
+            } else if authState != .signedOut {
                 // The phone may simply be out of range; keep the session and
                 // let the watch retry instead of forcing a login.
                 sessionRestoreDeferred(scheduleRetry: scheduleRetry)

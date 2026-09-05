@@ -127,7 +127,11 @@ public struct SettingsView: View {
             .themedSettingsRowBackground()
 
             Section {
-                #if os(watchOS) || os(tvOS)
+                #if os(watchOS)
+                Label("Paired iPhone", systemImage: "iphone")
+                Text("Sign in on iPhone. Only a short-lived session is shared with this watch.")
+                    .font(.caption)
+                #elseif os(tvOS)
                 OIDCDetailsView()
                 #else
                 DisclosureGroup {
@@ -139,8 +143,12 @@ public struct SettingsView: View {
             } header: {
                 Text("Authentication")
             } footer: {
+                #if os(watchOS)
+                Text("Keep your iPhone nearby to renew the session. Signing out here disconnects only this watch.")
+                #else
                 Text("OIDC settings come from the build's Info.plist and " +
                      "are not editable at runtime.")
+                #endif
             }
             .themedSettingsRowBackground()
 

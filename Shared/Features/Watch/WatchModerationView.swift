@@ -13,48 +13,56 @@
 import SwiftUI
 
 struct WatchModerationView: View {
-    @State private var messages: [Message] = []
-    @State private var errorMessage: String?
-    @State private var isRefreshing = false
-    @State private var notificationScope: DeliveredNotificationScope?
+    @State private var model = WatchMessageListModel()
 
     private let client: OperatorClient
+    private let refreshRevision: Int
 
-    init(client: OperatorClient = .shared) {
+    init(
+        client: OperatorClient = .shared,
+        refreshRevision: Int = 0,
+        model: WatchMessageListModel? = nil
+    ) {
         self.client = client
+        self.refreshRevision = refreshRevision
+        _model = State(initialValue: model ?? WatchMessageListModel())
     }
 
     var body: some View {
         List {
-            if let errorMessage {
+            if let errorMessage = model.errorMessage {
                 Section {
                     BannerView(message: errorMessage, kind: .error)
+                    Button("Retry") { Task { await refresh() } }
+                        .disabled(model.isRefreshing)
                 }
             }
-            if messages.isEmpty && !isRefreshing && errorMessage == nil {
+            if !model.hasLoaded && model.errorMessage == nil {
+                ProgressView("Loading queue")
+            }
+            if model.messages.isEmpty && model.hasLoaded && model.errorMessage == nil {
                 Section {
                     emptyState
                 }
             }
-            ForEach(messages) { message in
+            ForEach(model.messages) { message in
                 NavigationLink(value: WatchModerationDestination.message(message.id)) {
                     WatchModerationRow(message: message)
                 }
             }
-        }
-        .navigationDestination(for: WatchModerationDestination.self) { dest in
-            switch dest {
-            case .message(let id):
-                WatchModerationDetailView(messageId: id, client: client)
+            if model.hasLoaded {
+                Text("Up to 25 pending and 25 received messages. Review older messages on iPhone.")
+                    .font(.caption2)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
         }
         .refreshableIfAvailable {
             await refresh()
         }
-        .autoRefresh {
+        .autoRefresh(id: refreshRevision) {
             await refresh()
         }
-        .notificationVisibilityScope(notificationScope)
+        .watchMessageNotifications(model.notificationScope)
     }
 
     private var emptyState: some View {
@@ -71,33 +79,9 @@ struct WatchModerationView: View {
     }
 
     func refresh() async {
-        guard !isRefreshing else { return }
-        isRefreshing = true
-        errorMessage = nil
-        defer { isRefreshing = false }
-        async let pendingTask: MessageList? = (
-            try? await client.fetchMessages(status: .pending, since: nil, limit: 25)
-        )
-        async let receivedTask: MessageList? = (
-            try? await client.fetchMessages(status: .received, since: nil, limit: 25)
-        )
-        let (pending, received) = await (pendingTask, receivedTask)
-        if pending == nil && received == nil {
-            if messages.isEmpty {
-                errorMessage = "Couldn't load the moderation queue."
-            }
-            return
+        await model.refreshReview { status in
+            try await client.fetchMessages(status: status, limit: 25)
         }
-        let combined = (pending?.items ?? []) + (received?.items ?? [])
-        messages = combined.sorted { lhs, rhs in
-            (lhs.receivedAt ?? lhs.createdAt) > (rhs.receivedAt ?? rhs.createdAt)
-        }
-        let scope: DeliveredNotificationScope =
-            pending != nil && received != nil
-                ? .allMessages
-                : .messages(ids: Set(messages.map(\.id)))
-        notificationScope = scope
-        await NotificationManager.shared.clearDeliveredNotifications(in: scope)
     }
 }
 
@@ -122,7 +106,7 @@ struct WatchModerationRow: View {
                     .font(.caption2)
                     .foregroundStyle(Theme.Colors.textSecondary)
             }
-            if let text = message.latestTranscription?.text, !text.isEmpty {
+            if let text = message.bestDisplayText {
                 Text(text)
                     .font(.caption)
                     .lineLimit(2)
@@ -136,30 +120,57 @@ struct WatchModerationRow: View {
 }
 
 struct WatchModerationDetailView: View {
+    @Environment(\.dismiss) private var dismiss
     let messageId: String
     let client: OperatorClient
+    var onMessageUpdate: (Message) -> Void = { _ in }
 
-    @State private var message: Message?
-    @State private var errorMessage: String?
-    @State private var notificationScope: DeliveredNotificationScope?
+    @State private var model = WatchMessageDetailModel()
+    @State private var proposedDecision: MessageDecision?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
-                if let errorMessage {
+                if let errorMessage = model.errorMessage {
                     BannerView(message: errorMessage, kind: .error)
+                    Button("Retry loading") { Task { await load() } }
+                        .disabled(model.isLoading || model.isDeciding)
                 }
-                if let message {
+                if let message = model.message {
                     detail(message)
+                    decisionControls(message)
+                } else if model.errorMessage == nil {
+                    ProgressView("Loading message")
                 }
             }
             .padding(.horizontal, 4)
         }
         .navigationTitle("Message")
         .autoRefresh {
+            guard proposedDecision == nil else { return }
             await load()
         }
-        .notificationVisibilityScope(notificationScope)
+        .refreshableIfAvailable { await load() }
+        .watchMessageNotifications(model.notificationScope)
+        .confirmationDialog(
+            proposedDecision == .approve ? "Approve this message?" : "Reject this message?",
+            isPresented: Binding(
+                get: { proposedDecision != nil },
+                set: { if !$0 { proposedDecision = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: proposedDecision
+        ) { decision in
+            Button(decision == .approve ? "Approve" : "Reject",
+                   role: decision == .reject ? .destructive : nil) {
+                Task { await decide(decision) }
+            }
+            Button("Cancel", role: .cancel) { proposedDecision = nil }
+        } message: { decision in
+            Text(decision == .approve
+                 ? "Makes this recording available for playback at the booth."
+                 : "Keeps the recording but excludes it from booth playback. This does not delete it.")
+        }
     }
 
     private func detail(_ msg: Message) -> some View {
@@ -175,23 +186,131 @@ struct WatchModerationDetailView: View {
             if let text = msg.latestTranscription?.text, !text.isEmpty {
                 Text(text)
                     .font(.body)
+            } else {
+                Text("No transcription yet.")
+                    .font(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+            }
+            if let translation = msg.latestTranscription?.displayableTranslation {
+                Text("English translation").font(.caption.weight(.semibold))
+                Text(translation).font(.body)
             }
             if let reason = msg.latestApplicableModeration?.reasonSummary, !reason.isEmpty {
                 Text("Reason: \(reason)")
                     .font(.caption)
                     .foregroundStyle(Theme.Colors.warning)
             }
+            if let recommendation = msg.latestApplicableModeration?.recommendation {
+                Text("Suggested: \(recommendation.displayName). Review before deciding.")
+                    .font(.caption)
+            }
+            if let notes = msg.notes, !notes.isEmpty {
+                Text("Notes: \(notes)").font(.caption)
+            }
+            Text("Audio playback and editing are available on iPhone.")
+                .font(.caption2)
+                .foregroundStyle(Theme.Colors.textSecondary)
+        }
+    }
+
+    @ViewBuilder
+    private func decisionControls(_ message: Message) -> some View {
+        if message.status == .uploading || message.status == .received {
+            Text("Decisions are available after transcription and moderation finish.")
+                .font(.caption)
+        } else if case .unknown = message.status {
+            Text("This message status is not supported. Review on iPhone.")
+                .font(.caption)
+        } else {
+            Button("Approve") { proposedDecision = .approve }
+                .tint(Theme.Colors.success)
+                .disabled(!model.canDecide(.approve))
+            Button("Reject", role: .destructive) { proposedDecision = .reject }
+                .disabled(!model.canDecide(.reject))
+            if model.isDeciding {
+                ProgressView("Saving decision")
+            }
         }
     }
 
     private func load() async {
+        guard proposedDecision == nil else { return }
+        await model.load { try await client.fetchMessage(id: messageId) }
+    }
+
+    private func decide(_ decision: MessageDecision) async {
+        proposedDecision = nil
+        if let updated = await model.decide(decision, submit: {
+            try await client.decideMessage(id: messageId, decision: decision)
+        }) {
+            onMessageUpdate(updated)
+            dismiss()
+            await PendingMessagesStore.shared.refresh(using: client)
+        }
+    }
+}
+
+@MainActor
+@Observable
+final class WatchMessageDetailModel {
+    private(set) var message: Message?
+    private(set) var errorMessage: String?
+    private(set) var isLoading = false
+    private(set) var isDeciding = false
+    private var requiresReload = false
+
+    var notificationScope: DeliveredNotificationScope? {
+        message.map { .messages(ids: [$0.id]) }
+    }
+
+    func canDecide(_ decision: MessageDecision) -> Bool {
+        guard !isLoading, !isDeciding, !requiresReload, let message else { return false }
+        switch message.status {
+        case .pending: return true
+        case .approved: return decision == .reject
+        case .rejected: return decision == .approve
+        case .uploading, .received, .unknown: return false
+        }
+    }
+
+    func load(fetch: () async throws -> Message) async {
+        guard !isLoading, !isDeciding else { return }
+        isLoading = true
+        defer { isLoading = false }
         do {
-            message = try await client.fetchMessage(id: messageId)
-            let scope = DeliveredNotificationScope.messages(ids: [messageId])
-            notificationScope = scope
-            await NotificationManager.shared.clearDeliveredNotifications(in: scope)
+            let loaded = try await fetch()
+            try Task.checkCancellation()
+            message = loaded
+            requiresReload = false
+            errorMessage = nil
         } catch {
-            errorMessage = "Couldn't load message."
+            guard !Task.isCancelled, !(error is CancellationError) else { return }
+            requiresReload = true
+            errorMessage = "Couldn't refresh message. Reload before making a decision."
+        }
+    }
+
+    func decide(
+        _ decision: MessageDecision,
+        submit: () async throws -> Message
+    ) async -> Message? {
+        guard canDecide(decision) else {
+            if !isDeciding {
+                errorMessage = "This decision is unavailable. Reload the message before trying again."
+            }
+            return nil
+        }
+        isDeciding = true
+        errorMessage = nil
+        defer { isDeciding = false }
+        do {
+            let updated = try await submit()
+            message = updated
+            return updated
+        } catch {
+            requiresReload = true
+            errorMessage = "Couldn't save the decision. Reload to check the server before trying again."
+            return nil
         }
     }
 }

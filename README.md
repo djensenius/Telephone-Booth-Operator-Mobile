@@ -48,7 +48,7 @@ the browser cookie session uses today.
 | ---------- | ---------- | ------------------------------------------------------------ |
 | iOS        | 26.0       | iPhone + iPad universal target with Liquid Glass chrome      |
 | macOS      | 26.0       | Native SwiftUI, sandboxed                                    |
-| watchOS    | 26.0       | Standalone companion + complications                         |
+| watchOS    | 26.0       | Wrist companion; sign-in and renewal through paired iPhone |
 | visionOS   | 26.0       | Spatial operator dashboard                                   |
 | tvOS       | 26.0       | Read-only, focus-friendly operator dashboards                |
 
@@ -87,6 +87,11 @@ OIDC Authorization Code + PKCE via `ASWebAuthenticationSession`, talking
 directly to Authentik. No client secret (public client), no embedded
 webview, no cookie session. Refresh tokens live in the Keychain. See
 [`docs/auth.md`](docs/auth.md) for the full flow.
+
+On Apple Watch, sign in to Operator on the paired iPhone first. The watch
+borrows a short-lived session without copying the phone's refresh token.
+Keep the phone nearby for renewal; see [`docs/watch.md`](docs/watch.md) for
+watch features, recovery, and limitations.
 
 ## On-device message processing
 
