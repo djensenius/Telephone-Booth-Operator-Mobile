@@ -281,10 +281,97 @@ final class TBOperatorMobileWatchTests: XCTestCase {
 
     func testUnavailableAndUnknownBoothStatesDoNotClaimStandby() {
         XCTAssertEqual(BoothState.idle.watchActivityDescription, "Standby")
+        XCTAssertEqual(BoothState.dialTone.watchActivityDescription, "Ready to dial")
         XCTAssertEqual(BoothState.recording.watchActivityDescription, "Call in progress")
         XCTAssertNotEqual(BoothState.error.watchActivityDescription, "Standby")
         XCTAssertNotEqual(BoothState.callUnavailable.watchActivityDescription, "Standby")
         XCTAssertNotEqual(BoothState.unknown("future").watchActivityDescription, "Standby")
+    }
+
+    func testExpiredBrokeredSessionDefersRestoreWithoutDiscardingCredentials() async {
+        let auth = AuthManager(keychainStore: WatchTestKeychain())
+        auth.storeTokens(OIDCTokens(
+            accessToken: "expired-watch", refreshToken: nil,
+            idToken: nil, expiresIn: -10, tokenType: "Bearer"
+        ))
+        auth.resetStateForTesting()
+        auth.watchTokenProvider = { force in
+            XCTAssertFalse(force)
+            return false
+        }
+
+        await auth.restoreSession(scheduleRetry: false)
+
+        XCTAssertEqual(auth.authState, .unknown)
+        XCTAssertTrue(auth.sessionRestoreFailed)
+        XCTAssertEqual(auth.getAccessToken(), "expired-watch")
+    }
+
+    func testStillValidWatchTokenSurvivesPhoneRenewalFailure() async {
+        let auth = AuthManager(keychainStore: WatchTestKeychain())
+        XCTAssertTrue(auth.applyBrokeredAccessToken(
+            accessToken: "watch-cache", expiry: Date().addingTimeInterval(30).timeIntervalSince1970
+        ))
+        auth.watchTokenProvider = { force in
+            XCTAssertFalse(force)
+            return false
+        }
+
+        let usable = await auth.ensureValidToken()
+
+        XCTAssertTrue(usable)
+        XCTAssertEqual(auth.authState, .signedIn)
+        XCTAssertEqual(auth.getAccessToken(), "watch-cache")
+    }
+
+    func testWatchUnauthorizedRefreshForcesPhoneRenewalWithoutRefreshToken() async {
+        let auth = AuthManager(keychainStore: WatchTestKeychain())
+        var forces: [Bool] = []
+        auth.watchTokenProvider = { force in
+            forces.append(force)
+            return auth.applyBrokeredAccessToken(
+                accessToken: "renewed-watch", expiry: Date().addingTimeInterval(300).timeIntervalSince1970
+            )
+        }
+
+        let refreshed = await auth.refreshTokenIfNeeded()
+
+        XCTAssertTrue(refreshed)
+        XCTAssertEqual(forces, [true])
+        XCTAssertEqual(auth.getAccessToken(), "renewed-watch")
+        XCTAssertNil(auth.getKeychainItem(account: "oidc_refresh_token"))
+        auth.watchTokenProvider = { _ in false }
+    }
+
+    func testWatchSignOutPausesAutomaticHandoffUntilExplicitConnection() async {
+        let defaults = UserDefaults.standard
+        let key = WatchAuthSync.autoSignInPausedKey
+        let previous = defaults.object(forKey: key)
+        defer { defaults.set(previous, forKey: key) }
+        let auth = AuthManager(keychainStore: WatchTestKeychain())
+        var requests = 0
+        let sync = WatchAuthSync(auth: auth) { _ in
+            requests += 1
+            let config = AppConfig.shared
+            return .token(
+                accessToken: "connected-watch",
+                expiry: Date().addingTimeInterval(300).timeIntervalSince1970,
+                issuer: config.oidcIssuerBase, clientID: config.oidcClientID,
+                apiBase: config.apiBaseURL.absoluteString
+            )
+        }
+        auth.signOut()
+
+        await sync.connectFromLogin(automatically: true)
+        XCTAssertTrue(defaults.bool(forKey: key))
+        XCTAssertEqual(requests, 0)
+        let backgroundRequest = await sync.ensureBrokeredToken()
+        XCTAssertFalse(backgroundRequest)
+
+        await sync.connectFromLogin(automatically: false)
+        XCTAssertFalse(defaults.bool(forKey: key))
+        XCTAssertEqual(requests, 1)
+        XCTAssertEqual(auth.authState, .signedIn)
     }
 
     private static func message(
@@ -300,5 +387,17 @@ final class TBOperatorMobileWatchTests: XCTestCase {
             audio: DemoData.messages[0].audio,
             latestTranscription: nil, latestModeration: nil
         )
+    }
+
+    @MainActor
+    private final class WatchTestKeychain: KeychainStoring {
+        private var values: [String: String] = [:]
+        func migrateAccessibility(service: String, accounts: [String], to accessibility: KeychainAccessibility) {}
+        func set(service: String, account: String, value: String, accessibility: KeychainAccessibility) -> Bool {
+            values[account] = value
+            return true
+        }
+        func get(service: String, account: String) -> String? { values[account] }
+        func delete(service: String, account: String) { values[account] = nil }
     }
 }

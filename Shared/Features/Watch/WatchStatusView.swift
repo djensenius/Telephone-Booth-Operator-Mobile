@@ -56,22 +56,22 @@ struct WatchStatusView: View {
     }
 
     private func stateBadge(_ state: BoothState) -> some View {
-        return HStack(spacing: 10) {
-            Image(systemName: state.watchSymbol)
-                .font(.title2)
-                .foregroundStyle(state.watchTint)
-            VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: state.watchSymbol)
+                    .font(.title3)
+                    .foregroundStyle(state.watchTint)
                 Text(state.watchDisplayName)
                     .font(.headline)
-                Text(state.watchActivityDescription)
-                    .font(.caption2)
-                    .foregroundStyle(Theme.Colors.textSecondary)
             }
-            Spacer()
+            Text(state.watchActivityDescription)
+                .font(.caption2)
+                .foregroundStyle(Theme.Colors.textSecondary)
             if let mode = liveStore.status?.runtimeMode ?? liveStore.stats?.booth.runtimeMode, mode.shouldDisplayBadge {
                 RuntimeModeBadge(mode: mode)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -154,6 +154,7 @@ extension BoothState {
     var watchActivityDescription: String {
         switch self {
         case .idle: return "Standby"
+        case .dialTone: return "Ready to dial"
         case .error: return "Booth reported an error"
         case .callUnavailable: return "Call unavailable"
         case .unknown: return "Unknown booth state"

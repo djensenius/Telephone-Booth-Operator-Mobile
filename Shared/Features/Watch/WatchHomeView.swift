@@ -23,6 +23,26 @@ extension MessageStatus {
     }
 }
 
+struct WatchMessageHeader: View {
+    let message: Message
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(message.status.watchStatusColor)
+                    .frame(width: 8, height: 8)
+                Text(message.status.displayName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(message.status.watchStatusColor)
+            }
+            Text(message.receivedAt ?? message.createdAt, style: .relative)
+                .font(.caption2)
+                .foregroundStyle(Theme.Colors.textSecondary)
+        }
+    }
+}
+
 struct WatchHomeView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingSettings = false
@@ -38,6 +58,9 @@ struct WatchHomeView: View {
     init(client: OperatorClient = .shared, navigationStore: AppNavigationStore = .shared) {
         self.client = client
         self.navigationStore = navigationStore
+        let initialPage = LaunchEnv.screenshotTab.flatMap(WatchPage.init(rawValue:)) ?? .status
+        _selection = State(initialValue: initialPage)
+        _path = State(initialValue: LaunchEnv.screenshotMessageId.map { [.message($0)] } ?? [])
     }
 
     private func refreshEnabled(on page: WatchPage) -> Bool {
@@ -122,7 +145,7 @@ struct WatchHomeView: View {
     }
 }
 
-enum WatchPage: Hashable {
+enum WatchPage: String, Hashable {
     case status, latest, moderation, stats
 
     var title: String {

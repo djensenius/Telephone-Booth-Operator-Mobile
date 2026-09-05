@@ -60,18 +60,7 @@ struct WatchLatestMessageView: View {
 
     private func messageCard(_ msg: Message) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(msg.status.watchStatusColor)
-                    .frame(width: 8, height: 8)
-                Text(msg.status.displayName)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(msg.status.watchStatusColor)
-                Spacer()
-                Text(msg.receivedAt ?? msg.createdAt, style: .relative)
-                    .font(.caption2)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-            }
+            WatchMessageHeader(message: msg)
             if let text = msg.bestDisplayText {
                 Text(text)
                     .font(.body)

@@ -104,7 +104,13 @@ public final class AuthManager {
     @ObservationIgnored
     var sessionGeneration = 0
 
-    /// URLSession used for token operations. Internal so tests can swap it.
+    #if os(watchOS)
+    @ObservationIgnored
+    var watchTokenProvider: @MainActor (Bool) async -> Bool = {
+        await WatchAuthSync.shared.ensureBrokeredToken(forceRefresh: $0)
+    }
+    #endif
+
     @ObservationIgnored
     var urlSession: URLSession = .shared
 
@@ -265,7 +271,7 @@ public final class AuthManager {
         // Brokered mode (no refresh token of our own): pull a fresh access
         // token from the paired phone instead of refreshing independently.
         if getKeychainItem(account: "oidc_refresh_token") == nil {
-            if await WatchAuthSync.shared.ensureBrokeredToken() { return true }
+            if await watchTokenProvider(false) { return true }
             if getAccessToken() != nil && !isTokenExpired() { return true }
             if authState == .signedIn {
                 authState = .unknown
@@ -317,7 +323,7 @@ public final class AuthManager {
         if let coalesced = await refreshCoordinator.acquireOrWait() { return coalesced }
         #if os(watchOS)
         if getKeychainItem(account: "oidc_refresh_token") == nil {
-            let renewed = await WatchAuthSync.shared.ensureBrokeredToken(forceRefresh: true)
+            let renewed = await watchTokenProvider(true)
             let outcome: RefreshOutcome = renewed ? .refreshed : .transientFailure
             await refreshCoordinator.complete(outcome)
             return outcome
@@ -490,11 +496,4 @@ public final class AuthManager {
         return base64URLEncode(Data(buf))
     }
 
-    // MARK: - Test support
-    func resetStateForTesting() {
-        restoreRetryTask?.cancel()
-        restoreRetryTask = nil
-        sessionRestoreFailed = false
-        authState = .unknown
-    }
 }

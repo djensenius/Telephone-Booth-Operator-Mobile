@@ -94,18 +94,7 @@ struct WatchModerationRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(message.status.watchStatusColor)
-                    .frame(width: 8, height: 8)
-                Text(message.status.displayName)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(message.status.watchStatusColor)
-                Spacer()
-                Text(message.receivedAt ?? message.createdAt, style: .relative)
-                    .font(.caption2)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-            }
+            WatchMessageHeader(message: message)
             if let text = message.bestDisplayText {
                 Text(text)
                     .font(.caption)
@@ -175,14 +164,7 @@ struct WatchModerationDetailView: View {
 
     private func detail(_ msg: Message) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
-                Text(msg.status.displayName)
-                    .font(.caption.weight(.semibold))
-                Spacer()
-                Text(msg.receivedAt ?? msg.createdAt, style: .relative)
-                    .font(.caption2)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-            }
+            WatchMessageHeader(message: msg)
             if let text = msg.latestTranscription?.text, !text.isEmpty {
                 Text(text)
                     .font(.body)

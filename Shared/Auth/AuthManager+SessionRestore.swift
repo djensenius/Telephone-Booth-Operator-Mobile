@@ -14,6 +14,13 @@ private let logger = authManagerLogger
 
 extension AuthManager {
 
+    func resetStateForTesting() {
+        restoreRetryTask?.cancel()
+        restoreRetryTask = nil
+        sessionRestoreFailed = false
+        authState = .unknown
+    }
+
     // MARK: - Session lifecycle
 
     /// Validates the cached session at app launch (and whenever the app
@@ -33,7 +40,7 @@ extension AuthManager {
         // Brokered mode: no refresh token of our own. Try the paired phone,
         // then fall back to a still-valid cached access token if it's offline.
         if getKeychainItem(account: "oidc_refresh_token") == nil {
-            if await WatchAuthSync.shared.ensureBrokeredToken() {
+            if await watchTokenProvider(false) {
                 sessionRestored()
                 logger.info("validateSession: restored via paired-phone broker")
             } else if getAccessToken() != nil, !isTokenExpired() {
