@@ -28,7 +28,7 @@ jobs:
           - scheme: TBOperatorMobileTV
             destination: 'platform=tvOS Simulator,name=Apple TV 4K (3rd generation),OS=latest'
           - scheme: TBOperatorMobileWatch
-            destination: 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm),OS=latest'
+            destination: 'generic/platform=watchOS Simulator'
     steps:
       - uses: actions/checkout@v4
       - name: Show toolchain
@@ -90,11 +90,27 @@ jobs:
           xcodebuild -version
           xcrun --show-sdk-version
       - name: Run ${{ matrix.name }}
+        env:
+          TEST_SCHEME: ${{ matrix.scheme }}
+          TEST_DESTINATION: ${{ matrix.destination }}
         run: |
+          if [[ "$TEST_SCHEME" == "TBOperatorMobileWatch" ]]; then
+            watch_id=$(xcrun simctl list devices available --json | jq -er '
+              [.devices | to_entries[]
+                | select(.key | contains(".watchOS-"))
+                | .key as $runtime
+                | .value[]
+                | select(.name == "Apple Watch Series 11 (46mm)")
+                | {udid, version: ($runtime | split("watchOS-")[1] | split("-") | map(tonumber))}
+              ] | sort_by(.version, .udid) | last.udid
+                // error("No available Apple Watch Series 11 (46mm) simulator")
+            ')
+            TEST_DESTINATION="platform=watchOS Simulator,id=$watch_id"
+          fi
           xcodebuild \
             -project TelephoneBoothOperatorMobile.xcodeproj \
-            -scheme "${{ matrix.scheme }}" \
-            -destination "${{ matrix.destination }}" \
+            -scheme "$TEST_SCHEME" \
+            -destination "$TEST_DESTINATION" \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             test
