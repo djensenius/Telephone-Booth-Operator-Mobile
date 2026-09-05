@@ -3,7 +3,7 @@
 //  TelephoneBoothOperatorMobile
 //
 //  Main-actor store that keeps booth status live via WebSocket with a
-//  five-second REST polling fallback.
+//  five-second REST polling fallback (polling only on watchOS).
 //
 
 import Foundation
@@ -69,11 +69,10 @@ public final class BoothStatusLiveStore {
     public func start() {
         startCount += 1
         guard startCount == 1 else { return }
-        connection = .connecting
+        let usesSocket = StatusSocket.supportsLiveConnections && !demoMode && !config.isDemoMode
+        connection = usesSocket ? .connecting : .polling
         startPollLoop()
-        if demoMode || config.isDemoMode {
-            connection = .polling
-        } else {
+        if usesSocket {
             startSocketLoop()
         }
     }
