@@ -26,7 +26,7 @@ public struct SignedInRootView: View {
 
     public var body: some View {
         #if os(watchOS)
-        WatchHomeView(client: client)
+        WatchHomeView(client: client, navigationStore: navigationStore)
             .liveActivityObserver()
         #else
         OperatorShell(

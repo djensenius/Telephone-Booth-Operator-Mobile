@@ -70,8 +70,18 @@ jobs:
               build
 
   test:
-    name: iOSUnitTests
+    name: ${{ matrix.name }}
     runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: iOSUnitTests
+            scheme: TBOperatorMobile
+            destination: 'platform=iOS Simulator,name=iPhone 17,OS=latest'
+          - name: watchOSUnitTests
+            scheme: TBOperatorMobileWatch
+            destination: 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm),OS=latest'
     steps:
       - uses: actions/checkout@v4
       - name: Show toolchain
@@ -79,12 +89,12 @@ jobs:
           swift --version
           xcodebuild -version
           xcrun --show-sdk-version
-      - name: Run iOS unit tests
+      - name: Run ${{ matrix.name }}
         run: |
           xcodebuild \
             -project TelephoneBoothOperatorMobile.xcodeproj \
-            -scheme TBOperatorMobile \
-            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -scheme "${{ matrix.scheme }}" \
+            -destination "${{ matrix.destination }}" \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             test

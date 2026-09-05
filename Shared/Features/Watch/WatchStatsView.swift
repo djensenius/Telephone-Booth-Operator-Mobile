@@ -2,7 +2,7 @@
 //  WatchStatsView.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Compact today-only usage stats for the watch: a vertical scroll of
+//  Compact rolling 24-hour usage stats for the watch: a vertical scroll of
 //  small tiles for interaction breakouts and current booth activity,
 //  backed by /v1/stats/overview?window=24h.
 //
@@ -15,6 +15,7 @@ struct WatchStatsView: View {
     @State private var overview: StatsOverview?
     @State private var errorMessage: String?
     @State private var isRefreshing = false
+    @State private var hasLoaded = false
 
     private let client: OperatorClient
 
@@ -27,6 +28,8 @@ struct WatchStatsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 if let errorMessage {
                     BannerView(message: errorMessage, kind: .error)
+                    Button("Retry") { Task { await refresh() } }
+                        .disabled(isRefreshing)
                 }
                 if let overview {
                     let interactions = overview.interactionMetrics
@@ -46,7 +49,9 @@ struct WatchStatsView: View {
                     tile(label: "In progress", value: StatsFormat.numberString(interactions.inProgressNow))
                     tile(label: "Message left rate", value: percent(overview.completionRate))
                     tile(label: "Last activity", value: timeAgo(overview.lastActivityAt))
-                } else if !isRefreshing {
+                } else if !hasLoaded && errorMessage == nil {
+                    ProgressView("Loading stats")
+                } else if errorMessage == nil {
                     Text("No data yet.")
                         .font(.caption)
                         .foregroundStyle(Theme.Colors.textSecondary)
@@ -81,10 +86,14 @@ struct WatchStatsView: View {
         isRefreshing = true
         defer { isRefreshing = false }
         do {
-            overview = try await client.fetchStatsOverview(window: .last24h)
+            let loaded = try await client.fetchStatsOverview(window: .last24h)
+            try Task.checkCancellation()
+            overview = loaded
+            hasLoaded = true
             errorMessage = nil
         } catch {
-            errorMessage = "Couldn't load stats: \(error.localizedDescription)"
+            guard !Task.isCancelled, !(error is CancellationError) else { return }
+            errorMessage = "Couldn't refresh stats. Displayed data may be out of date."
         }
     }
 

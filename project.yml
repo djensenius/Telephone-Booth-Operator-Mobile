@@ -212,6 +212,9 @@ targets:
         WKApplication: true
         WKCompanionAppBundleIdentifier: org.davidjensenius.TelephoneBoothOperatorMobile
         WKSupportsLiveActivities: true
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - tboperator
         ITSAppUsesNonExemptEncryption: false
         OIDCIssuerBase: https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile
         OIDCClientID: x0M0MleMvCSCx8MqIE2jVoYe57nAhGymIG8azTEY

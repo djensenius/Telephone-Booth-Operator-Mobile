@@ -15,6 +15,8 @@ import SwiftUI
 struct WatchStatusView: View {
     @State private var isRefreshing = false
     @State private var liveStore: BoothStatusLiveStore
+    @Environment(\.automaticRefreshEnabled) private var automaticRefreshEnabled
+    @Environment(\.scenePhase) private var scenePhase
 
     init(client: OperatorClient = .shared, liveStore: BoothStatusLiveStore? = nil) {
         _liveStore = State(initialValue: liveStore ?? (client.demoMode ? .demo : .shared))
@@ -26,8 +28,22 @@ struct WatchStatusView: View {
                 if let errorMessage = liveStore.lastError {
                     BannerView(message: errorMessage, kind: .error)
                 }
-                stateBadge
-                statsGrid
+                if let state = liveStore.status?.state ?? liveStore.stats?.booth.state {
+                    stateBadge(state)
+                } else if liveStore.lastError == nil {
+                    ProgressView("Loading booth status")
+                } else {
+                    Text("Booth status unavailable.").font(.caption)
+                    Button("Retry") { Task { await refresh() } }
+                        .disabled(isRefreshing)
+                }
+                if let stats = liveStore.stats {
+                    statsGrid(stats)
+                } else {
+                    Text("Counts unavailable until loaded.")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                }
                 lastUpdatedLine
             }
             .padding(.horizontal, 4)
@@ -35,30 +51,27 @@ struct WatchStatusView: View {
         .refreshableIfAvailable {
             await refresh()
         }
-        .task {
-            await refresh()
-        }
         .boothStatusLive(liveStore)
+        .automaticRefreshEnabled(automaticRefreshEnabled && scenePhase == .active)
     }
 
-    private var stateBadge: some View {
-        let state = liveStore.status?.state ?? liveStore.stats?.booth.state ?? .idle
-        return HStack(spacing: 10) {
-            Image(systemName: state.watchSymbol)
-                .font(.title2)
-                .foregroundStyle(state.watchTint)
-            VStack(alignment: .leading, spacing: 2) {
+    private func stateBadge(_ state: BoothState) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: state.watchSymbol)
+                    .font(.title3)
+                    .foregroundStyle(state.watchTint)
                 Text(state.watchDisplayName)
                     .font(.headline)
-                Text(state.isCallActive ? "Call in progress" : "Standby")
-                    .font(.caption2)
-                    .foregroundStyle(Theme.Colors.textSecondary)
             }
-            Spacer()
+            Text(state.watchActivityDescription)
+                .font(.caption2)
+                .foregroundStyle(Theme.Colors.textSecondary)
             if let mode = liveStore.status?.runtimeMode ?? liveStore.stats?.booth.runtimeMode, mode.shouldDisplayBadge {
                 RuntimeModeBadge(mode: mode)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -66,24 +79,24 @@ struct WatchStatusView: View {
         }
     }
 
-    private var statsGrid: some View {
+    private func statsGrid(_ stats: StatsSummary) -> some View {
         VStack(spacing: 6) {
             WatchStatRow(
                 label: "Pickups today",
-                value: "\(liveStore.stats?.interactionsToday ?? 0)"
+                value: "\(stats.interactionsToday)"
             )
             WatchStatRow(
                 label: "In progress",
-                value: "\(liveStore.stats?.interactionsInProgress ?? 0)",
-                emphasize: (liveStore.stats?.interactionsInProgress ?? 0) > 0
+                value: "\(stats.interactionsInProgress)",
+                emphasize: stats.interactionsInProgress > 0
             )
             WatchStatRow(
                 label: "Pending",
-                value: "\(liveStore.stats?.messages.pending ?? 0)",
-                emphasize: (liveStore.stats?.messages.pending ?? 0) > 0
+                value: "\(stats.messages.pending)",
+                emphasize: stats.messages.pending > 0
             )
-            WatchStatRow(label: "Received today", value: "\(liveStore.stats?.messages.receivedToday ?? 0)")
-            WatchStatRow(label: "WS clients", value: "\(liveStore.stats?.realtime.wsClients ?? 0)")
+            WatchStatRow(label: "Received today", value: "\(stats.messages.receivedToday)")
+            WatchStatRow(label: "WS clients", value: "\(stats.realtime.wsClients)")
             if let fan = liveStore.systemEnvelope?.snapshot.fan {
                 WatchStatRow(label: "Fan command", value: fan.commandDescription ?? "—")
                 WatchStatRow(label: "Fan measured", value: fan.measuredSpeedDescription)
@@ -105,6 +118,7 @@ struct WatchStatusView: View {
     }
 
     func refresh() async {
+        guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
         await liveStore.refreshNow()
@@ -137,6 +151,17 @@ struct WatchStatRow: View {
 }
 
 extension BoothState {
+    var watchActivityDescription: String {
+        switch self {
+        case .idle: return "Standby"
+        case .dialTone: return "Ready to dial"
+        case .error: return "Booth reported an error"
+        case .callUnavailable: return "Call unavailable"
+        case .unknown: return "Unknown booth state"
+        default: return "Call in progress"
+        }
+    }
+
     var watchDisplayName: String {
         switch self {
         case .idle: return "Idle"

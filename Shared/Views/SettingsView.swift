@@ -127,7 +127,17 @@ public struct SettingsView: View {
             .themedSettingsRowBackground()
 
             Section {
-                #if os(watchOS) || os(tvOS)
+                #if os(watchOS)
+                if auth.getKeychainItem(account: "oidc_refresh_token") != nil {
+                    Label("Watch session", systemImage: "applewatch")
+                    Text("This watch has its own sign-in and renews directly with the identity provider.")
+                        .font(.caption)
+                } else {
+                    Label("Paired iPhone", systemImage: "iphone")
+                    Text("Sign in on iPhone. Only a short-lived session is shared with this watch.")
+                        .font(.caption)
+                }
+                #elseif os(tvOS)
                 OIDCDetailsView()
                 #else
                 DisclosureGroup {
@@ -139,8 +149,16 @@ public struct SettingsView: View {
             } header: {
                 Text("Authentication")
             } footer: {
+                #if os(watchOS)
+                if auth.getKeychainItem(account: "oidc_refresh_token") != nil {
+                    Text("No nearby iPhone is needed for renewal. After signing out, reconnect through your iPhone.")
+                } else {
+                    Text("Keep your iPhone nearby to renew the session. Signing out here disconnects only this watch.")
+                }
+                #else
                 Text("OIDC settings come from the build's Info.plist and " +
                      "are not editable at runtime.")
+                #endif
             }
             .themedSettingsRowBackground()
 

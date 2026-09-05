@@ -24,6 +24,8 @@ public struct LoginView: View {
         // the shared login chrome (badge, marketing copy, full-width demo
         // button) doesn't translate to a 10-foot screen.
         TVDeviceLoginView()
+        #elseif os(watchOS)
+        WatchLoginView()
         #else
         ZStack {
             Theme.Colors.background
@@ -118,54 +120,10 @@ public struct LoginView: View {
     private var signInButton: some View {
         #if os(tvOS)
         TVDeviceLoginView()
-        #elseif os(watchOS)
-        VStack(spacing: Theme.Spacing.small) {
-            iPhoneSignInButton
-            oidcSignInButton
-        }
-        .task {
-            // Auto-attempt a handoff from the paired phone on appear.
-            _ = await WatchAuthSync.shared.ensureBrokeredToken()
-        }
         #else
         oidcSignInButton
         #endif
     }
-
-    #if os(watchOS)
-    private var iPhoneSignInButton: some View {
-        Button {
-            Task { await signInFromPhone() }
-        } label: {
-            HStack(spacing: Theme.Spacing.small) {
-                if isSigningIn {
-                    ProgressView()
-                } else {
-                    Image(systemName: "iphone")
-                }
-                Text(isSigningIn ? "Connecting…" : "Sign in with iPhone")
-                    .font(Theme.Fonts.bodyMedium.weight(.semibold))
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, Theme.Spacing.medium)
-        }
-        .disabled(isSigningIn)
-        .tint(Theme.Colors.accent)
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-        .padding(.horizontal, Theme.Spacing.large)
-    }
-
-    private func signInFromPhone() async {
-        isSigningIn = true
-        errorMessage = nil
-        defer { isSigningIn = false }
-        if !(await WatchAuthSync.shared.ensureBrokeredToken()) {
-            errorMessage = "Couldn't reach your iPhone. Open the Operator app on your "
-                + "iPhone, or sign in on your watch instead."
-        }
-    }
-    #endif
 
     @ViewBuilder
     private var oidcSignInButton: some View {
@@ -190,6 +148,82 @@ public struct LoginView: View {
         .controlSize(.large)
         .padding(.horizontal, Theme.Spacing.large)
     }
+
+    #if os(watchOS)
+    struct WatchLoginView: View {
+        @State private var sync = WatchAuthSync.shared
+        @State private var showingSettings = false
+        @Environment(\.scenePhase) private var scenePhase
+
+        var body: some View {
+            NavigationStack {
+                ScrollView {
+                    VStack(spacing: 12) {
+                        Image(systemName: "iphone.and.arrow.forward")
+                            .font(.title2)
+                            .foregroundStyle(Theme.Colors.accent)
+                        Text("Use your iPhone")
+                            .font(.headline)
+                        Button {
+                            Task { await sync.connectFromLogin(automatically: false) }
+                        } label: {
+                            if sync.isConnecting {
+                                ProgressView("Connecting")
+                            } else {
+                                Text("Connect to iPhone")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Theme.Colors.accent)
+                        .disabled(sync.isConnecting)
+                        .accessibilityIdentifier("watchConnectToPhone")
+
+                        if let message = sync.statusMessage {
+                            Text(message)
+                                .font(.caption)
+                                .foregroundStyle(Theme.Colors.warning)
+                                .accessibilityIdentifier("watchSignInStatus")
+                        } else {
+                            Text("Sign in to Operator on your paired iPhone. "
+                                 + "Your watch connects without another password.")
+                                .font(.caption)
+                                .foregroundStyle(Theme.Colors.textSecondary)
+                        }
+                        Text("Keep your iPhone nearby to renew your session. "
+                             + "The watch uses its own internet connection to load the booth.")
+                            .font(.caption2)
+                            .foregroundStyle(Theme.Colors.textSecondary)
+                        Button("Try Demo Mode") { AppConfig.shared.enableDemoMode() }
+                            .disabled(sync.isConnecting)
+                    }
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 8)
+                }
+                .navigationTitle("Operator")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showingSettings = true
+                        } label: {
+                            Image(systemName: "gear")
+                        }
+                        .accessibilityLabel("Settings")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingSettings) { SettingsView() }
+            .task { await sync.connectFromLogin(automatically: true) }
+            .onChange(of: sync.connectionRevision) {
+                guard scenePhase == .active else { return }
+                Task { await sync.connectFromLogin(automatically: true) }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                Task { await sync.connectFromLogin(automatically: true) }
+            }
+        }
+    }
+    #endif
 
     private func signIn() async {
         isSigningIn = true

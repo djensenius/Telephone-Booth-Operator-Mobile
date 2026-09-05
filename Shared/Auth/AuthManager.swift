@@ -1,15 +1,6 @@
 //
 //  AuthManager.swift
 //  TelephoneBoothOperatorMobile
-//
-//  OIDC Authorization Code + PKCE flow against Authentik. Tokens live in
-//  the Keychain. Refresh is serialised through `RefreshCoordinator` so
-//  concurrent callers issue at most one network request.
-//
-//  Compiles on every Apple platform; on tvOS `signInWithOIDC()` throws
-//  `.unsupportedPlatform` — Apple TV pairs through a paired iPhone in a
-//  later PR.
-//
 
 import CryptoKit
 import Foundation
@@ -58,11 +49,7 @@ private actor RefreshCoordinator {
     }
 }
 
-/// OIDC authentication manager for the Telephone-Booth Operator mobile app.
-///
-/// PKCE-based public-client flow against Authentik. Tokens are kept in the
-/// Keychain and refreshed automatically before expiry. The manager is
-/// observable; views can read `authState` directly.
+/// Observable PKCE authentication with Keychain storage and coordinated refresh.
 @Observable
 @MainActor
 public final class AuthManager {
@@ -114,7 +101,16 @@ public final class AuthManager {
     @ObservationIgnored
     var widgetCleanupGeneration = 0
 
-    /// URLSession used for token operations. Internal so tests can swap it.
+    @ObservationIgnored
+    var sessionGeneration = 0
+
+    #if os(watchOS)
+    @ObservationIgnored
+    var watchTokenProvider: @MainActor (Bool) async -> Bool = {
+        await WatchAuthSync.shared.ensureBrokeredToken(forceRefresh: $0)
+    }
+    #endif
+
     @ObservationIgnored
     var urlSession: URLSession = .shared
 
@@ -249,9 +245,7 @@ public final class AuthManager {
         #endif
     }
 
-    /// Marks the session as signed-in. Used by other auth flows (e.g.
-    /// device authorization grant) that live in extensions but can't
-    /// touch the `private(set)` setter directly.
+    /// Used by the device authorization flow after persisting credentials.
     func markSignedIn() {
         authState = .signedIn
     }
@@ -277,8 +271,13 @@ public final class AuthManager {
         // Brokered mode (no refresh token of our own): pull a fresh access
         // token from the paired phone instead of refreshing independently.
         if getKeychainItem(account: "oidc_refresh_token") == nil {
-            if await WatchAuthSync.shared.ensureBrokeredToken() { return true }
-            return getAccessToken() != nil && !isTokenExpired()
+            if await watchTokenProvider(false) { return true }
+            if getAccessToken() != nil && !isTokenExpired() { return true }
+            if authState == .signedIn {
+                authState = .unknown
+                sessionRestoreFailed = true
+            }
+            return false
         }
         #endif
         guard getAccessToken() != nil else {
@@ -322,13 +321,26 @@ public final class AuthManager {
     @discardableResult
     public func refreshSession() async -> RefreshOutcome {
         if let coalesced = await refreshCoordinator.acquireOrWait() { return coalesced }
+        #if os(watchOS)
+        if getKeychainItem(account: "oidc_refresh_token") == nil {
+            let renewed = await watchTokenProvider(true)
+            let outcome: RefreshOutcome = renewed ? .refreshed : .transientFailure
+            await refreshCoordinator.complete(outcome)
+            return outcome
+        }
+        #endif
         guard let refreshToken = getKeychainItem(account: "oidc_refresh_token") else {
             logger.warning("refreshSession: no refresh token")
             await refreshCoordinator.complete(.transientFailure)
             return .transientFailure
         }
+        let generation = sessionGeneration
         do {
             let tokens = try await refreshAccessToken(refreshToken)
+            guard generation == sessionGeneration else {
+                await refreshCoordinator.complete(.rejected)
+                return .rejected
+            }
             let persisted = storeTokens(tokens)
             if persisted {
                 logger.info("Token refreshed (expiresIn=\(tokens.expiresIn ?? -1))")
@@ -341,6 +353,10 @@ public final class AuthManager {
             await refreshCoordinator.complete(.transientFailure)
             return .transientFailure
         } catch AuthError.refreshTokenInvalid(let reason) {
+            guard generation == sessionGeneration else {
+                await refreshCoordinator.complete(.rejected)
+                return .rejected
+            }
             logger.error("Refresh token rejected — signing out: \(reason, privacy: .private)")
             await refreshCoordinator.complete(.rejected)
             signOut()
@@ -480,14 +496,4 @@ public final class AuthManager {
         return base64URLEncode(Data(buf))
     }
 
-    // MARK: - Test support
-
-    /// Resets auth state to `.unknown` so `validateSessionOnLaunch()` can be
-    /// exercised again. Internal — visible only via `@testable import`.
-    func resetStateForTesting() {
-        restoreRetryTask?.cancel()
-        restoreRetryTask = nil
-        sessionRestoreFailed = false
-        authState = .unknown
-    }
 }

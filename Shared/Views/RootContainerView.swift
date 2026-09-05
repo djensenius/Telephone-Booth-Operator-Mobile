@@ -369,7 +369,15 @@ public struct RootContainerView: View {
     private var liveRoot: some View {
         switch auth.authState {
         case .unknown:
+            #if os(watchOS)
+            if auth.getKeychainItem(account: "oidc_refresh_token") != nil {
+                SessionRestoreView(restoreFailed: auth.sessionRestoreFailed)
+            } else {
+                LoginView()
+            }
+            #else
             SessionRestoreView(restoreFailed: auth.sessionRestoreFailed)
+            #endif
         case .signedOut:
             LoginView()
         case .signedIn:

@@ -7,6 +7,10 @@ import Foundation
 
 extension AuthManager {
     public func signOut() {
+        sessionGeneration &+= 1
+        #if os(watchOS)
+        UserDefaults.standard.set(true, forKey: WatchAuthSync.autoSignInPausedKey)
+        #endif
         restoreRetryTask?.cancel()
         restoreRetryTask = nil
         sessionRestoreFailed = false

@@ -394,6 +394,7 @@
 		736CC0F065FF80BF4FCF1C24 /* OperatorClient+Audit.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8CF711AC89A26010A958E2F /* OperatorClient+Audit.swift */; };
 		73A7279012297FB97D0A3137 /* ThermalsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61A775771B156C9554482A1F /* ThermalsViewModel.swift */; };
 		73F497E021A21EDCFAF6B071 /* OperatorClient+Thermals.swift in Sources */ = {isa = PBXBuildFile; fileRef = B07D0B1A9A5AFD390404695A /* OperatorClient+Thermals.swift */; };
+		7418CEB4EFEC54BD3EFEE39A /* WatchBrokerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2FB2E1274505B33114D6859 /* WatchBrokerTests.swift */; };
 		741E2EF556296D5F46C9DD1C /* MobileDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02C3EC3726958BC4340B3C19 /* MobileDevice.swift */; };
 		742199D67D654174741A2BF6 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD213C066A1ED5C88C257364 /* LoginView.swift */; };
 		745E63C95DF600F8C61A3992 /* DemoData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 025EEA4173BB3957480E4F12 /* DemoData.swift */; };
@@ -1135,6 +1136,7 @@
 		EF82DE622771064D6E1A74EE /* TBOperatorMobileMacTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TBOperatorMobileMacTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F07FFAA4490D7E597DAE2251 /* UnknownEnumTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnknownEnumTests.swift; sourceTree = "<group>"; };
 		F2D400FBD436B9AD310C99B6 /* SystemComponentSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemComponentSnapshot.swift; sourceTree = "<group>"; };
+		F2FB2E1274505B33114D6859 /* WatchBrokerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchBrokerTests.swift; sourceTree = "<group>"; };
 		F3B5B71DE0145C97B95DADBD /* OperatorDashboardWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OperatorDashboardWidget.swift; sourceTree = "<group>"; };
 		F4712BB66C17DA005792F6F5 /* TBOperatorMobileWatchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TBOperatorMobileWatchTests.swift; sourceTree = "<group>"; };
 		F5C5108EB8B3838CDC144DA0 /* AuditLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditLogTests.swift; sourceTree = "<group>"; };
@@ -1183,6 +1185,7 @@
 				DCC73244EB32865F38C54910 /* ThermalClientTests.swift */,
 				D7AAEFF91C5EB2CC5B459446 /* ThermalModelsTests.swift */,
 				F07FFAA4490D7E597DAE2251 /* UnknownEnumTests.swift */,
+				F2FB2E1274505B33114D6859 /* WatchBrokerTests.swift */,
 				4CFBA0096F98108D1926BB68 /* WidgetSnapshotTests.swift */,
 			);
 			path = TBOperatorMobileTests;
@@ -2724,6 +2727,7 @@
 				168487EC85986C9CEDE4856F /* ThermalClientTests.swift in Sources */,
 				D153D136D2A19490AB9C1233 /* ThermalModelsTests.swift in Sources */,
 				4A7C5D44B21557D38592B11A /* UnknownEnumTests.swift in Sources */,
+				7418CEB4EFEC54BD3EFEE39A /* WatchBrokerTests.swift in Sources */,
 				09B0325B72CB072207422EEA /* WidgetSnapshotTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
