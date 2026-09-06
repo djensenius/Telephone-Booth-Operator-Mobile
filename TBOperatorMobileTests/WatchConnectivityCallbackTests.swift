@@ -11,8 +11,17 @@ final class WatchConnectivityCallbackTests: XCTestCase {
     #if os(iOS) && targetEnvironment(simulator)
     // Swift-only callback mocks miss actor checks in Objective-C block thunks.
     func testActualWatchConnectivityFailure() async throws {
-        guard WCSession.isSupported(), !WCSession.default.isPaired, !AppConfig.shared.isDemoMode else {
-            throw XCTSkip("Requires an unpaired, non-demo simulator")
+        guard WCSession.isSupported(), !AppConfig.shared.isDemoMode else {
+            throw XCTSkip("Requires WatchConnectivity on a non-demo simulator")
+        }
+        WatchAuthSync.shared.activate()
+        let session = WCSession.default
+        for _ in 0..<25 {
+            if session.activationState == .activated { break }
+            try await Task.sleep(for: .milliseconds(200))
+        }
+        guard session.activationState == .activated, !session.isPaired else {
+            throw XCTSkip("Requires an activated, unpaired session to exercise framework callback delivery")
         }
         let result = await WatchAuthSync.shared.ensureBrokeredToken(forceRefresh: true)
         XCTAssertFalse(result)
