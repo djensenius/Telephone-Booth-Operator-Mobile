@@ -457,6 +457,7 @@ targets:
       - path: TBOperatorMobileWatchTests
         excludes:
           - "**/.DS_Store"
+      - path: TBOperatorMobileTests/WatchConnectivityCallbackTests.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.watch.tests

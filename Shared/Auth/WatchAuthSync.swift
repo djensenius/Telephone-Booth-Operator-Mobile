@@ -108,6 +108,21 @@ final class WatchBrokerReplyWaiter {
         timeoutTask = nil
         pending?.resume(returning: reply)
     }
+
+    // WCSession invokes these blocks on its own queue. Creating them outside
+    // MainActor prevents an isolation trap before the explicit hop can run.
+    nonisolated var replyHandler: @Sendable ([String: Any]) -> Void {
+        { message in
+            let reply = WatchBrokerReply(message: message)
+            Task { @MainActor in self.finish(reply) }
+        }
+    }
+
+    nonisolated var errorHandler: @Sendable (Error) -> Void {
+        { _ in
+            Task { @MainActor in self.finish(.failure(.unreachable)) }
+        }
+    }
 }
 
 @MainActor
@@ -256,13 +271,8 @@ public final class WatchAuthSync: NSObject {
             let waiter = WatchBrokerReplyWaiter(continuation, timeout: .seconds(30))
             session.sendMessage(
                 [Self.requestKey: Self.requestValue, "force_refresh": forceRefresh],
-                replyHandler: { message in
-                    let reply = WatchBrokerReply(message: message)
-                    Task { @MainActor in waiter.finish(reply) }
-                },
-                errorHandler: { _ in
-                    Task { @MainActor in waiter.finish(.failure(.unreachable)) }
-                }
+                replyHandler: waiter.replyHandler,
+                errorHandler: waiter.errorHandler
             )
         }
     }
