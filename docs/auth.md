@@ -145,6 +145,13 @@ sign-out loops. Instead:
   credentials, so a stale token can't arrive after the phone has rotated.
   The watch sends after activation even when the reachability snapshot is
   false, allowing WatchConnectivity to wake the companion iPhone app.
+- WatchConnectivity reply and error handlers are explicitly nonisolated,
+  `@Sendable` callbacks. They decode the reply on the delivery queue, then
+  hop to the main actor to finish the request. A main-actor callback can trap
+  before its body runs on WatchConnectivity's background queue; placing a
+  main-actor task inside an otherwise isolated callback does not prevent that.
+  Callback regression coverage invokes the production handlers from a utility
+  queue rather than bypassing them with an already-decoded test reply.
 - The iPhone answers via `WCSessionDelegate.didReceiveMessage(...)`,
   calling `AuthManager.brokerAccessTokenForWatch()`. It refreshes its own
   session first if needed and returns `{ access_token, expiry, iss, cid, api_base }`.

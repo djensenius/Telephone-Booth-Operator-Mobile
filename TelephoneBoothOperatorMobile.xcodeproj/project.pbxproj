@@ -555,6 +555,7 @@
 		A6DEB92EA49E7C9B9BBDD009 /* BoothStatusLiveModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A9A806BA6194AC5EDBAB0A /* BoothStatusLiveModifier.swift */; };
 		A7FD3D3460BF36741C7644A3 /* DeepLinkIdentifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9F8889846656BB09048CAA4 /* DeepLinkIdentifier.swift */; };
 		A8168CC289CD80FDD5F1E40B /* StatsSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CFC7130E78140C090241C06 /* StatsSummary.swift */; };
+		A83943247F8C2A63ADF195F2 /* WatchConnectivityCallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8EE15AD5BD084F4A44C704 /* WatchConnectivityCallbackTests.swift */; };
 		A87D17D56D65A0265107245B /* ThermalHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F32320D1B4D3C7451CD0810 /* ThermalHistory.swift */; };
 		A8895BE57AD59415F9B14847 /* QuestionAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC582447D1B569304419F14A /* QuestionAudioRecorder.swift */; };
 		A8AEC0FB649F097CDAD45DD9 /* GlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2048D35AF0482F228CA9EAB0 /* GlassCard.swift */; };
@@ -802,6 +803,7 @@
 		FADB123458BE03E62E2B617D /* BoothSystemSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C353F9CDCC7922E78A322C61 /* BoothSystemSnapshot.swift */; };
 		FB0B8C78E7140C24E89C621F /* AuthManager+Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51752040B579CB8D1DF9C9E1 /* AuthManager+Keychain.swift */; };
 		FB19913518365D89753F9CBE /* AppleIntelligenceServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C6086606CD1564ED53AE2F6 /* AppleIntelligenceServices.swift */; };
+		FB3B3AB9F466DC6F8DCB3889 /* WatchConnectivityCallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8EE15AD5BD084F4A44C704 /* WatchConnectivityCallbackTests.swift */; };
 		FB3F980D9235682D232E0ED6 /* BoothStatusWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8B94F36732A0600EF2F0B59 /* BoothStatusWidget.swift */; };
 		FB560D7B1597089D83FD95C7 /* TVStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 349B96C3446415F54195F0B8 /* TVStatsView.swift */; };
 		FB909B9946037BBD6F35D1B0 /* OperatorClient+Audit.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8CF711AC89A26010A958E2F /* OperatorClient+Audit.swift */; };
@@ -958,6 +960,7 @@
 		17F541E9B55A13C6C21C16E0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		190F88131D518227F08BD9A3 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		1A5C7276B9B77802376BA4B8 /* AuditLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditLogView.swift; sourceTree = "<group>"; };
+		1E8EE15AD5BD084F4A44C704 /* WatchConnectivityCallbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityCallbackTests.swift; sourceTree = "<group>"; };
 		2044D49D6F909CC1FAFFC3DE /* SharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedComponents.swift; sourceTree = "<group>"; };
 		2048D35AF0482F228CA9EAB0 /* GlassCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCard.swift; sourceTree = "<group>"; };
 		20C0268A08FEF3BC6FED46E1 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
@@ -1186,6 +1189,7 @@
 				D7AAEFF91C5EB2CC5B459446 /* ThermalModelsTests.swift */,
 				F07FFAA4490D7E597DAE2251 /* UnknownEnumTests.swift */,
 				F2FB2E1274505B33114D6859 /* WatchBrokerTests.swift */,
+				1E8EE15AD5BD084F4A44C704 /* WatchConnectivityCallbackTests.swift */,
 				4CFBA0096F98108D1926BB68 /* WidgetSnapshotTests.swift */,
 			);
 			path = TBOperatorMobileTests;
@@ -2473,6 +2477,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				ACFA6CEAC296F8E3BEC15D8E /* TBOperatorMobileWatchTests.swift in Sources */,
+				A83943247F8C2A63ADF195F2 /* WatchConnectivityCallbackTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2728,6 +2733,7 @@
 				D153D136D2A19490AB9C1233 /* ThermalModelsTests.swift in Sources */,
 				4A7C5D44B21557D38592B11A /* UnknownEnumTests.swift in Sources */,
 				7418CEB4EFEC54BD3EFEE39A /* WatchBrokerTests.swift in Sources */,
+				FB3B3AB9F466DC6F8DCB3889 /* WatchConnectivityCallbackTests.swift in Sources */,
 				09B0325B72CB072207422EEA /* WidgetSnapshotTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
