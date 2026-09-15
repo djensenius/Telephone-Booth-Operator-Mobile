@@ -37,6 +37,7 @@ public final class BoothStatusLiveStore {
     public private(set) var installationState: InstallationState?
     private var lifecycleRevision: UInt = 0
     private var restRevision: UInt = 0
+    private var appliedRESTRevision: UInt = 0
     private var needsFullRefresh = true
     private var statusError: String?
     private var socketError: String?
@@ -214,8 +215,9 @@ public final class BoothStatusLiveStore {
         let newSystem = await systemResult
         let newComponents = await componentsResult
         let summary = await summaryResult
-        guard !Task.isCancelled, requestRevision == restRevision, requestKey == lifecycleKey,
+        guard !Task.isCancelled, requestRevision >= appliedRESTRevision, requestKey == lifecycleKey,
               requestKey == "boothInstallationState:\(config.apiBaseURL.absoluteString)" else { return }
+        appliedRESTRevision = requestRevision
 
         if let newHistory {
             mergeHistory(newHistory.items)

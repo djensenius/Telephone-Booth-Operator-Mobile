@@ -56,8 +56,9 @@ are reserved for seeding, manual refresh, and socket fallback. Switching API URL
 clears the previous server's data and Live Activities and restores only the new
 URL's cached lifecycle, if any.
 The socket and poll loops restart immediately, with a full history seed retained
-until it succeeds. REST request generations also preserve the newest connection
-outcome when manual and periodic refreshes overlap.
+until it succeeds. REST request generations also preserve the newest completed
+connection outcome when manual and periodic refreshes overlap, without delaying
+the initial display while a newer request is still pending.
 Widget snapshots and the coordinator cache are also cleared for every base-URL
 change, including same-host path and port changes that do not require sign-out.
 Invalidation and snapshot writes share a synchronous revision boundary; delayed

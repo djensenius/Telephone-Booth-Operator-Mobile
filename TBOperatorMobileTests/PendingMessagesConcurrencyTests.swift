@@ -248,6 +248,16 @@ private actor PendingBadgeRecorder {
 
 extension InstallationNetworkTests {
     @MainActor
+    func testManualRefreshSeedsWhileAutomaticRefreshIsPending() async {
+        let store = BoothStatusLiveStore(client: .demo, socket: .demo)
+        store.start()
+        defer { store.stop() }
+        await store.refreshNow()
+        XCTAssertNotNil(store.status)
+        XCTAssertNotNil(store.stats)
+    }
+
+    @MainActor
     func testAPIChangeWhileLiveRestartsFullSeedWithoutWaitingForOldRequest() async throws {
         let config = AppConfig.shared
         let previousURL = config.apiBaseURL
