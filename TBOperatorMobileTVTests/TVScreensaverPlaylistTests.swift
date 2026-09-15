@@ -36,6 +36,7 @@ final class TVScreensaverPlaylistTests: XCTestCase {
         ))
         XCTAssertTrue(TVScreensaverPlaylist.isCurrent(callCountCard, status: active))
         XCTAssertFalse(TVScreensaverPlaylist.isCurrent(callCountCard, status: inactive))
+        XCTAssertFalse(TVScreensaverPlaylist.isCurrent(callCountCard, status: nil))
         XCTAssertFalse([statusCard, callCountCard].contains {
             TVScreensaverPlaylist.isCurrent($0, status: inactive)
         })

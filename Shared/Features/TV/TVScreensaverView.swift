@@ -96,8 +96,8 @@ struct TVScreensaverView: View {
                 deactivationPending = true
             }
         }
-        .onChange(of: liveStore.status?.installationState) { _, _ in
-            if let current, !TVScreensaverPlaylist.isCurrent(current, status: liveStore.status) {
+        .onChange(of: liveStore.status ?? liveStore.stats?.booth) { _, status in
+            if let current, !TVScreensaverPlaylist.isCurrent(current, status: status) {
                 deactivationPending = true
             }
         }
@@ -159,7 +159,9 @@ struct TVScreensaverView: View {
                 // The playlist is a snapshot: if the booth went idle after it
                 // was built, drop a now-stale status card rather than surfacing
                 // activity that has ended (status is only ever shown live).
-                guard TVScreensaverPlaylist.isCurrent(item, status: liveStore.status) else { continue }
+                guard TVScreensaverPlaylist.isCurrent(
+                    item, status: liveStore.status ?? liveStore.stats?.booth
+                ) else { continue }
                 await present(item)
                 if Task.isCancelled { return }
                 let interrupted = await hold(dwell)

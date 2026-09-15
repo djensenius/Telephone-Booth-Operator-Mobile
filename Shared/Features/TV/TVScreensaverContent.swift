@@ -288,7 +288,7 @@ enum TVScreensaverPlaylist {
         switch item.id {
         case "status": return isHappening(status?.liveActivityState ?? .idle)
         case "installation": return status?.isBetweenExhibitions == true
-        case "in-progress": return status?.isBetweenExhibitions != true
+        case "in-progress": return status.map { !$0.isBetweenExhibitions } ?? false
         default: return true
         }
     }
