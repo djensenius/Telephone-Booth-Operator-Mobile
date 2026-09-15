@@ -69,7 +69,7 @@ they cannot reverse lifecycle or replace the latest authoritative booth status.
 API changes clear the visible count immediately and reconcile the system badge,
 including delayed writes and failed requests against the new source.
 
-Shared dashboards use neutral **Between exhibitions / Offline expected**
+All platform dashboards use neutral **Between exhibitions / Offline expected**
 presentation during confirmed downtime, retaining metrics and historical data.
 An active synthetic status says **Waiting for booth**, not Idle, and never
 displays an epoch timestamp. API connection and authentication errors remain

@@ -193,10 +193,10 @@ struct LatestMessageWidgetView: View {
         if let summary = entry.summaryState.value {
             WidgetStatusBlock(
                 label: "Booth",
-                value: summary.boothState.widgetDisplayName,
-                systemImage: summary.boothState.widgetSymbol,
-                tint: summary.boothState.widgetTint,
-                detail: Text(summary.boothUpdatedAt, style: .relative),
+                value: summary.widgetDisplayName,
+                systemImage: summary.widgetSymbol,
+                tint: summary.widgetTint,
+                detail: summary.widgetStatusDetail,
                 staleAsOf: entry.summaryState.staleAsOf
             )
         } else {
@@ -211,10 +211,10 @@ struct LatestMessageWidgetView: View {
     @ViewBuilder
     private var systemHealthBlock: some View {
         if let health = entry.systemHealthState.value {
-            let severity = health.effectiveSeverity(at: entry.date)
+            let severity = health.effectiveSeverity(at: entry.date, installationState: entry.installationState)
             WidgetStatusBlock(
                 label: "System",
-                value: severity.displayName,
+                value: entry.healthDisplayName(severity),
                 systemImage: severity.symbolName,
                 tint: severity.tint,
                 detail: Text(health.sourceUpdatedAt, style: .relative),

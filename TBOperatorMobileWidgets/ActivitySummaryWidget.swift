@@ -93,9 +93,9 @@ struct ActivitySummaryWidgetView: View {
             HStack(alignment: .top, spacing: 14) {
                 WidgetStatusBlock(
                     label: "Booth",
-                    value: summary.boothState.widgetDisplayName,
-                    systemImage: summary.boothState.widgetSymbol,
-                    tint: summary.boothState.widgetTint,
+                    value: summary.widgetDisplayName,
+                    systemImage: summary.widgetSymbol,
+                    tint: summary.widgetTint,
                     staleAsOf: entry.summaryState.staleAsOf
                 )
                 WidgetMetricGrid(
@@ -122,10 +122,10 @@ struct ActivitySummaryWidgetView: View {
     @ViewBuilder
     private var systemHealthBlock: some View {
         if let health = entry.systemHealthState.value {
-            let severity = health.effectiveSeverity(at: entry.date)
+            let severity = health.effectiveSeverity(at: entry.date, installationState: entry.installationState)
             WidgetStatusBlock(
                 label: "System",
-                value: severity.displayName,
+                value: entry.healthDisplayName(severity),
                 systemImage: severity.symbolName,
                 tint: severity.tint,
                 privacySensitive: false,

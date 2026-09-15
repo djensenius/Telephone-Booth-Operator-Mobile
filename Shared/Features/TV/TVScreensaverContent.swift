@@ -284,6 +284,15 @@ struct TVCallsTodayCard: View {
 // MARK: - Playlist builder
 
 enum TVScreensaverPlaylist {
+    static func isCurrent(_ item: TVSpotlight, status: BoothStatus?) -> Bool {
+        switch item.id {
+        case "status": return isHappening(status?.liveActivityState ?? .idle)
+        case "installation": return status?.isBetweenExhibitions == true
+        case "in-progress": return status?.liveActivityState != nil
+        default: return true
+        }
+    }
+
     /// Assemble the spotlight sequence from the latest live data. Only items
     /// with meaningful data are included, and booth status is added *only when
     /// something is happening* (never the idle state).
@@ -294,12 +303,15 @@ enum TVScreensaverPlaylist {
     ) -> [TVSpotlight] {
         var items: [TVSpotlight] = []
 
-        if let status, let statusItem = statusSpotlight(for: status.state) {
+        if status?.isBetweenExhibitions == true {
+            items.append(metric("installation", "Between exhibitions", "Offline expected", "pause.circle"))
+        }
+        if let state = status?.liveActivityState, let statusItem = statusSpotlight(for: state) {
             items.append(statusItem)
         }
 
         if let stats {
-            items.append(contentsOf: spotlights(for: stats))
+            items.append(contentsOf: spotlights(for: stats, status: status ?? stats.booth))
         }
 
         if let overview {
@@ -309,7 +321,7 @@ enum TVScreensaverPlaylist {
         return items
     }
 
-    private static func spotlights(for stats: StatsSummary) -> [TVSpotlight] {
+    private static func spotlights(for stats: StatsSummary, status: BoothStatus) -> [TVSpotlight] {
         var items: [TVSpotlight] = []
 
         if stats.interactionsToday > 0 {
@@ -317,7 +329,7 @@ enum TVScreensaverPlaylist {
                 metric("calls-today", "\(stats.interactionsToday)", "Pickups today", "phone.fill")
             )
         }
-        if stats.interactionsInProgress > 0 {
+        if status.liveActivityState != nil, stats.interactionsInProgress > 0 {
             items.append(
                 metric(
                     "in-progress",

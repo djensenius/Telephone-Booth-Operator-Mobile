@@ -2,11 +2,7 @@
 //  TVSystemView.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Big-screen System dashboard for tvOS. Read-only by design. Uses the
-//  `TVDashboardKit` scaffold so the whole thing scrolls (each card is
-//  focusable) and stays inside the title-safe area — fixing the previous
-//  build where content ran under the sidebar and off the bottom with no
-//  way to reach the CPU cores, memory, disks, etc.
+//  Read-only System dashboard with scrollable, focusable cards.
 //
 
 #if os(tvOS)
@@ -22,6 +18,11 @@ struct TVSystemView: View {
 
     var body: some View {
         TVScreen(title: "System", systemImage: "cpu", accessory: { accessory }, content: {
+            if liveStore.status?.isBetweenExhibitions == true {
+                Text("Between exhibitions. Offline expected; showing last reported data.")
+                    .font(TVMetrics.Font.body)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+            }
             if let envelope = liveStore.systemEnvelope {
                 content(envelope: envelope)
             } else if let error = liveStore.lastError {
@@ -63,7 +64,7 @@ struct TVSystemView: View {
             TVBanner(message: error)
         }
 
-        TVSystemVitals(snapshot: snapshot)
+        TVSystemVitals(snapshot: snapshot, installationState: liveStore.installationState)
 
         TVCardGrid {
             TVSystemHostCard(
@@ -77,7 +78,7 @@ struct TVSystemView: View {
             TVSystemDisksCard(snapshot: snapshot)
             TVSystemNetworkCard(snapshot: snapshot)
             TVSystemFanCard(snapshot: snapshot)
-            TVSystemAudioConnectivityCard(snapshot: snapshot)
+            TVSystemAudioConnectivityCard(snapshot: snapshot, installationState: liveStore.installationState)
         }
     }
 
@@ -107,8 +108,7 @@ struct TVSystemView: View {
         TVFocusCard {
             VStack(alignment: .leading, spacing: 16) {
                 TVCardHeader(title: "System status unavailable", systemImage: "exclamationmark.triangle.fill")
-                // Render the message inline rather than via `TVBanner`, whose
-                // own `TVFocusCard` would add a redundant nested focus stop.
+                // Avoid TVBanner's redundant nested focus stop.
                 Text(message)
                     .font(TVMetrics.Font.body)
                     .foregroundStyle(Theme.Colors.error)
@@ -125,11 +125,13 @@ struct TVSystemView: View {
 
 private struct TVSystemVitals: View {
     let snapshot: BoothSystemSnapshot
+    let installationState: InstallationState?
 
     var body: some View {
         TVFocusCard {
             VStack(alignment: .leading, spacing: 24) {
-                TVCardHeader(title: "Live vitals", systemImage: "waveform.path.ecg")
+                TVCardHeader(title: installationState == .betweenExhibitions
+                    ? "Last reported vitals" : "Live vitals", systemImage: "waveform.path.ecg")
                 LazyVGrid(
                     columns: Array(
                         repeating: GridItem(.flexible(), spacing: 20),
@@ -411,21 +413,20 @@ private struct TVSystemFanCard: View {
 
 private struct TVSystemAudioConnectivityCard: View {
     let snapshot: BoothSystemSnapshot
+    let installationState: InstallationState?
 
     private var hasAudio: Bool {
-        snapshot.audioInputDevice != nil
-            || snapshot.audioOutputDevice != nil
-            || snapshot.audioInputDbfs != nil
-            || snapshot.audioOutputDbfs != nil
+        snapshot.audioInputDevice != nil || snapshot.audioOutputDevice != nil
+            || snapshot.audioInputDbfs != nil || snapshot.audioOutputDbfs != nil
     }
 
     private var hasConnectivity: Bool {
-        snapshot.tailscaleConnected != nil
-            || snapshot.tailscaleHostname != nil
+        snapshot.tailscaleConnected != nil || snapshot.tailscaleHostname != nil
             || !(snapshot.throttlingFlags ?? []).isEmpty
     }
 
     var body: some View {
+        let inactive = installationState == .betweenExhibitions
         if hasAudio || hasConnectivity {
             TVFocusCard {
                 VStack(alignment: .leading, spacing: 20) {
@@ -455,8 +456,9 @@ private struct TVSystemAudioConnectivityCard: View {
                             if let connected = snapshot.tailscaleConnected {
                                 TVKeyValueRow(
                                     key: "Tailscale",
-                                    value: connected ? "Connected" : "Offline",
-                                    valueTint: connected ? Theme.Colors.success : Theme.Colors.error
+                                    value: connected ? "Connected" : (inactive ? "Offline expected" : "Offline"),
+                                    valueTint: inactive ? Theme.Colors.textSecondary
+                                        : (connected ? Theme.Colors.success : Theme.Colors.error)
                                 )
                             }
                             if let hostname = snapshot.tailscaleHostname {

@@ -58,9 +58,9 @@ struct SystemHealthWidgetView: View {
 
     @ViewBuilder
     private func layout(_ health: WidgetSnapshot.SystemHealth, cacheStale: Bool) -> some View {
-        let severity = health.effectiveSeverity(at: entry.date)
-        let sourceStale = entry.date.timeIntervalSince(health.sourceUpdatedAt)
-            >= WidgetSnapshot.sourceStaleInterval
+        let severity = health.effectiveSeverity(at: entry.date, installationState: entry.installationState)
+        let sourceStale = entry.installationState != .betweenExhibitions
+            && entry.date.timeIntervalSince(health.sourceUpdatedAt) >= WidgetSnapshot.sourceStaleInterval
 
         switch family.operatorLayoutSize {
         case .large, .extraLarge:
@@ -130,10 +130,10 @@ struct SystemHealthWidgetView: View {
             HStack(alignment: .top, spacing: 14) {
                 WidgetStatusBlock(
                     label: "Booth",
-                    value: summary.boothState.widgetDisplayName,
-                    systemImage: summary.boothState.widgetSymbol,
-                    tint: summary.boothState.widgetTint,
-                    detail: Text(summary.boothUpdatedAt, style: .relative),
+                    value: summary.widgetDisplayName,
+                    systemImage: summary.widgetSymbol,
+                    tint: summary.widgetTint,
+                    detail: summary.widgetStatusDetail,
                     staleAsOf: entry.summaryState.staleAsOf
                 )
                 WidgetMetricGrid(
@@ -191,8 +191,9 @@ struct SystemHealthWidgetView: View {
             Spacer(minLength: 4)
             if cacheStale {
                 WidgetStaleBadge()
-            } else {
-                Text(severity.displayName)
+            }
+            if !cacheStale || entry.installationState == .betweenExhibitions {
+                Text(entry.healthDisplayName(severity))
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(severity.tint)
                     .lineLimit(1)
@@ -202,8 +203,8 @@ struct SystemHealthWidgetView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             cacheStale
-                ? "System health \(severity.displayName), data is stale"
-                : "System health \(severity.displayName)"
+                ? "System health \(entry.healthDisplayName(severity)), data is stale"
+                : "System health \(entry.healthDisplayName(severity))"
         )
     }
 

@@ -113,6 +113,41 @@ extension WidgetSnapshot.HealthSeverity {
     }
 }
 
+extension WidgetSnapshot.Summary {
+    var widgetDisplayName: String { lifecycleTitle ?? boothState.widgetDisplayName }
+    var widgetSymbol: String { lifecycleTitle == nil ? boothState.widgetSymbol : "pause.circle" }
+    var widgetTint: Color { lifecycleTitle == nil ? boothState.widgetTint : Theme.Colors.textSecondary }
+    var widgetStatusDetail: Text {
+        if isBetweenExhibitions { return Text("Offline expected") }
+        if isSynthetic == true { return Text("Awaiting first report") }
+        return Text(boothUpdatedAt, style: .relative)
+    }
+}
+
+struct WidgetBoothFooter: View {
+    let summary: WidgetSnapshot.Summary
+    var stale = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if summary.lifecycleTitle != nil {
+                summary.widgetStatusDetail
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            WidgetUpdatedFooter(date: summary.statusDate, stale: stale)
+        }
+    }
+}
+
+extension WidgetSnapshotEntry {
+    var installationState: InstallationState? { snapshot?.summary?.installationState }
+
+    func healthDisplayName(_ severity: WidgetSnapshot.HealthSeverity) -> String {
+        installationState == .betweenExhibitions ? "Offline expected" : severity.displayName
+    }
+}
+
 /// Compact "updated N ago" footer that switches to a warning treatment
 /// once the underlying section is stale.
 struct WidgetUpdatedFooter: View {

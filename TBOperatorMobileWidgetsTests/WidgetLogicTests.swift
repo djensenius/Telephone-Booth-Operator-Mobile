@@ -15,6 +15,8 @@
 //
 
 import Foundation
+import SwiftUI
+import UIKit
 import WidgetKit
 import XCTest
 
@@ -98,6 +100,46 @@ final class WidgetLayoutSizeTests: XCTestCase {
 
 final class WidgetDisplayStateTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
+
+    func testBetweenExhibitionsPresentationSurvivesStaleCacheWithoutEpochOrAlarm() throws {
+        let stats = StatsSummary(
+            booth: BoothStatus(
+                state: .idle, updatedAt: Date(timeIntervalSince1970: 0),
+                installationState: .betweenExhibitions, isSynthetic: true
+            ),
+            messages: .init(pending: 2, receivedToday: 3, latestId: nil),
+            calls: .init(today: 4, inProgress: 0),
+            realtime: .init(wsClients: 1), generatedAt: now
+        )
+        let snapshot = WidgetSnapshot(stats: stats)
+        let entry = WidgetSnapshotEntry(
+            date: now.addingTimeInterval(86_400), snapshot: snapshot
+        )
+        let summary = try XCTUnwrap(entry.summaryState.value)
+        XCTAssertTrue(entry.summaryState.isStale, "Keep cache freshness visible independently of downtime")
+        XCTAssertEqual(summary.widgetDisplayName, "Between exhibitions")
+        XCTAssertEqual(summary.widgetSymbol, "pause.circle")
+        let traits = UITraitCollection(userInterfaceStyle: .dark)
+        XCTAssertEqual(
+            UIColor(summary.widgetTint).resolvedColor(with: traits),
+            UIColor(Theme.Colors.textSecondary).resolvedColor(with: traits)
+        )
+        XCTAssertEqual(summary.statusDate, now)
+        XCTAssertEqual(summary.interactionsToday, 4)
+        XCTAssertEqual(summary.pendingMessages, 2)
+        XCTAssertEqual(entry.healthDisplayName(.unknown), "Offline expected")
+        let health = try XCTUnwrap(WidgetSnapshot.placeholder.systemHealth)
+        XCTAssertEqual(health.effectiveSeverity(
+            at: entry.date, installationState: entry.installationState
+        ), .unknown)
+    }
+
+    func testLegacyAndActiveWidgetsDoNotClaimExpectedDowntime() {
+        let legacy = WidgetSnapshotEntry.sample(at: now)
+        XCTAssertNil(legacy.installationState)
+        XCTAssertNotEqual(legacy.summaryState.value?.widgetDisplayName, "Between exhibitions")
+        XCTAssertEqual(legacy.healthDisplayName(.warning), "Warning")
+    }
 
     func testNoSnapshotState() {
         let state = WidgetSnapshotEntry.noSnapshot(at: now).summaryState

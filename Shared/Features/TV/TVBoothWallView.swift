@@ -1,10 +1,4 @@
-//
-//  TVBoothWallView.swift
-//  TelephoneBoothOperatorMobile
-//
-//  Read-only, focus-friendly booth status wall for tvOS.
-//
-
+// Read-only, focus-friendly booth status wall for tvOS.
 #if os(tvOS)
 
 import SwiftUI
@@ -89,8 +83,13 @@ struct TVBoothWallView: View {
     private var statusOverview: some View {
         TimelineView(.periodic(from: .now, by: 10)) { context in
             let status = currentStatus
-            let staleness = boothStaleness(lastStatusAt: status?.updatedAt, now: context.date)
-            let presentation = tvBoothPresentation(state: status?.state, staleness: staleness.level)
+            let staleness = boothStaleness(
+                lastStatusAt: status?.hasTelemetry == true ? status?.updatedAt : nil, now: context.date,
+                installationState: status?.installationState
+            )
+            let presentation = tvBoothPresentation(
+                state: status?.state, staleness: staleness.level, isSynthetic: status?.isSynthetic == true
+            )
             TVFocusCard {
                 HStack(spacing: 34) {
                     Image(systemName: presentation.symbol)
@@ -106,7 +105,7 @@ struct TVBoothWallView: View {
                             .foregroundStyle(Theme.Colors.textPrimary)
                             .lineLimit(2)
                             .minimumScaleFactor(0.75)
-                        Text(staleness.label ?? statusDetail(status, now: context.date))
+                        Text(status?.lifecycleDetail ?? staleness.label ?? statusDetail(status, now: context.date))
                             .font(TVMetrics.Font.body)
                             .foregroundStyle(Theme.Colors.textSecondary)
                     }
@@ -191,8 +190,16 @@ struct TVBoothWallView: View {
             }
         }
     }
-
     private func healthSummary(now: Date) -> TVWallHealth {
+        if currentStatus?.isBetweenExhibitions == true {
+            return TVWallHealth(
+                label: "Offline expected", detail: liveStore.systemEnvelope.map {
+                    "\(SystemVitals.formatTemperature($0.snapshot.cpuTemperatureCelsius)) CPU · "
+                        + "\(SystemVitals.formatPercent($0.snapshot.memoryUsedRatio)) memory"
+                } ?? "Between exhibitions",
+                systemImage: "pause.circle", tint: Theme.Colors.textSecondary
+            )
+        }
         guard let envelope = liveStore.systemEnvelope else { return .waiting }
         let snapshot = envelope.snapshot
         let routerTemperature = SystemVitals.routerBatteryTemperature(
@@ -200,15 +207,13 @@ struct TVBoothWallView: View {
             boothId: envelope.boothId,
             now: now
         )
-        let telemetryIsStale =
-            now.timeIntervalSince(envelope.receivedAt) >= BoothStalenessThresholds.offlineSeconds
+        let telemetryIsStale = now.timeIntervalSince(envelope.receivedAt) >= BoothStalenessThresholds.offlineSeconds
         guard let severity = SystemVitals.overallSeverity(
             snapshot: snapshot,
             routerTemperature: routerTemperature,
             telemetryIsStale: telemetryIsStale
         ) else { return .waiting }
-        let label: String
-        let systemImage: String
+        let label: String, systemImage: String
         switch severity {
         case .nominal:
             (label, systemImage) = ("Nominal", "checkmark.circle.fill")

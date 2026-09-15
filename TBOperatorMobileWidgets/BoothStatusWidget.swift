@@ -75,7 +75,7 @@ struct BoothStatusWidgetView: View {
         #if os(iOS)
         switch family {
         case .accessoryInline:
-            Label(summary.boothState.widgetDisplayName, systemImage: summary.boothState.widgetSymbol)
+            Label(summary.widgetDisplayName, systemImage: summary.widgetSymbol)
                 .privacySensitive()
         case .accessoryCircular:
             circular(summary)
@@ -106,7 +106,7 @@ struct BoothStatusWidgetView: View {
             header(summary, stale: stale)
             stateTitle(summary)
             Spacer(minLength: 0)
-            WidgetUpdatedFooter(date: summary.boothUpdatedAt, stale: stale)
+            WidgetBoothFooter(summary: summary, stale: stale)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -117,7 +117,7 @@ struct BoothStatusWidgetView: View {
                 header(summary, stale: stale)
                 stateTitle(summary)
                 Spacer(minLength: 0)
-                WidgetUpdatedFooter(date: summary.boothUpdatedAt, stale: stale)
+                WidgetBoothFooter(summary: summary, stale: stale)
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
             Divider()
@@ -137,7 +137,7 @@ struct BoothStatusWidgetView: View {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 stateTitle(summary, font: .title.weight(.semibold))
                 Spacer(minLength: 8)
-                WidgetUpdatedFooter(date: summary.boothUpdatedAt, stale: stale)
+                WidgetBoothFooter(summary: summary, stale: stale)
             }
             Divider()
             WidgetMetricGrid(metrics: summaryMetrics(summary), columns: 4)
@@ -154,8 +154,8 @@ struct BoothStatusWidgetView: View {
 
     private func header(_ summary: WidgetSnapshot.Summary, stale: Bool) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: summary.boothState.widgetSymbol)
-                .foregroundStyle(summary.boothState.widgetTint)
+            Image(systemName: summary.widgetSymbol)
+                .foregroundStyle(summary.widgetTint)
                 .font(.title3.weight(.semibold))
                 .widgetAccentable()
             WidgetHeaderTitle(title: "Booth")
@@ -172,7 +172,7 @@ struct BoothStatusWidgetView: View {
         _ summary: WidgetSnapshot.Summary,
         font: Font = .title2.weight(.semibold)
     ) -> some View {
-        Text(summary.boothState.widgetDisplayName)
+        Text(summary.widgetDisplayName)
             .font(font)
             .foregroundStyle(.primary)
             .lineLimit(1)
@@ -192,10 +192,10 @@ struct BoothStatusWidgetView: View {
     @ViewBuilder
     private var relatedHealth: some View {
         if let health = entry.systemHealthState.value {
-            let severity = health.effectiveSeverity(at: entry.date)
+            let severity = health.effectiveSeverity(at: entry.date, installationState: entry.installationState)
             WidgetStatusBlock(
                 label: "System",
-                value: severity.displayName,
+                value: entry.healthDisplayName(severity),
                 systemImage: severity.symbolName,
                 tint: severity.tint,
                 detail: Text(health.sourceUpdatedAt, style: .relative),
@@ -233,31 +233,30 @@ struct BoothStatusWidgetView: View {
     }
 
     private func circular(_ summary: WidgetSnapshot.Summary) -> some View {
-        Image(systemName: summary.boothState.widgetSymbol)
+        Image(systemName: summary.widgetSymbol)
             .font(.title2)
             .widgetAccentable()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .privacySensitive()
-            .accessibilityLabel("Booth \(summary.boothState.widgetDisplayName)")
+            .accessibilityLabel("Booth \(summary.widgetDisplayName)")
     }
 
     private func rectangular(_ summary: WidgetSnapshot.Summary, stale: Bool) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Label("Booth", systemImage: summary.boothState.widgetSymbol)
+            Label("Booth", systemImage: summary.widgetSymbol)
                 .font(.caption2.weight(.semibold))
                 .widgetAccentable()
-            Text(summary.boothState.widgetDisplayName)
+            Text(summary.widgetDisplayName)
                 .font(.headline)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .privacySensitive()
             if stale {
                 WidgetStaleBadge()
-            } else {
-                Text(summary.boothUpdatedAt, style: .relative)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
+            summary.widgetStatusDetail
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)

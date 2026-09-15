@@ -83,17 +83,21 @@ struct TVScreensaverView: View {
         .onAppear {
             startDrift()
             // Surface activity right away if the booth is already busy.
-            if let state = liveStore.status?.state, TVScreensaverPlaylist.isHappening(state) {
+            if let state = liveStore.status?.liveActivityState, TVScreensaverPlaylist.isHappening(state) {
                 activationPending = true
             }
         }
-        .onChange(of: liveStore.status?.state) { _, newState in
-            guard let newState else { return }
+        .onChange(of: liveStore.status?.liveActivityState ?? .idle) { _, newState in
             if TVScreensaverPlaylist.isHappening(newState) {
                 activationPending = true
             } else if current?.id == "status" {
                 // Activity ended while the status card is showing — retire it
                 // now rather than letting the stale card ride out its dwell.
+                deactivationPending = true
+            }
+        }
+        .onChange(of: liveStore.status ?? liveStore.stats?.booth) { _, status in
+            if let current, !TVScreensaverPlaylist.isCurrent(current, status: status) {
                 deactivationPending = true
             }
         }
@@ -155,10 +159,9 @@ struct TVScreensaverView: View {
                 // The playlist is a snapshot: if the booth went idle after it
                 // was built, drop a now-stale status card rather than surfacing
                 // activity that has ended (status is only ever shown live).
-                if item.id == "status",
-                   !TVScreensaverPlaylist.isHappening(liveStore.status?.state ?? .idle) {
-                    continue
-                }
+                guard TVScreensaverPlaylist.isCurrent(
+                    item, status: liveStore.status ?? liveStore.stats?.booth
+                ) else { continue }
                 await present(item)
                 if Task.isCancelled { return }
                 let interrupted = await hold(dwell)
@@ -176,7 +179,7 @@ struct TVScreensaverView: View {
     /// hold it, then let the normal rotation resume.
     @MainActor
     private func presentActivityInterrupt() async {
-        guard let state = liveStore.status?.state,
+        guard let state = liveStore.status?.liveActivityState,
               let item = TVScreensaverPlaylist.statusSpotlight(for: state) else { return }
         if current != nil { await dismissCurrent() }
         await present(item)
