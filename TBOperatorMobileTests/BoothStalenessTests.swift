@@ -68,6 +68,18 @@ final class BoothStalenessTests: XCTestCase {
 final class InstallationLifecycleTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
 
+    func testUnknownLifecycleRoundTripsWithoutImplyingDowntime() throws {
+        let status = try decodeStatus("""
+        {"state":"idle","updatedAt":"2026-09-15T12:00:00Z","installationState":"future_state"}
+        """)
+        XCTAssertEqual(status.installationState, .unknown("future_state"))
+        XCTAssertFalse(status.isBetweenExhibitions)
+        XCTAssertNil(status.lifecycleTitle)
+        XCTAssertEqual(try OperatorJSON.decoder.decode(
+            BoothStatus.self, from: OperatorJSON.encoder.encode(status)
+        ), status)
+    }
+
     func testLegacyStatusDecodesWithoutImplyingDowntime() throws {
         let status = try decodeStatus("""
         {"state":"idle","updatedAt":"2026-09-15T12:00:00Z"}

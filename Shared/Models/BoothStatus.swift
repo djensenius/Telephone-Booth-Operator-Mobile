@@ -8,9 +8,35 @@
 
 import Foundation
 
-public enum InstallationState: String, Codable, Sendable, Hashable {
+public enum InstallationState: Codable, Sendable, Hashable {
     case active
-    case betweenExhibitions = "between_exhibitions"
+    case betweenExhibitions
+    case unknown(String)
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "active": self = .active
+        case "between_exhibitions": self = .betweenExhibitions
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .active: return "active"
+        case .betweenExhibitions: return "between_exhibitions"
+        case .unknown(let value): return value
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 public enum BoothState: Codable, Sendable, Hashable {

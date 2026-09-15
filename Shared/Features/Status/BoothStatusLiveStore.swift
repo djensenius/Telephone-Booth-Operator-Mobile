@@ -74,8 +74,8 @@ public final class BoothStatusLiveStore {
         self.lifecycleDefaults = lifecycleDefaults
         lifecycleKey = "boothInstallationState:\(config.apiBaseURL.absoluteString)"
         if !demoMode, !config.isDemoMode,
-           let rawValue = lifecycleDefaults?.string(forKey: lifecycleKey),
-           let cached = InstallationState(rawValue: rawValue) {
+           let rawValue = lifecycleDefaults?.string(forKey: lifecycleKey) {
+            let cached = InstallationState(rawValue: rawValue)
             installationState = cached
             status = BoothStatus(
                 state: .idle, updatedAt: Date(timeIntervalSince1970: 0),
@@ -236,7 +236,7 @@ public final class BoothStatusLiveStore {
         let key = "boothInstallationState:\(config.apiBaseURL.absoluteString)"
         guard lifecycleKey != key else { return false }
         lifecycleKey = key
-        installationState = lifecycleDefaults?.string(forKey: key).flatMap(InstallationState.init(rawValue:))
+        installationState = lifecycleDefaults?.string(forKey: key).map(InstallationState.init(rawValue:))
         status = installationState.map {
             BoothStatus(state: .idle, updatedAt: Date(timeIntervalSince1970: 0),
                         installationState: $0, isSynthetic: true)
