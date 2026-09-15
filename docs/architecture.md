@@ -55,6 +55,9 @@ Live polling keeps history and existing system snapshots cached; full refreshes
 are reserved for seeding, manual refresh, and socket fallback. Switching API URLs
 clears the previous server's data and Live Activities and restores only the new
 URL's cached lifecycle, if any.
+The socket and poll loops restart immediately, with a full history seed retained
+until it succeeds. REST request generations also preserve the newest connection
+outcome when manual and periodic refreshes overlap.
 Widget snapshots and the coordinator cache are also cleared for every base-URL
 change, including same-host path and port changes that do not require sign-out.
 Invalidation and snapshot writes share a synchronous revision boundary; delayed
@@ -62,6 +65,8 @@ refreshes and queued updates from the previous API cannot overwrite the new cach
 Socket and Live Activity event subscriptions reject previous-API frames. Badge
 refreshes capture the API revision before fetching and update widget counts only;
 they cannot reverse lifecycle or replace the latest authoritative booth status.
+API changes clear the visible count immediately and reconcile the system badge,
+including delayed writes and failed requests against the new source.
 
 All platform dashboards use neutral **Between exhibitions / Offline expected**
 presentation during confirmed downtime, retaining metrics and historical data.

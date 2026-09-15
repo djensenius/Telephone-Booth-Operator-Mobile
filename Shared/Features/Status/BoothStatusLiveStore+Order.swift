@@ -127,8 +127,8 @@ extension BoothStatusLiveStore {
     func fetchSummaryAndSessions() async -> CallsTodayRefresh {
         let client = self.client
         let localDayStartedAt = Calendar.current.startOfDay(for: Date())
-        prepareCallsToday(for: localDayStartedAt)
-        let knownSessionIDs = Set(callsTodaySessions.map(\.id))
+        let knownSessionIDs = callsTodayStartedAt == localDayStartedAt
+            ? Set(callsTodaySessions.map(\.id)) : []
         async let statsResult = attempt { try await client.fetchStatsSummary() }
         async let sessionsResult = attempt {
             try await client.fetchSessions(
@@ -141,7 +141,6 @@ extension BoothStatusLiveStore {
         var newSessions = await sessionsResult
         let dayStartedAt = newStats?.dayStartedAt ?? localDayStartedAt
         if dayStartedAt != localDayStartedAt {
-            prepareCallsToday(for: dayStartedAt)
             newSessions = await attempt {
                 try await client.fetchSessions(startedOnOrAfter: dayStartedAt)
             }
