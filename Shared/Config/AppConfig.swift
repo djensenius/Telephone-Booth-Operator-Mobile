@@ -38,6 +38,9 @@ public final class AppConfig {
             UserDefaults.standard.set(apiBaseURL.absoluteString, forKey: Self.apiBaseDefaultsKey)
             if oldValue != apiBaseURL {
                 WidgetRefreshCoordinator.invalidateAPIBase()
+                #if canImport(ActivityKit) && !os(macOS)
+                LiveActivityEventObserver.shared.restartForAPIChange()
+                #endif
             }
             logger.info("apiBaseURL updated to \(self.apiBaseURL.absoluteString, privacy: .public)")
         }

@@ -74,8 +74,8 @@ public final class BoothStatusLiveStore {
         self.lifecycleDefaults = lifecycleDefaults
         lifecycleKey = "boothInstallationState:\(config.apiBaseURL.absoluteString)"
         if !demoMode, !config.isDemoMode,
-           let rawValue = lifecycleDefaults?.string(forKey: lifecycleKey),
-           let cached = InstallationState(rawValue: rawValue) {
+           let rawValue = lifecycleDefaults?.string(forKey: lifecycleKey) {
+            let cached = InstallationState(rawValue: rawValue)
             installationState = cached
             status = BoothStatus(
                 state: .idle, updatedAt: Date(timeIntervalSince1970: 0),
@@ -133,8 +133,13 @@ public final class BoothStatusLiveStore {
         while !Task.isCancelled {
             if connection != .live { connection = .connecting }
             do {
+                let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
                 for try await envelope in socket.subscribe() {
                     if Task.isCancelled { break }
+                    guard apiRevision == WidgetRefreshCoordinator.currentAPIRevision else {
+                        synchronizeAPIBase()
+                        break
+                    }
                     backoff = .seconds(1)
                     apply(envelope)
                 }
@@ -232,11 +237,11 @@ public final class BoothStatusLiveStore {
     }
 
     @discardableResult
-    private func synchronizeAPIBase() -> Bool {
+    func synchronizeAPIBase() -> Bool {
         let key = "boothInstallationState:\(config.apiBaseURL.absoluteString)"
         guard lifecycleKey != key else { return false }
         lifecycleKey = key
-        installationState = lifecycleDefaults?.string(forKey: key).flatMap(InstallationState.init(rawValue:))
+        installationState = lifecycleDefaults?.string(forKey: key).map(InstallationState.init(rawValue:))
         status = installationState.map {
             BoothStatus(state: .idle, updatedAt: Date(timeIntervalSince1970: 0),
                         installationState: $0, isSynthetic: true)
@@ -291,6 +296,7 @@ public final class BoothStatusLiveStore {
     }
 
     func apply(_ envelope: WsStatusEnvelope) {
+        guard !synchronizeAPIBase() else { return }
         connection = .live
         socketError = nil
         lastError = statusError
@@ -395,12 +401,14 @@ public final class BoothStatusLiveStore {
         let systemEnvelope = self.systemEnvelope
         let componentSources = self.componentSources
         let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
+        let observedAt = Date()
         Task {
             await WidgetRefreshCoordinator.shared.apply(
                 stats: stats,
                 systemEnvelope: systemEnvelope,
                 components: componentSources,
-                apiRevision: apiRevision
+                apiRevision: apiRevision,
+                observedAt: observedAt
             )
         }
     }
