@@ -22,12 +22,18 @@ public struct SystemView: View {
                 if let errorMessage = liveStore.lastError {
                     BannerView(message: errorMessage, kind: .error)
                 }
+                if liveStore.status?.isBetweenExhibitions == true {
+                    BannerView(
+                        message: "Between exhibitions. Offline expected; showing last reported data.", kind: .info
+                    )
+                }
                 if let envelope = liveStore.systemEnvelope {
                     SystemVitalsStrip(
                         snapshot: envelope.snapshot,
                         receivedAt: envelope.receivedAt,
                         componentSources: liveStore.componentSources,
-                        boothId: envelope.boothId
+                        boothId: envelope.boothId,
+                        installationState: liveStore.installationState
                     )
                     SystemHostCard(
                         boothId: envelope.boothId,
