@@ -16,6 +16,21 @@ struct CallsTodayRefresh: Sendable {
 
 extension BoothStatusLiveStore {
 
+    /// Booth timestamps order reports; row ids break ties and repeat counts
+    /// distinguish a delayed extension of the same collapsed run.
+    nonisolated static func supersedes(_ held: BoothStatus, _ incoming: BoothStatus) -> Bool {
+        if held.updatedAt != incoming.updatedAt { return held.updatedAt > incoming.updatedAt }
+        if let heldId = held.id, let incomingId = incoming.id, heldId != incomingId {
+            return heldId > incomingId
+        }
+        guard held.isSameRun(as: incoming) else { return false }
+        return (held.repeatCount ?? 1) > (incoming.repeatCount ?? 1)
+    }
+
+    nonisolated static func isDuplicate(_ held: BoothStatus, of item: BoothStatus) -> Bool {
+        held == item || held.isSameRun(as: item)
+    }
+
     func fetchSummaryAndSessions() async -> CallsTodayRefresh {
         let client = self.client
         let localDayStartedAt = Calendar.current.startOfDay(for: Date())
@@ -52,10 +67,10 @@ extension BoothStatusLiveStore {
         hasLoadedCallsToday = false
     }
 
-    func apply(_ summary: CallsTodayRefresh) {
+    func apply(_ summary: CallsTodayRefresh, reconcileLifecycle: Bool = true) {
         prepareCallsToday(for: summary.dayStartedAt)
         if let newStats = summary.stats {
-            applyStats(newStats)
+            applyStats(newStats, reconcileLifecycle: reconcileLifecycle)
         }
         if let sessions = summary.sessions {
             var sessionsByID = [String: CallSession]()

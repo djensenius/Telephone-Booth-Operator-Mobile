@@ -28,8 +28,8 @@ struct WatchStatusView: View {
                 if let errorMessage = liveStore.lastError {
                     BannerView(message: errorMessage, kind: .error)
                 }
-                if let state = liveStore.status?.state ?? liveStore.stats?.booth.state {
-                    stateBadge(state)
+                if let status = liveStore.status ?? liveStore.stats?.booth {
+                    stateBadge(status)
                 } else if liveStore.lastError == nil {
                     ProgressView("Loading booth status")
                 } else {
@@ -55,16 +55,18 @@ struct WatchStatusView: View {
         .automaticRefreshEnabled(automaticRefreshEnabled && scenePhase == .active)
     }
 
-    private func stateBadge(_ state: BoothState) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+    private func stateBadge(_ status: BoothStatus) -> some View {
+        let state = status.state
+        let tint = status.lifecycleTitle == nil ? state.watchTint : Theme.Colors.textSecondary
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: state.watchSymbol)
+                Image(systemName: status.lifecycleTitle == nil ? state.watchSymbol : "pause.circle")
                     .font(.title3)
-                    .foregroundStyle(state.watchTint)
-                Text(state.watchDisplayName)
+                    .foregroundStyle(tint)
+                Text(status.lifecycleTitle ?? state.watchDisplayName)
                     .font(.headline)
             }
-            Text(state.watchActivityDescription)
+            Text(status.lifecycleDetail ?? state.watchActivityDescription)
                 .font(.caption2)
                 .foregroundStyle(Theme.Colors.textSecondary)
             if let mode = liveStore.status?.runtimeMode ?? liveStore.stats?.booth.runtimeMode, mode.shouldDisplayBadge {
@@ -75,7 +77,7 @@ struct WatchStatusView: View {
         .padding(10)
         .background {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(state.watchTint.opacity(0.18))
+                .fill(tint.opacity(0.18))
         }
     }
 

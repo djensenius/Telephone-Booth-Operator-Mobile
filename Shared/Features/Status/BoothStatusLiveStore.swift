@@ -20,7 +20,7 @@ public final class BoothStatusLiveStore {
         case offline
     }
 
-    public static let shared = BoothStatusLiveStore()
+    public static let shared = BoothStatusLiveStore(lifecycleDefaults: .standard)
     public static let demo = BoothStatusLiveStore(client: .demo, socket: .demo, demoMode: true)
 
     public private(set) var status: BoothStatus?
@@ -34,6 +34,12 @@ public final class BoothStatusLiveStore {
     public internal(set) var callsTodayRefreshRevision: UInt = 0
     public private(set) var connection: ConnectionState = .offline
     public private(set) var lastError: String?
+    public private(set) var installationState: InstallationState?
+    private var lifecycleRevision: UInt = 0
+    private var statusError: String?
+    private var socketError: String?
+    private let lifecycleDefaults: UserDefaults?
+    private var lifecycleKey: String
 
     /// True only when the `/v1/system/current` request itself failed while we
     /// have no cached snapshot to show, so the System tab can show its retry
@@ -58,17 +64,32 @@ public final class BoothStatusLiveStore {
         client: OperatorClient = .shared,
         socket: StatusSocket = .shared,
         config: AppConfig = .shared,
-        demoMode: Bool = false
+        demoMode: Bool = false,
+        lifecycleDefaults: UserDefaults? = nil
     ) {
         self.client = client
         self.socket = socket
         self.config = config
         self.demoMode = demoMode
+        self.lifecycleDefaults = lifecycleDefaults
+        lifecycleKey = "boothInstallationState:\(config.apiBaseURL.absoluteString)"
+        if !demoMode, !config.isDemoMode,
+           let rawValue = lifecycleDefaults?.string(forKey: lifecycleKey),
+           let cached = InstallationState(rawValue: rawValue) {
+            installationState = cached
+            status = BoothStatus(
+                state: .idle, updatedAt: Date(timeIntervalSince1970: 0),
+                installationState: cached, isSynthetic: true
+            )
+        }
     }
 
     public func start() {
         startCount += 1
         guard startCount == 1 else { return }
+        #if canImport(ActivityKit) && !os(macOS)
+        LiveActivityManager.shared.setInstallationState(installationState)
+        #endif
         let usesSocket = StatusSocket.supportsLiveConnections && !demoMode && !config.isDemoMode
         connection = usesSocket ? .connecting : .polling
         startPollLoop()
@@ -113,8 +134,6 @@ public final class BoothStatusLiveStore {
             do {
                 for try await envelope in socket.subscribe() {
                     if Task.isCancelled { break }
-                    connection = .live
-                    lastError = nil
                     backoff = .seconds(1)
                     apply(envelope)
                 }
@@ -123,7 +142,8 @@ public final class BoothStatusLiveStore {
                 break
             } catch {
                 logger.warning("Status socket error: \(error.localizedDescription, privacy: .public)")
-                lastError = "Live status disconnected: \(error.localizedDescription)"
+                socketError = "Live status disconnected: \(error.localizedDescription)"
+                lastError = statusError ?? socketError
                 connection = .polling
             }
             guard !Task.isCancelled else { break }
@@ -137,22 +157,10 @@ public final class BoothStatusLiveStore {
     }
 
     private func pollLoop() async {
-        var isInitialSeed = true
         while !Task.isCancelled {
-            if isInitialSeed || connection != .live {
-                await refreshFromREST()
-            } else {
-                // The live socket owns status/history; keep the summary counts
-                // and call sessions fresh because the socket carries neither.
-                await refreshSummary()
-                // The socket may not carry system snapshots, so keep polling
-                // `/v1/system/current` on the cadence whenever we have none
-                // cached — whether the seed failed or simply returned empty
-                // before the booth first reported — until one arrives.
-                if systemEnvelope == nil { await refreshSystem() }
-                await refreshComponents()
-            }
-            isInitialSeed = false
+            // Status frames carry no lifecycle; REST reconciles even when a
+            // healthy socket is connected to another API replica.
+            await refreshFromREST()
             do {
                 try await Task.sleep(for: pollInterval)
             } catch {
@@ -176,6 +184,14 @@ public final class BoothStatusLiveStore {
             return
         }
         let client = self.client
+        let key = "boothInstallationState:\(config.apiBaseURL.absoluteString)"
+        if lifecycleKey != key {
+            lifecycleKey = key
+            installationState = nil
+            status = nil
+        }
+        lifecycleRevision &+= 1
+        let revision = lifecycleRevision
         async let statusResult = attempt { try await client.fetchBoothStatus() }
         async let historyResult = attempt { try await client.fetchStatusHistory(limit: 200) }
         async let systemResult = attempt { try await client.fetchCurrentSystemEnvelope() }
@@ -193,10 +209,12 @@ public final class BoothStatusLiveStore {
         // guard against overwriting fresher data delivered by the socket while
         // these requests were in flight.
         if let newHistory { mergeHistory(newHistory.items) }
-        if let newStatus { apply(status: newStatus) }
         applySystemResult(newSystem)
         if let newComponents { componentSources = newComponents }
-        apply(summary)
+        apply(summary, reconcileLifecycle: revision == lifecycleRevision && newStatus == nil)
+        if let newStatus, revision == lifecycleRevision {
+            apply(status: newStatus, authoritative: true)
+        }
 
         let anySuccess = newStatus != nil || newHistory != nil
             || newSystem != nil || newComponents != nil
@@ -209,11 +227,12 @@ public final class BoothStatusLiveStore {
             } else if connection != .live {
                 connection = .polling
             }
-            lastError = "Couldn't refresh booth status."
+            statusError = "Couldn't refresh booth status."
         } else if anySuccess {
             if connection != .live { connection = .polling }
-            lastError = nil
+            statusError = nil
         }
+        lastError = statusError ?? socketError
     }
 
     /// Applies the outcome of the `/v1/system/current` REST request. The double
@@ -242,33 +261,10 @@ public final class BoothStatusLiveStore {
         }
     }
 
-    private func refreshSummary() async {
-        if demoMode || config.isDemoMode { return }
-        let summary = await fetchSummaryAndSessions()
-        apply(summary)
-        if summary.stats != nil || summary.sessions != nil {
-            lastError = nil
-        }
-    }
-
-    /// Retry only the `/v1/system/current` endpoint (used on the live-socket
-    /// cadence while `systemUnavailable` is set) so the tab recovers early.
-    private func refreshSystem() async {
-        if demoMode || config.isDemoMode { return }
-        let client = self.client
-        let result = await attempt { try await client.fetchCurrentSystemEnvelope() }
-        applySystemResult(result)
-    }
-
-    private func refreshComponents() async {
-        if demoMode || config.isDemoMode { return }
-        let client = self.client
-        if let sources = await attempt({ try await client.fetchCurrentSystemComponents() }) {
-            componentSources = sources
-        }
-    }
-
-    private func apply(_ envelope: WsStatusEnvelope) {
+    func apply(_ envelope: WsStatusEnvelope) {
+        connection = .live
+        socketError = nil
+        lastError = statusError
         switch envelope {
         case .status(let status):
             apply(status: status)
@@ -278,20 +274,39 @@ public final class BoothStatusLiveStore {
             writeWidgetSnapshotIfPossible()
         case .message:
             break
-        case .work, .installation, .unknown:
+        case .installation(let installation):
+            lifecycleRevision &+= 1
+            apply(status: BoothStatus(
+                state: .idle, updatedAt: Date(timeIntervalSince1970: 0),
+                installationState: installation.isActive ? .active : .betweenExhibitions,
+                isSynthetic: true
+            ), authoritative: true)
+        case .work, .unknown:
             break
         }
     }
 
-    private func apply(status newStatus: BoothStatus) {
-        if let current = status, Self.supersedes(current, newStatus) {
+    private func apply(status incoming: BoothStatus, authoritative: Bool = false) {
+        if authoritative, let lifecycle = incoming.installationState {
+            installationState = lifecycle
+            lifecycleDefaults?.set(lifecycle.rawValue, forKey: lifecycleKey)
+            #if canImport(ActivityKit) && !os(macOS)
+            LiveActivityManager.shared.setInstallationState(lifecycle)
+            #endif
+        }
+        var newStatus = incoming
+        newStatus.installationState = installationState
+        if !authoritative, installationState == .betweenExhibitions { return }
+        if let current = status, current.hasTelemetry, newStatus.hasTelemetry,
+           Self.supersedes(current, newStatus) {
             // A fresher status (e.g. from the live socket) already applied while
             // a slower REST response was in flight, so it stays on display —
             // but the report is still a real one, and it may be a delayed
             // transition the history has never seen. The merge drops it if it
             // is only a staler view of a run already held.
             mergeIntoHistory(newStatus)
-            return
+            newStatus = current
+            newStatus.installationState = installationState
         }
         status = newStatus
         mergeIntoHistory(newStatus)
@@ -312,8 +327,10 @@ public final class BoothStatusLiveStore {
         }
     }
 
-    func applyStats(_ newStats: StatsSummary) {
-        if status == nil { apply(status: newStats.booth) }
+    func applyStats(_ newStats: StatsSummary, reconcileLifecycle: Bool = true) {
+        if reconcileLifecycle || status == nil {
+            apply(status: newStats.booth, authoritative: reconcileLifecycle)
+        }
         let booth = status ?? newStats.booth
         let merged = StatsSummary(
             booth: booth,
@@ -331,34 +348,17 @@ public final class BoothStatusLiveStore {
     }
 
     private func mergeIntoHistory(_ newStatus: BoothStatus) {
+        guard newStatus.hasTelemetry else { return }
         mergeHistory([newStatus])
     }
 
     private func mergeHistory(_ items: [BoothStatus]) {
-        history = Self.merging(items, into: history)
-    }
-
-    /// Whether `held` is a newer view of the same run than `incoming`.
-    ///
-    /// `updatedAt` decides, except that the operator leaves it alone when a
-    /// delayed report only widens `firstSeenAt` — then the repeat count is what
-    /// moved, and a lower count means the report is the older of the two.
-    nonisolated static func supersedes(_ held: BoothStatus, _ incoming: BoothStatus) -> Bool {
-        // The booth timestamp decides. An id records when the operator
-        // processed a report, not when the booth produced it, so it only
-        // breaks ties between reports of the same instant.
-        if held.updatedAt != incoming.updatedAt { return held.updatedAt > incoming.updatedAt }
-        if let heldId = held.id, let incomingId = incoming.id, heldId != incomingId {
-            return heldId > incomingId
+        let reports = items.filter(\.hasTelemetry).map { item in
+            var report = item
+            report.installationState = nil
+            return report
         }
-        guard held.isSameRun(as: incoming) else { return false }
-        return (held.repeatCount ?? 1) > (incoming.repeatCount ?? 1)
-    }
-
-    /// Whether `held` is the same stored row as `item` rather than a separate
-    /// state that looks alike.
-    nonisolated static func isDuplicate(_ held: BoothStatus, of item: BoothStatus) -> Bool {
-        held == item || held.isSameRun(as: item)
+        history = Self.merging(reports, into: history)
     }
 
     nonisolated static func merging(
@@ -490,6 +490,10 @@ public final class BoothStatusLiveStore {
 extension BoothStatusLiveStore {
     func applyStatusForTesting(_ newStatus: BoothStatus) {
         apply(status: newStatus)
+    }
+
+    func applyRESTStatusForTesting(_ newStatus: BoothStatus) {
+        apply(status: newStatus, authoritative: true)
     }
 }
 #endif

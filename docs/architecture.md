@@ -34,6 +34,40 @@
 
 ## Key decisions
 
+### Installation lifecycle
+
+`BoothStatus.installationState` is optional: `active` or
+`between_exhibitions`. Only an explicit lifecycle value confirms downtime;
+missing fields, empty data, HTTP 404, authentication failures, and network
+errors never imply that an installation ended. The shared live store persists
+the last explicit lifecycle per API base URL across app launches, including
+on tvOS and watchOS, until an explicit active observation replaces it.
+
+The signed-in apps poll REST every five seconds even with a healthy WebSocket,
+so `/v1/status` (or the booth in `/v1/stats/summary` if status fails) reconciles
+missed installation events across API replicas. WebSocket installation envelopes
+also update lifecycle immediately; ordinary status frames cannot start or end
+an installation. REST lifecycle ordering is independent of heartbeat timestamps.
+An idless `isSynthetic: true` status with epoch `updatedAt` conveys lifecycle,
+not a fresh heartbeat or a history entry.
+
+Shared dashboards use neutral **Between exhibitions / Offline expected**
+presentation during confirmed downtime, retaining metrics and historical data.
+An active synthetic status says **Waiting for booth**, not Idle, and never
+displays an epoch timestamp. API connection and authentication errors remain
+visible independently. Calls cannot start Live Activities during downtime;
+existing activities end immediately. Widgets preserve the same lifecycle and
+separately expose cache staleness.
+
+Starting the next installation remains an explicit operator action in the web
+console. Apple apps do not auto-start installations or retry a write as a start.
+Scoped API writes rejected with HTTP 409 `application/problem+json`,
+`error: installation_inactive`, remain errors through the existing client/UI
+error handling. Pending booth recordings remain the booth client's
+responsibility and are not discarded by these apps.
+
+### Shared services
+
 - Every write this app makes is recorded by the operator's audit trail with
   the operator, the IP and a timestamp; admins can read it back on the Audit
   tab. See [`audit-log.md`](audit-log.md).

@@ -1,17 +1,5 @@
-//
-//  SystemVitalsStrip.swift
-//  TelephoneBoothOperatorMobile
-//
-//  Compact always-visible booth vitals tile row, mirroring the operator
-//  web `SystemVitalsStrip`. Renders CPU temperature, CPU usage, 1-min
-//  load average, memory utilisation, uptime, throttling, and tailscale
-//  reachability with the same Grafana-matching severity thresholds the
-//  operator alerts on.
-//
-//  This view is platform-portable and never fetches anything itself —
-//  callers (StatusDashboardView, SystemView) pass in the latest cached
-//  snapshot plus the matching router component temperature.
-//
+// Shared booth vitals, supplied by the caller without fetching.
+// Severity thresholds match the operator's Grafana alerts.
 
 import SwiftUI
 
@@ -26,26 +14,30 @@ public struct SystemVitalsStrip: View {
     public let componentSources: [SystemComponentCurrentEnvelope]
     public let boothId: String?
     public let presentation: SystemVitalsPresentation
+    public let installationState: InstallationState?
 
     public init(
         snapshot: BoothSystemSnapshot?,
         receivedAt: Date? = nil,
         componentSources: [SystemComponentCurrentEnvelope] = [],
         boothId: String? = nil,
-        presentation: SystemVitalsPresentation = .full
+        presentation: SystemVitalsPresentation = .full,
+        installationState: InstallationState? = nil
     ) {
         self.snapshot = snapshot
         self.receivedAt = receivedAt
         self.componentSources = componentSources
         self.boothId = boothId
         self.presentation = presentation
+        self.installationState = installationState
     }
 
     public var body: some View {
         TimelineView(.periodic(from: .now, by: 5)) { context in
             VStack(alignment: .leading, spacing: Theme.Spacing.small) {
                 HStack {
-                    SectionHeader(text: presentation == .summary ? "System health" : "Live vitals")
+                    SectionHeader(text: installationState == .betweenExhibitions ? "Last reported vitals"
+                        : (presentation == .summary ? "System health" : "Live vitals"))
                     if presentation == .summary {
                         Spacer(minLength: Theme.Spacing.small)
                         healthBadge(now: context.date)
@@ -105,9 +97,11 @@ public struct SystemVitalsStrip: View {
         case .crit:
             (label, symbol) = ("Attention", "xmark.octagon.fill")
         }
-        return Label(label, systemImage: symbol)
+        return Label(installationState == .betweenExhibitions ? "Offline expected" : label,
+                     systemImage: installationState == .betweenExhibitions ? "pause.circle" : symbol)
             .font(Theme.Fonts.caption.weight(.semibold))
-            .foregroundStyle(severity?.tint ?? Theme.Colors.info)
+            .foregroundStyle(installationState == .betweenExhibitions
+                ? Theme.Colors.textSecondary : (severity?.tint ?? Theme.Colors.info))
     }
 
     private func healthSeverity(now: Date) -> SystemVitals.Severity? {
@@ -172,7 +166,8 @@ public struct SystemVitalsStrip: View {
                 VitalTile(label: "Throttling", value: "\(flags.count)", severity: .warn)
             }
             if snapshot?.tailscaleConnected == false {
-                VitalTile(label: "Tailscale", value: "down", severity: .crit)
+                VitalTile(label: "Tailscale", value: "down",
+                          severity: installationState == .betweenExhibitions ? .nominal : .crit)
             }
         }
     }
@@ -185,6 +180,9 @@ public struct SystemVitalsStrip: View {
     }
 
     private var footerText: String {
+        if installationState == .betweenExhibitions {
+            return "Between exhibitions. Offline expected; showing last reported data."
+        }
         if let receivedAt {
             return "Updated " + receivedAt.formatted(date: .omitted, time: .standard)
         }

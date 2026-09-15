@@ -448,12 +448,21 @@ struct TVBoothPresentation {
 
 func tvBoothPresentation(
     state: BoothState?,
-    staleness: BoothStalenessLevel
+    staleness: BoothStalenessLevel,
+    isSynthetic: Bool = false
 ) -> TVBoothPresentation {
+    if staleness == .expectedDowntime {
+        return TVBoothPresentation("Between exhibitions", "pause.circle", Theme.Colors.textSecondary)
+    }
+    if isSynthetic {
+        return TVBoothPresentation("Waiting for booth", "clock", Theme.Colors.textSecondary)
+    }
     switch staleness {
     case .fresh: return TVBoothPresentation(state.tvHeadline, state.tvSymbol, state.tvTint)
     case .warning: return TVBoothPresentation(state.tvHeadline, state.tvSymbol, Theme.Colors.warning)
     case .offline: return TVBoothPresentation("Booth status unavailable", "wifi.slash", Theme.Colors.error)
+    case .expectedDowntime:
+        return TVBoothPresentation("Between exhibitions", "pause.circle", Theme.Colors.textSecondary)
     }
 }
 

@@ -76,6 +76,7 @@ public final class LiveActivityEventObserver {
     }
 
     private func handleEvent(_ event: BoothEventRecord) {
+        manager.setInstallationState(BoothStatusLiveStore.shared.installationState)
         switch event.type {
         case .callStarted:
             guard let sessionId = event.sessionId else {

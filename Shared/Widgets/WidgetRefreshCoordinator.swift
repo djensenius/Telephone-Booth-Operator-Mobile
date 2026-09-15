@@ -67,8 +67,8 @@ public actor WidgetRefreshCoordinator {
     }
 
     @discardableResult
-    public func apply(stats: StatsSummary) -> WidgetRefreshResult {
-        apply(stats: stats, systemEnvelope: nil, components: [])
+    public func apply(stats: StatsSummary) async -> WidgetRefreshResult {
+        await apply(stats: stats, systemEnvelope: nil, components: [])
     }
 
     @discardableResult
@@ -76,14 +76,15 @@ public actor WidgetRefreshCoordinator {
         stats: StatsSummary,
         systemEnvelope: BoothSystemSnapshotEnvelope?,
         components: [SystemComponentCurrentEnvelope]
-    ) -> WidgetRefreshResult {
+    ) async -> WidgetRefreshResult {
         guard acceptsUpdates else { return .failed }
         let previous = snapshot()
         let refreshDate = now()
-        let candidateSummary = WidgetSnapshot.Summary(
+        var candidateSummary = WidgetSnapshot.Summary(
             stats: stats,
             refreshedAt: refreshDate
         )
+        candidateSummary.installationState = candidateSummary.installationState ?? previous.summary?.installationState
         let summary: WidgetSnapshot.Summary
         if let current = previous.summary,
            summaryIsNewer(current, than: candidateSummary) {
@@ -114,7 +115,9 @@ public actor WidgetRefreshCoordinator {
             activity: previous.activity,
             writtenAt: refreshDate
         )
-        return persist(updated, replacing: previous)
+        let result = persist(updated, replacing: previous)
+        await reconcileLiveActivity(summary.installationState)
+        return result
     }
 
     public func refresh(
@@ -213,7 +216,15 @@ public actor WidgetRefreshCoordinator {
             activity: activity.value,
             writtenAt: refreshDate
         )
-        return persist(updated, replacing: previous)
+        let result = persist(updated, replacing: previous)
+        if summary.succeeded { await reconcileLiveActivity(summary.value?.installationState) }
+        return result
+    }
+
+    private func reconcileLiveActivity(_ state: InstallationState?) async {
+        #if canImport(ActivityKit) && !os(macOS)
+        await LiveActivityManager.shared.setInstallationState(state)
+        #endif
     }
 
     @discardableResult
@@ -277,10 +288,11 @@ public actor WidgetRefreshCoordinator {
     ) -> (value: WidgetSnapshot.Summary?, succeeded: Bool) {
         switch result {
         case .success(let stats):
-            let candidate = WidgetSnapshot.Summary(
+            var candidate = WidgetSnapshot.Summary(
                 stats: stats,
                 refreshedAt: refreshedAt
             )
+            candidate.installationState = candidate.installationState ?? current?.installationState
             if let current, summaryIsNewer(current, than: candidate) {
                 return (current, true)
             }
@@ -381,6 +393,12 @@ public actor WidgetRefreshCoordinator {
         _ current: WidgetSnapshot.Summary,
         than candidate: WidgetSnapshot.Summary
     ) -> Bool {
+        // Lifecycle belongs to the REST observation, not the booth heartbeat.
+        // A synthetic epoch snapshot must replace an older active observation.
+        if current.installationState != candidate.installationState
+            || current.isSynthetic != candidate.isSynthetic {
+            return current.refreshedAt > candidate.refreshedAt
+        }
         let currentGeneratedAt = current.sourceGeneratedAt ?? .distantPast
         let candidateGeneratedAt = candidate.sourceGeneratedAt ?? .distantPast
         if currentGeneratedAt != candidateGeneratedAt {

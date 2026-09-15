@@ -48,6 +48,8 @@ final class WidgetSnapshotModelTests: XCTestCase {
         XCTAssertNil(snapshot.latestMessage)
         XCTAssertNil(snapshot.systemHealth)
         XCTAssertNil(snapshot.activity)
+        XCTAssertNil(snapshot.summary?.installationState)
+        XCTAssertNil(snapshot.summary?.isSynthetic)
     }
 
     func testStatsSummaryUsesCombinedReviewCount() {
@@ -203,6 +205,43 @@ final class WidgetSnapshotModelTests: XCTestCase {
 
 final class WidgetRefreshCoordinatorTests: XCTestCase {
     private let referenceDate = Date(timeIntervalSince1970: 2_000_000_000)
+
+    func testInactiveEpochPersistsAndResumesWithoutLosingHistoricalSections() async throws {
+        let harness = try makeCoordinator()
+        defer { try? FileManager.default.removeItem(at: harness.directory) }
+        _ = try harness.store.write(.placeholder)
+        let initial = DemoData.statsSummary
+        func summary(_ state: InstallationState) -> StatsSummary {
+            StatsSummary(
+                booth: BoothStatus(
+                    state: .idle, updatedAt: Date(timeIntervalSince1970: 0),
+                    installationState: state, isSynthetic: true
+                ),
+                messages: initial.messages, calls: initial.calls, realtime: initial.realtime,
+                generatedAt: initial.generatedAt
+            )
+        }
+
+        let inactiveResult = await harness.coordinator.apply(stats: summary(.betweenExhibitions))
+        XCTAssertEqual(inactiveResult, .newData)
+        let inactive = try XCTUnwrap(harness.store.read())
+        XCTAssertEqual(inactive.summary?.installationState, .betweenExhibitions)
+        XCTAssertEqual(inactive.summary?.isSynthetic, true)
+        XCTAssertEqual(inactive.summary?.statusDate, referenceDate)
+        XCTAssertEqual(inactive.latestMessage, WidgetSnapshot.placeholder.latestMessage)
+        XCTAssertEqual(inactive.activity, WidgetSnapshot.placeholder.activity)
+        XCTAssertEqual(inactive.systemHealth, WidgetSnapshot.placeholder.systemHealth)
+
+        let failure = FakeWidgetDataClient(failingEndpoints: [.summary])
+        _ = await harness.coordinator.refresh(using: failure)
+        XCTAssertEqual(try harness.store.read()?.summary?.installationState, .betweenExhibitions)
+        _ = await harness.coordinator.apply(stats: initial)
+        XCTAssertEqual(try harness.store.read()?.summary?.installationState, .betweenExhibitions)
+        let resumedResult = await harness.coordinator.apply(stats: summary(.active))
+        XCTAssertEqual(resumedResult, .newData)
+        XCTAssertEqual(try harness.store.read()?.summary?.installationState, .active)
+        XCTAssertEqual(try harness.store.read()?.summary?.lifecycleTitle, "Waiting for booth")
+    }
 
     func testStatsUpdatePreservesOtherSections() async throws {
         let harness = try makeCoordinator()
