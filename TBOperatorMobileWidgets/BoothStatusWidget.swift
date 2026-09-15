@@ -253,11 +253,10 @@ struct BoothStatusWidgetView: View {
                 .privacySensitive()
             if stale {
                 WidgetStaleBadge()
-            } else {
-                summary.widgetStatusDetail
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
+            summary.widgetStatusDetail
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)

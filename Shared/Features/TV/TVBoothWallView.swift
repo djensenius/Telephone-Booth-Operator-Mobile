@@ -190,11 +190,13 @@ struct TVBoothWallView: View {
             }
         }
     }
-
     private func healthSummary(now: Date) -> TVWallHealth {
         if currentStatus?.isBetweenExhibitions == true {
             return TVWallHealth(
-                label: "Offline expected", detail: "Between exhibitions",
+                label: "Offline expected", detail: liveStore.systemEnvelope.map {
+                    "\(SystemVitals.formatTemperature($0.snapshot.cpuTemperatureCelsius)) CPU · "
+                        + "\(SystemVitals.formatPercent($0.snapshot.memoryUsedRatio)) memory"
+                } ?? "Between exhibitions",
                 systemImage: "pause.circle", tint: Theme.Colors.textSecondary
             )
         }
@@ -205,15 +207,13 @@ struct TVBoothWallView: View {
             boothId: envelope.boothId,
             now: now
         )
-        let telemetryIsStale =
-            now.timeIntervalSince(envelope.receivedAt) >= BoothStalenessThresholds.offlineSeconds
+        let telemetryIsStale = now.timeIntervalSince(envelope.receivedAt) >= BoothStalenessThresholds.offlineSeconds
         guard let severity = SystemVitals.overallSeverity(
             snapshot: snapshot,
             routerTemperature: routerTemperature,
             telemetryIsStale: telemetryIsStale
         ) else { return .waiting }
-        let label: String
-        let systemImage: String
+        let label: String, systemImage: String
         switch severity {
         case .nominal:
             (label, systemImage) = ("Nominal", "checkmark.circle.fill")
