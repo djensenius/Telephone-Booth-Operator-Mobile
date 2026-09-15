@@ -277,6 +277,7 @@ public enum BoothStalenessLevel: Sendable, Equatable {
     case fresh
     case warning
     case offline
+    case expectedDowntime
 }
 
 public enum BoothStalenessThresholds {
@@ -300,8 +301,10 @@ extension BoothStatusLiveStore.ConnectionState {
 /// ("Last seen 3m ago" / "Booth offline") or nil when fresh.
 public func boothStaleness(
     lastStatusAt: Date?,
-    now: Date = Date()
+    now: Date = Date(),
+    installationState: InstallationState? = nil
 ) -> (level: BoothStalenessLevel, label: String?) {
+    if installationState == .betweenExhibitions { return (.expectedDowntime, "Offline expected") }
     guard let last = lastStatusAt else { return (.fresh, nil) }
     let elapsed = now.timeIntervalSince(last)
     if elapsed < BoothStalenessThresholds.warningSeconds {
@@ -319,14 +322,18 @@ public func boothStaleness(
 /// while visible (via `TimelineView`).
 public struct BoothStalenessChip: View {
     public let lastStatusAt: Date?
+    public let installationState: InstallationState?
 
-    public init(lastStatusAt: Date?) {
+    public init(lastStatusAt: Date?, installationState: InstallationState? = nil) {
         self.lastStatusAt = lastStatusAt
+        self.installationState = installationState
     }
 
     public var body: some View {
         TimelineView(.periodic(from: .now, by: 10)) { context in
-            let staleness = boothStaleness(lastStatusAt: lastStatusAt, now: context.date)
+            let staleness = boothStaleness(
+                lastStatusAt: lastStatusAt, now: context.date, installationState: installationState
+            )
             if staleness.level != .fresh, let label = staleness.label {
                 HStack(spacing: 6) {
                     Circle()
@@ -351,6 +358,7 @@ public struct BoothStalenessChip: View {
         case .fresh: return Theme.Colors.success
         case .warning: return Theme.Colors.warning
         case .offline: return Theme.Colors.error
+        case .expectedDowntime: return Theme.Colors.textSecondary
         }
     }
 }

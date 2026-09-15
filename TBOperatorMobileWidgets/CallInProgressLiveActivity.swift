@@ -27,7 +27,7 @@ struct CallInProgressLiveActivity: Widget {
                         .foregroundStyle(.primary)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text(context.state.startedAt, style: .timer)
+                    elapsed(context.state)
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
                         .privacySensitive()
@@ -41,7 +41,7 @@ struct CallInProgressLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack {
-                        if let digits = context.state.digitsDialed {
+                        if context.state.showsCallTimer, let digits = context.state.digitsDialed {
                             Text(digits)
                                 .font(.caption.monospacedDigit())
                                 .foregroundStyle(.secondary)
@@ -57,16 +57,16 @@ struct CallInProgressLiveActivity: Widget {
                     }
                 }
             } compactLeading: {
-                Image(systemName: "phone.fill")
-                    .foregroundStyle(.green)
+                Image(systemName: context.state.showsCallTimer ? "phone.fill" : "pause.circle")
+                    .foregroundStyle(context.state.showsCallTimer ? Theme.Colors.success : Theme.Colors.textSecondary)
             } compactTrailing: {
-                Text(context.state.startedAt, style: .timer)
+                elapsed(context.state)
                     .monospacedDigit()
-                    .frame(width: 48)
+                    .frame(width: context.state.showsCallTimer ? 48 : nil)
                     .privacySensitive()
             } minimal: {
-                Image(systemName: "phone.fill")
-                    .foregroundStyle(.green)
+                Image(systemName: context.state.showsCallTimer ? "phone.fill" : "pause.circle")
+                    .foregroundStyle(context.state.showsCallTimer ? Theme.Colors.success : Theme.Colors.textSecondary)
             }
             .widgetURL(WidgetDeepLink.session(id: context.attributes.sessionId))
         }
@@ -77,9 +77,9 @@ struct CallInProgressLiveActivity: Widget {
         context: ActivityViewContext<CallInProgressAttributes>
     ) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: "phone.fill")
+            Image(systemName: context.state.showsCallTimer ? "phone.fill" : "pause.circle")
                 .font(.title2)
-                .foregroundStyle(.green)
+                .foregroundStyle(context.state.showsCallTimer ? Theme.Colors.success : Theme.Colors.textSecondary)
             VStack(alignment: .leading, spacing: 2) {
                 Text(context.attributes.boothName)
                     .font(.headline)
@@ -90,13 +90,17 @@ struct CallInProgressLiveActivity: Widget {
                     .privacySensitive()
             }
             Spacer()
-            Text(context.state.startedAt, style: .timer)
+            elapsed(context.state)
                 .font(.title3.monospacedDigit())
                 .foregroundStyle(.primary)
                 .privacySensitive()
         }
         .padding()
         .activityBackgroundTint(.black.opacity(0.7))
+    }
+
+    private func elapsed(_ state: CallInProgressAttributes.ContentState) -> Text {
+        state.showsCallTimer ? Text(state.startedAt, style: .timer) : Text("Offline expected")
     }
 }
 

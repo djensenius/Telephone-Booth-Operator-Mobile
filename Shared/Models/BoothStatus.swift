@@ -8,6 +8,37 @@
 
 import Foundation
 
+public enum InstallationState: Codable, Sendable, Hashable {
+    case active
+    case betweenExhibitions
+    case unknown(String)
+
+    public init(rawValue: String) {
+        switch rawValue {
+        case "active": self = .active
+        case "between_exhibitions": self = .betweenExhibitions
+        default: self = .unknown(rawValue)
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .active: return "active"
+        case .betweenExhibitions: return "between_exhibitions"
+        case .unknown(let value): return value
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        self.init(rawValue: try decoder.singleValueContainer().decode(String.self))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
 public enum BoothState: Codable, Sendable, Hashable {
     case idle
     case dialTone
@@ -94,6 +125,23 @@ public enum BoothState: Codable, Sendable, Hashable {
 }
 
 public struct BoothStatus: Codable, Sendable, Hashable {
+    public var installationState: InstallationState?
+    public let isSynthetic: Bool?
+
+    public var isBetweenExhibitions: Bool { installationState == .betweenExhibitions }
+    public var hasTelemetry: Bool { isSynthetic != true }
+    public var lifecycleTitle: String? {
+        if isBetweenExhibitions { return "Between exhibitions" }
+        return hasTelemetry ? nil : "Waiting for booth"
+    }
+    public var lifecycleDetail: String? {
+        if isBetweenExhibitions { return "Offline expected until the next installation is manually started." }
+        return hasTelemetry ? nil : "No booth telemetry for this installation yet."
+    }
+    public var liveActivityState: BoothState? {
+        isBetweenExhibitions || !hasTelemetry ? nil : state
+    }
+
     /// The operator's snapshot row id. Two runs of the same status can share a
     /// booth timestamp, so this is the only thing that reliably tells one row
     /// from another. Optional for operators that predate it; ids increase with
@@ -191,7 +239,9 @@ public struct BoothStatus: Codable, Sendable, Hashable {
             lastError: lastError,
             runtimeMode: runtimeMode,
             firstSeenAt: firstSeenAt,
-            repeatCount: count
+            repeatCount: count,
+            installationState: installationState,
+            isSynthetic: isSynthetic
         )
     }
 
@@ -204,7 +254,9 @@ public struct BoothStatus: Codable, Sendable, Hashable {
         lastError: String? = nil,
         runtimeMode: RuntimeMode? = nil,
         firstSeenAt: Date? = nil,
-        repeatCount: Int? = nil
+        repeatCount: Int? = nil,
+        installationState: InstallationState? = nil,
+        isSynthetic: Bool? = nil
     ) {
         self.id = id
         self.state = state
@@ -215,6 +267,8 @@ public struct BoothStatus: Codable, Sendable, Hashable {
         self.runtimeMode = runtimeMode
         self.firstSeenAt = firstSeenAt
         self.repeatCount = repeatCount
+        self.installationState = installationState
+        self.isSynthetic = isSynthetic
     }
 }
 

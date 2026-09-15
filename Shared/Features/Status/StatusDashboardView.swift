@@ -174,7 +174,8 @@ public struct StatusDashboardView: View {
             receivedAt: liveStore.systemEnvelope?.receivedAt,
             componentSources: liveStore.componentSources,
             boothId: liveStore.systemEnvelope?.boothId,
-            presentation: .full
+            presentation: .full,
+            installationState: currentStatus?.installationState
         )
         healthCard
         #if !os(watchOS) && !os(tvOS)
@@ -235,11 +236,17 @@ private struct DashboardOverviewCard: View {
     }
 
     private func statusRow(_ status: BoothStatus, now: Date) -> some View {
-        let isOffline = boothStaleness(lastStatusAt: status.updatedAt, now: now).level == .offline
-        let presentation = isOffline ? BoothStatePresentation.offline : status.state.dashboardPresentation
-        let tint = isOffline ? Theme.Colors.error : status.state.dashboardTint
-        let detail = isOffline ? "Waiting for fresh booth telemetry"
-            : "\(presentation.name) for " + DurationFormatter.compactString(from: status.heldSince, to: now)
+        let isOffline = boothStaleness(
+            lastStatusAt: status.hasTelemetry ? status.updatedAt : nil, now: now,
+            installationState: status.installationState
+        ).level == .offline
+        let presentation = status.lifecycleTitle.map {
+            BoothStatePresentation($0, $0, "pause.circle")
+        } ?? (isOffline ? BoothStatePresentation.offline : status.state.dashboardPresentation)
+        let tint = status.lifecycleTitle != nil ? Theme.Colors.textSecondary
+            : (isOffline ? Theme.Colors.error : status.state.dashboardTint)
+        let detail = status.lifecycleDetail ?? (isOffline ? "Waiting for fresh booth telemetry"
+            : "\(presentation.name) for " + DurationFormatter.compactString(from: status.heldSince, to: now))
         return HStack(alignment: .center, spacing: Theme.Spacing.medium) {
             BoothStateIcon(symbol: presentation.symbol, tint: tint)
             VStack(alignment: .leading, spacing: 2) {
@@ -253,7 +260,10 @@ private struct DashboardOverviewCard: View {
             }
             Spacer(minLength: Theme.Spacing.small)
             VStack(alignment: .trailing, spacing: 6) {
-                BoothStalenessChip(lastStatusAt: status.updatedAt)
+                BoothStalenessChip(
+                    lastStatusAt: status.hasTelemetry ? status.updatedAt : nil,
+                    installationState: status.installationState
+                )
                 RuntimeModeBadge(mode: status.runtimeMode)
             }
         }

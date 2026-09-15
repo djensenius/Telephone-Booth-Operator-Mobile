@@ -16,11 +16,119 @@ struct CallsTodayRefresh: Sendable {
 
 extension BoothStatusLiveStore {
 
+    nonisolated static func merging(
+        _ items: [BoothStatus],
+        into history: [BoothStatus],
+        limit: Int = 200
+    ) -> [BoothStatus] {
+        var history = stableOrdered(history)
+        if items.count > 1 {
+            history = replacing(history, withPage: items)
+        } else if let item = items.first {
+            history = inserting(item, into: history)
+        }
+        if history.count > limit {
+            history.removeFirst(history.count - limit)
+        }
+        return history
+    }
+
+    /// Splice a REST history page into the cache. It is the operator's own
+    /// ordered history, so it is authoritative
+    /// for the span it covers — merging it entry by entry would append the
+    /// whole page again whenever runs share a booth timestamp. Entries outside
+    /// the span are kept, and a run the socket already has fresher stays so.
+    private nonisolated static func replacing(
+        _ history: [BoothStatus],
+        withPage page: [BoothStatus]
+    ) -> [BoothStatus] {
+        let page = stableOrdered(oldestFirst(page))
+        guard let oldest = page.first, let newest = page.last else { return history }
+        // A run the socket has already advanced keeps that fresher view, and
+        // the cached row it came from is dropped from what is kept — a
+        // heartbeat can push it past the page's newest report, where it would
+        // otherwise be held twice.
+        var reused: Set<Int> = []
+        let freshest = page.map { item -> BoothStatus in
+            guard let index = history.firstIndex(where: {
+                $0.isSameRun(as: item) && supersedes($0, item)
+            }) else { return item }
+            reused.insert(index)
+            return history[index]
+        }
+        // Cached rows the page does not speak for: those ordered outside it,
+        // and those the operator inserted after generating it — a report
+        // delayed past the page's oldest entry is broadcast with a row id newer
+        // than anything in the page even though its booth timestamp falls
+        // inside the span.
+        let newestPageId = page.compactMap(\.id).max() ?? Int.min
+        let unclaimed = history.enumerated()
+            .filter { offset, row in
+                guard !reused.contains(offset) else { return false }
+                if precedes(row, oldest) || precedes(newest, row) { return true }
+                guard let id = row.id else {
+                    // A pre-collapse operator numbers nothing: the row is the
+                    // page's own only if the page holds it outright, or holds a
+                    // matching run where the row itself would sort.
+                    if page.contains(where: { $0 == row }) { return false }
+                    return !neighbours(of: row, in: page).contains { $0.isSameRun(as: row) }
+                }
+                return id > newestPageId
+            }
+            .map(\.element)
+        return ordered(freshest, unclaimed)
+    }
+
+    /// Fold a single report (a socket frame) into the cache.
+    private nonisolated static func inserting(
+        _ item: BoothStatus,
+        into history: [BoothStatus]
+    ) -> [BoothStatus] {
+        var history = history
+        // An identified row is the same run wherever it sits, but matching an
+        // id-less one by its window has to stay local: a short run can share a
+        // millisecond with the identical runs either side of it.
+        let insertion = history.firstIndex { precedes(item, $0) } ?? history.count
+        let held = item.id == nil ? neighbours(of: item, in: history) : history
+        if held.contains(where: { $0.isSameRun(as: item) && supersedes($0, item) }) {
+            return history
+        }
+        history.insert(item, at: insertion)
+        // Collapse only the entries sitting next to the inserted one. A run can
+        // be held several times over (a socket frame plus a REST refresh), but
+        // anything separated by a differing status is a distinct row: the booth
+        // supplies `updatedAt`, so a short run can share a millisecond with the
+        // identical runs around it, and removing those by value would erase a
+        // genuine transition.
+        var lower = insertion
+        while lower > 0, isDuplicate(history[lower - 1], of: item) { lower -= 1 }
+        var upper = insertion
+        while upper + 1 < history.count, isDuplicate(history[upper + 1], of: item) { upper += 1 }
+        if upper > insertion { history.removeSubrange((insertion + 1)...upper) }
+        if lower < insertion { history.removeSubrange(lower..<insertion) }
+        return history
+    }
+
+    /// Booth timestamps order reports; row ids break ties and repeat counts
+    /// distinguish a delayed extension of the same collapsed run.
+    nonisolated static func supersedes(_ held: BoothStatus, _ incoming: BoothStatus) -> Bool {
+        if held.updatedAt != incoming.updatedAt { return held.updatedAt > incoming.updatedAt }
+        if let heldId = held.id, let incomingId = incoming.id, heldId != incomingId {
+            return heldId > incomingId
+        }
+        guard held.isSameRun(as: incoming) else { return false }
+        return (held.repeatCount ?? 1) > (incoming.repeatCount ?? 1)
+    }
+
+    nonisolated static func isDuplicate(_ held: BoothStatus, of item: BoothStatus) -> Bool {
+        held == item || held.isSameRun(as: item)
+    }
+
     func fetchSummaryAndSessions() async -> CallsTodayRefresh {
         let client = self.client
         let localDayStartedAt = Calendar.current.startOfDay(for: Date())
-        prepareCallsToday(for: localDayStartedAt)
-        let knownSessionIDs = Set(callsTodaySessions.map(\.id))
+        let knownSessionIDs = callsTodayStartedAt == localDayStartedAt
+            ? Set(callsTodaySessions.map(\.id)) : []
         async let statsResult = attempt { try await client.fetchStatsSummary() }
         async let sessionsResult = attempt {
             try await client.fetchSessions(
@@ -33,7 +141,6 @@ extension BoothStatusLiveStore {
         var newSessions = await sessionsResult
         let dayStartedAt = newStats?.dayStartedAt ?? localDayStartedAt
         if dayStartedAt != localDayStartedAt {
-            prepareCallsToday(for: dayStartedAt)
             newSessions = await attempt {
                 try await client.fetchSessions(startedOnOrAfter: dayStartedAt)
             }
@@ -52,10 +159,10 @@ extension BoothStatusLiveStore {
         hasLoadedCallsToday = false
     }
 
-    func apply(_ summary: CallsTodayRefresh) {
+    func apply(_ summary: CallsTodayRefresh, reconcileLifecycle: Bool = true) {
         prepareCallsToday(for: summary.dayStartedAt)
         if let newStats = summary.stats {
-            applyStats(newStats)
+            applyStats(newStats, reconcileLifecycle: reconcileLifecycle)
         }
         if let sessions = summary.sessions {
             var sessionsByID = [String: CallSession]()

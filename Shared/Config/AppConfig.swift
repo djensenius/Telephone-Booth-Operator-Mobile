@@ -36,6 +36,14 @@ public final class AppConfig {
     public var apiBaseURL: URL {
         didSet {
             UserDefaults.standard.set(apiBaseURL.absoluteString, forKey: Self.apiBaseDefaultsKey)
+            if oldValue != apiBaseURL {
+                WidgetRefreshCoordinator.invalidateAPIBase()
+                PendingMessagesStore.shared.resetForAPIChange()
+                BoothStatusLiveStore.shared.synchronizeAPIBase()
+                #if canImport(ActivityKit) && !os(macOS)
+                LiveActivityEventObserver.shared.restartForAPIChange()
+                #endif
+            }
             logger.info("apiBaseURL updated to \(self.apiBaseURL.absoluteString, privacy: .public)")
         }
     }

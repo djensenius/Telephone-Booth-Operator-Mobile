@@ -27,6 +27,7 @@ public struct SignedInRootView: View {
     public var body: some View {
         #if os(watchOS)
         WatchHomeView(client: client, navigationStore: navigationStore)
+            .boothStatusLive(client.demoMode ? .demo : .shared)
             .liveActivityObserver()
         #else
         OperatorShell(
@@ -83,6 +84,7 @@ private struct OperatorShell: View {
         tabView
         .tabViewStyle(.sidebarAdaptable)
         .tint(Theme.Colors.accent)
+        .boothStatusLive(client.demoMode ? .demo : .shared)
         .liveActivityObserver()
         .environment(currentUser)
         .task { pending.startPolling(using: client) }

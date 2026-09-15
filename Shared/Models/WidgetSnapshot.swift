@@ -24,6 +24,15 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         public let runtimeMode: RuntimeMode?
         public let sourceGeneratedAt: Date?
         public let refreshedAt: Date
+        public var installationState: InstallationState?
+        public let isSynthetic: Bool?
+
+        public var isBetweenExhibitions: Bool { installationState == .betweenExhibitions }
+        public var lifecycleTitle: String? {
+            if isBetweenExhibitions { return "Between exhibitions" }
+            return isSynthetic == true ? "Waiting for booth" : nil
+        }
+        public var statusDate: Date { isSynthetic == true ? refreshedAt : boothUpdatedAt }
 
         public init(
             boothState: BoothState,
@@ -35,7 +44,9 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             wsClients: Int,
             runtimeMode: RuntimeMode?,
             sourceGeneratedAt: Date? = nil,
-            refreshedAt: Date
+            refreshedAt: Date,
+            installationState: InstallationState? = nil,
+            isSynthetic: Bool? = nil
         ) {
             self.boothState = boothState
             self.boothUpdatedAt = boothUpdatedAt
@@ -47,6 +58,8 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             self.runtimeMode = runtimeMode
             self.sourceGeneratedAt = sourceGeneratedAt
             self.refreshedAt = refreshedAt
+            self.installationState = installationState
+            self.isSynthetic = isSynthetic
         }
 
         public init(stats: StatsSummary, refreshedAt: Date? = nil) {
@@ -60,7 +73,20 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
                 wsClients: stats.realtime.wsClients,
                 runtimeMode: stats.booth.runtimeMode,
                 sourceGeneratedAt: stats.generatedAt,
-                refreshedAt: refreshedAt ?? stats.generatedAt
+                refreshedAt: refreshedAt ?? stats.generatedAt,
+                installationState: stats.booth.installationState,
+                isSynthetic: stats.booth.isSynthetic
+            )
+        }
+
+        public func replacingCounts(with stats: StatsSummary) -> Self {
+            Self(
+                boothState: boothState, boothUpdatedAt: boothUpdatedAt,
+                pendingMessages: stats.messages.badgeCount, receivedToday: stats.messages.receivedToday,
+                interactionsToday: stats.interactionsToday, interactionsInProgress: stats.interactionsInProgress,
+                wsClients: stats.realtime.wsClients, runtimeMode: runtimeMode,
+                sourceGeneratedAt: sourceGeneratedAt, refreshedAt: refreshedAt,
+                installationState: installationState, isSynthetic: isSynthetic
             )
         }
 
@@ -73,6 +99,8 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
                 && interactionsInProgress == other.interactionsInProgress
                 && wsClients == other.wsClients
                 && runtimeMode == other.runtimeMode
+                && installationState == other.installationState
+                && isSynthetic == other.isSynthetic
         }
     }
 
@@ -190,8 +218,10 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
 
         public func effectiveSeverity(
             at date: Date,
-            staleAfter interval: TimeInterval = WidgetSnapshot.sourceStaleInterval
+            staleAfter interval: TimeInterval = WidgetSnapshot.sourceStaleInterval,
+            installationState: InstallationState? = nil
         ) -> HealthSeverity {
+            if installationState == .betweenExhibitions { return .unknown }
             guard date.timeIntervalSince(sourceUpdatedAt) >= interval else {
                 return severity
             }

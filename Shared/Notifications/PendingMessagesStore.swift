@@ -27,7 +27,7 @@ import os
 public final class PendingMessagesStore {
     public static let shared = PendingMessagesStore()
     typealias BadgeSetter = @Sendable (Int) async throws -> Void
-    typealias WidgetStatsApplier = @Sendable (StatsSummary) async -> Void
+    typealias WidgetStatsApplier = @Sendable (StatsSummary, UInt) async -> Void
 
     /// Number of messages awaiting moderation — the badge value.
     public private(set) var pendingCount: Int = 0
@@ -40,6 +40,7 @@ public final class PendingMessagesStore {
     /// How often the poll loop refreshes while the shell is visible.
     private let pollInterval: Duration = .seconds(25)
     private var pollingTask: Task<Void, Never>?
+    private var pollingClient: OperatorClient?
     private var countRevision: UInt = 0
     private let badgeSetter: BadgeSetter
     private let widgetStatsApplier: WidgetStatsApplier
@@ -52,14 +53,15 @@ public final class PendingMessagesStore {
         self.widgetStatsApplier = widgetStatsApplier
     }
 
-    nonisolated static func applyWidgetStats(_ stats: StatsSummary) async {
-        _ = await WidgetRefreshCoordinator.shared.apply(stats: stats)
+    nonisolated static func applyWidgetStats(_ stats: StatsSummary, apiRevision: UInt) async {
+        _ = await WidgetRefreshCoordinator.shared.applyCounts(stats: stats, apiRevision: apiRevision)
     }
 
     /// Starts the background poll loop. Idempotent: a second call while a
     /// loop is already running (e.g. a second iPad window) is a no-op.
     public func startPolling(using client: OperatorClient) {
         if let pollingTask, !pollingTask.isCancelled { return }
+        pollingClient = client
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.refresh(using: client)
@@ -76,9 +78,22 @@ public final class PendingMessagesStore {
     public func stopPolling() {
         pollingTask?.cancel()
         pollingTask = nil
+        pollingClient = nil
+        clearCount()
+    }
+
+    func resetForAPIChange() {
+        let client = pollingClient
+        pollingTask?.cancel()
+        pollingTask = nil
+        clearCount()
+        if let client { startPolling(using: client) }
+    }
+
+    private func clearCount() {
         countRevision &+= 1
-        let revision = countRevision
-        Task { await applyCount(0, stats: nil, revision: revision) }
+        pendingCount = 0
+        Task { await setApplicationBadge(pendingCount, revision: countRevision) }
     }
 
     /// Fetches the latest count once and updates the badge + widget snapshot.
@@ -89,9 +104,10 @@ public final class PendingMessagesStore {
     func refresh(fetchStats: () async throws -> StatsSummary) async {
         countRevision &+= 1
         let revision = countRevision
+        let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
         do {
             let stats = try await fetchStats()
-            await applyCount(stats.messages.badgeCount, stats: stats, revision: revision)
+            await applyCount(stats.messages.badgeCount, stats: stats, revision: revision, apiRevision: apiRevision)
         } catch {
             // Transient failures (offline, token refresh) are expected; keep
             // the last known count rather than zeroing the badge.
@@ -105,12 +121,15 @@ public final class PendingMessagesStore {
         await applyCount(max(0, count), stats: nil, revision: revision)
     }
 
-    private func applyCount(_ count: Int, stats: StatsSummary?, revision: UInt) async {
-        guard revision == countRevision else { return }
+    private func applyCount(
+        _ count: Int, stats: StatsSummary?, revision: UInt,
+        apiRevision: UInt = WidgetRefreshCoordinator.currentAPIRevision
+    ) async {
+        guard revision == countRevision, apiRevision == WidgetRefreshCoordinator.currentAPIRevision else { return }
         pendingCount = count
         if let stats {
-            await widgetStatsApplier(stats)
-            guard revision == countRevision else { return }
+            await widgetStatsApplier(stats, apiRevision)
+            guard revision == countRevision, apiRevision == WidgetRefreshCoordinator.currentAPIRevision else { return }
         }
         await setApplicationBadge(count, revision: revision)
     }

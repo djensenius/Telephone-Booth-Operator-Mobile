@@ -21,7 +21,38 @@ private let logger = Logger(
 public final class LiveActivityManager {
     public static let shared = LiveActivityManager()
 
-    private init() {}
+    typealias ActivityRequest = (
+        CallInProgressAttributes, ActivityContent<CallInProgressAttributes.ContentState>
+    ) throws -> String
+    private let activitiesEnabled: () -> Bool
+    private let requestActivity: ActivityRequest
+    private let endActivities: (InstallationState?) -> Void
+
+    init(
+        activitiesEnabled: @escaping () -> Bool = { ActivityAuthorizationInfo().areActivitiesEnabled },
+        requestActivity: @escaping ActivityRequest = { attributes, content in
+            try Activity.request(attributes: attributes, content: content, pushType: nil).id
+        },
+        endActivities: @escaping (InstallationState?) -> Void = { state in
+            LiveActivityManager.endAllActivities(installationState: state)
+        }
+    ) {
+        self.activitiesEnabled = activitiesEnabled
+        self.requestActivity = requestActivity
+        self.endActivities = endActivities
+    }
+    public private(set) var installationState: InstallationState?
+
+    public func setInstallationState(_ state: InstallationState?) {
+        guard let state else { return }
+        installationState = state
+        if state == .betweenExhibitions { endAll(installationState: state) }
+    }
+
+    func resetInstallationState(_ state: InstallationState?) {
+        installationState = state
+        endAll(installationState: state)
+    }
 
     // MARK: - Public API
 
@@ -34,7 +65,8 @@ public final class LiveActivityManager {
         startedAt: Date,
         digitsDialed: String? = nil
     ) {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+        guard installationState != .betweenExhibitions else { return }
+        guard activitiesEnabled() else {
             logger.info("Live Activities disabled by user; skipping start")
             return
         }
@@ -67,13 +99,9 @@ public final class LiveActivityManager {
 
         do {
             let content = ActivityContent(state: state, staleDate: nil)
-            let activity = try Activity.request(
-                attributes: attributes,
-                content: content,
-                pushType: nil
-            )
+            let activityID = try requestActivity(attributes, content)
             logger.info(
-                "Started Live Activity \(activity.id, privacy: .public) for session \(sessionId, privacy: .public)"
+                "Started Live Activity \(activityID, privacy: .public) for session \(sessionId, privacy: .public)"
             )
         } catch {
             logger.error("Failed to start Live Activity: \(error.localizedDescription, privacy: .public)")
@@ -87,6 +115,7 @@ public final class LiveActivityManager {
         boothState: String,
         digitsDialed: String? = nil
     ) {
+        guard installationState != .betweenExhibitions else { return }
         guard let activity = Self.existingActivity(sessionId: sessionId) else {
             logger.debug("No active Live Activity for session \(sessionId, privacy: .public); ignoring update")
             return
@@ -127,7 +156,11 @@ public final class LiveActivityManager {
     }
 
     /// Ends all running call activities. Useful on sign-out or app reset.
-    public func endAll() {
+    public func endAll(installationState: InstallationState? = nil) {
+        endActivities(installationState)
+    }
+
+    private static func endAllActivities(installationState: InstallationState?) {
         let activeSessions = Activity<CallInProgressAttributes>.activities.map {
             (sessionId: $0.attributes.sessionId, state: $0.content.state)
         }
@@ -136,7 +169,12 @@ public final class LiveActivityManager {
             Task {
                 await Self.endActivity(
                     sessionId: activeSession.sessionId,
-                    state: activeSession.state,
+                    state: CallInProgressAttributes.ContentState(
+                        boothState: activeSession.state.boothState,
+                        startedAt: activeSession.state.startedAt,
+                        digitsDialed: activeSession.state.digitsDialed,
+                        installationState: installationState
+                    ),
                     dismissalPolicy: .immediate
                 )
             }

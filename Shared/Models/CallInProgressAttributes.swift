@@ -26,19 +26,24 @@ public struct CallInProgressAttributes: ActivityAttributes, Sendable {
         public let boothState: String
         public let startedAt: Date
         public let digitsDialed: String?
+        public let installationState: InstallationState?
+        public var showsCallTimer: Bool { installationState != .betweenExhibitions }
 
         public init(
             boothState: String,
             startedAt: Date,
-            digitsDialed: String? = nil
+            digitsDialed: String? = nil,
+            installationState: InstallationState? = nil
         ) {
             self.boothState = boothState
             self.startedAt = startedAt
             self.digitsDialed = digitsDialed
+            self.installationState = installationState
         }
 
         /// Human-readable label for the current booth state.
         public var stateDisplayName: String {
+            if installationState == .betweenExhibitions { return "Between exhibitions" }
             var words: [String] = []
             var currentWord = ""
 
