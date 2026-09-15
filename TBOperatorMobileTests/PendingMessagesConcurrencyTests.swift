@@ -73,7 +73,7 @@ final class PendingMessagesConcurrencyTests: XCTestCase {
             readSnapshot: { snapshot.withLock { $0 } },
             writeSnapshot: { updated in snapshot.withLock { $0 = updated }; return true }
         )
-        let observedAt = Date()
+        let observedAt = Date().addingTimeInterval(-10)
         let inactive = statsSummary(awaitingModeration: 2, booth: BoothStatus(
             state: .idle, updatedAt: Date(timeIntervalSince1970: 0),
             installationState: .betweenExhibitions, isSynthetic: true
@@ -88,11 +88,18 @@ final class PendingMessagesConcurrencyTests: XCTestCase {
         XCTAssertEqual(snapshot.withLock { $0?.summary?.pendingMessages }, 7)
         XCTAssertEqual(snapshot.withLock { $0?.summary?.installationState }, .betweenExhibitions)
         XCTAssertEqual(LiveActivityManager.shared.installationState, .betweenExhibitions)
+        XCTAssertEqual(snapshot.withLock { $0?.summary?.refreshedAt }, observedAt)
+        XCTAssertEqual(snapshot.withLock { $0?.summary?.sourceGeneratedAt }, inactive.generatedAt)
         _ = await coordinator.apply(
             stats: active, systemEnvelope: nil, components: [],
             observedAt: observedAt.addingTimeInterval(-1)
         )
         XCTAssertEqual(snapshot.withLock { $0?.summary?.installationState }, .betweenExhibitions)
+        _ = await coordinator.apply(
+            stats: active, systemEnvelope: nil, components: [],
+            observedAt: observedAt.addingTimeInterval(1)
+        )
+        XCTAssertEqual(snapshot.withLock { $0?.summary?.installationState }, .active)
     }
 
     func testOldSocketFrameIsDiscardedAtAPIBoundary() {
@@ -100,7 +107,10 @@ final class PendingMessagesConcurrencyTests: XCTestCase {
         defer { AppConfig.shared.apiBaseURL = previousURL }
         let store = BoothStatusLiveStore(client: .demo)
         store.applyStats(statsSummary(awaitingModeration: 2))
+        BoothStatusLiveStore.shared.applyStats(statsSummary(awaitingModeration: 2))
         AppConfig.shared.apiBaseURL = previousURL.appendingPathComponent("different-api")
+        XCTAssertNil(BoothStatusLiveStore.shared.stats, "API changes must clear data before any poll or frame")
+        XCTAssertNil(BoothStatusLiveStore.shared.status)
         store.apply(.status(BoothStatus(state: .recording, updatedAt: .now)))
         XCTAssertNil(store.status)
         XCTAssertNil(store.stats)

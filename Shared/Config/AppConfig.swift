@@ -38,6 +38,7 @@ public final class AppConfig {
             UserDefaults.standard.set(apiBaseURL.absoluteString, forKey: Self.apiBaseDefaultsKey)
             if oldValue != apiBaseURL {
                 WidgetRefreshCoordinator.invalidateAPIBase()
+                BoothStatusLiveStore.shared.synchronizeAPIBase()
                 #if canImport(ActivityKit) && !os(macOS)
                 LiveActivityEventObserver.shared.restartForAPIChange()
                 #endif
