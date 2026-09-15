@@ -2,11 +2,7 @@
 //  TVSystemView.swift
 //  TelephoneBoothOperatorMobile
 //
-//  Big-screen System dashboard for tvOS. Read-only by design. Uses the
-//  `TVDashboardKit` scaffold so the whole thing scrolls (each card is
-//  focusable) and stays inside the title-safe area — fixing the previous
-//  build where content ran under the sidebar and off the bottom with no
-//  way to reach the CPU cores, memory, disks, etc.
+//  Read-only System dashboard with scrollable, focusable cards.
 //
 
 #if os(tvOS)
@@ -22,6 +18,11 @@ struct TVSystemView: View {
 
     var body: some View {
         TVScreen(title: "System", systemImage: "cpu", accessory: { accessory }, content: {
+            if liveStore.status?.isBetweenExhibitions == true {
+                Text("Between exhibitions. Offline expected; showing last reported data.")
+                    .font(TVMetrics.Font.body)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+            }
             if let envelope = liveStore.systemEnvelope {
                 content(envelope: envelope)
             } else if let error = liveStore.lastError {

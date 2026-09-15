@@ -60,7 +60,7 @@ change, including same-host path and port changes that do not require sign-out.
 Invalidation and snapshot writes share a synchronous revision boundary; delayed
 refreshes and queued updates from the previous API cannot overwrite the new cache.
 
-Shared dashboards use neutral **Between exhibitions / Offline expected**
+All platform dashboards use neutral **Between exhibitions / Offline expected**
 presentation during confirmed downtime, retaining metrics and historical data.
 An active synthetic status says **Waiting for booth**, not Idle, and never
 displays an epoch timestamp. API connection and authentication errors remain

@@ -148,11 +148,11 @@ struct OperatorDashboardWidgetView: View {
     private var compactBooth: some View {
         if let summary = entry.summaryState.value {
             VStack(alignment: .leading, spacing: 6) {
-                Label("Booth", systemImage: summary.boothState.widgetSymbol)
+                Label("Booth", systemImage: summary.widgetSymbol)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(summary.boothState.widgetTint)
+                    .foregroundStyle(summary.widgetTint)
                     .widgetAccentable()
-                Text(summary.boothState.widgetDisplayName)
+                Text(summary.widgetDisplayName)
                     .font(.title3.weight(.semibold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.65)
@@ -161,10 +161,7 @@ struct OperatorDashboardWidgetView: View {
                     RuntimeModeBadge(mode: mode)
                 }
                 Spacer(minLength: 0)
-                WidgetUpdatedFooter(
-                    date: entry.summaryState.asOf ?? summary.boothUpdatedAt,
-                    stale: entry.summaryState.isStale
-                )
+                WidgetBoothFooter(summary: summary, stale: entry.summaryState.isStale)
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
         } else {
@@ -175,10 +172,10 @@ struct OperatorDashboardWidgetView: View {
     @ViewBuilder
     private var compactHealth: some View {
         if let health = entry.systemHealthState.value {
-            let severity = health.effectiveSeverity(at: entry.date)
+            let severity = health.effectiveSeverity(at: entry.date, installationState: entry.installationState)
             WidgetStatusBlock(
                 label: "System",
-                value: severity.displayName,
+                value: entry.healthDisplayName(severity),
                 systemImage: severity.symbolName,
                 tint: severity.tint,
                 privacySensitive: false,
@@ -217,17 +214,17 @@ struct OperatorDashboardWidgetView: View {
     private var boothHeader: some View {
         if let summary = entry.summaryState.value {
             HStack(spacing: 10) {
-                Image(systemName: summary.boothState.widgetSymbol)
+                Image(systemName: summary.widgetSymbol)
                     .font(.title.weight(.semibold))
-                    .foregroundStyle(summary.boothState.widgetTint)
+                    .foregroundStyle(summary.widgetTint)
                     .widgetAccentable()
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(summary.boothState.widgetDisplayName)
+                    Text(summary.widgetDisplayName)
                         .font(.title2.weight(.semibold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                         .privacySensitive()
-                    Text(summary.boothUpdatedAt, style: .relative)
+                    summary.widgetStatusDetail
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     if let staleAsOf = entry.summaryState.staleAsOf {
@@ -250,12 +247,12 @@ struct OperatorDashboardWidgetView: View {
     @ViewBuilder
     private var severityChip: some View {
         if let health = entry.systemHealthState.value {
-            let severity = health.effectiveSeverity(at: entry.date)
-            Label(severity.displayName, systemImage: severity.symbolName)
+            let severity = health.effectiveSeverity(at: entry.date, installationState: entry.installationState)
+            Label(entry.healthDisplayName(severity), systemImage: severity.symbolName)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(severity.tint)
                 .widgetAccentable()
-                .accessibilityLabel("System \(severity.displayName)")
+                .accessibilityLabel("System \(entry.healthDisplayName(severity))")
         }
     }
 

@@ -284,6 +284,14 @@ struct TVCallsTodayCard: View {
 // MARK: - Playlist builder
 
 enum TVScreensaverPlaylist {
+    static func isCurrent(_ item: TVSpotlight, status: BoothStatus?) -> Bool {
+        switch item.id {
+        case "status": return isHappening(status?.liveActivityState ?? .idle)
+        case "installation": return status?.isBetweenExhibitions == true
+        default: return true
+        }
+    }
+
     /// Assemble the spotlight sequence from the latest live data. Only items
     /// with meaningful data are included, and booth status is added *only when
     /// something is happening* (never the idle state).
@@ -294,7 +302,10 @@ enum TVScreensaverPlaylist {
     ) -> [TVSpotlight] {
         var items: [TVSpotlight] = []
 
-        if let status, let statusItem = statusSpotlight(for: status.state) {
+        if status?.isBetweenExhibitions == true {
+            items.append(metric("installation", "Between exhibitions", "Offline expected", "pause.circle"))
+        }
+        if let state = status?.liveActivityState, let statusItem = statusSpotlight(for: state) {
             items.append(statusItem)
         }
 
@@ -317,7 +328,7 @@ enum TVScreensaverPlaylist {
                 metric("calls-today", "\(stats.interactionsToday)", "Pickups today", "phone.fill")
             )
         }
-        if stats.interactionsInProgress > 0 {
+        if !stats.booth.isBetweenExhibitions, stats.interactionsInProgress > 0 {
             items.append(
                 metric(
                     "in-progress",

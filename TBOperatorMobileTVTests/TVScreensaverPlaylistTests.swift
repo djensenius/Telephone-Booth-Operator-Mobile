@@ -7,11 +7,56 @@
 //  state does, and zero-value stats are omitted from the playlist.
 //
 
+import SwiftUI
+import UIKit
 import XCTest
 @testable import TBOperatorMobileTV
 
 final class TVScreensaverPlaylistTests: XCTestCase {
     private let activeStates = BoothState.knownCases.filter { $0 != .idle }
+
+    func testLifecycleChangeRetiresStaleAmbientCards() throws {
+        let active = BoothStatus(state: .recording, updatedAt: .now, installationState: .active)
+        let inactive = BoothStatus(
+            state: .idle, updatedAt: Date(timeIntervalSince1970: 0),
+            installationState: .betweenExhibitions, isSynthetic: true
+        )
+        let statusCard = try XCTUnwrap(TVScreensaverPlaylist.build(
+            status: active, stats: nil, overview: nil
+        ).first)
+        let installationCard = try XCTUnwrap(TVScreensaverPlaylist.build(
+            status: inactive, stats: nil, overview: nil
+        ).first)
+        XCTAssertTrue(TVScreensaverPlaylist.isCurrent(statusCard, status: active))
+        XCTAssertFalse(TVScreensaverPlaylist.isCurrent(statusCard, status: inactive))
+        XCTAssertTrue(TVScreensaverPlaylist.isCurrent(installationCard, status: inactive))
+        XCTAssertFalse(TVScreensaverPlaylist.isCurrent(installationCard, status: active))
+    }
+
+    func testInactiveOverridesStaleRecordingAndKeepsNeutralAmbientCard() {
+        let status = BoothStatus(
+            state: .recording, updatedAt: Date(timeIntervalSince1970: 0),
+            installationState: .betweenExhibitions, isSynthetic: true
+        )
+        let items = TVScreensaverPlaylist.build(status: status, stats: nil, overview: nil)
+        XCTAssertFalse(items.contains { $0.id == "status" })
+        XCTAssertTrue(items.contains { $0.id == "installation" })
+        let staleness = boothStaleness(
+            lastStatusAt: status.updatedAt, installationState: status.installationState
+        )
+        let presentation = tvBoothPresentation(
+            state: status.state, staleness: staleness.level, isSynthetic: true
+        )
+        XCTAssertEqual(presentation.headline, "Between exhibitions")
+        let traits = UITraitCollection(userInterfaceStyle: .dark)
+        XCTAssertEqual(
+            UIColor(presentation.tint).resolvedColor(with: traits),
+            UIColor(Theme.Colors.textSecondary).resolvedColor(with: traits)
+        )
+        XCTAssertEqual(tvBoothPresentation(
+            state: .idle, staleness: .fresh, isSynthetic: true
+        ).headline, "Waiting for booth")
+    }
 
     // MARK: - isHappening
 
