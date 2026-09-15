@@ -394,11 +394,13 @@ public final class BoothStatusLiveStore {
         guard !demoMode, !config.isDemoMode, let stats else { return }
         let systemEnvelope = self.systemEnvelope
         let componentSources = self.componentSources
+        let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
         Task {
             await WidgetRefreshCoordinator.shared.apply(
                 stats: stats,
                 systemEnvelope: systemEnvelope,
-                components: componentSources
+                components: componentSources,
+                apiRevision: apiRevision
             )
         }
     }

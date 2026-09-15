@@ -57,6 +57,8 @@ clears the previous server's data and Live Activities and restores only the new
 URL's cached lifecycle, if any.
 Widget snapshots and the coordinator cache are also cleared for every base-URL
 change, including same-host path and port changes that do not require sign-out.
+Invalidation and snapshot writes share a synchronous revision boundary; delayed
+refreshes and queued updates from the previous API cannot overwrite the new cache.
 
 Shared dashboards use neutral **Between exhibitions / Offline expected**
 presentation during confirmed downtime, retaining metrics and historical data.

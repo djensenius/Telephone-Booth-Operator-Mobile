@@ -219,15 +219,37 @@ final class WidgetRefreshCoordinatorTests: XCTestCase {
             generatedAt: referenceDate
         )
         _ = await harness.coordinator.apply(stats: inactive)
-        await harness.coordinator.resetForAPIChange()
-        XCTAssertNil(try harness.store.read())
+        WidgetRefreshCoordinator.invalidateAPIBase()
         _ = await harness.coordinator.apply(stats: initial)
         XCTAssertNil(try harness.store.read()?.summary?.installationState)
 
         _ = await harness.coordinator.apply(stats: inactive)
-        await harness.coordinator.resetForAPIChange()
+        WidgetRefreshCoordinator.invalidateAPIBase()
         _ = await harness.coordinator.refresh(using: FakeWidgetDataClient())
         XCTAssertNil(try harness.store.read()?.summary?.installationState)
+    }
+
+    func testAPIInvalidationRejectsOldRefreshWithoutErasingNewSnapshot() async throws {
+        let harness = try makeCoordinator()
+        defer { try? FileManager.default.removeItem(at: harness.directory) }
+        let gate = WidgetSummaryGate()
+        let oldRevision = WidgetRefreshCoordinator.currentAPIRevision
+        let refresh = Task {
+            await harness.coordinator.refresh(using: FakeWidgetDataClient(summaryGate: gate))
+        }
+        await gate.waitForRequest()
+        WidgetRefreshCoordinator.invalidateAPIBase()
+        _ = await harness.coordinator.apply(stats: DemoData.statsSummary)
+        let current = try harness.store.read()
+        await gate.release()
+        let oldResult = await refresh.value
+        XCTAssertEqual(oldResult, .failed)
+        let delayedApply = await harness.coordinator.apply(
+            stats: DemoData.statsSummary, systemEnvelope: nil, components: [], apiRevision: oldRevision
+        )
+        XCTAssertEqual(delayedApply, .failed)
+        XCTAssertEqual(try harness.store.read(), current)
+        XCTAssertNotNil(current)
     }
 
     func testInactiveEpochPersistsAndResumesWithoutLosingHistoricalSections() async throws {
@@ -427,9 +449,11 @@ private struct FakeWidgetDataClient: WidgetDataFetching {
     var components = DemoData.systemComponentSources
     var activity = DemoData.statsOverview(window: .last24h)
     var failingEndpoints: Set<Endpoint> = []
+    var summaryGate: WidgetSummaryGate?
 
     func fetchStatsSummary(timeZone: TimeZone) async throws -> StatsSummary {
-        try result(summary, endpoint: .summary)
+        if let summaryGate { await summaryGate.wait() }
+        return try result(summary, endpoint: .summary)
     }
 
     func fetchStatsOverview(window: StatsWindow) async throws -> StatsOverview {

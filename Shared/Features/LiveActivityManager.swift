@@ -21,7 +21,26 @@ private let logger = Logger(
 public final class LiveActivityManager {
     public static let shared = LiveActivityManager()
 
-    private init() {}
+    typealias ActivityRequest = (
+        CallInProgressAttributes, ActivityContent<CallInProgressAttributes.ContentState>
+    ) throws -> String
+    private let activitiesEnabled: () -> Bool
+    private let requestActivity: ActivityRequest
+    private let endActivities: (InstallationState?) -> Void
+
+    init(
+        activitiesEnabled: @escaping () -> Bool = { ActivityAuthorizationInfo().areActivitiesEnabled },
+        requestActivity: @escaping ActivityRequest = { attributes, content in
+            try Activity.request(attributes: attributes, content: content, pushType: nil).id
+        },
+        endActivities: @escaping (InstallationState?) -> Void = { state in
+            LiveActivityManager.endAllActivities(installationState: state)
+        }
+    ) {
+        self.activitiesEnabled = activitiesEnabled
+        self.requestActivity = requestActivity
+        self.endActivities = endActivities
+    }
     public private(set) var installationState: InstallationState?
 
     public func setInstallationState(_ state: InstallationState?) {
@@ -47,7 +66,7 @@ public final class LiveActivityManager {
         digitsDialed: String? = nil
     ) {
         guard installationState != .betweenExhibitions else { return }
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+        guard activitiesEnabled() else {
             logger.info("Live Activities disabled by user; skipping start")
             return
         }
@@ -80,13 +99,9 @@ public final class LiveActivityManager {
 
         do {
             let content = ActivityContent(state: state, staleDate: nil)
-            let activity = try Activity.request(
-                attributes: attributes,
-                content: content,
-                pushType: nil
-            )
+            let activityID = try requestActivity(attributes, content)
             logger.info(
-                "Started Live Activity \(activity.id, privacy: .public) for session \(sessionId, privacy: .public)"
+                "Started Live Activity \(activityID, privacy: .public) for session \(sessionId, privacy: .public)"
             )
         } catch {
             logger.error("Failed to start Live Activity: \(error.localizedDescription, privacy: .public)")
@@ -142,6 +157,10 @@ public final class LiveActivityManager {
 
     /// Ends all running call activities. Useful on sign-out or app reset.
     public func endAll(installationState: InstallationState? = nil) {
+        endActivities(installationState)
+    }
+
+    private static func endAllActivities(installationState: InstallationState?) {
         let activeSessions = Activity<CallInProgressAttributes>.activities.map {
             (sessionId: $0.attributes.sessionId, state: $0.content.state)
         }

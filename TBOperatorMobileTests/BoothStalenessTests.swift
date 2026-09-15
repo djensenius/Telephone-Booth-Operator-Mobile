@@ -203,14 +203,24 @@ final class InstallationLifecycleTests: XCTestCase {
 
     @MainActor
     func testInactivePreventsLiveActivityStartsUntilExplicitActive() {
-        let manager = LiveActivityManager.shared
-        defer { manager.setInstallationState(.active) }
+        var requests = 0
+        var ended: [InstallationState?] = []
+        let manager = LiveActivityManager(activitiesEnabled: { true }, requestActivity: { _, _ in
+            requests += 1
+            return "test-activity"
+        }, endActivities: { ended.append($0) })
         manager.setInstallationState(.betweenExhibitions)
         manager.setInstallationState(nil)
+        XCTAssertEqual(ended, [.betweenExhibitions])
         manager.callStarted(sessionId: "inactive-test", boothName: "Test", boothState: "recording", startedAt: now)
         XCTAssertEqual(manager.installationState, .betweenExhibitions)
+        XCTAssertEqual(requests, 0)
         manager.setInstallationState(.active)
         XCTAssertEqual(manager.installationState, .active)
+        manager.callStarted(sessionId: "active-test", boothName: "Test", boothState: "recording", startedAt: now)
+        XCTAssertEqual(requests, 1)
+        manager.setInstallationState(.betweenExhibitions)
+        XCTAssertEqual(ended, [.betweenExhibitions, .betweenExhibitions])
     }
 
     private func inactive() throws -> BoothStatus {
@@ -390,6 +400,51 @@ private final class LifecycleURLProtocol: URLProtocol {
         } catch {
             client?.urlProtocol(self, didFailWithError: error)
         }
+    }
+}
+
+final class WidgetWriteThrottleTests: XCTestCase {
+    func testSkippedWriteDoesNotMoveFreshnessDeadline() async {
+        let clock = OSAllocatedUnfairLock(initialState: Date(timeIntervalSince1970: 2_000_000_000))
+        let writes = OSAllocatedUnfairLock(initialState: 0)
+        let coordinator = WidgetRefreshCoordinator(
+            readSnapshot: { nil },
+            writeSnapshot: { _ in
+                writes.withLock { $0 += 1 }
+                return true
+            },
+            now: { clock.withLock { $0 } }
+        )
+        _ = await coordinator.apply(stats: DemoData.statsSummary)
+        clock.withLock { $0 += 30 }
+        _ = await coordinator.apply(stats: DemoData.statsSummary)
+        XCTAssertEqual(writes.withLock { $0 }, 1)
+        clock.withLock { $0 += 31 }
+        _ = await coordinator.apply(stats: DemoData.statsSummary)
+        XCTAssertEqual(writes.withLock { $0 }, 2)
+    }
+}
+
+actor WidgetSummaryGate {
+    private var request: CheckedContinuation<Void, Never>?
+    private var observer: CheckedContinuation<Void, Never>?
+
+    func wait() async {
+        await withCheckedContinuation {
+            request = $0
+            observer?.resume()
+            observer = nil
+        }
+    }
+
+    func waitForRequest() async {
+        if request != nil { return }
+        await withCheckedContinuation { observer = $0 }
+    }
+
+    func release() {
+        request?.resume()
+        request = nil
     }
 }
 
