@@ -248,6 +248,21 @@ private actor PendingBadgeRecorder {
 
 extension InstallationNetworkTests {
     @MainActor
+    func testLifecycleDoesNotWaitForUnrelatedHistoryRequest() async throws {
+        let previousDemoMode = AppConfig.shared.isDemoMode
+        AppConfig.shared.isDemoMode = false
+        defer { AppConfig.shared.isDemoMode = previousDemoMode }
+        let store = BoothStatusLiveStore(client: makeClient())
+        LifecycleURLProtocol.response.withLock { $0 = .inactive }
+        LifecycleURLProtocol.holdNextHistory.withLock { $0 = true }
+        let refresh = Task { await store.refreshNow() }
+        try await waitUntil { LifecycleURLProtocol.heldStatus.withLock { $0 != nil } }
+        try await waitUntil { store.installationState == .betweenExhibitions }
+        LifecycleURLProtocol.releaseStatus(as: .inactive)
+        await refresh.value
+    }
+
+    @MainActor
     func testCompletedLifecycleAppliesWhileNewerRefreshIsPending() async throws {
         let previousDemoMode = AppConfig.shared.isDemoMode
         AppConfig.shared.isDemoMode = false
@@ -328,6 +343,7 @@ extension InstallationNetworkTests {
         try await waitUntil { LifecycleURLProtocol.heldStatus.withLock { $0 != nil } }
         config.apiBaseURL = previousURL.appendingPathComponent("new-api")
         store.synchronizeAPIBase()
+        XCTAssertEqual(store.connection, .connecting, "The old API's live connection must not survive reset")
         let historyPath = config.apiBaseURL.path + "/v1/status/history"
         try await waitUntil {
             store.connection == .live && store.installationState == .active
@@ -367,6 +383,7 @@ final class LifecycleURLProtocol: URLProtocol {
     static let response = OSAllocatedUnfairLock(initialState: Response.active)
     static let requestCounts = OSAllocatedUnfairLock(initialState: [String: Int]())
     static let holdNextStatus = OSAllocatedUnfairLock(initialState: false)
+    static let holdNextHistory = OSAllocatedUnfairLock(initialState: false)
     final class HeldRequest: @unchecked Sendable {
         let value: LifecycleURLProtocol
         init(_ value: LifecycleURLProtocol) { self.value = value }
@@ -388,10 +405,19 @@ final class LifecycleURLProtocol: URLProtocol {
     override func startLoading() {
         if let path = request.url?.path {
             Self.requestCounts.withLock { $0[path, default: 0] += 1 }
+            let historyHeld = path.hasSuffix("/v1/status/history") && Self.holdNextHistory.withLock { value in
+                defer { value = false }
+                return value
+            }
             if path.hasSuffix("/v1/status"), Self.holdNextStatus.withLock({ value in
                 defer { value = false }
                 return value
             }) {
+                let held = HeldRequest(self)
+                Self.heldStatus.withLock { $0 = held }
+                return
+            }
+            if historyHeld {
                 let held = HeldRequest(self)
                 Self.heldStatus.withLock { $0 = held }
                 return
