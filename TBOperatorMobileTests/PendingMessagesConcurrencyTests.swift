@@ -8,6 +8,24 @@ import os
 
 @MainActor
 final class PendingMessagesConcurrencyTests: XCTestCase {
+    func testAPISwitchClearsExistingBadgeEvenWhenNewRefreshFails() async {
+        let recorder = PendingBadgeRecorder(blockFirstWrite: true)
+        let store = PendingMessagesStore(
+            badgeSetter: { count in await recorder.set(count) }, widgetStatsApplier: { _, _ in }
+        )
+        let oldWrite = Task { await store.applyNotificationCount(9) }
+        await recorder.waitUntilFirstWriteStarted()
+        WidgetRefreshCoordinator.invalidateAPIBase()
+        store.resetForAPIChange()
+        XCTAssertEqual(store.pendingCount, 0)
+        await store.refresh { throw URLError(.notConnectedToInternet) }
+        await recorder.waitUntilValueIsRecorded(0)
+        await recorder.releaseFirstWrite()
+        await oldWrite.value
+        let lastBadge = await recorder.values.last
+        XCTAssertEqual(lastBadge, 0)
+    }
+
     func testNotificationCountSupersedesAnInFlightRefresh() async {
         let badgeRecorder = PendingBadgeRecorder()
         let statsGate = PendingStatsGate()
@@ -19,6 +37,7 @@ final class PendingMessagesConcurrencyTests: XCTestCase {
             await store.refresh {
                 await statsGate.fetch()
             }
+
         }
         await statsGate.waitUntilStarted()
 
@@ -224,5 +243,134 @@ private actor PendingBadgeRecorder {
     func releaseFirstWrite() {
         firstWriteContinuation?.resume()
         firstWriteContinuation = nil
+    }
+}
+
+extension InstallationNetworkTests {
+    @MainActor
+    func testAPIChangeWhileLiveRestartsFullSeedWithoutWaitingForOldRequest() async throws {
+        let config = AppConfig.shared
+        let previousURL = config.apiBaseURL
+        let previousDemoMode = config.isDemoMode
+        config.isDemoMode = false
+        defer {
+            config.apiBaseURL = previousURL
+            config.isDemoMode = previousDemoMode
+        }
+        LifecycleURLProtocol.response.withLock { $0 = .active }
+        LifecycleURLProtocol.requestCounts.withLock { $0 = [:] }
+        let store = BoothStatusLiveStore(client: makeClient(), socket: .demo)
+        store.start()
+        defer { store.stop() }
+        try await waitUntil { store.connection == .live && store.installationState == .active }
+        LifecycleURLProtocol.holdNextStatus.withLock { $0 = true }
+        let oldRefresh = Task { await store.refreshNow() }
+        try await waitUntil { LifecycleURLProtocol.heldStatus.withLock { $0 != nil } }
+        config.apiBaseURL = previousURL.appendingPathComponent("new-api")
+        store.synchronizeAPIBase()
+        let historyPath = config.apiBaseURL.path + "/v1/status/history"
+        try await waitUntil {
+            store.connection == .live && store.installationState == .active
+                && LifecycleURLProtocol.requestCounts.withLock { $0[historyPath, default: 0] > 0 }
+        }
+        LifecycleURLProtocol.releaseStatus(as: .inactive)
+        await oldRefresh.value
+        XCTAssertEqual(store.installationState, .active)
+    }
+
+    @MainActor
+    func testOverlappingRESTResultsCannotReplaceNewerConnectionOutcome() async throws {
+        let previousDemoMode = AppConfig.shared.isDemoMode
+        AppConfig.shared.isDemoMode = false
+        defer { AppConfig.shared.isDemoMode = previousDemoMode }
+        let store = BoothStatusLiveStore(client: makeClient())
+        for latestFails in [true, false] {
+            LifecycleURLProtocol.response.withLock { $0 = .active }
+            LifecycleURLProtocol.holdNextStatus.withLock { $0 = true }
+            let oldRefresh = Task { await store.refreshNow() }
+            try await waitUntil { LifecycleURLProtocol.heldStatus.withLock { $0 != nil } }
+            LifecycleURLProtocol.response.withLock { $0 = latestFails ? .statusError(409) : .active }
+            await store.refreshNow()
+            XCTAssertEqual(store.lastError != nil, latestFails)
+            LifecycleURLProtocol.releaseStatus(as: latestFails ? .active : .statusError(409))
+            await oldRefresh.value
+            XCTAssertEqual(store.lastError != nil, latestFails)
+        }
+    }
+}
+
+final class LifecycleURLProtocol: URLProtocol {
+    enum Response: Sendable, Equatable {
+        case active, inactive, offline
+        case statusError(Int)
+    }
+    static let response = OSAllocatedUnfairLock(initialState: Response.active)
+    static let requestCounts = OSAllocatedUnfairLock(initialState: [String: Int]())
+    static let holdNextStatus = OSAllocatedUnfairLock(initialState: false)
+    final class HeldRequest: @unchecked Sendable {
+        let value: LifecycleURLProtocol
+        init(_ value: LifecycleURLProtocol) { self.value = value }
+    }
+    static let heldStatus = OSAllocatedUnfairLock(initialState: HeldRequest?.none)
+
+    override static func canInit(with request: URLRequest) -> Bool { true }
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func stopLoading() {}
+
+    static func releaseStatus(as scenario: Response) {
+        let held = heldStatus.withLock { value in
+            defer { value = nil }
+            return value
+        }
+        held?.value.complete(scenario)
+    }
+
+    override func startLoading() {
+        if let path = request.url?.path {
+            Self.requestCounts.withLock { $0[path, default: 0] += 1 }
+            if path.hasSuffix("/v1/status"), Self.holdNextStatus.withLock({ value in
+                defer { value = false }
+                return value
+            }) {
+                let held = HeldRequest(self)
+                Self.heldStatus.withLock { $0 = held }
+                return
+            }
+        }
+        complete(Self.response.withLock { $0 })
+    }
+
+    private func complete(_ scenario: Response) {
+        guard scenario != .offline, let url = request.url else {
+            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
+            return
+        }
+        do {
+            var code = 200
+            var body = Data(#"{"items":[]}"#.utf8)
+            if url.path.hasSuffix("/v1/status") {
+                if case .statusError(let status) = scenario {
+                    code = status
+                    body = Data(#"{"error":"installation_inactive"}"#.utf8)
+                } else {
+                    body = try OperatorJSON.encoder.encode(BoothStatus(
+                        state: .idle, updatedAt: Date(timeIntervalSince1970: 0),
+                        installationState: scenario == .inactive ? .betweenExhibitions : .active,
+                        isSynthetic: true
+                    ))
+                }
+            } else if url.path.hasSuffix("/v1/stats/summary") {
+                body = try OperatorJSON.encoder.encode(DemoData.statsSummary)
+            }
+            guard let response = HTTPURLResponse(
+                url: url, statusCode: code, httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": code == 409 ? "application/problem+json" : "application/json"]
+            ) else { throw URLError(.badServerResponse) }
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: body)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
     }
 }

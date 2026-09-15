@@ -40,6 +40,7 @@ public final class PendingMessagesStore {
     /// How often the poll loop refreshes while the shell is visible.
     private let pollInterval: Duration = .seconds(25)
     private var pollingTask: Task<Void, Never>?
+    private var pollingClient: OperatorClient?
     private var countRevision: UInt = 0
     private let badgeSetter: BadgeSetter
     private let widgetStatsApplier: WidgetStatsApplier
@@ -60,6 +61,7 @@ public final class PendingMessagesStore {
     /// loop is already running (e.g. a second iPad window) is a no-op.
     public func startPolling(using client: OperatorClient) {
         if let pollingTask, !pollingTask.isCancelled { return }
+        pollingClient = client
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.refresh(using: client)
@@ -76,9 +78,22 @@ public final class PendingMessagesStore {
     public func stopPolling() {
         pollingTask?.cancel()
         pollingTask = nil
+        pollingClient = nil
+        clearCount()
+    }
+
+    func resetForAPIChange() {
+        let client = pollingClient
+        pollingTask?.cancel()
+        pollingTask = nil
+        clearCount()
+        if let client { startPolling(using: client) }
+    }
+
+    private func clearCount() {
         countRevision &+= 1
-        let revision = countRevision
-        Task { await applyCount(0, stats: nil, revision: revision) }
+        pendingCount = 0
+        Task { await setApplicationBadge(pendingCount, revision: countRevision) }
     }
 
     /// Fetches the latest count once and updates the badge + widget snapshot.

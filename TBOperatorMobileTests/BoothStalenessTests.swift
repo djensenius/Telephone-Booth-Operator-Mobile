@@ -343,7 +343,7 @@ final class InstallationNetworkTests: XCTestCase {
     }
 
     @MainActor
-    private func makeClient() -> OperatorClient {
+    func makeClient() -> OperatorClient {
         let auth = AuthManager(keychainStore: TestKeychainStore())
         XCTAssertTrue(auth.storeTokens(OIDCTokens(
             accessToken: "test-access", refreshToken: "test-refresh", idToken: nil,
@@ -355,63 +355,12 @@ final class InstallationNetworkTests: XCTestCase {
     }
 
     @MainActor
-    private func waitUntil(_ predicate: () -> Bool) async throws {
+    @nonobjc func waitUntil(_ predicate: () -> Bool) async throws {
         let deadline = Date().addingTimeInterval(8)
         while !predicate(), Date() < deadline {
             try await Task.sleep(for: .milliseconds(25))
         }
         XCTAssertTrue(predicate(), "Lifecycle did not reconcile within the REST polling interval")
-    }
-}
-
-private final class LifecycleURLProtocol: URLProtocol {
-    enum Response: Sendable, Equatable {
-        case active, inactive, offline
-        case statusError(Int)
-    }
-    static let response = OSAllocatedUnfairLock(initialState: Response.active)
-    static let requestCounts = OSAllocatedUnfairLock(initialState: [String: Int]())
-
-    override static func canInit(with request: URLRequest) -> Bool { true }
-    override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-    override func stopLoading() {}
-
-    override func startLoading() {
-        if let path = request.url?.path {
-            Self.requestCounts.withLock { $0[path, default: 0] += 1 }
-        }
-        let scenario = Self.response.withLock { $0 }
-        guard scenario != .offline, let url = request.url else {
-            client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
-            return
-        }
-        do {
-            var code = 200
-            var body = Data(#"{"items":[]}"#.utf8)
-            if url.path == "/v1/status" {
-                if case .statusError(let status) = scenario {
-                    code = status
-                    body = Data(#"{"error":"installation_inactive"}"#.utf8)
-                } else {
-                    body = try OperatorJSON.encoder.encode(BoothStatus(
-                        state: .idle, updatedAt: Date(timeIntervalSince1970: 0),
-                        installationState: scenario == .inactive ? .betweenExhibitions : .active,
-                        isSynthetic: true
-                    ))
-                }
-            } else if url.path == "/v1/stats/summary" {
-                body = try OperatorJSON.encoder.encode(DemoData.statsSummary)
-            }
-            guard let response = HTTPURLResponse(
-                url: url, statusCode: code, httpVersion: "HTTP/1.1",
-                headerFields: ["Content-Type": code == 409 ? "application/problem+json" : "application/json"]
-            ) else { throw URLError(.badServerResponse) }
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: body)
-            client?.urlProtocolDidFinishLoading(self)
-        } catch {
-            client?.urlProtocol(self, didFailWithError: error)
-        }
     }
 }
 

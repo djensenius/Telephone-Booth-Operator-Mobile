@@ -55,7 +55,8 @@ public struct SystemVitalsStrip: View {
         .padding(Theme.Spacing.large)
         .glassCardBackground()
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(Text(presentation == .summary ? "System health" : "Live booth vitals"))
+        .accessibilityLabel(Text(installationState == .betweenExhibitions ? "Last reported vitals"
+            : (presentation == .summary ? "System health" : "Live booth vitals")))
     }
 
     private func summaryTiles(now: Date) -> some View {

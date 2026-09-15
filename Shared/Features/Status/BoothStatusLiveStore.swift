@@ -36,6 +36,8 @@ public final class BoothStatusLiveStore {
     public private(set) var lastError: String?
     public private(set) var installationState: InstallationState?
     private var lifecycleRevision: UInt = 0
+    private var restRevision: UInt = 0
+    private var needsFullRefresh = true
     private var statusError: String?
     private var socketError: String?
     private let lifecycleDefaults: UserDefaults?
@@ -144,9 +146,8 @@ public final class BoothStatusLiveStore {
                     apply(envelope)
                 }
                 if !Task.isCancelled { connection = .polling }
-            } catch is CancellationError {
-                break
             } catch {
+                guard !Task.isCancelled else { break }
                 logger.warning("Status socket error: \(error.localizedDescription, privacy: .public)")
                 socketError = "Live status disconnected: \(error.localizedDescription)"
                 lastError = statusError ?? socketError
@@ -163,12 +164,11 @@ public final class BoothStatusLiveStore {
     }
 
     private func pollLoop() async {
-        var isInitialSeed = true
         while !Task.isCancelled {
             // Status frames carry no lifecycle; REST reconciles even when a
             // healthy socket is connected to another API replica.
-            await refreshFromREST(fullRefresh: isInitialSeed || connection != .live)
-            isInitialSeed = false
+            await refreshFromREST(fullRefresh: connection != .live)
+            guard !Task.isCancelled else { break }
             do {
                 try await Task.sleep(for: pollInterval)
             } catch {
@@ -192,12 +192,15 @@ public final class BoothStatusLiveStore {
             return
         }
         let changedAPI = synchronizeAPIBase()
-        let fullRefresh = fullRefresh || changedAPI
+        guard !Task.isCancelled else { return }
+        let fullRefresh = fullRefresh || changedAPI || needsFullRefresh
         let client = self.client
         let cachedSystem = systemEnvelope
         let requestKey = lifecycleKey
         lifecycleRevision &+= 1
         let revision = lifecycleRevision
+        restRevision &+= 1
+        let requestRevision = restRevision
         async let statusResult = attempt { try await client.fetchBoothStatus() }
         async let historyResult: StatusHistory? = fullRefresh
             ? attempt { try await client.fetchStatusHistory(limit: 200) } : nil
@@ -211,10 +214,13 @@ public final class BoothStatusLiveStore {
         let newSystem = await systemResult
         let newComponents = await componentsResult
         let summary = await summaryResult
-        guard requestKey == lifecycleKey,
+        guard !Task.isCancelled, requestRevision == restRevision, requestKey == lifecycleKey,
               requestKey == "boothInstallationState:\(config.apiBaseURL.absoluteString)" else { return }
 
-        if let newHistory { mergeHistory(newHistory.items) }
+        if let newHistory {
+            mergeHistory(newHistory.items)
+            needsFullRefresh = false
+        }
         applySystemResult(newSystem)
         if let newComponents { componentSources = newComponents }
         apply(summary, reconcileLifecycle: revision == lifecycleRevision && newStatus == nil)
@@ -258,11 +264,16 @@ public final class BoothStatusLiveStore {
         socketError = nil
         lastError = nil
         lifecycleRevision &+= 1
+        restRevision &+= 1
+        needsFullRefresh = true
         #if canImport(ActivityKit) && !os(macOS)
         LiveActivityManager.shared.resetInstallationState(installationState)
         #endif
         socketTask?.cancel()
         socketTask = nil
+        pollTask?.cancel()
+        pollTask = nil
+        if startCount > 0 { startPollLoop() }
         if startCount > 0, !demoMode, !config.isDemoMode, StatusSocket.supportsLiveConnections {
             startSocketLoop()
         }
