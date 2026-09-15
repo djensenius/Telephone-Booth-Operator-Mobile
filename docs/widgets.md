@@ -14,11 +14,11 @@ refresh time rather than January 1970 and do not headline an inactive booth as
 Idle. Metrics, recordings, and last reported system measurements remain intact.
 Live Activities end immediately when downtime is confirmed, reject late call
 events until an explicit active state arrives, and render any final inactive
-content without an elapsed-call timer. and Live Activities
+content without an elapsed-call timer.
 
 The tvOS wall and ambient screensaver use the same lifecycle. Ambient call and
 downtime cards retire when their lifecycle changes rather than finishing a stale
-playlist after an installation ends or resumes. and Live Activities
+playlist after an installation ends or resumes.
 
 The widget extensions render a compact snapshot written by a signed-in host
 app to the shared App Group. Extensions never open the Keychain, refresh an

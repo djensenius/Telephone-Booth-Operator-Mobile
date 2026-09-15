@@ -191,7 +191,8 @@ struct SystemHealthWidgetView: View {
             Spacer(minLength: 4)
             if cacheStale {
                 WidgetStaleBadge()
-            } else {
+            }
+            if !cacheStale || entry.installationState == .betweenExhibitions {
                 Text(entry.healthDisplayName(severity))
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(severity.tint)

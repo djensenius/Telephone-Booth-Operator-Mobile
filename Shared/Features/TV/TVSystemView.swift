@@ -64,7 +64,7 @@ struct TVSystemView: View {
             TVBanner(message: error)
         }
 
-        TVSystemVitals(snapshot: snapshot)
+        TVSystemVitals(snapshot: snapshot, installationState: liveStore.installationState)
 
         TVCardGrid {
             TVSystemHostCard(
@@ -108,8 +108,7 @@ struct TVSystemView: View {
         TVFocusCard {
             VStack(alignment: .leading, spacing: 16) {
                 TVCardHeader(title: "System status unavailable", systemImage: "exclamationmark.triangle.fill")
-                // Render the message inline rather than via `TVBanner`, whose
-                // own `TVFocusCard` would add a redundant nested focus stop.
+                // Avoid TVBanner's redundant nested focus stop.
                 Text(message)
                     .font(TVMetrics.Font.body)
                     .foregroundStyle(Theme.Colors.error)
@@ -126,11 +125,13 @@ struct TVSystemView: View {
 
 private struct TVSystemVitals: View {
     let snapshot: BoothSystemSnapshot
+    let installationState: InstallationState?
 
     var body: some View {
         TVFocusCard {
             VStack(alignment: .leading, spacing: 24) {
-                TVCardHeader(title: "Live vitals", systemImage: "waveform.path.ecg")
+                TVCardHeader(title: installationState == .betweenExhibitions
+                    ? "Last reported vitals" : "Live vitals", systemImage: "waveform.path.ecg")
                 LazyVGrid(
                     columns: Array(
                         repeating: GridItem(.flexible(), spacing: 20),

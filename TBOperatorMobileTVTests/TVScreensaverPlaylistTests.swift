@@ -31,6 +31,14 @@ final class TVScreensaverPlaylistTests: XCTestCase {
         XCTAssertFalse(TVScreensaverPlaylist.isCurrent(statusCard, status: inactive))
         XCTAssertTrue(TVScreensaverPlaylist.isCurrent(installationCard, status: inactive))
         XCTAssertFalse(TVScreensaverPlaylist.isCurrent(installationCard, status: active))
+        let callCountCard = TVSpotlight(id: "in-progress", kind: .metric(
+            value: "1", label: "In progress", systemImage: "phone", emphasized: true
+        ))
+        XCTAssertTrue(TVScreensaverPlaylist.isCurrent(callCountCard, status: active))
+        XCTAssertFalse(TVScreensaverPlaylist.isCurrent(callCountCard, status: inactive))
+        XCTAssertFalse([statusCard, callCountCard].contains {
+            TVScreensaverPlaylist.isCurrent($0, status: inactive)
+        })
     }
 
     func testInactiveOverridesStaleRecordingAndKeepsNeutralAmbientCard() {
