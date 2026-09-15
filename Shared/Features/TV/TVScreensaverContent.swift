@@ -288,7 +288,7 @@ enum TVScreensaverPlaylist {
         switch item.id {
         case "status": return isHappening(status?.liveActivityState ?? .idle)
         case "installation": return status?.isBetweenExhibitions == true
-        case "in-progress": return status.map { !$0.isBetweenExhibitions } ?? false
+        case "in-progress": return status?.liveActivityState != nil
         default: return true
         }
     }
@@ -311,7 +311,7 @@ enum TVScreensaverPlaylist {
         }
 
         if let stats {
-            items.append(contentsOf: spotlights(for: stats))
+            items.append(contentsOf: spotlights(for: stats, status: status ?? stats.booth))
         }
 
         if let overview {
@@ -321,7 +321,7 @@ enum TVScreensaverPlaylist {
         return items
     }
 
-    private static func spotlights(for stats: StatsSummary) -> [TVSpotlight] {
+    private static func spotlights(for stats: StatsSummary, status: BoothStatus) -> [TVSpotlight] {
         var items: [TVSpotlight] = []
 
         if stats.interactionsToday > 0 {
@@ -329,7 +329,7 @@ enum TVScreensaverPlaylist {
                 metric("calls-today", "\(stats.interactionsToday)", "Pickups today", "phone.fill")
             )
         }
-        if !stats.booth.isBetweenExhibitions, stats.interactionsInProgress > 0 {
+        if status.liveActivityState != nil, stats.interactionsInProgress > 0 {
             items.append(
                 metric(
                     "in-progress",

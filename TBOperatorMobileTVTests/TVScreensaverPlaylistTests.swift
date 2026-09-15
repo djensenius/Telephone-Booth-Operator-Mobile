@@ -137,6 +137,20 @@ final class TVScreensaverPlaylistTests: XCTestCase {
         XCTAssertTrue(items.contains { $0.id == "in-progress" })
     }
 
+    func testSyntheticActiveRetiresAndCannotRebuildPreservedInProgressCard() throws {
+        let stats = makeStats(inProgress: 2)
+        let synthetic = BoothStatus(
+            state: .idle, updatedAt: Date(timeIntervalSince1970: 0),
+            installationState: .active, isSynthetic: true
+        )
+        let oldCard = try XCTUnwrap(TVScreensaverPlaylist.build(
+            status: nil, stats: stats, overview: nil
+        ).first { $0.id == "in-progress" })
+        XCTAssertFalse(TVScreensaverPlaylist.isCurrent(oldCard, status: synthetic))
+        let newItems = TVScreensaverPlaylist.build(status: synthetic, stats: stats, overview: nil)
+        XCTAssertFalse(newItems.contains { $0.id == "in-progress" })
+    }
+
     func testBuildOmitsAllZeroSummaryStats() {
         let items = TVScreensaverPlaylist.build(status: nil, stats: makeStats(), overview: nil)
         XCTAssertTrue(items.isEmpty)

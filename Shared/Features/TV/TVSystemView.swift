@@ -78,7 +78,7 @@ struct TVSystemView: View {
             TVSystemDisksCard(snapshot: snapshot)
             TVSystemNetworkCard(snapshot: snapshot)
             TVSystemFanCard(snapshot: snapshot)
-            TVSystemAudioConnectivityCard(snapshot: snapshot)
+            TVSystemAudioConnectivityCard(snapshot: snapshot, installationState: liveStore.installationState)
         }
     }
 
@@ -413,21 +413,20 @@ private struct TVSystemFanCard: View {
 
 private struct TVSystemAudioConnectivityCard: View {
     let snapshot: BoothSystemSnapshot
+    let installationState: InstallationState?
 
     private var hasAudio: Bool {
-        snapshot.audioInputDevice != nil
-            || snapshot.audioOutputDevice != nil
-            || snapshot.audioInputDbfs != nil
-            || snapshot.audioOutputDbfs != nil
+        snapshot.audioInputDevice != nil || snapshot.audioOutputDevice != nil
+            || snapshot.audioInputDbfs != nil || snapshot.audioOutputDbfs != nil
     }
 
     private var hasConnectivity: Bool {
-        snapshot.tailscaleConnected != nil
-            || snapshot.tailscaleHostname != nil
+        snapshot.tailscaleConnected != nil || snapshot.tailscaleHostname != nil
             || !(snapshot.throttlingFlags ?? []).isEmpty
     }
 
     var body: some View {
+        let inactive = installationState == .betweenExhibitions
         if hasAudio || hasConnectivity {
             TVFocusCard {
                 VStack(alignment: .leading, spacing: 20) {
@@ -457,8 +456,9 @@ private struct TVSystemAudioConnectivityCard: View {
                             if let connected = snapshot.tailscaleConnected {
                                 TVKeyValueRow(
                                     key: "Tailscale",
-                                    value: connected ? "Connected" : "Offline",
-                                    valueTint: connected ? Theme.Colors.success : Theme.Colors.error
+                                    value: connected ? "Connected" : (inactive ? "Offline expected" : "Offline"),
+                                    valueTint: inactive ? Theme.Colors.textSecondary
+                                        : (connected ? Theme.Colors.success : Theme.Colors.error)
                                 )
                             }
                             if let hostname = snapshot.tailscaleHostname {
