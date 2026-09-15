@@ -243,6 +243,15 @@ public actor WidgetRefreshCoordinator {
         acceptsUpdates = true
     }
 
+    public func resetForAPIChange() {
+        cancelActiveRefresh()
+        cachedSnapshot = nil
+        hasLoadedSnapshot = true
+        if !clearSnapshot() {
+            logger.error("Failed to clear widget snapshot after API base change")
+        }
+    }
+
     public func cancelActiveRefresh() {
         generation &+= 1
         activeRefresh?.cancel()

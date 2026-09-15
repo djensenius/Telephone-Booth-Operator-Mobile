@@ -36,6 +36,10 @@ public final class AppConfig {
     public var apiBaseURL: URL {
         didSet {
             UserDefaults.standard.set(apiBaseURL.absoluteString, forKey: Self.apiBaseDefaultsKey)
+            if oldValue != apiBaseURL {
+                _ = WidgetSnapshotStore.clear()
+                Task { await WidgetRefreshCoordinator.shared.resetForAPIChange() }
+            }
             logger.info("apiBaseURL updated to \(self.apiBaseURL.absoluteString, privacy: .public)")
         }
     }

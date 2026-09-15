@@ -206,6 +206,30 @@ final class WidgetSnapshotModelTests: XCTestCase {
 final class WidgetRefreshCoordinatorTests: XCTestCase {
     private let referenceDate = Date(timeIntervalSince1970: 2_000_000_000)
 
+    func testAPIResetDoesNotInheritAnotherServersLifecycle() async throws {
+        let harness = try makeCoordinator()
+        defer { try? FileManager.default.removeItem(at: harness.directory) }
+        let initial = DemoData.statsSummary
+        let inactive = StatsSummary(
+            booth: BoothStatus(
+                state: .idle, updatedAt: referenceDate,
+                installationState: .betweenExhibitions, isSynthetic: true
+            ),
+            messages: initial.messages, calls: initial.calls, realtime: initial.realtime,
+            generatedAt: referenceDate
+        )
+        _ = await harness.coordinator.apply(stats: inactive)
+        await harness.coordinator.resetForAPIChange()
+        XCTAssertNil(try harness.store.read())
+        _ = await harness.coordinator.apply(stats: initial)
+        XCTAssertNil(try harness.store.read()?.summary?.installationState)
+
+        _ = await harness.coordinator.apply(stats: inactive)
+        await harness.coordinator.resetForAPIChange()
+        _ = await harness.coordinator.refresh(using: FakeWidgetDataClient())
+        XCTAssertNil(try harness.store.read()?.summary?.installationState)
+    }
+
     func testInactiveEpochPersistsAndResumesWithoutLosingHistoricalSections() async throws {
         let harness = try makeCoordinator()
         defer { try? FileManager.default.removeItem(at: harness.directory) }

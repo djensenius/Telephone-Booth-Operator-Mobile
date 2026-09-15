@@ -55,6 +55,8 @@ Live polling keeps history and existing system snapshots cached; full refreshes
 are reserved for seeding, manual refresh, and socket fallback. Switching API URLs
 clears the previous server's data and Live Activities and restores only the new
 URL's cached lifecycle, if any.
+Widget snapshots and the coordinator cache are also cleared for every base-URL
+change, including same-host path and port changes that do not require sign-out.
 
 Shared dashboards use neutral **Between exhibitions / Offline expected**
 presentation during confirmed downtime, retaining metrics and historical data.
