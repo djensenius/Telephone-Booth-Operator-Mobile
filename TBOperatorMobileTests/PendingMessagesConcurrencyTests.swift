@@ -248,6 +248,56 @@ private actor PendingBadgeRecorder {
 
 extension InstallationNetworkTests {
     @MainActor
+    func testCompletedLifecycleAppliesWhileNewerRefreshIsPending() async throws {
+        let previousDemoMode = AppConfig.shared.isDemoMode
+        AppConfig.shared.isDemoMode = false
+        defer { AppConfig.shared.isDemoMode = previousDemoMode }
+        let store = BoothStatusLiveStore(client: makeClient())
+        LifecycleURLProtocol.response.withLock { $0 = .active }
+        LifecycleURLProtocol.holdNextStatus.withLock { $0 = true }
+        let first = Task { await store.refreshNow() }
+        try await waitUntil { LifecycleURLProtocol.heldStatus.withLock { $0 != nil } }
+        let firstRequest = try XCTUnwrap(LifecycleURLProtocol.heldStatus.withLock { value in
+            defer { value = nil }
+            return value
+        })
+        LifecycleURLProtocol.holdNextStatus.withLock { $0 = true }
+        let second = Task { await store.refreshNow() }
+        try await waitUntil { LifecycleURLProtocol.heldStatus.withLock { $0 != nil } }
+        firstRequest.value.complete(.inactive)
+        await first.value
+        XCTAssertEqual(store.installationState, .betweenExhibitions)
+        LifecycleURLProtocol.releaseStatus(as: .active)
+        await second.value
+        XCTAssertEqual(store.installationState, .active)
+    }
+
+    @MainActor
+    func testReturnToSameAPIRejectsRequestsFromPreviousVisit() async throws {
+        let config = AppConfig.shared
+        let previousURL = config.apiBaseURL
+        let previousDemoMode = config.isDemoMode
+        config.isDemoMode = false
+        defer {
+            config.apiBaseURL = previousURL
+            config.isDemoMode = previousDemoMode
+        }
+        let store = BoothStatusLiveStore(client: makeClient())
+        LifecycleURLProtocol.response.withLock { $0 = .active }
+        LifecycleURLProtocol.holdNextStatus.withLock { $0 = true }
+        let oldRefresh = Task { await store.refreshNow() }
+        try await waitUntil { LifecycleURLProtocol.heldStatus.withLock { $0 != nil } }
+        config.apiBaseURL = previousURL.appendingPathComponent("other-api")
+        config.apiBaseURL = previousURL
+        LifecycleURLProtocol.releaseStatus(as: .inactive)
+        await oldRefresh.value
+        XCTAssertNil(store.installationState)
+        XCTAssertNil(store.status)
+        XCTAssertNil(store.stats)
+        XCTAssertNil(store.lastError)
+    }
+
+    @MainActor
     func testManualRefreshSeedsWhileAutomaticRefreshIsPending() async {
         let store = BoothStatusLiveStore(client: .demo, socket: .demo)
         store.start()
@@ -350,7 +400,7 @@ final class LifecycleURLProtocol: URLProtocol {
         complete(Self.response.withLock { $0 })
     }
 
-    private func complete(_ scenario: Response) {
+    fileprivate func complete(_ scenario: Response) {
         guard scenario != .offline, let url = request.url else {
             client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
             return

@@ -199,7 +199,7 @@ public final class BoothStatusLiveStore {
         let client = self.client
         let cachedSystem = systemEnvelope
         let requestKey = lifecycleKey
-        lifecycleRevision &+= 1
+        let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
         let revision = lifecycleRevision
         restRevision &+= 1
         let requestRevision = restRevision
@@ -217,6 +217,7 @@ public final class BoothStatusLiveStore {
         let newComponents = await componentsResult
         let summary = await summaryResult
         guard !Task.isCancelled, requestRevision >= appliedRESTRevision, requestKey == lifecycleKey,
+              apiRevision == WidgetRefreshCoordinator.currentAPIRevision,
               requestKey == "boothInstallationState:\(config.apiBaseURL.absoluteString)" else { return }
         appliedRESTRevision = requestRevision
 
