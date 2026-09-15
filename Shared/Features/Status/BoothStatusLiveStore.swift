@@ -133,8 +133,13 @@ public final class BoothStatusLiveStore {
         while !Task.isCancelled {
             if connection != .live { connection = .connecting }
             do {
+                let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
                 for try await envelope in socket.subscribe() {
                     if Task.isCancelled { break }
+                    guard apiRevision == WidgetRefreshCoordinator.currentAPIRevision else {
+                        synchronizeAPIBase()
+                        break
+                    }
                     backoff = .seconds(1)
                     apply(envelope)
                 }
@@ -232,7 +237,7 @@ public final class BoothStatusLiveStore {
     }
 
     @discardableResult
-    private func synchronizeAPIBase() -> Bool {
+    func synchronizeAPIBase() -> Bool {
         let key = "boothInstallationState:\(config.apiBaseURL.absoluteString)"
         guard lifecycleKey != key else { return false }
         lifecycleKey = key
@@ -291,6 +296,7 @@ public final class BoothStatusLiveStore {
     }
 
     func apply(_ envelope: WsStatusEnvelope) {
+        guard !synchronizeAPIBase() else { return }
         connection = .live
         socketError = nil
         lastError = statusError
@@ -395,12 +401,14 @@ public final class BoothStatusLiveStore {
         let systemEnvelope = self.systemEnvelope
         let componentSources = self.componentSources
         let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
+        let observedAt = Date()
         Task {
             await WidgetRefreshCoordinator.shared.apply(
                 stats: stats,
                 systemEnvelope: systemEnvelope,
                 components: componentSources,
-                apiRevision: apiRevision
+                apiRevision: apiRevision,
+                observedAt: observedAt
             )
         }
     }

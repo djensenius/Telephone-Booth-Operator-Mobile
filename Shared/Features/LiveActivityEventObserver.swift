@@ -50,16 +50,25 @@ public final class LiveActivityEventObserver {
         manager.endAll()
     }
 
+    public func restartForAPIChange() {
+        guard observeTask != nil else { return }
+        stop()
+        BoothStatusLiveStore.shared.synchronizeAPIBase()
+        start()
+    }
+
     private func observeLoop() async {
         var backoff: UInt64 = 1_000_000_000 // 1 second initial
         let maxBackoff: UInt64 = 30_000_000_000 // 30 seconds max
 
         while !Task.isCancelled {
             do {
+                let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
                 for try await event in stream.subscribe() {
                     if Task.isCancelled { break }
+                    guard apiRevision == WidgetRefreshCoordinator.currentAPIRevision else { break }
                     backoff = 1_000_000_000
-                    handleEvent(event)
+                    handleEvent(event, apiRevision: apiRevision)
                 }
             } catch is CancellationError {
                 break
@@ -75,7 +84,8 @@ public final class LiveActivityEventObserver {
         }
     }
 
-    private func handleEvent(_ event: BoothEventRecord) {
+    func handleEvent(_ event: BoothEventRecord, apiRevision: UInt) {
+        guard apiRevision == WidgetRefreshCoordinator.currentAPIRevision else { return }
         manager.setInstallationState(BoothStatusLiveStore.shared.installationState)
         switch event.type {
         case .callStarted:

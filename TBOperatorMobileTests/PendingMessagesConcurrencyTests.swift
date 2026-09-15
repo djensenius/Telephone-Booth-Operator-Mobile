@@ -3,6 +3,7 @@
 //
 
 import XCTest
+import os
 @testable import TBOperatorMobile
 
 @MainActor
@@ -12,7 +13,7 @@ final class PendingMessagesConcurrencyTests: XCTestCase {
         let statsGate = PendingStatsGate()
         let store = PendingMessagesStore(
             badgeSetter: { count in await badgeRecorder.set(count) },
-            widgetStatsApplier: { _ in }
+            widgetStatsApplier: { _, _ in }
         )
         let refresh = Task {
             await store.refresh {
@@ -34,7 +35,7 @@ final class PendingMessagesConcurrencyTests: XCTestCase {
         let badgeRecorder = PendingBadgeRecorder(blockFirstWrite: true)
         let store = PendingMessagesStore(
             badgeSetter: { count in await badgeRecorder.set(count) },
-            widgetStatsApplier: { _ in }
+            widgetStatsApplier: { _, _ in }
         )
         let first = Task { await store.applyNotificationCount(1) }
         await badgeRecorder.waitUntilFirstWriteStarted()
@@ -49,10 +50,90 @@ final class PendingMessagesConcurrencyTests: XCTestCase {
         XCTAssertEqual(lastBadge, 2)
     }
 
-    private func statsSummary(awaitingModeration: Int) -> StatsSummary {
+    func testOldAPISummaryCannotUpdateBadgeOrWidgets() async {
+        let recorder = PendingBadgeRecorder()
+        let statsGate = PendingStatsGate()
+        let store = PendingMessagesStore(
+            badgeSetter: { count in await recorder.set(count) },
+            widgetStatsApplier: { stats, _ in await recorder.set(stats.messages.badgeCount) }
+        )
+        let refresh = Task { await store.refresh { await statsGate.fetch() } }
+        await statsGate.waitUntilStarted()
+        WidgetRefreshCoordinator.invalidateAPIBase()
+        await statsGate.complete(with: statsSummary(awaitingModeration: 99))
+        await refresh.value
+        let writes = await recorder.values
+        XCTAssertTrue(writes.isEmpty)
+        XCTAssertEqual(store.pendingCount, 0)
+    }
+
+    func testCountOnlyAndDelayedUpdatesCannotReverseConfirmedDowntime() async {
+        let snapshot = OSAllocatedUnfairLock(initialState: WidgetSnapshot?.none)
+        let coordinator = WidgetRefreshCoordinator(
+            readSnapshot: { snapshot.withLock { $0 } },
+            writeSnapshot: { updated in snapshot.withLock { $0 = updated }; return true }
+        )
+        let observedAt = Date()
+        let inactive = statsSummary(awaitingModeration: 2, booth: BoothStatus(
+            state: .idle, updatedAt: Date(timeIntervalSince1970: 0),
+            installationState: .betweenExhibitions, isSynthetic: true
+        ))
+        _ = await coordinator.apply(
+            stats: inactive, systemEnvelope: nil, components: [], observedAt: observedAt
+        )
+        let active = statsSummary(awaitingModeration: 7, booth: BoothStatus(
+            state: .recording, updatedAt: observedAt, installationState: .active
+        ))
+        _ = await coordinator.applyCounts(stats: active, apiRevision: WidgetRefreshCoordinator.currentAPIRevision)
+        XCTAssertEqual(snapshot.withLock { $0?.summary?.pendingMessages }, 7)
+        XCTAssertEqual(snapshot.withLock { $0?.summary?.installationState }, .betweenExhibitions)
+        XCTAssertEqual(LiveActivityManager.shared.installationState, .betweenExhibitions)
+        _ = await coordinator.apply(
+            stats: active, systemEnvelope: nil, components: [],
+            observedAt: observedAt.addingTimeInterval(-1)
+        )
+        XCTAssertEqual(snapshot.withLock { $0?.summary?.installationState }, .betweenExhibitions)
+    }
+
+    func testOldSocketFrameIsDiscardedAtAPIBoundary() {
+        let previousURL = AppConfig.shared.apiBaseURL
+        defer { AppConfig.shared.apiBaseURL = previousURL }
+        let store = BoothStatusLiveStore(client: .demo)
+        store.applyStats(statsSummary(awaitingModeration: 2))
+        AppConfig.shared.apiBaseURL = previousURL.appendingPathComponent("different-api")
+        store.apply(.status(BoothStatus(state: .recording, updatedAt: .now)))
+        XCTAssertNil(store.status)
+        XCTAssertNil(store.stats)
+        XCTAssertNil(store.installationState)
+    }
+
+    func testOldAPIEventCannotStartLiveActivity() {
+        var requests = 0
+        let manager = LiveActivityManager(activitiesEnabled: { true }, requestActivity: { _, _ in
+            requests += 1
+            return "test"
+        })
+        let observer = LiveActivityEventObserver(manager: manager)
+        let revision = WidgetRefreshCoordinator.currentAPIRevision
+        let event = BoothEventRecord(
+            id: "event", eventId: "event", boothId: "booth", bootId: "boot",
+            type: .callStarted, occurredAt: .now, receivedAt: .now,
+            sessionId: "session", recordingId: nil, version: nil
+        )
+        WidgetRefreshCoordinator.invalidateAPIBase()
+        observer.handleEvent(event, apiRevision: revision)
+        XCTAssertEqual(requests, 0)
+        BoothStatusLiveStore.shared.applyRESTStatusForTesting(
+            BoothStatus(state: .idle, updatedAt: .now, installationState: .active)
+        )
+        observer.handleEvent(event, apiRevision: WidgetRefreshCoordinator.currentAPIRevision)
+        XCTAssertEqual(requests, 1)
+    }
+
+    private func statsSummary(awaitingModeration: Int, booth: BoothStatus? = nil) -> StatsSummary {
         let stats = DemoData.statsSummary
         return StatsSummary(
-            booth: stats.booth,
+            booth: booth ?? stats.booth,
             messages: .init(
                 pending: awaitingModeration,
                 awaitingModeration: awaitingModeration,

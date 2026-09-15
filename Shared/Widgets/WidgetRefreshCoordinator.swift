@@ -81,18 +81,33 @@ public actor WidgetRefreshCoordinator {
         await apply(stats: stats, systemEnvelope: nil, components: [])
     }
 
+    public func applyCounts(stats: StatsSummary, apiRevision: UInt) -> WidgetRefreshResult {
+        let revision = synchronizeAPIRevision()
+        guard acceptsUpdates, apiRevision == revision else { return .failed }
+        let previous = snapshot()
+        guard let summary = previous.summary else { return .noData }
+        let refreshedAt = now()
+        let updated = WidgetSnapshot(
+            summary: summary.replacingCounts(with: stats, refreshedAt: refreshedAt),
+            latestMessage: previous.latestMessage, systemHealth: previous.systemHealth,
+            activity: previous.activity, writtenAt: refreshedAt
+        )
+        return persist(updated, replacing: previous, apiRevision: revision)
+    }
+
     @discardableResult
     public func apply(
         stats: StatsSummary,
         systemEnvelope: BoothSystemSnapshotEnvelope?,
         components: [SystemComponentCurrentEnvelope],
-        apiRevision: UInt? = nil
+        apiRevision: UInt? = nil,
+        observedAt: Date? = nil
     ) async -> WidgetRefreshResult {
         let revision = synchronizeAPIRevision()
         guard apiRevision == nil || apiRevision == revision else { return .failed }
         guard acceptsUpdates else { return .failed }
         let previous = snapshot()
-        let refreshDate = now()
+        let refreshDate = observedAt ?? now()
         var candidateSummary = WidgetSnapshot.Summary(
             stats: stats,
             refreshedAt: refreshDate

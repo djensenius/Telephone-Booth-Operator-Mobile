@@ -79,6 +79,17 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             )
         }
 
+        public func replacingCounts(with stats: StatsSummary, refreshedAt: Date) -> Self {
+            Self(
+                boothState: boothState, boothUpdatedAt: boothUpdatedAt,
+                pendingMessages: stats.messages.badgeCount, receivedToday: stats.messages.receivedToday,
+                interactionsToday: stats.interactionsToday, interactionsInProgress: stats.interactionsInProgress,
+                wsClients: stats.realtime.wsClients, runtimeMode: runtimeMode,
+                sourceGeneratedAt: stats.generatedAt, refreshedAt: refreshedAt,
+                installationState: installationState, isSynthetic: isSynthetic
+            )
+        }
+
         fileprivate func hasSameContent(as other: Self) -> Bool {
             boothState == other.boothState
                 && boothUpdatedAt == other.boothUpdatedAt
