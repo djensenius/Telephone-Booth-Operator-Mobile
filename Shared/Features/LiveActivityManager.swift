@@ -30,6 +30,11 @@ public final class LiveActivityManager {
         if state == .betweenExhibitions { endAll(installationState: state) }
     }
 
+    func resetInstallationState(_ state: InstallationState?) {
+        installationState = state
+        endAll(installationState: state)
+    }
+
     // MARK: - Public API
 
     /// Starts a new Live Activity for the given call session. If one is

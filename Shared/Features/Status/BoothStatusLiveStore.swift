@@ -3,7 +3,7 @@
 //  TelephoneBoothOperatorMobile
 //
 //  Main-actor store that keeps booth status live via WebSocket with a
-//  five-second REST polling fallback (polling only on watchOS).
+//  five-second REST lifecycle reconciliation (polling only on watchOS).
 //
 
 import Foundation
@@ -87,6 +87,7 @@ public final class BoothStatusLiveStore {
     public func start() {
         startCount += 1
         guard startCount == 1 else { return }
+        synchronizeAPIBase()
         #if canImport(ActivityKit) && !os(macOS)
         LiveActivityManager.shared.setInstallationState(installationState)
         #endif
@@ -157,10 +158,12 @@ public final class BoothStatusLiveStore {
     }
 
     private func pollLoop() async {
+        var isInitialSeed = true
         while !Task.isCancelled {
             // Status frames carry no lifecycle; REST reconciles even when a
             // healthy socket is connected to another API replica.
-            await refreshFromREST()
+            await refreshFromREST(fullRefresh: isInitialSeed || connection != .live)
+            isInitialSeed = false
             do {
                 try await Task.sleep(for: pollInterval)
             } catch {
@@ -178,23 +181,23 @@ public final class BoothStatusLiveStore {
         }
     }
 
-    private func refreshFromREST() async {
+    private func refreshFromREST(fullRefresh: Bool = true) async {
         if demoMode || config.isDemoMode {
             applyDemoData()
             return
         }
+        let changedAPI = synchronizeAPIBase()
+        let fullRefresh = fullRefresh || changedAPI
         let client = self.client
-        let key = "boothInstallationState:\(config.apiBaseURL.absoluteString)"
-        if lifecycleKey != key {
-            lifecycleKey = key
-            installationState = nil
-            status = nil
-        }
+        let cachedSystem = systemEnvelope
+        let requestKey = lifecycleKey
         lifecycleRevision &+= 1
         let revision = lifecycleRevision
         async let statusResult = attempt { try await client.fetchBoothStatus() }
-        async let historyResult = attempt { try await client.fetchStatusHistory(limit: 200) }
-        async let systemResult = attempt { try await client.fetchCurrentSystemEnvelope() }
+        async let historyResult: StatusHistory? = fullRefresh
+            ? attempt { try await client.fetchStatusHistory(limit: 200) } : nil
+        async let systemResult: BoothSystemSnapshotEnvelope?? = fullRefresh || cachedSystem == nil
+            ? attempt { try await client.fetchCurrentSystemEnvelope() } : .some(cachedSystem)
         async let componentsResult = attempt { try await client.fetchCurrentSystemComponents() }
         async let summaryResult = fetchSummaryAndSessions()
 
@@ -203,11 +206,9 @@ public final class BoothStatusLiveStore {
         let newSystem = await systemResult
         let newComponents = await componentsResult
         let summary = await summaryResult
+        guard requestKey == lifecycleKey,
+              requestKey == "boothInstallationState:\(config.apiBaseURL.absoluteString)" else { return }
 
-        // Apply each successful result independently so one failing endpoint
-        // does not discard the others. `apply(status:)` and `mergeHistory`
-        // guard against overwriting fresher data delivered by the socket while
-        // these requests were in flight.
         if let newHistory { mergeHistory(newHistory.items) }
         applySystemResult(newSystem)
         if let newComponents { componentSources = newComponents }
@@ -216,23 +217,51 @@ public final class BoothStatusLiveStore {
             apply(status: newStatus, authoritative: true)
         }
 
-        let anySuccess = newStatus != nil || newHistory != nil
-            || newSystem != nil || newComponents != nil
-            || summary.stats != nil || summary.sessions != nil
         if newStatus == nil {
-            // Only a failed *current status* request signals degraded status;
-            // other successful results above are still applied.
             if status == nil && stats == nil {
                 connection = .offline
             } else if connection != .live {
                 connection = .polling
             }
             statusError = "Couldn't refresh booth status."
-        } else if anySuccess {
+        } else {
             if connection != .live { connection = .polling }
             statusError = nil
         }
         lastError = statusError ?? socketError
+    }
+
+    @discardableResult
+    private func synchronizeAPIBase() -> Bool {
+        let key = "boothInstallationState:\(config.apiBaseURL.absoluteString)"
+        guard lifecycleKey != key else { return false }
+        lifecycleKey = key
+        installationState = lifecycleDefaults?.string(forKey: key).flatMap(InstallationState.init(rawValue:))
+        status = installationState.map {
+            BoothStatus(state: .idle, updatedAt: Date(timeIntervalSince1970: 0),
+                        installationState: $0, isSynthetic: true)
+        }
+        stats = nil
+        history = []
+        systemEnvelope = nil
+        componentSources = []
+        systemUnavailable = false
+        callsTodaySessions = []
+        callsTodayStartedAt = nil
+        hasLoadedCallsToday = false
+        statusError = nil
+        socketError = nil
+        lastError = nil
+        lifecycleRevision &+= 1
+        #if canImport(ActivityKit) && !os(macOS)
+        LiveActivityManager.shared.resetInstallationState(installationState)
+        #endif
+        socketTask?.cancel()
+        socketTask = nil
+        if startCount > 0, !demoMode, !config.isDemoMode, StatusSocket.supportsLiveConnections {
+            startSocketLoop()
+        }
+        return true
     }
 
     /// Applies the outcome of the `/v1/system/current` REST request. The double
@@ -359,99 +388,6 @@ public final class BoothStatusLiveStore {
             return report
         }
         history = Self.merging(reports, into: history)
-    }
-
-    nonisolated static func merging(
-        _ items: [BoothStatus],
-        into history: [BoothStatus],
-        limit: Int = 200
-    ) -> [BoothStatus] {
-        var history = stableOrdered(history)
-        if items.count > 1 {
-            history = replacing(history, withPage: items)
-        } else if let item = items.first {
-            history = inserting(item, into: history)
-        }
-        if history.count > limit {
-            history.removeFirst(history.count - limit)
-        }
-        return history
-    }
-
-    /// Splice a REST history page into the cache. It is the operator's own
-    /// ordered history, so it is authoritative
-    /// for the span it covers — merging it entry by entry would append the
-    /// whole page again whenever runs share a booth timestamp. Entries outside
-    /// the span are kept, and a run the socket already has fresher stays so.
-    private nonisolated static func replacing(
-        _ history: [BoothStatus],
-        withPage page: [BoothStatus]
-    ) -> [BoothStatus] {
-        let page = stableOrdered(oldestFirst(page))
-        guard let oldest = page.first, let newest = page.last else { return history }
-        // A run the socket has already advanced keeps that fresher view, and
-        // the cached row it came from is dropped from what is kept — a
-        // heartbeat can push it past the page's newest report, where it would
-        // otherwise be held twice.
-        var reused: Set<Int> = []
-        let freshest = page.map { item -> BoothStatus in
-            guard let index = history.firstIndex(where: {
-                $0.isSameRun(as: item) && supersedes($0, item)
-            }) else { return item }
-            reused.insert(index)
-            return history[index]
-        }
-        // Cached rows the page does not speak for: those ordered outside it,
-        // and those the operator inserted after generating it — a report
-        // delayed past the page's oldest entry is broadcast with a row id newer
-        // than anything in the page even though its booth timestamp falls
-        // inside the span.
-        let newestPageId = page.compactMap(\.id).max() ?? Int.min
-        let unclaimed = history.enumerated()
-            .filter { offset, row in
-                guard !reused.contains(offset) else { return false }
-                if precedes(row, oldest) || precedes(newest, row) { return true }
-                guard let id = row.id else {
-                    // A pre-collapse operator numbers nothing: the row is the
-                    // page's own only if the page holds it outright, or holds a
-                    // matching run where the row itself would sort.
-                    if page.contains(where: { $0 == row }) { return false }
-                    return !neighbours(of: row, in: page).contains { $0.isSameRun(as: row) }
-                }
-                return id > newestPageId
-            }
-            .map(\.element)
-        return ordered(freshest, unclaimed)
-    }
-
-    /// Fold a single report (a socket frame) into the cache.
-    private nonisolated static func inserting(
-        _ item: BoothStatus,
-        into history: [BoothStatus]
-    ) -> [BoothStatus] {
-        var history = history
-        // An identified row is the same run wherever it sits, but matching an
-        // id-less one by its window has to stay local: a short run can share a
-        // millisecond with the identical runs either side of it.
-        let insertion = history.firstIndex { precedes(item, $0) } ?? history.count
-        let held = item.id == nil ? neighbours(of: item, in: history) : history
-        if held.contains(where: { $0.isSameRun(as: item) && supersedes($0, item) }) {
-            return history
-        }
-        history.insert(item, at: insertion)
-        // Collapse only the entries sitting next to the inserted one. A run can
-        // be held several times over (a socket frame plus a REST refresh), but
-        // anything separated by a differing status is a distinct row: the booth
-        // supplies `updatedAt`, so a short run can share a millisecond with the
-        // identical runs around it, and removing those by value would erase a
-        // genuine transition.
-        var lower = insertion
-        while lower > 0, isDuplicate(history[lower - 1], of: item) { lower -= 1 }
-        var upper = insertion
-        while upper + 1 < history.count, isDuplicate(history[upper + 1], of: item) { upper += 1 }
-        if upper > insertion { history.removeSubrange((insertion + 1)...upper) }
-        if lower < insertion { history.removeSubrange(lower..<insertion) }
-        return history
     }
 
     private func writeWidgetSnapshotIfPossible() {

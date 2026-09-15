@@ -240,6 +240,7 @@ final class InstallationNetworkTests: XCTestCase {
         defer { AppConfig.shared.isDemoMode = previousDemoMode }
         let client = makeClient()
         LifecycleURLProtocol.response.withLock { $0 = .active }
+        LifecycleURLProtocol.requestCounts.withLock { $0 = [:] }
         let store = BoothStatusLiveStore(client: client, socket: .demo)
         store.start()
         defer { store.stop() }
@@ -249,6 +250,10 @@ final class InstallationNetworkTests: XCTestCase {
         XCTAssertEqual(store.connection, .live)
         XCTAssertEqual(store.status?.isSynthetic, true)
         XCTAssertFalse(store.history.contains { $0.isSynthetic == true })
+        let counts = LifecycleURLProtocol.requestCounts.withLock { $0 }
+        XCTAssertEqual(counts["/v1/status/history"], 1, "Live ticks must not fetch full history")
+        XCTAssertEqual(counts["/v1/system/current"], 1, "Keep the cached live system snapshot")
+        XCTAssertGreaterThanOrEqual(counts["/v1/status"] ?? 0, 2)
         LifecycleURLProtocol.response.withLock { $0 = .active }
         await store.refreshNow()
         XCTAssertEqual(store.installationState, .active)
@@ -280,6 +285,42 @@ final class InstallationNetworkTests: XCTestCase {
     }
 
     @MainActor
+    func testAPITransitionClearsFallbackAndRestoresOnlyNewServerLifecycle() async throws {
+        let config = AppConfig.shared
+        let previousURL = config.apiBaseURL
+        let previousDemoMode = config.isDemoMode
+        let suite = "installation-server-tests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer {
+            config.apiBaseURL = previousURL
+            config.isDemoMode = previousDemoMode
+            defaults.removePersistentDomain(forName: suite)
+            LiveActivityManager.shared.resetInstallationState(nil)
+        }
+        config.isDemoMode = false
+        let store = BoothStatusLiveStore(client: makeClient(), lifecycleDefaults: defaults)
+        LifecycleURLProtocol.response.withLock { $0 = .inactive }
+        await store.refreshNow()
+        XCTAssertEqual(store.stats?.booth.installationState, .betweenExhibitions)
+        let cachedURL = try XCTUnwrap(URL(string: "https://cached.example.test"))
+        defaults.set("active", forKey: "boothInstallationState:\(cachedURL.absoluteString)")
+        config.apiBaseURL = cachedURL
+        LifecycleURLProtocol.response.withLock { $0 = .offline }
+        await store.refreshNow()
+        XCTAssertNil(store.stats)
+        XCTAssertTrue(store.history.isEmpty)
+        XCTAssertEqual(store.installationState, .active)
+        XCTAssertEqual(LiveActivityManager.shared.installationState, .active)
+        config.apiBaseURL = try XCTUnwrap(URL(string: "https://unknown.example.test"))
+        await store.refreshNow()
+        XCTAssertNil(store.status)
+        XCTAssertNil(store.stats)
+        XCTAssertNil(store.installationState)
+        XCTAssertNil(LiveActivityManager.shared.installationState)
+        XCTAssertNotNil(store.lastError)
+    }
+
+    @MainActor
     private func makeClient() -> OperatorClient {
         let auth = AuthManager(keychainStore: TestKeychainStore())
         XCTAssertTrue(auth.storeTokens(OIDCTokens(
@@ -307,12 +348,16 @@ private final class LifecycleURLProtocol: URLProtocol {
         case statusError(Int)
     }
     static let response = OSAllocatedUnfairLock(initialState: Response.active)
+    static let requestCounts = OSAllocatedUnfairLock(initialState: [String: Int]())
 
     override static func canInit(with request: URLRequest) -> Bool { true }
     override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func stopLoading() {}
 
     override func startLoading() {
+        if let path = request.url?.path {
+            Self.requestCounts.withLock { $0[path, default: 0] += 1 }
+        }
         let scenario = Self.response.withLock { $0 }
         guard scenario != .offline, let url = request.url else {
             client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))

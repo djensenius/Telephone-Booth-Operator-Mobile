@@ -51,6 +51,11 @@ an installation. REST lifecycle ordering is independent of heartbeat timestamps.
 An idless `isSynthetic: true` status with epoch `updatedAt` conveys lifecycle,
 not a fresh heartbeat or a history entry.
 
+Live polling keeps history and existing system snapshots cached; full refreshes
+are reserved for seeding, manual refresh, and socket fallback. Switching API URLs
+clears the previous server's data and Live Activities and restores only the new
+URL's cached lifecycle, if any.
+
 Shared dashboards use neutral **Between exhibitions / Offline expected**
 presentation during confirmed downtime, retaining metrics and historical data.
 An active synthetic status says **Waiting for booth**, not Idle, and never
