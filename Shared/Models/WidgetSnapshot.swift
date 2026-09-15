@@ -79,13 +79,13 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             )
         }
 
-        public func replacingCounts(with stats: StatsSummary, refreshedAt: Date) -> Self {
+        public func replacingCounts(with stats: StatsSummary) -> Self {
             Self(
                 boothState: boothState, boothUpdatedAt: boothUpdatedAt,
                 pendingMessages: stats.messages.badgeCount, receivedToday: stats.messages.receivedToday,
                 interactionsToday: stats.interactionsToday, interactionsInProgress: stats.interactionsInProgress,
                 wsClients: stats.realtime.wsClients, runtimeMode: runtimeMode,
-                sourceGeneratedAt: stats.generatedAt, refreshedAt: refreshedAt,
+                sourceGeneratedAt: sourceGeneratedAt, refreshedAt: refreshedAt,
                 installationState: installationState, isSynthetic: isSynthetic
             )
         }

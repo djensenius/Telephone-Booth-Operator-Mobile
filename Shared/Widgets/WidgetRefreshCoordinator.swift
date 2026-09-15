@@ -88,7 +88,7 @@ public actor WidgetRefreshCoordinator {
         guard let summary = previous.summary else { return .noData }
         let refreshedAt = now()
         let updated = WidgetSnapshot(
-            summary: summary.replacingCounts(with: stats, refreshedAt: refreshedAt),
+            summary: summary.replacingCounts(with: stats),
             latestMessage: previous.latestMessage, systemHealth: previous.systemHealth,
             activity: previous.activity, writtenAt: refreshedAt
         )
