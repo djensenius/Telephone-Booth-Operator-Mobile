@@ -3,7 +3,8 @@
 //  TelephoneBoothOperatorMobile
 //
 //  Main-actor store that keeps booth status live via WebSocket with a
-//  five-second REST lifecycle reconciliation (polling only on watchOS).
+//  five-second REST lifecycle reconciliation on every platform.
+//  watchOS uses REST without a WebSocket.
 //
 
 import Foundation
