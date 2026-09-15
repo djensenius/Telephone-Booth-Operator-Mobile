@@ -3,7 +3,8 @@
 //  TelephoneBoothOperatorMobile
 //
 //  Main-actor store that keeps booth status live via WebSocket with a
-//  five-second REST lifecycle reconciliation (polling only on watchOS).
+//  five-second REST lifecycle reconciliation on every platform.
+//  watchOS uses REST without a WebSocket.
 //
 
 import Foundation
@@ -38,6 +39,7 @@ public final class BoothStatusLiveStore {
     private var lifecycleRevision: UInt = 0
     private var restRevision: UInt = 0
     private var appliedRESTRevision: UInt = 0
+    private var appliedStatusRevision: UInt = 0
     private var needsFullRefresh = true
     private var statusError: String?
     private var socketError: String?
@@ -198,7 +200,7 @@ public final class BoothStatusLiveStore {
         let client = self.client
         let cachedSystem = systemEnvelope
         let requestKey = lifecycleKey
-        lifecycleRevision &+= 1
+        let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
         let revision = lifecycleRevision
         restRevision &+= 1
         let requestRevision = restRevision
@@ -211,12 +213,18 @@ public final class BoothStatusLiveStore {
         async let summaryResult = fetchSummaryAndSessions()
 
         let newStatus = await statusResult
+        if requestRevision >= appliedStatusRevision, isCurrentAPI(requestKey, revision: apiRevision) {
+            appliedStatusRevision = requestRevision
+            if let newStatus, revision == lifecycleRevision {
+                apply(status: newStatus, authoritative: true)
+            }
+            applyStatusOutcome(newStatus)
+        }
         let newHistory = await historyResult
         let newSystem = await systemResult
         let newComponents = await componentsResult
         let summary = await summaryResult
-        guard !Task.isCancelled, requestRevision >= appliedRESTRevision, requestKey == lifecycleKey,
-              requestKey == "boothInstallationState:\(config.apiBaseURL.absoluteString)" else { return }
+        guard requestRevision >= appliedRESTRevision, isCurrentAPI(requestKey, revision: apiRevision) else { return }
         appliedRESTRevision = requestRevision
 
         if let newHistory {
@@ -225,11 +233,16 @@ public final class BoothStatusLiveStore {
         }
         applySystemResult(newSystem)
         if let newComponents { componentSources = newComponents }
-        apply(summary, reconcileLifecycle: revision == lifecycleRevision && newStatus == nil)
-        if let newStatus, revision == lifecycleRevision {
-            apply(status: newStatus, authoritative: true)
-        }
+        apply(summary, reconcileLifecycle: revision == lifecycleRevision && newStatus == nil
+            && requestRevision == appliedStatusRevision)
+    }
 
+    private func isCurrentAPI(_ key: String, revision: UInt) -> Bool {
+        !Task.isCancelled && key == lifecycleKey && revision == WidgetRefreshCoordinator.currentAPIRevision
+            && key == "boothInstallationState:\(config.apiBaseURL.absoluteString)"
+    }
+
+    private func applyStatusOutcome(_ newStatus: BoothStatus?) {
         if newStatus == nil {
             if status == nil && stats == nil {
                 connection = .offline
@@ -275,8 +288,10 @@ public final class BoothStatusLiveStore {
         socketTask = nil
         pollTask?.cancel()
         pollTask = nil
+        let usesSocket = !demoMode && !config.isDemoMode && StatusSocket.supportsLiveConnections
+        connection = startCount == 0 ? .offline : (usesSocket ? .connecting : .polling)
         if startCount > 0 { startPollLoop() }
-        if startCount > 0, !demoMode, !config.isDemoMode, StatusSocket.supportsLiveConnections {
+        if startCount > 0, usesSocket {
             startSocketLoop()
         }
         return true
