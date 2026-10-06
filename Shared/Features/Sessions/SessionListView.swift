@@ -19,9 +19,14 @@ public struct SessionListView: View {
     @State private var generation = 0
     @State private var loadedPageCount = 0
     @State private var notificationScope: DeliveredNotificationScope?
+    @State private var compactSessionPath: [String]
+    @State private var selectedSessionId: String?
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var usesSplitLayout = false
 
     private let client: OperatorClient
     private let pageSize: Int
+    private let routeSessionId: String?
 
     enum LoadState: Equatable {
         case idle
@@ -30,23 +35,20 @@ public struct SessionListView: View {
         case done
     }
 
-    public init(client: OperatorClient = .shared, pageSize: Int = 50) {
+    public init(
+        client: OperatorClient = .shared,
+        pageSize: Int = 50,
+        routeSessionId: String? = nil
+    ) {
         self.client = client
         self.pageSize = pageSize
+        self.routeSessionId = routeSessionId
+        _compactSessionPath = State(initialValue: routeSessionId.map { [$0] } ?? [])
+        _selectedSessionId = State(initialValue: routeSessionId)
     }
 
     public var body: some View {
-        Group {
-            if loadState == .loadingInitial && sessions.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Theme.Colors.background)
-            } else if sessions.isEmpty {
-                emptyState
-            } else {
-                list
-            }
-        }
+        rootContent
         .background(Theme.Colors.background)
         .autoRefresh {
             await refreshLoadedPages()
@@ -55,9 +57,104 @@ public struct SessionListView: View {
             await loadFirstPage()
         }
         .notificationVisibilityScope(notificationScope)
+        .onChange(of: sessions.map(\.id)) { _, ids in
+            reconcileSplitSelection(with: ids)
+        }
+        .onChange(of: routeSessionId) { _, routeSessionId in
+            if let routeSessionId {
+                compactSessionPath = [routeSessionId]
+                selectedSessionId = routeSessionId
+            } else {
+                compactSessionPath = []
+            }
+        }
     }
 
-    private var list: some View {
+    @ViewBuilder
+    private var rootContent: some View {
+        #if os(iOS)
+        adaptiveRoot
+        #else
+        content(onSelect: nil)
+            .navigationDestination(for: String.self) { sessionId in
+                SessionDetailView(sessionId: sessionId, client: client)
+            }
+        #endif
+    }
+
+    private var adaptiveRoot: some View {
+        GeometryReader { proxy in
+            let usesSplitView = SessionListLayout(
+                size: proxy.size,
+                safeAreaInsets: proxy.safeAreaInsets
+            ).usesSplitView
+
+            Group {
+                if usesSplitView {
+                    splitRoot
+                } else {
+                    compactRoot
+                }
+            }
+            .task(id: usesSplitView) {
+                usesSplitLayout = usesSplitView
+                reconcileSplitSelection(with: sessions.map(\.id))
+            }
+        }
+    }
+
+    private var compactRoot: some View {
+        NavigationStack(path: $compactSessionPath) {
+            content { sessionId in
+                compactSessionPath.append(sessionId)
+            }
+            .navigationTitle("Sessions")
+            .navigationDestination(for: String.self) { sessionId in
+                SessionDetailView(sessionId: sessionId, client: client)
+            }
+        }
+    }
+
+    private var splitRoot: some View {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            content { sessionId in
+                selectedSessionId = sessionId
+            }
+            .navigationTitle("Sessions")
+            .navigationSplitViewColumnWidth(min: 300, ideal: 380, max: 480)
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+        } detail: {
+            if let selectedSessionId {
+                SessionDetailView(sessionId: selectedSessionId, client: client)
+                    .id(selectedSessionId)
+            } else {
+                ContentUnavailableView(
+                    "Select a session",
+                    systemImage: "phone.connection",
+                    description: Text("Choose a call session to review its event timeline.")
+                )
+                .background(Theme.Colors.background)
+            }
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+
+    @ViewBuilder
+    private func content(onSelect: ((String) -> Void)?) -> some View {
+        if loadState == .loadingInitial && sessions.isEmpty {
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Theme.Colors.background)
+        } else if sessions.isEmpty {
+            emptyState
+        } else {
+            list(onSelect: onSelect)
+        }
+    }
+
+    private func list(onSelect: ((String) -> Void)?) -> some View {
         List {
             if let errorMessage {
                 BannerView(message: errorMessage, kind: .error)
@@ -65,10 +162,21 @@ public struct SessionListView: View {
                     .listRowSeparator(.hidden)
             }
             ForEach(sessions) { session in
-                NavigationLink(value: session.id) {
-                    SessionRow(session: session)
+                if let onSelect {
+                    Button {
+                        onSelect(session.id)
+                    } label: {
+                        SessionRow(session: session)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .operatorListRowBackground()
+                } else {
+                    NavigationLink(value: session.id) {
+                        SessionRow(session: session)
+                    }
+                    .operatorListRowBackground()
                 }
-                .operatorListRowBackground()
             }
             if nextCursor != nil {
                 loadMoreFooter
@@ -77,9 +185,6 @@ public struct SessionListView: View {
             }
         }
         .operatorListStyle()
-        .navigationDestination(for: String.self) { sessionId in
-            SessionDetailView(sessionId: sessionId, client: client)
-        }
     }
 
     @ViewBuilder
@@ -204,6 +309,27 @@ public struct SessionListView: View {
     private func acknowledgeLoadedSessions() async {
         notificationScope = .allCalls
         await NotificationManager.shared.clearDeliveredNotifications(in: .allCalls)
+    }
+
+    private func reconcileSplitSelection(with ids: [String]) {
+        guard usesSplitLayout else { return }
+        if let selectedSessionId, ids.contains(selectedSessionId) { return }
+        selectedSessionId = routeSessionId.flatMap { ids.contains($0) ? $0 : nil } ?? ids.first
+    }
+}
+
+private struct SessionListLayout: Equatable {
+    private static let listColumnWidth: CGFloat = 300
+    private static let detailColumnWidth: CGFloat = 400
+
+    let availableWidth: CGFloat
+
+    init(size: CGSize, safeAreaInsets: EdgeInsets) {
+        availableWidth = max(0, size.width - safeAreaInsets.leading - safeAreaInsets.trailing)
+    }
+
+    var usesSplitView: Bool {
+        availableWidth >= Self.listColumnWidth + Self.detailColumnWidth
     }
 }
 

@@ -330,10 +330,18 @@ private struct OperatorShell: View {
     private func workflowTabContent(for tab: OperatorTab) -> some View {
         switch tab {
         case .sessions:
+            #if os(iOS)
+            SessionListView(
+                client: client,
+                routeSessionId: sessionPath.last
+            )
+            .automaticRefreshEnabled(selection == .sessions)
+            #else
             NavigationStack(path: $sessionPath) {
                 SessionListView(client: client).navigationTitle("Sessions")
             }
             .automaticRefreshEnabled(selection == .sessions)
+            #endif
         case .messages:
             #if os(iOS)
             MessageListView(
