@@ -117,9 +117,7 @@ public struct SessionListView: View {
 
     private var splitRoot: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            content { sessionId in
-                selectedSessionId = sessionId
-            }
+            content(onSelect: nil, isSplit: true)
             .navigationTitle("Sessions")
             .navigationSplitViewColumnWidth(min: 300, ideal: 380, max: 480)
             #if os(iOS)
@@ -142,7 +140,10 @@ public struct SessionListView: View {
     }
 
     @ViewBuilder
-    private func content(onSelect: ((String) -> Void)?) -> some View {
+    private func content(
+        onSelect: ((String) -> Void)?,
+        isSplit: Bool = false
+    ) -> some View {
         if loadState == .loadingInitial && sessions.isEmpty {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -150,41 +151,65 @@ public struct SessionListView: View {
         } else if sessions.isEmpty {
             emptyState
         } else {
-            list(onSelect: onSelect)
+            list(onSelect: onSelect, isSplit: isSplit)
         }
     }
 
-    private func list(onSelect: ((String) -> Void)?) -> some View {
-        List {
-            if let errorMessage {
-                BannerView(message: errorMessage, kind: .error)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
+    @ViewBuilder
+    private func list(
+        onSelect: ((String) -> Void)?,
+        isSplit: Bool
+    ) -> some View {
+        if isSplit {
+            List(selection: $selectedSessionId) {
+                rows(onSelect: onSelect, isSplit: isSplit)
             }
-            ForEach(sessions) { session in
-                if let onSelect {
-                    Button {
-                        onSelect(session.id)
-                    } label: {
-                        SessionRow(session: session)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .operatorListRowBackground()
-                } else {
-                    NavigationLink(value: session.id) {
-                        SessionRow(session: session)
-                    }
-                    .operatorListRowBackground()
+            .operatorListStyle()
+        } else {
+            List {
+                rows(onSelect: onSelect, isSplit: isSplit)
+            }
+            .operatorListStyle()
+        }
+    }
+
+    @ViewBuilder
+    private func rows(
+        onSelect: ((String) -> Void)?,
+        isSplit: Bool
+    ) -> some View {
+        if let errorMessage {
+            BannerView(message: errorMessage, kind: .error)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+        ForEach(sessions) { session in
+            if isSplit {
+                NavigationLink(value: session.id) {
+                    SessionRow(session: session)
                 }
-            }
-            if nextCursor != nil {
-                loadMoreFooter
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
+                .operatorListRowBackground()
+            } else if let onSelect {
+                Button {
+                    onSelect(session.id)
+                } label: {
+                    SessionRow(session: session)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .operatorListRowBackground()
+            } else {
+                NavigationLink(value: session.id) {
+                    SessionRow(session: session)
+                }
+                .operatorListRowBackground()
             }
         }
-        .operatorListStyle()
+        if nextCursor != nil {
+            loadMoreFooter
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
     }
 
     @ViewBuilder

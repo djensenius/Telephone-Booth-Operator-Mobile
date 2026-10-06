@@ -378,9 +378,7 @@ public struct MessageListView: View {
 
     private var splitQueueRoot: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            queueContent { messageId in
-                selectedMessageId = messageId
-            }
+            queueContent(isSplit: true)
             .navigationTitle("Messages")
             .searchable(text: $searchText, prompt: searchPrompt)
             .navigationSplitViewColumnWidth(min: 320, ideal: 420, max: 520)
@@ -405,16 +403,20 @@ public struct MessageListView: View {
     }
 
     private func queueContent(
-        onSelect: ((String) -> Void)? = nil
+        onSelect: ((String) -> Void)? = nil,
+        isSplit: Bool = false
     ) -> some View {
         VStack(spacing: 0) {
             filterPicker
-            queueContentBody(onSelect: onSelect)
+            queueContentBody(onSelect: onSelect, isSplit: isSplit)
         }
     }
 
     @ViewBuilder
-    private func queueContentBody(onSelect: ((String) -> Void)?) -> some View {
+    private func queueContentBody(
+        onSelect: ((String) -> Void)?,
+        isSplit: Bool
+    ) -> some View {
         if loading && messages.isEmpty {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -422,21 +424,40 @@ public struct MessageListView: View {
         } else if messages.isEmpty {
             emptyState
         } else {
-            queueList(onSelect: onSelect)
+            queueList(onSelect: onSelect, isSplit: isSplit)
         }
     }
 
-    private func queueList(onSelect: ((String) -> Void)?) -> some View {
-        List {
-            messageBanners
-            if filteredMessages.isEmpty {
-                noMatchesRow
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
+    @ViewBuilder
+    private func queueList(
+        onSelect: ((String) -> Void)?,
+        isSplit: Bool
+    ) -> some View {
+        if isSplit {
+            List(selection: $selectedMessageId) {
+                queueRows(onSelect: onSelect, isSplit: isSplit)
             }
-            messageRows(onSelect: onSelect)
+            .operatorListStyle()
+        } else {
+            List {
+                queueRows(onSelect: onSelect, isSplit: isSplit)
+            }
+            .operatorListStyle()
         }
-        .operatorListStyle()
+    }
+
+    @ViewBuilder
+    private func queueRows(
+        onSelect: ((String) -> Void)?,
+        isSplit: Bool
+    ) -> some View {
+        messageBanners
+        if filteredMessages.isEmpty {
+            noMatchesRow
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+        messageRows(onSelect: onSelect, isSplit: isSplit)
     }
 
     private var questionList: some View {
@@ -471,7 +492,7 @@ public struct MessageListView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 } else {
-                    messageRows(onSelect: nil)
+                    messageRows(onSelect: nil, isSplit: false)
                 }
 
                 if nextCursor != nil {
@@ -507,13 +528,21 @@ public struct MessageListView: View {
     }
 
     @ViewBuilder
-    private func messageRows(onSelect: ((String) -> Void)?) -> some View {
+    private func messageRows(
+        onSelect: ((String) -> Void)?,
+        isSplit: Bool
+    ) -> some View {
         ForEach(filteredMessages) { message in
             let actionAccess = mode.actionAccess(
                 for: message,
                 installationState: installationAccessState
             )
-            messageLink(for: message, actionAccess: actionAccess, onSelect: onSelect)
+            messageLink(
+                for: message,
+                actionAccess: actionAccess,
+                onSelect: onSelect,
+                isSplit: isSplit
+            )
                 .frame(maxWidth: .infinity, alignment: .leading)
                 #if os(macOS)
                 .overlay(alignment: .trailing) {
@@ -579,12 +608,17 @@ public struct MessageListView: View {
     private func messageLink(
         for message: Message,
         actionAccess: MessageActionAccess,
-        onSelect: ((String) -> Void)?
+        onSelect: ((String) -> Void)?,
+        isSplit: Bool
     ) -> some View {
         if mode.isQuestion {
             NavigationLink {
                 messageDetail(messageId: message.id)
             } label: {
+                messageRow(for: message, actionAccess: actionAccess)
+            }
+        } else if isSplit {
+            NavigationLink(value: message.id) {
                 messageRow(for: message, actionAccess: actionAccess)
             }
         } else if let onSelect {
