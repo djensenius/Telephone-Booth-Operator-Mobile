@@ -390,6 +390,7 @@ public struct MessageListView: View {
         } detail: {
             if let selectedMessageId {
                 messageDetail(messageId: selectedMessageId)
+                    .id(selectedMessageId)
                     .navigationTitle("Message")
             } else {
                 ContentUnavailableView(
