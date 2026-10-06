@@ -176,6 +176,16 @@ public extension View {
         self.listRowBackground(Theme.Colors.secondaryBackground)
         #endif
     }
+
+    /// Preserve native selection highlighting for split-view selectable lists.
+    @ViewBuilder
+    func operatorSelectableListRowBackground(active: Bool) -> some View {
+        if active {
+            self
+        } else {
+            operatorListRowBackground()
+        }
+    }
 }
 
 private struct AutoRefreshModifier<ID: Equatable>: ViewModifier {

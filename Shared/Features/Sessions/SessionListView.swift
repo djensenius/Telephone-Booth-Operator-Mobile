@@ -188,7 +188,7 @@ public struct SessionListView: View {
                 NavigationLink(value: session.id) {
                     SessionRow(session: session)
                 }
-                .operatorListRowBackground()
+                .operatorSelectableListRowBackground(active: true)
             } else if let onSelect {
                 Button {
                     onSelect(session.id)

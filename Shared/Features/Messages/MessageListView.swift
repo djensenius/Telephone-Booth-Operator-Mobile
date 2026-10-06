@@ -560,7 +560,7 @@ public struct MessageListView: View {
                     }
                 }
                 #endif
-                .operatorListRowBackground()
+                .operatorSelectableListRowBackground(active: isSplit)
                 .contextMenu {
                     if actionAccess == .writable {
                         actionButtons(for: message)
