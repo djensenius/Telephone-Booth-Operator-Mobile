@@ -5,9 +5,6 @@
 //  Signed-in shell with platform-appropriate dashboard and navigation.
 //
 import SwiftUI
-#if os(iOS)
-import UIKit
-#endif
 
 public struct SignedInRootView: View {
     private let client: OperatorClient
@@ -40,8 +37,8 @@ public struct SignedInRootView: View {
 }
 
 #if !os(watchOS)
-/// Unified, platform-adaptive signed-in shell. One `TabView` plus
-/// `.sidebarAdaptable` does the right thing on every supported platform.
+/// Unified, platform-adaptive signed-in shell. Top-level navigation stays in
+/// `TabView(.sidebarAdaptable)` while workflow tabs own their navigation.
 private struct OperatorShell: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     let client: OperatorClient
@@ -136,28 +133,41 @@ private struct OperatorShell: View {
                     tabContent(for: tab)
                 }
                 #else
-                Tab(tab.title, systemImage: tab.systemImage, value: tab) {
+                Tab(value: tab) {
                     tabContent(for: tab)
+                } label: {
+                    Image(systemName: tab.systemImage)
+                        .accessibilityLabel(tab.title)
                 }
                 .badge(tab == .messages ? pending.pendingCount : 0)
                 #endif
             }
         }
+        #if os(iOS)
+        .labelStyle(.iconOnly)
+        #endif
     }
 
     #if os(iOS)
     private var compactTabView: some View {
         TabView(selection: compactTabSelection) {
             ForEach(OperatorTab.compactPrimaryNavigationOrder, id: \.self) { tab in
-                Tab(tab.title, systemImage: tab.systemImage, value: tab) {
+                Tab(value: tab) {
                     tabContent(for: tab)
+                } label: {
+                    Image(systemName: tab.systemImage)
+                        .accessibilityLabel(tab.title)
                 }
                 .badge(tab == .messages ? pending.pendingCount : 0)
             }
-            Tab(OperatorTab.more.title, systemImage: OperatorTab.more.systemImage, value: .more) {
+            Tab(value: OperatorTab.more) {
                 compactMoreNavigation
+            } label: {
+                Image(systemName: OperatorTab.more.systemImage)
+                    .accessibilityLabel(OperatorTab.more.title)
             }
         }
+        .labelStyle(.iconOnly)
     }
 
     private var compactTabSelection: Binding<OperatorTab> {
@@ -230,7 +240,7 @@ private struct OperatorShell: View {
 
     private var usesCompactTabNavigation: Bool {
         #if os(iOS)
-        UIDevice.current.userInterfaceIdiom == .phone || horizontalSizeClass == .compact
+        horizontalSizeClass == .compact
         #else
         false
         #endif

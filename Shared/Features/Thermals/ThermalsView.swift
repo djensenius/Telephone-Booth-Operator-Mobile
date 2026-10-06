@@ -38,7 +38,8 @@ public struct ThermalsView: View {
                 historyContent
             }
             .padding(Theme.Spacing.large)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: 1180)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
         .background(Theme.Colors.background)
         .autoRefresh(
