@@ -335,6 +335,15 @@ private struct OperatorShell: View {
             }
             .automaticRefreshEnabled(selection == .sessions)
         case .messages:
+            #if os(iOS)
+            MessageListView(
+                client: client,
+                routeFilter: messageFilter,
+                routeMessageId: messagePath.last,
+                routeRevision: messageRouteRevision
+            )
+            .automaticRefreshEnabled(selection == .messages)
+            #else
             NavigationStack(path: $messagePath) {
                 MessageListView(
                     client: client,
@@ -344,6 +353,7 @@ private struct OperatorShell: View {
                 .navigationTitle("Messages")
             }
             .automaticRefreshEnabled(selection == .messages)
+            #endif
         case .thermals:
             NavigationStack {
                 ThermalsView(client: client).navigationTitle("Thermals")
