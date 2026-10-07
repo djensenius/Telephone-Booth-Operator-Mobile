@@ -129,47 +129,29 @@ private struct OperatorShell: View {
         TabView(selection: $selection) {
             ForEach(visibleTabs, id: \.self) { tab in
                 #if os(tvOS)
-                Tab(tab.title, systemImage: tab.systemImage, value: tab) {
-                    tabContent(for: tab)
-                }
+                Tab(tab.title, systemImage: tab.systemImage, value: tab) { tabContent(for: tab) }
                 #else
-                Tab(value: tab) {
-                    tabContent(for: tab)
-                } label: {
-                    Image(systemName: tab.systemImage)
-                        .accessibilityLabel(tab.title)
-                }
-                .badge(tab == .messages ? pending.pendingCount : 0)
+                Tab(value: tab) { tabContent(for: tab) } label: { Label(tab.title, systemImage: tab.systemImage) }
+                    .badge(tab == .messages ? pending.pendingCount : 0)
                 #endif
             }
         }
-        #if os(iOS)
         .labelStyle(.iconOnly)
-        #endif
     }
 
     #if os(iOS)
     private var compactTabView: some View {
         TabView(selection: compactTabSelection) {
             ForEach(OperatorTab.compactPrimaryNavigationOrder, id: \.self) { tab in
-                Tab(value: tab) {
-                    tabContent(for: tab)
-                } label: {
-                    Image(systemName: tab.systemImage)
-                        .accessibilityLabel(tab.title)
-                }
-                .badge(tab == .messages ? pending.pendingCount : 0)
+                Tab(value: tab) { tabContent(for: tab) } label: { Label(tab.title, systemImage: tab.systemImage) }
+                    .badge(tab == .messages ? pending.pendingCount : 0)
             }
-            Tab(value: OperatorTab.more) {
-                compactMoreNavigation
-            } label: {
-                Image(systemName: OperatorTab.more.systemImage)
-                    .accessibilityLabel(OperatorTab.more.title)
+            Tab(value: OperatorTab.more) { compactMoreNavigation } label: {
+                Label(OperatorTab.more.title, systemImage: OperatorTab.more.systemImage)
             }
         }
         .labelStyle(.iconOnly)
     }
-
     private var compactTabSelection: Binding<OperatorTab> {
         Binding(
             get: {
@@ -238,13 +220,7 @@ private struct OperatorShell: View {
     }
     #endif
 
-    private var usesCompactTabNavigation: Bool {
-        #if os(iOS)
-        horizontalSizeClass == .compact
-        #else
-        false
-        #endif
-    }
+    private var usesCompactTabNavigation: Bool { horizontalSizeClass == .compact }
 
     @ViewBuilder
     private func tabContent(for tab: OperatorTab) -> some View {
@@ -330,11 +306,28 @@ private struct OperatorShell: View {
     private func workflowTabContent(for tab: OperatorTab) -> some View {
         switch tab {
         case .sessions:
+            #if os(iOS)
+            SessionListView(
+                client: client,
+                routeSessionId: sessionPath.last
+            )
+            .automaticRefreshEnabled(selection == .sessions)
+            #else
             NavigationStack(path: $sessionPath) {
                 SessionListView(client: client).navigationTitle("Sessions")
             }
             .automaticRefreshEnabled(selection == .sessions)
+            #endif
         case .messages:
+            #if os(iOS)
+            MessageListView(
+                client: client,
+                routeFilter: messageFilter,
+                routeMessageId: messagePath.last,
+                routeRevision: messageRouteRevision
+            )
+            .automaticRefreshEnabled(selection == .messages)
+            #else
             NavigationStack(path: $messagePath) {
                 MessageListView(
                     client: client,
@@ -344,6 +337,7 @@ private struct OperatorShell: View {
                 .navigationTitle("Messages")
             }
             .automaticRefreshEnabled(selection == .messages)
+            #endif
         case .thermals:
             NavigationStack {
                 ThermalsView(client: client).navigationTitle("Thermals")

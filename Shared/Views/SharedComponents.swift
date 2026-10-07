@@ -178,6 +178,15 @@ public extension View {
     }
 }
 
+@MainActor @ViewBuilder
+func operatorSelectableListRowBackground<Content: View>(_ content: Content, active: Bool) -> some View {
+    if active {
+        content
+    } else {
+        content.operatorListRowBackground()
+    }
+}
+
 private struct AutoRefreshModifier<ID: Equatable>: ViewModifier {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.automaticRefreshEnabled) private var automaticRefreshEnabled
