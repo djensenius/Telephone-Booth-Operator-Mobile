@@ -185,11 +185,13 @@ public struct SessionListView: View {
         }
         ForEach(sessions) { session in
             if isSplit {
-                NavigationLink(value: session.id) {
-                    SessionRow(session: session)
-                }
+                operatorSelectableListRowBackground(
+                    NavigationLink(value: session.id) {
+                        SessionRow(session: session)
+                    },
+                    active: true
+                )
                 .tag(session.id)
-                .operatorSelectableListRowBackground(active: true)
             } else if let onSelect {
                 Button {
                     onSelect(session.id)

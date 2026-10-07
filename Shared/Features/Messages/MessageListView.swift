@@ -537,14 +537,17 @@ public struct MessageListView: View {
                 for: message,
                 installationState: installationAccessState
             )
-            messageLink(
-                for: message,
-                actionAccess: actionAccess,
-                onSelect: onSelect,
-                isSplit: isSplit
+            operatorSelectableListRowBackground(
+                messageLink(
+                    for: message,
+                    actionAccess: actionAccess,
+                    onSelect: onSelect,
+                    isSplit: isSplit
+                )
+                .frame(maxWidth: .infinity, alignment: .leading),
+                active: isSplit
             )
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .tag(message.id)
+            .tag(message.id)
                 #if os(macOS)
                 .overlay(alignment: .trailing) {
                     if hoveredMessageId == message.id, actionAccess == .writable {
@@ -561,7 +564,6 @@ public struct MessageListView: View {
                     }
                 }
                 #endif
-                .operatorSelectableListRowBackground(active: isSplit)
                 .contextMenu {
                     if actionAccess == .writable {
                         actionButtons(for: message)

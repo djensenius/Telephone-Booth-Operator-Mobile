@@ -177,14 +177,14 @@ public extension View {
         #endif
     }
 
-    /// Preserve native selection highlighting for split-view selectable lists.
-    @ViewBuilder
-    func operatorSelectableListRowBackground(active: Bool) -> some View {
-        if active {
-            self
-        } else {
-            operatorListRowBackground()
-        }
+}
+
+@MainActor @ViewBuilder
+func operatorSelectableListRowBackground<Content: View>(_ content: Content, active: Bool) -> some View {
+    if active {
+        content
+    } else {
+        content.operatorListRowBackground()
     }
 }
 
