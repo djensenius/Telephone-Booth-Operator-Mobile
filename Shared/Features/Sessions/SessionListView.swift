@@ -164,7 +164,7 @@ public struct SessionListView: View {
             List(selection: $selectedSessionId) {
                 rows(onSelect: onSelect, isSplit: isSplit)
             }
-            .operatorListStyle()
+            .listStyle(.sidebar)
         } else {
             List {
                 rows(onSelect: onSelect, isSplit: isSplit)
@@ -188,6 +188,7 @@ public struct SessionListView: View {
                 NavigationLink(value: session.id) {
                     SessionRow(session: session)
                 }
+                .tag(session.id)
                 .operatorSelectableListRowBackground(active: true)
             } else if let onSelect {
                 Button {

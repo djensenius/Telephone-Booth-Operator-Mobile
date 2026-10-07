@@ -437,7 +437,7 @@ public struct MessageListView: View {
             List(selection: $selectedMessageId) {
                 queueRows(onSelect: onSelect, isSplit: isSplit)
             }
-            .operatorListStyle()
+            .listStyle(.sidebar)
         } else {
             List {
                 queueRows(onSelect: onSelect, isSplit: isSplit)
@@ -544,6 +544,7 @@ public struct MessageListView: View {
                 isSplit: isSplit
             )
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .tag(message.id)
                 #if os(macOS)
                 .overlay(alignment: .trailing) {
                     if hoveredMessageId == message.id, actionAccess == .writable {
