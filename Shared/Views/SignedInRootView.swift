@@ -5,9 +5,6 @@
 //  Signed-in shell with platform-appropriate dashboard and navigation.
 //
 import SwiftUI
-#if os(iOS)
-import UIKit
-#endif
 
 public struct SignedInRootView: View {
     private let client: OperatorClient
@@ -40,8 +37,8 @@ public struct SignedInRootView: View {
 }
 
 #if !os(watchOS)
-/// Unified, platform-adaptive signed-in shell. One `TabView` plus
-/// `.sidebarAdaptable` does the right thing on every supported platform.
+/// Unified, platform-adaptive signed-in shell. Top-level navigation stays in
+/// `TabView(.sidebarAdaptable)` while workflow tabs own their navigation.
 private struct OperatorShell: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     let client: OperatorClient
@@ -54,6 +51,7 @@ private struct OperatorShell: View {
     @State private var messageFilter: MessageListFilter = .all
     @State private var messageRouteRevision: UInt = 0
     @State private var sessionPath: [String] = []
+    @State private var sessionRouteRevision: UInt = 0
     @State private var compactMorePath: NavigationPath
     #if os(tvOS)
     @State private var config = AppConfig.shared
@@ -132,34 +130,29 @@ private struct OperatorShell: View {
         TabView(selection: $selection) {
             ForEach(visibleTabs, id: \.self) { tab in
                 #if os(tvOS)
-                Tab(tab.title, systemImage: tab.systemImage, value: tab) {
-                    tabContent(for: tab)
-                }
+                Tab(tab.title, systemImage: tab.systemImage, value: tab) { tabContent(for: tab) }
                 #else
-                Tab(tab.title, systemImage: tab.systemImage, value: tab) {
-                    tabContent(for: tab)
-                }
-                .badge(tab == .messages ? pending.pendingCount : 0)
+                Tab(value: tab) { tabContent(for: tab) } label: { Label(tab.title, systemImage: tab.systemImage) }
+                    .badge(tab == .messages ? pending.pendingCount : 0)
                 #endif
             }
         }
+        .labelStyle(.iconOnly)
     }
 
     #if os(iOS)
     private var compactTabView: some View {
         TabView(selection: compactTabSelection) {
             ForEach(OperatorTab.compactPrimaryNavigationOrder, id: \.self) { tab in
-                Tab(tab.title, systemImage: tab.systemImage, value: tab) {
-                    tabContent(for: tab)
-                }
-                .badge(tab == .messages ? pending.pendingCount : 0)
+                Tab(value: tab) { tabContent(for: tab) } label: { Label(tab.title, systemImage: tab.systemImage) }
+                    .badge(tab == .messages ? pending.pendingCount : 0)
             }
-            Tab(OperatorTab.more.title, systemImage: OperatorTab.more.systemImage, value: .more) {
-                compactMoreNavigation
+            Tab(value: OperatorTab.more) { compactMoreNavigation } label: {
+                Label(OperatorTab.more.title, systemImage: OperatorTab.more.systemImage)
             }
         }
+        .labelStyle(.iconOnly)
     }
-
     private var compactTabSelection: Binding<OperatorTab> {
         Binding(
             get: {
@@ -228,13 +221,7 @@ private struct OperatorShell: View {
     }
     #endif
 
-    private var usesCompactTabNavigation: Bool {
-        #if os(iOS)
-        UIDevice.current.userInterfaceIdiom == .phone || horizontalSizeClass == .compact
-        #else
-        false
-        #endif
-    }
+    private var usesCompactTabNavigation: Bool { horizontalSizeClass == .compact }
 
     @ViewBuilder
     private func tabContent(for tab: OperatorTab) -> some View {
@@ -320,11 +307,29 @@ private struct OperatorShell: View {
     private func workflowTabContent(for tab: OperatorTab) -> some View {
         switch tab {
         case .sessions:
+            #if os(iOS)
+            SessionListView(
+                client: client,
+                routeSessionId: sessionPath.last,
+                routeRevision: sessionRouteRevision
+            )
+            .automaticRefreshEnabled(selection == .sessions)
+            #else
             NavigationStack(path: $sessionPath) {
                 SessionListView(client: client).navigationTitle("Sessions")
             }
             .automaticRefreshEnabled(selection == .sessions)
+            #endif
         case .messages:
+            #if os(iOS)
+            MessageListView(
+                client: client,
+                routeFilter: messageFilter,
+                routeMessageId: messagePath.last,
+                routeRevision: messageRouteRevision
+            )
+            .automaticRefreshEnabled(selection == .messages)
+            #else
             NavigationStack(path: $messagePath) {
                 MessageListView(
                     client: client,
@@ -334,6 +339,7 @@ private struct OperatorShell: View {
                 .navigationTitle("Messages")
             }
             .automaticRefreshEnabled(selection == .messages)
+            #endif
         case .thermals:
             NavigationStack {
                 ThermalsView(client: client).navigationTitle("Thermals")
@@ -417,9 +423,11 @@ private struct OperatorShell: View {
         case .sessions:
             selectTab(.sessions)
             sessionPath = []
+            sessionRouteRevision &+= 1
         case .session(let id):
             selectTab(.sessions)
             sessionPath = [id]
+            sessionRouteRevision &+= 1
         case .messages(let route):
             selectTab(.messages)
             switch route {

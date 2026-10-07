@@ -193,12 +193,17 @@ public struct MessageListView: View {
     @State private var installationAccessRevision: UInt = 0
     @State private var questionSnapshot: Question?
     @State private var questionSummaryRevision: UInt = 0
+    @State private var compactMessagePath: [String]
+    @State private var selectedMessageId: String?
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var usesSplitQueueLayout = false
     #if os(macOS)
     @State private var hoveredMessageId: String?
     #endif
     private let client: OperatorClient
     private let socket: StatusSocket
     private let routeFilter: MessageListFilter
+    private let routeMessageId: String?
     private let routeRevision: UInt
     private let mode: MessageListMode
     private let question: Question?
@@ -209,11 +214,13 @@ public struct MessageListView: View {
         client: OperatorClient = .shared,
         socket: StatusSocket? = nil,
         routeFilter: MessageListFilter = .all,
+        routeMessageId: String? = nil,
         routeRevision: UInt = 0
     ) {
         self.client = client
         self.socket = socket ?? (client.demoMode ? .demo : .shared)
         self.routeFilter = routeFilter
+        self.routeMessageId = routeMessageId
         self.routeRevision = routeRevision
         self.mode = .queue
         self.question = nil
@@ -221,6 +228,8 @@ public struct MessageListView: View {
         self.onQuestionMessageCountChange = { _ in }
         _filter = State(initialValue: routeFilter)
         _questionSnapshot = State(initialValue: nil)
+        _compactMessagePath = State(initialValue: routeMessageId.map { [$0] } ?? [])
+        _selectedMessageId = State(initialValue: routeMessageId)
     }
 
     public init(
@@ -233,6 +242,7 @@ public struct MessageListView: View {
         self.client = client
         self.socket = socket ?? (client.demoMode ? .demo : .shared)
         self.routeFilter = .all
+        self.routeMessageId = nil
         self.routeRevision = 0
         self.mode = .question(id: question.id)
         self.question = question
@@ -240,24 +250,13 @@ public struct MessageListView: View {
         self.onQuestionMessageCountChange = onQuestionMessageCountChange
         _filter = State(initialValue: .all)
         _questionSnapshot = State(initialValue: question)
+        _compactMessagePath = State(initialValue: [])
+        _selectedMessageId = State(initialValue: nil)
     }
 
     public var body: some View {
-        Group {
-            if mode.isQuestion {
-                questionList
-            } else {
-                VStack(spacing: 0) {
-                    filterPicker
-                    queueContent
-                }
-            }
-        }
+        rootContent
         .background(Theme.Colors.background)
-        .searchable(text: $searchText, prompt: searchPrompt)
-        .navigationDestination(for: String.self) { messageId in
-            messageDetail(messageId: messageId)
-        }
         .autoRefresh(
             id: MessageListRefreshID(filter: filter, questionId: mode.questionId),
             immediately: !mode.isQuestion
@@ -275,7 +274,16 @@ public struct MessageListView: View {
         .onChange(of: routeRevision) {
             if !mode.isQuestion {
                 filter = routeFilter
+                if let routeMessageId {
+                    compactMessagePath = [routeMessageId]
+                    selectedMessageId = routeMessageId
+                } else {
+                    compactMessagePath = []
+                }
             }
+        }
+        .onChange(of: filteredMessages.map(\.id)) { _, ids in
+            reconcileSplitSelection(with: ids)
         }
         .onChange(of: question) { _, updated in
             guard let updated else { return }
@@ -317,7 +325,98 @@ public struct MessageListView: View {
     }
 
     @ViewBuilder
-    private var queueContent: some View {
+    private var rootContent: some View {
+        if mode.isQuestion {
+            questionList
+                .searchable(text: $searchText, prompt: searchPrompt)
+        } else {
+            #if os(iOS)
+            adaptiveQueueRoot
+            #else
+            queueContent()
+                .searchable(text: $searchText, prompt: searchPrompt)
+                .navigationDestination(for: String.self) { messageId in
+                    messageDetail(messageId: messageId)
+                }
+            #endif
+        }
+    }
+
+    private var adaptiveQueueRoot: some View {
+        GeometryReader { proxy in
+            let usesSplitView = MessageQueueLayout(
+                size: proxy.size,
+                safeAreaInsets: proxy.safeAreaInsets
+            ).usesSplitView
+
+            Group {
+                if usesSplitView {
+                    splitQueueRoot
+                } else {
+                    compactQueueRoot
+                }
+            }
+            .task(id: usesSplitView) {
+                syncNavigationState(usesSplitView: usesSplitView)
+                reconcileSplitSelection(with: filteredMessages.map(\.id))
+            }
+        }
+    }
+
+    private var compactQueueRoot: some View {
+        NavigationStack(path: $compactMessagePath) {
+            queueContent { messageId in
+                compactMessagePath.append(messageId)
+            }
+            .navigationTitle("Messages")
+            .searchable(text: $searchText, prompt: searchPrompt)
+            .navigationDestination(for: String.self) { messageId in
+                messageDetail(messageId: messageId)
+            }
+        }
+    }
+
+    private var splitQueueRoot: some View {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            queueContent(isSplit: true)
+            .navigationTitle("Messages")
+            .searchable(text: $searchText, prompt: searchPrompt)
+            .navigationSplitViewColumnWidth(min: 320, ideal: 420, max: 520)
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+        } detail: {
+            if let selectedMessageId {
+                messageDetail(messageId: selectedMessageId)
+                    .id(selectedMessageId)
+                    .navigationTitle("Message")
+            } else {
+                ContentUnavailableView(
+                    "Select a message",
+                    systemImage: "tray.full",
+                    description: Text("Choose a recording from the queue to review its transcript and actions.")
+                )
+                .background(Theme.Colors.background)
+            }
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+
+    private func queueContent(
+        onSelect: ((String) -> Void)? = nil,
+        isSplit: Bool = false
+    ) -> some View {
+        VStack(spacing: 0) {
+            filterPicker
+            queueContentBody(onSelect: onSelect, isSplit: isSplit)
+        }
+    }
+
+    @ViewBuilder
+    private func queueContentBody(
+        onSelect: ((String) -> Void)?,
+        isSplit: Bool
+    ) -> some View {
         if loading && messages.isEmpty {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -325,21 +424,40 @@ public struct MessageListView: View {
         } else if messages.isEmpty {
             emptyState
         } else {
-            queueList
+            queueList(onSelect: onSelect, isSplit: isSplit)
         }
     }
 
-    private var queueList: some View {
-        List {
-            messageBanners
-            if filteredMessages.isEmpty {
-                noMatchesRow
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
+    @ViewBuilder
+    private func queueList(
+        onSelect: ((String) -> Void)?,
+        isSplit: Bool
+    ) -> some View {
+        if isSplit {
+            List(selection: $selectedMessageId) {
+                queueRows(onSelect: onSelect, isSplit: isSplit)
             }
-            messageRows
+            .listStyle(.sidebar)
+        } else {
+            List {
+                queueRows(onSelect: onSelect, isSplit: isSplit)
+            }
+            .operatorListStyle()
         }
-        .operatorListStyle()
+    }
+
+    @ViewBuilder
+    private func queueRows(
+        onSelect: ((String) -> Void)?,
+        isSplit: Bool
+    ) -> some View {
+        messageBanners
+        if filteredMessages.isEmpty {
+            noMatchesRow
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+        messageRows(onSelect: onSelect, isSplit: isSplit)
     }
 
     private var questionList: some View {
@@ -374,7 +492,7 @@ public struct MessageListView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 } else {
-                    messageRows
+                    messageRows(onSelect: nil, isSplit: false)
                 }
 
                 if nextCursor != nil {
@@ -410,14 +528,26 @@ public struct MessageListView: View {
     }
 
     @ViewBuilder
-    private var messageRows: some View {
+    private func messageRows(
+        onSelect: ((String) -> Void)?,
+        isSplit: Bool
+    ) -> some View {
         ForEach(filteredMessages) { message in
             let actionAccess = mode.actionAccess(
                 for: message,
                 installationState: installationAccessState
             )
-            messageLink(for: message, actionAccess: actionAccess)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            operatorSelectableListRowBackground(
+                messageLink(
+                    for: message,
+                    actionAccess: actionAccess,
+                    onSelect: onSelect,
+                    isSplit: isSplit
+                )
+                .frame(maxWidth: .infinity, alignment: .leading),
+                active: isSplit
+            )
+            .tag(message.id)
                 #if os(macOS)
                 .overlay(alignment: .trailing) {
                     if hoveredMessageId == message.id, actionAccess == .writable {
@@ -434,7 +564,6 @@ public struct MessageListView: View {
                     }
                 }
                 #endif
-                .operatorListRowBackground()
                 .contextMenu {
                     if actionAccess == .writable {
                         actionButtons(for: message)
@@ -481,27 +610,44 @@ public struct MessageListView: View {
     @ViewBuilder
     private func messageLink(
         for message: Message,
-        actionAccess: MessageActionAccess
+        actionAccess: MessageActionAccess,
+        onSelect: ((String) -> Void)?,
+        isSplit: Bool
     ) -> some View {
         if mode.isQuestion {
             NavigationLink {
                 messageDetail(messageId: message.id)
             } label: {
-                MessageRow(
-                    message: message,
-                    isDeciding: isPerformingAction(on: message),
-                    readOnlyReason: actionAccess.readOnlyReason
-                )
+                messageRow(for: message, actionAccess: actionAccess)
             }
+        } else if isSplit {
+            NavigationLink(value: message.id) {
+                messageRow(for: message, actionAccess: actionAccess)
+            }
+        } else if let onSelect {
+            Button {
+                onSelect(message.id)
+            } label: {
+                messageRow(for: message, actionAccess: actionAccess)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         } else {
             NavigationLink(value: message.id) {
-                MessageRow(
-                    message: message,
-                    isDeciding: isPerformingAction(on: message),
-                    readOnlyReason: actionAccess.readOnlyReason
-                )
+                messageRow(for: message, actionAccess: actionAccess)
             }
         }
+    }
+
+    private func messageRow(
+        for message: Message,
+        actionAccess: MessageActionAccess
+    ) -> some View {
+        MessageRow(
+            message: message,
+            isDeciding: isPerformingAction(on: message),
+            readOnlyReason: actionAccess.readOnlyReason
+        )
     }
 
     private func messageDetail(messageId: String) -> some View {
@@ -633,6 +779,22 @@ public struct MessageListView: View {
     private func isPerformingAction(on message: Message) -> Bool {
         decidingMessageIds.contains(message.id) || deletingMessageIds.contains(message.id)
     }
+
+    private func syncNavigationState(usesSplitView: Bool) {
+        if usesSplitView {
+            selectedMessageId = compactMessagePath.last ?? selectedMessageId
+        } else if let selectedMessageId {
+            compactMessagePath = [selectedMessageId]
+        }
+        usesSplitQueueLayout = usesSplitView
+    }
+
+    private func reconcileSplitSelection(with ids: [String]) {
+        guard usesSplitQueueLayout else { return }
+        if let selectedMessageId, ids.contains(selectedMessageId) { return }
+        selectedMessageId = routeMessageId.flatMap { ids.contains($0) ? $0 : nil } ?? ids.first
+    }
+
     private var filterPicker: some View {
         Picker("Filter", selection: $filter) {
             ForEach(MessageListFilter.allCases) { option in
@@ -1212,6 +1374,21 @@ private extension Message {
         guard !query.isEmpty else { return true }
         return latestTranscription?.text?.localizedCaseInsensitiveContains(query) == true
             || latestTranscription?.completedTranslation?.localizedCaseInsensitiveContains(query) == true
+    }
+}
+
+private struct MessageQueueLayout: Equatable {
+    private static let queueColumnWidth: CGFloat = 320
+    private static let detailColumnWidth: CGFloat = 400
+
+    let availableWidth: CGFloat
+
+    init(size: CGSize, safeAreaInsets: EdgeInsets) {
+        availableWidth = max(0, size.width - safeAreaInsets.leading - safeAreaInsets.trailing)
+    }
+
+    var usesSplitView: Bool {
+        availableWidth >= Self.queueColumnWidth + Self.detailColumnWidth
     }
 }
 

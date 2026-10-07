@@ -39,7 +39,7 @@ public struct StatusDashboardView: View {
                 secondaryCards
             }
             .padding(Theme.Spacing.large)
-            .frame(maxWidth: 980)
+            .frame(maxWidth: 1180)
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .background(Theme.Colors.background)
@@ -167,9 +167,25 @@ public struct StatusDashboardView: View {
         liveStore.status ?? liveStore.stats?.booth
     }
 
-    @ViewBuilder
     private var secondaryCards: some View {
-        let healthCard = SystemVitalsStrip(
+        #if !os(watchOS) && !os(tvOS)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: Theme.Spacing.medium) {
+                dashboardHealthCard.frame(minWidth: 320)
+                dashboardCallsTodayCard.frame(minWidth: 320)
+            }
+            VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
+                dashboardHealthCard
+                dashboardCallsTodayCard
+            }
+        }
+        #else
+        dashboardHealthCard
+        #endif
+    }
+
+    private var dashboardHealthCard: some View {
+        SystemVitalsStrip(
             snapshot: liveStore.systemEnvelope?.snapshot,
             receivedAt: liveStore.systemEnvelope?.receivedAt,
             componentSources: liveStore.componentSources,
@@ -177,15 +193,17 @@ public struct StatusDashboardView: View {
             presentation: .full,
             installationState: currentStatus?.installationState
         )
-        healthCard
-        #if !os(watchOS) && !os(tvOS)
+    }
+
+    #if !os(watchOS) && !os(tvOS)
+    private var dashboardCallsTodayCard: some View {
         DashboardCallsTodayCard(
             sessions: liveStore.callsTodaySessions,
             dayStartedAt: liveStore.callsTodayStartedAt,
             isLoaded: liveStore.hasLoadedCallsToday
         )
-        #endif
     }
+    #endif
 }
 
 private struct DashboardOverviewCard: View {

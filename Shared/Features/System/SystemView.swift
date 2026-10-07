@@ -41,13 +41,7 @@ public struct SystemView: View {
                         receivedAt: envelope.receivedAt,
                         version: envelope.version
                     )
-                    SystemCPUCard(snapshot: envelope.snapshot)
-                    SystemMemoryCard(snapshot: envelope.snapshot)
-                    SystemDisksCard(snapshot: envelope.snapshot)
-                    SystemNetworkCard(snapshot: envelope.snapshot)
-                    SystemAudioCard(snapshot: envelope.snapshot)
-                    SystemFanCard(snapshot: envelope.snapshot)
-                    SystemConnectivityCard(snapshot: envelope.snapshot)
+                    systemDetailCards(snapshot: envelope.snapshot)
                 } else if liveStore.connection == .connecting {
                     ProgressView().frame(maxWidth: .infinity).padding(Theme.Spacing.extraLarge)
                 } else if liveStore.systemUnavailable {
@@ -63,11 +57,28 @@ public struct SystemView: View {
                 }
             }
             .padding(Theme.Spacing.large)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: 1180)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
         .background(Theme.Colors.background)
         .refreshableIfAvailable { await liveStore.refreshNow() }
         .boothStatusLive(liveStore)
+    }
+
+    private func systemDetailCards(snapshot: BoothSystemSnapshot) -> some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 320), spacing: Theme.Spacing.large, alignment: .top)],
+            alignment: .leading,
+            spacing: Theme.Spacing.large
+        ) {
+            SystemCPUCard(snapshot: snapshot)
+            SystemMemoryCard(snapshot: snapshot)
+            SystemDisksCard(snapshot: snapshot)
+            SystemNetworkCard(snapshot: snapshot)
+            SystemAudioCard(snapshot: snapshot)
+            SystemFanCard(snapshot: snapshot)
+            SystemConnectivityCard(snapshot: snapshot)
+        }
     }
 }
 
