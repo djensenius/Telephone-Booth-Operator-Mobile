@@ -176,7 +176,6 @@ public extension View {
         self.listRowBackground(Theme.Colors.secondaryBackground)
         #endif
     }
-
 }
 
 @MainActor @ViewBuilder
