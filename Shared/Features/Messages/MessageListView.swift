@@ -357,7 +357,7 @@ public struct MessageListView: View {
                 }
             }
             .task(id: usesSplitView) {
-                usesSplitQueueLayout = usesSplitView
+                syncNavigationState(usesSplitView: usesSplitView)
                 reconcileSplitSelection(with: filteredMessages.map(\.id))
             }
         }
@@ -778,6 +778,15 @@ public struct MessageListView: View {
 
     private func isPerformingAction(on message: Message) -> Bool {
         decidingMessageIds.contains(message.id) || deletingMessageIds.contains(message.id)
+    }
+
+    private func syncNavigationState(usesSplitView: Bool) {
+        if usesSplitView {
+            selectedMessageId = compactMessagePath.last ?? selectedMessageId
+        } else if let selectedMessageId {
+            compactMessagePath = [selectedMessageId]
+        }
+        usesSplitQueueLayout = usesSplitView
     }
 
     private func reconcileSplitSelection(with ids: [String]) {

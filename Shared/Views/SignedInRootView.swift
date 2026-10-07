@@ -51,6 +51,7 @@ private struct OperatorShell: View {
     @State private var messageFilter: MessageListFilter = .all
     @State private var messageRouteRevision: UInt = 0
     @State private var sessionPath: [String] = []
+    @State private var sessionRouteRevision: UInt = 0
     @State private var compactMorePath: NavigationPath
     #if os(tvOS)
     @State private var config = AppConfig.shared
@@ -309,7 +310,8 @@ private struct OperatorShell: View {
             #if os(iOS)
             SessionListView(
                 client: client,
-                routeSessionId: sessionPath.last
+                routeSessionId: sessionPath.last,
+                routeRevision: sessionRouteRevision
             )
             .automaticRefreshEnabled(selection == .sessions)
             #else
@@ -421,9 +423,11 @@ private struct OperatorShell: View {
         case .sessions:
             selectTab(.sessions)
             sessionPath = []
+            sessionRouteRevision &+= 1
         case .session(let id):
             selectTab(.sessions)
             sessionPath = [id]
+            sessionRouteRevision &+= 1
         case .messages(let route):
             selectTab(.messages)
             switch route {

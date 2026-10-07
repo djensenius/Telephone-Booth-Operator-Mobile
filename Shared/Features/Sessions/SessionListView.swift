@@ -27,6 +27,7 @@ public struct SessionListView: View {
     private let client: OperatorClient
     private let pageSize: Int
     private let routeSessionId: String?
+    private let routeRevision: UInt
 
     enum LoadState: Equatable {
         case idle
@@ -38,11 +39,13 @@ public struct SessionListView: View {
     public init(
         client: OperatorClient = .shared,
         pageSize: Int = 50,
-        routeSessionId: String? = nil
+        routeSessionId: String? = nil,
+        routeRevision: UInt = 0
     ) {
         self.client = client
         self.pageSize = pageSize
         self.routeSessionId = routeSessionId
+        self.routeRevision = routeRevision
         _compactSessionPath = State(initialValue: routeSessionId.map { [$0] } ?? [])
         _selectedSessionId = State(initialValue: routeSessionId)
     }
@@ -60,13 +63,8 @@ public struct SessionListView: View {
         .onChange(of: sessions.map(\.id)) { _, ids in
             reconcileSplitSelection(with: ids)
         }
-        .onChange(of: routeSessionId) { _, routeSessionId in
-            if let routeSessionId {
-                compactSessionPath = [routeSessionId]
-                selectedSessionId = routeSessionId
-            } else {
-                compactSessionPath = []
-            }
+        .onChange(of: routeRevision) {
+            applyRoute(routeSessionId)
         }
     }
 
@@ -97,7 +95,7 @@ public struct SessionListView: View {
                 }
             }
             .task(id: usesSplitView) {
-                usesSplitLayout = usesSplitView
+                syncNavigationState(usesSplitView: usesSplitView)
                 reconcileSplitSelection(with: sessions.map(\.id))
             }
         }
@@ -337,6 +335,24 @@ public struct SessionListView: View {
     private func acknowledgeLoadedSessions() async {
         notificationScope = .allCalls
         await NotificationManager.shared.clearDeliveredNotifications(in: .allCalls)
+    }
+
+    private func applyRoute(_ sessionId: String?) {
+        if let sessionId {
+            compactSessionPath = [sessionId]
+            selectedSessionId = sessionId
+        } else {
+            compactSessionPath = []
+        }
+    }
+
+    private func syncNavigationState(usesSplitView: Bool) {
+        if usesSplitView {
+            selectedSessionId = compactSessionPath.last ?? selectedSessionId
+        } else if let selectedSessionId {
+            compactSessionPath = [selectedSessionId]
+        }
+        usesSplitLayout = usesSplitView
     }
 
     private func reconcileSplitSelection(with ids: [String]) {
