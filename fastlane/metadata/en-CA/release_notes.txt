@@ -1,1 +1,1 @@
-First public release.
+Fixes themed background colours in the iOS navigation and list areas, and shows the signed-in account avatar when available.
