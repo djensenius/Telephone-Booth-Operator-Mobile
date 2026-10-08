@@ -374,6 +374,7 @@ public struct MessageListView: View {
                 messageDetail(messageId: messageId)
             }
         }
+        .operatorNavigationBackground()
     }
 
     private var splitQueueRoot: some View {
@@ -400,6 +401,7 @@ public struct MessageListView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .operatorNavigationBackground()
     }
 
     private func queueContent(
@@ -410,6 +412,7 @@ public struct MessageListView: View {
             filterPicker
             queueContentBody(onSelect: onSelect, isSplit: isSplit)
         }
+        .background(Theme.Colors.background)
     }
 
     @ViewBuilder

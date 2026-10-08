@@ -81,6 +81,7 @@ private struct OperatorShell: View {
     var body: some View {
         tabView
         .tabViewStyle(.sidebarAdaptable)
+        .background(Theme.Colors.background.ignoresSafeArea())
         .tint(Theme.Colors.accent)
         .boothStatusLive(client.demoMode ? .demo : .shared)
         .liveActivityObserver()
@@ -132,94 +133,15 @@ private struct OperatorShell: View {
                 #if os(tvOS)
                 Tab(tab.title, systemImage: tab.systemImage, value: tab) { tabContent(for: tab) }
                 #else
-                Tab(value: tab) { tabContent(for: tab) } label: { Label(tab.title, systemImage: tab.systemImage) }
+                Tab(value: tab) { tabContent(for: tab) } label: {
+                    Label(tab.title, systemImage: tab.systemImage)
+                        .labelStyle(.iconOnly)
+                }
                     .badge(tab == .messages ? pending.pendingCount : 0)
                 #endif
             }
         }
-        .labelStyle(.iconOnly)
     }
-
-    #if os(iOS)
-    private var compactTabView: some View {
-        TabView(selection: compactTabSelection) {
-            ForEach(OperatorTab.compactPrimaryNavigationOrder, id: \.self) { tab in
-                Tab(value: tab) { tabContent(for: tab) } label: { Label(tab.title, systemImage: tab.systemImage) }
-                    .badge(tab == .messages ? pending.pendingCount : 0)
-            }
-            Tab(value: OperatorTab.more) { compactMoreNavigation } label: {
-                Label(OperatorTab.more.title, systemImage: OperatorTab.more.systemImage)
-            }
-        }
-        .labelStyle(.iconOnly)
-    }
-    private var compactTabSelection: Binding<OperatorTab> {
-        Binding(
-            get: {
-                selection.isCompactPrimary ? selection : .more
-            },
-            set: { selected in
-                selection = selected
-                if selected != .more {
-                    compactMorePath = NavigationPath()
-                }
-            }
-        )
-    }
-
-    private var compactMoreNavigation: some View {
-        NavigationStack(path: $compactMorePath) {
-            List {
-                ForEach(
-                    OperatorTab.compactMoreNavigationOrder(isAdmin: currentUser.isAdmin),
-                    id: \.self
-                ) { tab in
-                    NavigationLink(value: tab) {
-                        Label(tab.title, systemImage: tab.systemImage)
-                    }
-                    .operatorListRowBackground()
-                }
-            }
-            .operatorListStyle()
-            .navigationTitle("More")
-            .navigationDestination(for: OperatorTab.self) { tab in
-                compactMoreDestination(for: tab)
-                    .onAppear {
-                        selection = tab
-                    }
-            }
-        }
-        .automaticRefreshEnabled(compactTabSelection.wrappedValue == .more)
-        .onChange(of: compactMorePath.count) { _, count in
-            if count == 0, !selection.isCompactPrimary {
-                selection = .more
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func compactMoreDestination(for tab: OperatorTab) -> some View {
-        switch tab {
-        case .thermals:
-            ThermalsView(client: client).navigationTitle("Thermals")
-        case .events:
-            EventsFeedView(client: client, stream: eventStream).navigationTitle("Events")
-        case .questions:
-            QuestionsView(client: client, isAdmin: currentUser.isAdmin)
-                .navigationTitle("Questions")
-        case .instructions where currentUser.isAdmin:
-            InstructionsView(client: client).navigationTitle("Instructions")
-        case .audit where currentUser.isAdmin:
-            AuditLogView(client: client).navigationTitle("Audit")
-        case .system:
-            SystemView(client: client).navigationTitle("System")
-        case .settings:
-            SettingsView(isModal: false, embedsInNavigationStack: false)
-        default:
-            EmptyView()
-        }
-    }
-    #endif
 
     private var usesCompactTabNavigation: Bool { horizontalSizeClass == .compact }
 
@@ -457,6 +379,87 @@ private struct OperatorShell: View {
         #endif
     }
 }
+
+#if os(iOS)
+private extension OperatorShell {
+    var compactTabView: some View {
+        TabView(selection: compactTabSelection) {
+            ForEach(OperatorTab.compactPrimaryNavigationOrder, id: \.self) { tab in
+                Tab(value: tab) { tabContent(for: tab) } label: {
+                    Label(tab.title, systemImage: tab.systemImage)
+                        .labelStyle(.iconOnly)
+                }
+                    .badge(tab == .messages ? pending.pendingCount : 0)
+            }
+            Tab(value: OperatorTab.more) { compactMoreNavigation } label: {
+                Label(OperatorTab.more.title, systemImage: OperatorTab.more.systemImage)
+                    .labelStyle(.iconOnly)
+            }
+        }
+    }
+
+    var compactTabSelection: Binding<OperatorTab> {
+        Binding(
+            get: { selection.isCompactPrimary ? selection : .more },
+            set: { selected in
+                selection = selected
+                if selected != .more { compactMorePath = NavigationPath() }
+            }
+        )
+    }
+
+    var compactMoreNavigation: some View {
+        NavigationStack(path: $compactMorePath) {
+            List {
+                ForEach(OperatorTab.compactMoreNavigationOrder(isAdmin: currentUser.isAdmin), id: \.self) { tab in
+                    NavigationLink(value: tab) {
+                        Label(tab.title, systemImage: tab.systemImage)
+                            .labelStyle(.titleAndIcon)
+                            .foregroundStyle(Theme.Colors.textPrimary)
+                    }
+                    .operatorListRowBackground()
+                }
+            }
+            .operatorListStyle()
+            .navigationTitle("More")
+            .toolbarBackground(Theme.Colors.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .navigationDestination(for: OperatorTab.self) { tab in
+                compactMoreDestination(for: tab)
+                    .onAppear { selection = tab }
+            }
+        }
+        .background(Theme.Colors.background.ignoresSafeArea())
+        .automaticRefreshEnabled(compactTabSelection.wrappedValue == .more)
+        .onChange(of: compactMorePath.count) { _, count in
+            if count == 0, !selection.isCompactPrimary { selection = .more }
+        }
+    }
+
+    @ViewBuilder
+    func compactMoreDestination(for tab: OperatorTab) -> some View {
+        switch tab {
+        case .thermals:
+            ThermalsView(client: client).navigationTitle("Thermals")
+        case .events:
+            EventsFeedView(client: client, stream: eventStream).navigationTitle("Events")
+        case .questions:
+            QuestionsView(client: client, isAdmin: currentUser.isAdmin)
+                .navigationTitle("Questions")
+        case .instructions where currentUser.isAdmin:
+            InstructionsView(client: client).navigationTitle("Instructions")
+        case .audit where currentUser.isAdmin:
+            AuditLogView(client: client).navigationTitle("Audit")
+        case .system:
+            SystemView(client: client).navigationTitle("System")
+        case .settings:
+            SettingsView(isModal: false, embedsInNavigationStack: false)
+        default:
+            EmptyView()
+        }
+    }
+}
+#endif
 #endif
 
 #Preview {

@@ -152,30 +152,6 @@ public extension View {
         self.textSelection(.enabled)
         #endif
     }
-
-    /// List style for the operator's content lists. macOS uses the native
-    /// inset list (clean rows, system selection, no Catppuccin surface
-    /// tinting); every other platform keeps the booth-flavoured plain list.
-    @ViewBuilder
-    func operatorListStyle() -> some View {
-        #if os(macOS)
-        self.listStyle(.inset)
-        #else
-        self.listStyle(.plain)
-        #endif
-    }
-
-    /// Row background for the operator's content rows. On macOS we let the
-    /// inset list draw its native row background; elsewhere we tint rows with
-    /// the Catppuccin secondary surface.
-    @ViewBuilder
-    func operatorListRowBackground() -> some View {
-        #if os(macOS)
-        self
-        #else
-        self.listRowBackground(Theme.Colors.secondaryBackground)
-        #endif
-    }
 }
 
 @MainActor @ViewBuilder

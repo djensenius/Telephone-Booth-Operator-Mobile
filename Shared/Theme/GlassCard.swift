@@ -30,4 +30,38 @@ public extension View {
             )
         #endif
     }
+
+    @ViewBuilder
+    func operatorListStyle() -> some View {
+        #if os(macOS)
+        self.listStyle(.inset)
+        #elseif os(tvOS)
+        self.listStyle(.plain)
+            .background(Theme.Colors.background)
+        #else
+        self.listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Theme.Colors.background)
+        #endif
+    }
+
+    @ViewBuilder
+    func operatorListRowBackground() -> some View {
+        #if os(macOS)
+        self
+        #else
+        self.listRowBackground(Theme.Colors.secondaryBackground)
+        #endif
+    }
+
+    @ViewBuilder
+    func operatorNavigationBackground() -> some View {
+        #if os(iOS)
+        self.background(Theme.Colors.background.ignoresSafeArea())
+            .toolbarBackground(Theme.Colors.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+        #else
+        self.background(Theme.Colors.background)
+        #endif
+    }
 }

@@ -5,6 +5,7 @@
 //  Mirrors the `OperatorMe` schema from the operator OpenAPI spec.
 //
 
+import CryptoKit
 import Foundation
 
 public struct OperatorMe: Codable, Sendable, Hashable, Identifiable {
@@ -15,6 +16,18 @@ public struct OperatorMe: Codable, Sendable, Hashable, Identifiable {
     public let isAdmin: Bool
     public let picture: URL?
     public let providerName: String
+
+    public var avatarURL: URL? {
+        picture ?? gravatarURL
+    }
+
+    public var gravatarURL: URL? {
+        let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalizedEmail.isEmpty else { return nil }
+        let digest = SHA256.hash(data: Data(normalizedEmail.utf8))
+        let hash = digest.map { String(format: "%02x", $0) }.joined()
+        return URL(string: "https://www.gravatar.com/avatar/\(hash)?d=404&s=160")
+    }
 
     public init(
         id: String,
