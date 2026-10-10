@@ -106,6 +106,7 @@ public final class OnDeviceMessageProcessor {
     public internal(set) var stage: Stage = .checkingAvailability
     public internal(set) var isAvailable = false
     public internal(set) var moderationPolicy = ModerationPolicyDefaults.fallback
+    public internal(set) var hasResolvedModerationPolicy = false
 
     public var isRunning: Bool {
         switch stage {
@@ -237,6 +238,7 @@ extension OnDeviceMessageProcessor {
             let moderationInput = translation?.translatedText ?? trimmedTranscript
             let policy = await moderationPolicyProvider()
             moderationPolicy = policy
+            hasResolvedModerationPolicy = true
             let moderation = try await moderator.moderate(moderationInput, policy: policy)
             guard generation == currentGeneration else { return }
 
@@ -568,6 +570,10 @@ public final class AutomaticMessageProcessingCoordinator {
         processor.moderationPolicy
     }
 
+    public var hasResolvedModerationPolicy: Bool {
+        processor.hasResolvedModerationPolicy
+    }
+
     public var shouldPresentStatus: Bool {
         isProcessing || canRetry || summary?.queued ?? 0 > 0
     }
@@ -583,6 +589,7 @@ public final class AutomaticMessageProcessingCoordinator {
     @ObservationIgnored private var claim: MessageProcessingClaim?
     @ObservationIgnored private var shouldRun = false
     @ObservationIgnored private var restartAfterLeaseLoss = false
+    @ObservationIgnored private var automaticRetryAttempt = 0
     @ObservationIgnored private let automaticRetryDelay: Duration
 
     public init(
@@ -724,6 +731,7 @@ public final class AutomaticMessageProcessingCoordinator {
                     messageId: leased.message.id,
                     request: result
                 )
+                automaticRetryAttempt = 0
                 finishLease()
             } catch is CancellationError {
                 return
@@ -759,7 +767,9 @@ public final class AutomaticMessageProcessingCoordinator {
         }
         guard let leased else {
             status = .failed(error.localizedDescription)
-            scheduleAutomaticRetry()
+            if isAutomaticRetryable(error) {
+                scheduleAutomaticRetry()
+            }
             return .stop
         }
         do {
@@ -776,11 +786,13 @@ public final class AutomaticMessageProcessingCoordinator {
                 status = .failed("Processing stopped after repeated failures.")
             } else {
                 status = .failed(error.localizedDescription)
-                scheduleAutomaticRetry()
+                if isAutomaticRetryable(error) {
+                    scheduleAutomaticRetry()
+                }
             }
         } catch {
             status = isLeaseRefresh(error) ? .idle : .failed(error.localizedDescription)
-            if !isLeaseRefresh(error) {
+            if !isLeaseRefresh(error), isAutomaticRetryable(error) {
                 scheduleAutomaticRetry()
             }
         }
@@ -789,7 +801,9 @@ public final class AutomaticMessageProcessingCoordinator {
 
     private func scheduleAutomaticRetry() {
         guard shouldRun, automaticRetryTask == nil || automaticRetryTask?.isCancelled == true else { return }
-        let delay = automaticRetryDelay
+        let multiplier = 1 << min(automaticRetryAttempt, 4)
+        automaticRetryAttempt += 1
+        let delay = automaticRetryDelay * multiplier
         automaticRetryTask = Task { [weak self] in
             do {
                 try await Task.sleep(for: delay)
@@ -888,6 +902,16 @@ public final class AutomaticMessageProcessingCoordinator {
     private func isUnsupportedCapability(_ error: any Error) -> Bool {
         guard let serviceError = error as? OnDeviceServiceError else { return false }
         if case .unavailable = serviceError { return true }
+        return false
+    }
+
+    private func isAutomaticRetryable(_ error: any Error) -> Bool {
+        if case OnDeviceServiceError.timeout = error { return true }
+        if case AudioFetchError.fetchFailed = error { return true }
+        if case OperatorError.transport = error { return true }
+        if case let OperatorError.httpError(status, _) = error {
+            return status == 408 || status == 429 || status >= 500
+        }
         return false
     }
 

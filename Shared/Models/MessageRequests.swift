@@ -7,14 +7,31 @@
 import CryptoKit
 import Foundation
 
-public enum ModerationPolicySource: String, Codable, Sendable, Equatable {
+public enum ModerationPolicySource: Codable, Sendable, Equatable {
     case server
     case fallback
-    case unknown
+    case unknown(String)
+
+    public var rawValue: String {
+        switch self {
+        case .server: return "server"
+        case .fallback: return "fallback"
+        case .unknown(let value): return value
+        }
+    }
 
     public init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
-        self = Self(rawValue: raw) ?? .unknown
+        switch raw {
+        case "server": self = .server
+        case "fallback": self = .fallback
+        default: self = .unknown(raw)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
 }
 

@@ -464,6 +464,7 @@ extension OnDeviceMessageProcessor {
         stage = .moderating
         let policy = await moderationPolicyProvider()
         moderationPolicy = policy
+        hasResolvedModerationPolicy = true
         let moderation = try await moderator.moderate(input, policy: policy)
         return MessageProcessingModerationResult(
             inputSha256: ReviewTextSnapshot.sha256(input),

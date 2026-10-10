@@ -308,7 +308,8 @@ private struct MessageProcessingQueueStatus: View {
     }
 
     private var statusDetailText: String {
-        let policySuffix = coordinator.activeModerationPolicy.usesFallback
+        let policySuffix = coordinator.hasResolvedModerationPolicy
+            && coordinator.activeModerationPolicy.usesFallback
             ? " · fallback policy"
             : ""
         return "\(coordinator.status.text)\(policySuffix)"
