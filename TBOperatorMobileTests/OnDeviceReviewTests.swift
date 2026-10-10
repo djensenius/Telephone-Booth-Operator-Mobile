@@ -517,6 +517,13 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(verdict.model, "test-model")
         XCTAssertNotNil(verdict.reasonSummary)
     }
+    func testLocalizedSafetyGuardrailDetection() {
+        struct LocalizedSafetyError: LocalizedError {
+            var errorDescription: String? { "The model's safety guardrails were triggered." }
+        }
+        XCTAssertTrue(FoundationModelsSupport.isSafetyGuardrail(LocalizedSafetyError()))
+        XCTAssertFalse(FoundationModelsSupport.isSafetyGuardrail(StubFailure.requested))
+    }
     func testNoSpeechAtThreeSecondsIsLikelyHangup() {
         let result = OnDeviceReviewLogic.noSpeechReview(durationMs: 3_000)
         XCTAssertEqual(result.classification, .likelyHangup)

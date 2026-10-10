@@ -477,7 +477,7 @@ public actor AppleModerationService: TextModerating {
 }
 
 @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
-private enum FoundationModelsSupport {
+enum FoundationModelsSupport {
     static func isDeclined(_ error: LanguageModelSession.GenerationError) -> Bool {
         switch error {
         case .guardrailViolation, .refusal: return true
