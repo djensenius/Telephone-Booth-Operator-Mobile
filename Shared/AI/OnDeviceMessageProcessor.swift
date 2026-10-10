@@ -239,7 +239,7 @@ extension OnDeviceMessageProcessor {
             let policy = await moderationPolicyProvider()
             moderationPolicy = policy
             hasResolvedModerationPolicy = true
-            let moderation = try await moderator.moderate(moderationInput, policy: policy)
+            let moderation = try await moderateReviewText(moderationInput, policy: policy)
             guard generation == currentGeneration else { return }
 
             pendingResult = PendingResult(
@@ -353,11 +353,20 @@ extension OnDeviceMessageProcessor {
             return nil
         }
         stage = .translating
-        let translation = try await translator.translate(text, sourceLanguage: sourceLanguage)
-        guard !translation.translatedText.isEmpty else {
-            throw OnDeviceServiceError.badRequest("On-device translation produced no text.")
+        do {
+            let translation = try await translator.translate(text, sourceLanguage: sourceLanguage)
+            guard !translation.translatedText.isEmpty else {
+                throw OnDeviceServiceError.badRequest("On-device translation produced no text.")
+            }
+            return translation
+        } catch where Self.isModelSafetyGuardrail(error) {
+            return OnDeviceReviewLogic.translation(
+                text: text,
+                detectedSource: nil,
+                fallbackSource: sourceLanguage,
+                model: "apple-foundation-models-declined-pass-through"
+            )
         }
-        return translation
     }
 
     private func persistTranslation(
@@ -401,9 +410,28 @@ extension OnDeviceMessageProcessor {
         return true
     }
 
+    func moderateReviewText(
+        _ input: String,
+        policy: ModerationPolicy
+    ) async throws -> ModerationVerdict {
+        do {
+            return try await moderator.moderate(input, policy: policy)
+        } catch where Self.isModelSafetyGuardrail(error) {
+            return OnDeviceReviewLogic.inconclusiveModeration(model: "apple-foundation-models")
+        }
+    }
+
     private func fail(_ message: String) {
         stage = .failed(message)
         logger.error("On-device processing failed without logging message content")
+    }
+
+    static func isModelSafetyGuardrail(_ error: any Error) -> Bool {
+        let description = error.localizedDescription.localizedLowercase
+        return description.contains("guardrail")
+            || description.contains("safety")
+            || description.contains("declined")
+            || description.contains("refusal")
     }
 
     private static func trimmed(_ value: String?) -> String? {

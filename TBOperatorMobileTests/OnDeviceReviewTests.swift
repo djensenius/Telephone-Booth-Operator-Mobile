@@ -79,13 +79,21 @@ private struct StubTranslator: TextTranslating {
     }
 }
 private struct StubModerator: TextModerating {
-    func moderate(_ input: String, policy: ModerationPolicy) async throws -> ModerationVerdict {
+    let operation: @Sendable () async throws -> ModerationVerdict
+
+    init(operation: @escaping @Sendable () async throws -> ModerationVerdict = {
         ModerationVerdict(
             flagged: false,
             recommendation: .approve,
             maxScore: 0.1,
             model: "apple-foundation-models"
         )
+    }) {
+        self.operation = operation
+    }
+
+    func moderate(_ input: String, policy: ModerationPolicy) async throws -> ModerationVerdict {
+        try await operation()
     }
 }
 private actor ProcessingOrderRecorder {
@@ -134,6 +142,11 @@ private struct RecordingModerator: TextModerating {
 }
 private enum StubFailure: Error {
     case requested
+}
+private struct SafetyGuardrailFailure: LocalizedError {
+    var errorDescription: String? {
+        "The model's safety guardrails were triggered."
+    }
 }
 private struct SubmissionCounts {
     let transcriptions: Int
@@ -954,6 +967,44 @@ extension OnDeviceReviewTests {
         XCTAssertEqual(result.translation?.translatedLanguage, "en")
         XCTAssertEqual(result.translation?.model, "same-language-pass-through")
         XCTAssertEqual(result.moderation?.inputSha256, ReviewTextSnapshot.sha256(sourceText))
+    }
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testClaimedModerationGuardrailCompletesAsReview() async throws {
+        let sourceText = "The model declines this transcript."
+        let transcription = Transcription(
+            id: "guardrail-transcript",
+            messageId: "demo-message-3",
+            provider: .onDevice,
+            model: "apple-speech-analyzer",
+            status: .succeeded,
+            text: sourceText,
+            language: "en-US",
+            durationMs: nil,
+            latencyMs: nil,
+            error: nil,
+            requestedById: nil,
+            createdAt: .distantPast,
+            completedAt: .distantPast
+        )
+        let message = DemoData.message(id: "demo-message-3")
+            .replacingLatestTranscription(transcription)
+        let claim = MessageProcessingClaim(
+            message: message,
+            needs: [.moderation],
+            leaseToken: String(repeating: "g", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: nil
+        )
+        let processor = makeProcessor(
+            moderator: StubModerator { throw SafetyGuardrailFailure() }
+        )
+
+        let result = try await processor.process(claim: claim)
+        let fallback = OnDeviceReviewLogic.inconclusiveModeration(model: "apple-foundation-models")
+
+        XCTAssertEqual(result.moderation?.recommendation, .review)
+        XCTAssertEqual(result.moderation?.reasonSummary, fallback.reasonSummary)
     }
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
