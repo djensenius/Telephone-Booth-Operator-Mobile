@@ -1001,10 +1001,12 @@ extension OnDeviceReviewTests {
         )
 
         let result = try await processor.process(claim: claim)
-        let fallback = OnDeviceReviewLogic.inconclusiveModeration(model: "apple-foundation-models")
 
         XCTAssertEqual(result.moderation?.recommendation, .review)
-        XCTAssertEqual(result.moderation?.reasonSummary, fallback.reasonSummary)
+        XCTAssertEqual(
+            result.moderation?.reasonSummary,
+            "Moderation service: The model's safety guardrails were triggered. The message needs human review."
+        )
     }
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)

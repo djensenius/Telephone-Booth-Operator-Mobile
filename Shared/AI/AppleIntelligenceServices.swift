@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  AppleIntelligenceServices.swift
 //  TelephoneBoothOperatorMobile
@@ -338,20 +339,26 @@ public actor AppleModerationService: TextModerating {
             guardrails: .permissiveContentTransformations
         )
         try FoundationModelsSupport.ensureAvailable(model)
-        let baseline: ModerationVerdict?
+        let baseline: ModerationVerdict
         do {
             baseline = try await classify(input, policy: policy, model: model)
         } catch let error as LanguageModelSession.GenerationError {
             guard FoundationModelsSupport.isDeclined(error) else {
                 throw FoundationModelsSupport.map(error)
             }
-            baseline = nil
+            return OnDeviceReviewLogic.inconclusiveModeration(
+                model: Self.modelIdentifier,
+                reasonSummary: FoundationModelsSupport.declineReason(
+                    stage: "Moderation classifier",
+                    error: error
+                )
+            )
         }
 
-        if let baseline, baseline.recommendation == .approve {
+        if baseline.recommendation == .approve {
             return baseline
         }
-        if let baseline, baseline.recommendation == .reject, policy.source == .server {
+        if baseline.recommendation == .reject, policy.source == .server {
             return baseline
         }
 
@@ -364,12 +371,16 @@ public actor AppleModerationService: TextModerating {
                 model: Self.modelIdentifier
             )
         } catch let error as LanguageModelSession.GenerationError {
-            if let fallback = Self.adjudicationFailureFallback(
-                baseline: baseline,
-                wasDeclined: FoundationModelsSupport.isDeclined(error),
-                model: Self.modelIdentifier
-            ) {
-                return fallback
+            if FoundationModelsSupport.isDeclined(error) {
+                return baseline.recommendation == .reject
+                    ? baseline
+                    : OnDeviceReviewLogic.inconclusiveModeration(
+                        model: Self.modelIdentifier,
+                        reasonSummary: FoundationModelsSupport.declineReason(
+                            stage: "Moderation adjudicator",
+                            error: error
+                        )
+                    )
             }
             throw FoundationModelsSupport.map(error)
         }
@@ -462,6 +473,15 @@ private enum FoundationModelsSupport {
                 "On-device processing is unavailable or not ready."
             )
         }
+    }
+
+    static func declineReason(
+        stage: String,
+        error: LanguageModelSession.GenerationError
+    ) -> String {
+        let message = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        let detail = message.isEmpty ? "The model declined to process this message." : message
+        return "\(stage): \(detail) The message needs human review."
     }
 
     static func map(_ error: LanguageModelSession.GenerationError) -> OnDeviceServiceError {

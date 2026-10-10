@@ -216,13 +216,16 @@ public enum OnDeviceReviewLogic {
     /// A verdict for text the on-device model would not classify. The message is
     /// neither flagged nor scored, because nothing was actually judged — it is
     /// only routed to a person.
-    public static func inconclusiveModeration(model: String) -> ModerationVerdict {
+    public static func inconclusiveModeration(
+        model: String,
+        reasonSummary: String = "The on-device model would not classify this message, so it needs a human review."
+    ) -> ModerationVerdict {
         ModerationVerdict(
             flagged: false,
             recommendation: .review,
             maxScore: 0,
             model: model,
-            reasonSummary: "The on-device model would not classify this message, so it needs a human review."
+            reasonSummary: reasonSummary
         )
     }
 

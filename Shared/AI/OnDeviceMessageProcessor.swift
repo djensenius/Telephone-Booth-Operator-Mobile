@@ -417,7 +417,10 @@ extension OnDeviceMessageProcessor {
         do {
             return try await moderator.moderate(input, policy: policy)
         } catch where Self.isModelSafetyGuardrail(error) {
-            return OnDeviceReviewLogic.inconclusiveModeration(model: "apple-foundation-models")
+            return OnDeviceReviewLogic.inconclusiveModeration(
+                model: "apple-foundation-models",
+                reasonSummary: Self.modelSafetyGuardrailReason(stage: "Moderation service", error: error)
+            )
         }
     }
 
@@ -432,6 +435,12 @@ extension OnDeviceMessageProcessor {
             || description.contains("safety")
             || description.contains("declined")
             || description.contains("refusal")
+    }
+
+    static func modelSafetyGuardrailReason(stage: String, error: any Error) -> String {
+        let message = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        let detail = message.isEmpty ? "The model declined to process this message." : message
+        return "\(stage): \(detail) The message needs human review."
     }
 
     private static func trimmed(_ value: String?) -> String? {
