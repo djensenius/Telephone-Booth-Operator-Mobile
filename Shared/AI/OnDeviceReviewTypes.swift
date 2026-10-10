@@ -223,7 +223,8 @@ public enum OnDeviceReviewLogic {
                 recommendation: .reject,
                 maxScore: max(baseline?.maxScore ?? 0, 0.85),
                 model: model,
-                reasonSummary: "The message contains a slur or offensive language and should not be approved for public playback."
+                reasonSummary: "The message contains a slur or offensive language and should not be approved "
+                    + "for public playback."
             )
         }
 
@@ -234,7 +235,8 @@ public enum OnDeviceReviewLogic {
             recommendation: .review,
             maxScore: max(baseline?.maxScore ?? 0, 0.51),
             model: model,
-            reasonSummary: "The message contains profanity or offensive language and needs human review before public playback."
+            reasonSummary: "The message contains profanity or offensive language and needs human review "
+                + "before public playback."
         )
     }
 
@@ -290,7 +292,7 @@ public enum OnDeviceReviewLogic {
         #"\bdick(?:s|head)?\b"#,
         #"\bprick(?:s)?\b"#,
         #"\bwhore(?:s)?\b"#
-    ].map { try! NSRegularExpression(pattern: $0, options: [.caseInsensitive]) }
+    ].compactMap { try? NSRegularExpression(pattern: $0, options: [.caseInsensitive]) }
 
     private static let slurPatterns = [
         #"\bn[\W_]*[i1!][\W_]*[gq][\W_]*[gq][\W_]*(?:[ae3][\W_]*r?|[a@])s?\b"#,
@@ -301,7 +303,7 @@ public enum OnDeviceReviewLogic {
         #"\bg[\W_]*o[\W_]*o[\W_]*k[\W_]*s?\b"#,
         #"\btrann(?:y|ies)\b"#,
         #"\br[\W_]*e[\W_]*t[\W_]*a[\W_]*r[\W_]*d(?:ed|s)?\b"#
-    ].map { try! NSRegularExpression(pattern: $0, options: [.caseInsensitive]) }
+    ].compactMap { try? NSRegularExpression(pattern: $0, options: [.caseInsensitive]) }
 
     private static func containsAny(
         _ text: String,
