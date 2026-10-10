@@ -263,7 +263,7 @@ private struct MessageProcessingQueueStatus: View {
                     Text("Messages · \(scopeText(summary))")
                         .font(Theme.Fonts.caption.weight(.semibold))
                         .foregroundStyle(Theme.Colors.textPrimary)
-                    Text(coordinator.status.text)
+                    Text(statusDetailText)
                         .font(Theme.Fonts.caption)
                         .foregroundStyle(
                             coordinator.canRetry ? Theme.Colors.error : Theme.Colors.textSecondary
@@ -307,9 +307,17 @@ private struct MessageProcessingQueueStatus: View {
         .frame(minWidth: 44, minHeight: 44)
     }
 
+    private var statusDetailText: String {
+        let policySuffix = coordinator.hasResolvedModerationPolicy
+            && coordinator.activeModerationPolicy.usesFallback
+            ? " · fallback policy"
+            : ""
+        return "\(coordinator.status.text)\(policySuffix)"
+    }
+
     private func compactStatusText(_ summary: MessageProcessingSummary?) -> String {
         if coordinator.canRetry { return "Processing failed" }
-        if coordinator.isProcessing { return coordinator.status.text }
+        if coordinator.isProcessing { return statusDetailText }
         return scopeText(summary)
     }
 

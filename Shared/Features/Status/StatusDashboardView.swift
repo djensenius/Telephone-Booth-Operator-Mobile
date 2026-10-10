@@ -148,13 +148,11 @@ public struct StatusDashboardView: View {
                     }
                 }
             } label: {
-                Label {
-                    Text(profile?.name ?? "Account")
-                } icon: {
-                    OperatorAccountAvatar(profile: profile)
-                }
+                OperatorAccountAvatar(profile: profile)
+                    .accessibilityHidden(true)
             }
-            .accessibilityLabel("Account")
+            .fixedSize()
+            .accessibilityLabel(profile.map { "Account, \($0.name)" } ?? "Account")
         }
     }
     #endif
@@ -209,45 +207,6 @@ public struct StatusDashboardView: View {
     }
     #endif
 }
-
-#if !os(watchOS) && !os(tvOS)
-private struct OperatorAccountAvatar: View {
-    let profile: OperatorMe?
-
-    var body: some View {
-        ZStack {
-            Circle().fill(Theme.Colors.elevatedBackground)
-            if let profile, let url = profile.avatarURL {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFill()
-                    case .empty:
-                        fallbackImage
-                    case .failure:
-                        fallbackImage
-                    @unknown default:
-                        fallbackImage
-                    }
-                }
-            } else {
-                fallbackImage
-            }
-        }
-        .frame(width: 32, height: 32)
-        .clipShape(Circle())
-        .overlay(Circle().stroke(Theme.Colors.textSecondary.opacity(0.25), lineWidth: 1))
-    }
-
-    private var fallbackImage: some View {
-        Image(systemName: "person.crop.circle.fill")
-            .resizable()
-            .scaledToFit()
-            .foregroundStyle(Theme.Colors.accent)
-            .padding(3)
-    }
-}
-#endif
 
 private struct DashboardOverviewCard: View {
     let status: BoothStatus?

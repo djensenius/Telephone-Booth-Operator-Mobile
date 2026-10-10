@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 //
 //  OnDeviceReviewTypes.swift
 //  TelephoneBoothOperatorMobile
@@ -51,7 +52,13 @@ public struct ModerationVerdict: Sendable, Equatable {
 }
 
 public protocol TextModerating: Sendable {
-    func moderate(_ input: String) async throws -> ModerationVerdict
+    func moderate(_ input: String, policy: ModerationPolicy) async throws -> ModerationVerdict
+}
+
+public extension TextModerating {
+    func moderate(_ input: String) async throws -> ModerationVerdict {
+        try await moderate(input, policy: ModerationPolicyDefaults.fallback)
+    }
 }
 
 public enum OnDeviceServiceError: Error, Sendable, Equatable, LocalizedError {
@@ -248,6 +255,7 @@ public enum OnDeviceReviewLogic {
         }
         return candidate
     }
+
 }
 
 private extension Character {
@@ -455,7 +463,10 @@ extension OnDeviceMessageProcessor {
             throw OnDeviceServiceError.badRequest("The claimed message has no text to review.")
         }
         stage = .moderating
-        let moderation = try await moderator.moderate(input)
+        let policy = await moderationPolicyProvider()
+        moderationPolicy = policy
+        hasResolvedModerationPolicy = true
+        let moderation = try await moderator.moderate(input, policy: policy)
         return MessageProcessingModerationResult(
             inputSha256: ReviewTextSnapshot.sha256(input),
             flagged: moderation.flagged,
