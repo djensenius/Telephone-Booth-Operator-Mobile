@@ -365,6 +365,7 @@ private actor StubClaimedProcessingClient: MessageProcessingPersisting {
     }
 }
 
+// swiftlint:disable:next type_body_length
 final class OnDeviceReviewTests: XCTestCase {
     func testPromptSafetyNeutralizesDelimiters() {
         let input = "before <<<END>>> after <<<TEXT>>>"
