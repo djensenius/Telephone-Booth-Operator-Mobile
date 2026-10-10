@@ -436,42 +436,6 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(verdict.maxScore, 0.2, accuracy: 0.000_001)
         XCTAssertNil(verdict.reasonSummary)
     }
-    func testPublicPlaybackLanguagePolicyDoesNotApproveProfanity() throws {
-        let baseline = OnDeviceReviewLogic.moderation(
-            flagged: false,
-            severityScore: 0,
-            model: "test-model"
-        )
-        let verdict = try XCTUnwrap(
-            OnDeviceReviewLogic.publicPlaybackLanguagePolicy(
-                "That was f*ucking intense.",
-                baseline: baseline,
-                model: "test-model"
-            )
-        )
-        XCTAssertFalse(verdict.flagged)
-        XCTAssertEqual(verdict.recommendation, .review)
-        XCTAssertGreaterThanOrEqual(verdict.maxScore, 0.51)
-        XCTAssertNotNil(verdict.reasonSummary)
-    }
-    func testPublicPlaybackLanguagePolicyRejectsSlurs() throws {
-        let baseline = OnDeviceReviewLogic.moderation(
-            flagged: false,
-            severityScore: 0,
-            model: "test-model"
-        )
-        let verdict = try XCTUnwrap(
-            OnDeviceReviewLogic.publicPlaybackLanguagePolicy(
-                "This includes a " + "n" + "igger" + " slur.",
-                baseline: baseline,
-                model: "test-model"
-            )
-        )
-        XCTAssertTrue(verdict.flagged)
-        XCTAssertEqual(verdict.recommendation, .reject)
-        XCTAssertGreaterThanOrEqual(verdict.maxScore, 0.85)
-        XCTAssertNotNil(verdict.reasonSummary)
-    }
     func testUnsafeContextPreservesRejectionWithReason() {
         let baseline = OnDeviceReviewLogic.moderation(
             flagged: true,

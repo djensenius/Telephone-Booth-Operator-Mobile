@@ -348,31 +348,18 @@ public actor AppleModerationService: TextModerating {
             baseline = nil
         }
 
-        if let policyVerdict = OnDeviceReviewLogic.publicPlaybackLanguagePolicy(
-            input,
-            baseline: baseline,
-            model: Self.modelIdentifier
-        ) {
-            return policyVerdict
-        }
-
         if let baseline, baseline.recommendation == .approve {
             return baseline
         }
 
         do {
             let adjudication = try await adjudicate(input, model: model)
-            let adjudicated = Self.adjudicatedModeration(
+            return Self.adjudicatedModeration(
                 baseline: baseline,
                 isContextualAndSuitable: adjudication.context == .contextualAndSuitable,
                 confidence: adjudication.confidence,
                 model: Self.modelIdentifier
             )
-            return OnDeviceReviewLogic.publicPlaybackLanguagePolicy(
-                input,
-                baseline: adjudicated,
-                model: Self.modelIdentifier
-            ) ?? adjudicated
         } catch let error as LanguageModelSession.GenerationError {
             if let fallback = Self.adjudicationFailureFallback(
                 baseline: baseline,
