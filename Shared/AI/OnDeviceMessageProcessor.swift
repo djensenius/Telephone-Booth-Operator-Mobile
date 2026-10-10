@@ -746,6 +746,7 @@ public final class AutomaticMessageProcessingCoordinator {
         }
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     private func handleProcessingError(_ error: any Error) async -> ProcessingErrorAction {
         guard !Task.isCancelled, shouldRun else { return .stop }
         let leased = claim
