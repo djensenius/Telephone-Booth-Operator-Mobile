@@ -57,6 +57,19 @@ public actor OperatorClient {
         try await fetchMe().id
     }
 
+    public func fetchModerationPolicy() async throws -> ModerationPolicy {
+        if await usesDemoData { return ModerationPolicyDefaults.fallback }
+        return try await get("/v1/moderation-policy")
+    }
+
+    public func fetchModerationPolicyWithFallback() async -> ModerationPolicy {
+        do {
+            return try await fetchModerationPolicy()
+        } catch {
+            return ModerationPolicyDefaults.fallback
+        }
+    }
+
     /// `GET /v1/stats/summary` — booth health + queue counts. Operator
     /// caches this for 5s, so 15-minute widget polling is cheap.
     public func fetchStatsSummary(

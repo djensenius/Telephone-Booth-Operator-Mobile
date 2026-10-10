@@ -43,6 +43,31 @@ private struct StubTranscriber: AudioTranscribing {
         try await operation()
     }
 }
+private actor TransientTranscriberState {
+    private var remainingFailures: Int
+
+    init(remainingFailures: Int) {
+        self.remainingFailures = remainingFailures
+    }
+
+    func transcribe() throws -> AudioTranscriptionResult {
+        if remainingFailures > 0 {
+            remainingFailures -= 1
+            throw OnDeviceServiceError.timeout("The speech service timed out.")
+        }
+        return .speech("bonjour")
+    }
+}
+private struct TransientFailureTranscriber: AudioTranscribing {
+    let state: TransientTranscriberState
+
+    func transcribe(
+        audioFileURL: URL,
+        language: String?
+    ) async throws -> AudioTranscriptionResult {
+        try await state.transcribe()
+    }
+}
 private struct StubTranslator: TextTranslating {
     func translate(_ input: String, sourceLanguage: String?) async throws -> TranslationResult {
         TranslationResult(
@@ -54,7 +79,7 @@ private struct StubTranslator: TextTranslating {
     }
 }
 private struct StubModerator: TextModerating {
-    func moderate(_ input: String) async throws -> ModerationVerdict {
+    func moderate(_ input: String, policy: ModerationPolicy) async throws -> ModerationVerdict {
         ModerationVerdict(
             flagged: false,
             recommendation: .approve,
@@ -96,7 +121,7 @@ private struct RecordingModerator: TextModerating {
     let recorder: ProcessingOrderRecorder
     let reasonSummary: String
 
-    func moderate(_ input: String) async throws -> ModerationVerdict {
+    func moderate(_ input: String, policy: ModerationPolicy) async throws -> ModerationVerdict {
         await recorder.record(.moderation(input))
         return ModerationVerdict(
             flagged: false,
@@ -410,6 +435,42 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(verdict.recommendation, .approve)
         XCTAssertEqual(verdict.maxScore, 0.2, accuracy: 0.000_001)
         XCTAssertNil(verdict.reasonSummary)
+    }
+    func testPublicPlaybackLanguagePolicyDoesNotApproveProfanity() throws {
+        let baseline = OnDeviceReviewLogic.moderation(
+            flagged: false,
+            severityScore: 0,
+            model: "test-model"
+        )
+        let verdict = try XCTUnwrap(
+            OnDeviceReviewLogic.publicPlaybackLanguagePolicy(
+                "That was f*ucking intense.",
+                baseline: baseline,
+                model: "test-model"
+            )
+        )
+        XCTAssertFalse(verdict.flagged)
+        XCTAssertEqual(verdict.recommendation, .review)
+        XCTAssertGreaterThanOrEqual(verdict.maxScore, 0.51)
+        XCTAssertNotNil(verdict.reasonSummary)
+    }
+    func testPublicPlaybackLanguagePolicyRejectsSlurs() throws {
+        let baseline = OnDeviceReviewLogic.moderation(
+            flagged: false,
+            severityScore: 0,
+            model: "test-model"
+        )
+        let verdict = try XCTUnwrap(
+            OnDeviceReviewLogic.publicPlaybackLanguagePolicy(
+                "This includes a " + "n" + "igger" + " slur.",
+                baseline: baseline,
+                model: "test-model"
+            )
+        )
+        XCTAssertTrue(verdict.flagged)
+        XCTAssertEqual(verdict.recommendation, .reject)
+        XCTAssertGreaterThanOrEqual(verdict.maxScore, 0.85)
+        XCTAssertNotNil(verdict.reasonSummary)
     }
     func testUnsafeContextPreservesRejectionWithReason() {
         let baseline = OnDeviceReviewLogic.moderation(
@@ -1023,6 +1084,47 @@ extension OnDeviceReviewTests {
         coordinator.setActive(false)
         let completedCount = await client.completedCount()
         XCTAssertEqual(completedCount, 2)
+    }
+    @MainActor
+    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
+    func testCoordinatorAutomaticallyRetriesTransientTranscriptionFailure() async throws {
+        let message = DemoData.message(id: "demo-message-3")
+        let first = MessageProcessingClaim(
+            message: message,
+            needs: [.transcription],
+            leaseToken: String(repeating: "a", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: "fr-CA"
+        )
+        let second = MessageProcessingClaim(
+            message: message,
+            needs: [.transcription],
+            leaseToken: String(repeating: "b", count: 32),
+            leaseExpiresAt: Date().addingTimeInterval(300),
+            defaultTranscriptionLanguage: "fr-CA"
+        )
+        let client = StubClaimedProcessingClient(claims: [first, second])
+        let transcriber = TransientFailureTranscriber(
+            state: TransientTranscriberState(remainingFailures: 1)
+        )
+        let coordinator = AutomaticMessageProcessingCoordinator(
+            client: client,
+            processor: makeProcessor(transcriber: transcriber),
+            socket: nil,
+            automaticRetryDelay: .milliseconds(10),
+            capabilityCheck: { _ in true }
+        )
+
+        coordinator.setActive(true)
+        for _ in 0..<20 where await client.completedCount() == 0 {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        coordinator.setActive(false)
+
+        let completedCount = await client.completedCount()
+        let failureCount = await client.failureCount()
+        XCTAssertEqual(failureCount, 1)
+        XCTAssertEqual(completedCount, 1)
     }
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)

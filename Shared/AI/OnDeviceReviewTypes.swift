@@ -51,7 +51,13 @@ public struct ModerationVerdict: Sendable, Equatable {
 }
 
 public protocol TextModerating: Sendable {
-    func moderate(_ input: String) async throws -> ModerationVerdict
+    func moderate(_ input: String, policy: ModerationPolicy) async throws -> ModerationVerdict
+}
+
+public extension TextModerating {
+    func moderate(_ input: String) async throws -> ModerationVerdict {
+        try await moderate(input, policy: ModerationPolicyDefaults.fallback)
+    }
 }
 
 public enum OnDeviceServiceError: Error, Sendable, Equatable, LocalizedError {
@@ -206,6 +212,32 @@ public enum OnDeviceReviewLogic {
         )
     }
 
+    public static func publicPlaybackLanguagePolicy(
+        _ text: String,
+        baseline: ModerationVerdict?,
+        model: String
+    ) -> ModerationVerdict? {
+        if containsAny(text, patterns: slurPatterns) {
+            return ModerationVerdict(
+                flagged: true,
+                recommendation: .reject,
+                maxScore: max(baseline?.maxScore ?? 0, 0.85),
+                model: model,
+                reasonSummary: "The message contains a slur or offensive language and should not be approved for public playback."
+            )
+        }
+
+        guard containsAny(text, patterns: profanityPatterns) else { return nil }
+        guard baseline?.recommendation != .reject else { return nil }
+        return ModerationVerdict(
+            flagged: baseline?.flagged ?? false,
+            recommendation: .review,
+            maxScore: max(baseline?.maxScore ?? 0, 0.51),
+            model: model,
+            reasonSummary: "The message contains profanity or offensive language and needs human review before public playback."
+        )
+    }
+
     /// A verdict for text the on-device model would not classify. The message is
     /// neither flagged nor scored, because nothing was actually judged — it is
     /// only routed to a person.
@@ -247,6 +279,38 @@ public enum OnDeviceReviewLogic {
             }
         }
         return candidate
+    }
+
+    private static let profanityPatterns = [
+        #"\bf[\W_]*u[\W_]*c[\W_]*k(?:ing|ed|er|s)?\b"#,
+        #"\bs[\W_]*h[\W_]*i[\W_]*t(?:ty|s)?\b"#,
+        #"\bb[\W_]*i[\W_]*t[\W_]*c[\W_]*h(?:es|y)?\b"#,
+        #"\bc[\W_]*u[\W_]*n[\W_]*t(?:s)?\b"#,
+        #"\bass[\W_]*hole(?:s)?\b"#,
+        #"\bdick(?:s|head)?\b"#,
+        #"\bprick(?:s)?\b"#,
+        #"\bwhore(?:s)?\b"#
+    ].map { try! NSRegularExpression(pattern: $0, options: [.caseInsensitive]) }
+
+    private static let slurPatterns = [
+        #"\bn[\W_]*[i1!][\W_]*[gq][\W_]*[gq][\W_]*(?:[ae3][\W_]*r?|[a@])s?\b"#,
+        #"\bf[\W_]*a[\W_]*g(?:g[\W_]*o[\W_]*t)?s?\b"#,
+        #"\bk[\W_]*i[\W_]*k[\W_]*e[\W_]*s?\b"#,
+        #"\bs[\W_]*p[\W_]*i[\W_]*c[\W_]*s?\b"#,
+        #"\bc[\W_]*h[\W_]*i[\W_]*n[\W_]*k[\W_]*s?\b"#,
+        #"\bg[\W_]*o[\W_]*o[\W_]*k[\W_]*s?\b"#,
+        #"\btrann(?:y|ies)\b"#,
+        #"\br[\W_]*e[\W_]*t[\W_]*a[\W_]*r[\W_]*d(?:ed|s)?\b"#
+    ].map { try! NSRegularExpression(pattern: $0, options: [.caseInsensitive]) }
+
+    private static func containsAny(
+        _ text: String,
+        patterns: [NSRegularExpression]
+    ) -> Bool {
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        return patterns.contains { pattern in
+            pattern.firstMatch(in: text, range: range) != nil
+        }
     }
 }
 
@@ -455,7 +519,9 @@ extension OnDeviceMessageProcessor {
             throw OnDeviceServiceError.badRequest("The claimed message has no text to review.")
         }
         stage = .moderating
-        let moderation = try await moderator.moderate(input)
+        let policy = await moderationPolicyProvider()
+        moderationPolicy = policy
+        let moderation = try await moderator.moderate(input, policy: policy)
         return MessageProcessingModerationResult(
             inputSha256: ReviewTextSnapshot.sha256(input),
             flagged: moderation.flagged,
