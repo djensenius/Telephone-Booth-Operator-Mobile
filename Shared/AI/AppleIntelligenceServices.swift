@@ -353,13 +353,11 @@ public actor AppleModerationService: TextModerating {
                     error: error
                 )
             )
-        } catch where FoundationModelsSupport.isSafetyGuardrail(error) {
-            return OnDeviceReviewLogic.inconclusiveModeration(
-                model: Self.modelIdentifier,
-                reasonSummary: FoundationModelsSupport.declineReason(
-                    stage: "Moderation classifier",
-                    error: error
-                )
+        } catch {
+            return try FoundationModelsSupport.safetyGuardrailFallback(
+                error,
+                stage: "Moderation classifier",
+                model: Self.modelIdentifier
             )
         }
 
@@ -391,16 +389,13 @@ public actor AppleModerationService: TextModerating {
                     )
             }
             throw FoundationModelsSupport.map(error)
-        } catch where FoundationModelsSupport.isSafetyGuardrail(error) {
-            return baseline.recommendation == .reject
-                ? baseline
-                : OnDeviceReviewLogic.inconclusiveModeration(
-                    model: Self.modelIdentifier,
-                    reasonSummary: FoundationModelsSupport.declineReason(
-                        stage: "Moderation adjudicator",
-                        error: error
-                    )
-                )
+        } catch {
+            return try FoundationModelsSupport.safetyGuardrailFallback(
+                error,
+                stage: "Moderation adjudicator",
+                model: Self.modelIdentifier,
+                baseline: baseline
+            )
         }
     }
 
@@ -508,6 +503,24 @@ enum FoundationModelsSupport {
             || message.contains("safety")
             || message.contains("refusal")
             || message.contains("declined")
+    }
+
+    static func safetyGuardrailFallback(
+        _ error: any Error,
+        stage: String,
+        model: String,
+        baseline: ModerationVerdict? = nil
+    ) throws -> ModerationVerdict {
+        guard isSafetyGuardrail(error) else {
+            throw error
+        }
+        if let baseline, baseline.recommendation == .reject {
+            return baseline
+        }
+        return OnDeviceReviewLogic.inconclusiveModeration(
+            model: model,
+            reasonSummary: declineReason(stage: stage, error: error)
+        )
     }
 
     static func map(_ error: LanguageModelSession.GenerationError) -> OnDeviceServiceError {
