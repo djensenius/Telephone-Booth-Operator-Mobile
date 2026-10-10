@@ -417,17 +417,7 @@ extension OnDeviceMessageProcessor {
             throw OnDeviceServiceError.badRequest("The claimed message has no transcript to translate.")
         }
         stage = .translating
-        let translation: TranslationResult
-        do {
-            translation = try await translator.translate(text, sourceLanguage: language)
-        } catch where Self.isModelSafetyGuardrail(error) {
-            translation = OnDeviceReviewLogic.translation(
-                text: text,
-                detectedSource: nil,
-                fallbackSource: language,
-                model: "apple-foundation-models-declined-pass-through"
-            )
-        }
+        let translation = try await translator.translate(text, sourceLanguage: language)
         guard !translation.translatedText.isEmpty else {
             throw OnDeviceServiceError.badRequest("On-device translation produced no text.")
         }
@@ -479,7 +469,7 @@ extension OnDeviceMessageProcessor {
         let policy = await moderationPolicyProvider()
         moderationPolicy = policy
         hasResolvedModerationPolicy = true
-        let moderation = try await moderateReviewText(input, policy: policy)
+        let moderation = try await moderator.moderate(input, policy: policy)
         return MessageProcessingModerationResult(
             inputSha256: ReviewTextSnapshot.sha256(input),
             flagged: moderation.flagged,

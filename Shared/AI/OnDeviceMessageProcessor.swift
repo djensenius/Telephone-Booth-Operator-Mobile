@@ -239,7 +239,7 @@ extension OnDeviceMessageProcessor {
             let policy = await moderationPolicyProvider()
             moderationPolicy = policy
             hasResolvedModerationPolicy = true
-            let moderation = try await moderateReviewText(moderationInput, policy: policy)
+            let moderation = try await moderator.moderate(moderationInput, policy: policy)
             guard generation == currentGeneration else { return }
 
             pendingResult = PendingResult(
@@ -353,20 +353,11 @@ extension OnDeviceMessageProcessor {
             return nil
         }
         stage = .translating
-        do {
-            let translation = try await translator.translate(text, sourceLanguage: sourceLanguage)
-            guard !translation.translatedText.isEmpty else {
-                throw OnDeviceServiceError.badRequest("On-device translation produced no text.")
-            }
-            return translation
-        } catch where Self.isModelSafetyGuardrail(error) {
-            return OnDeviceReviewLogic.translation(
-                text: text,
-                detectedSource: nil,
-                fallbackSource: sourceLanguage,
-                model: "apple-foundation-models-declined-pass-through"
-            )
+        let translation = try await translator.translate(text, sourceLanguage: sourceLanguage)
+        guard !translation.translatedText.isEmpty else {
+            throw OnDeviceServiceError.badRequest("On-device translation produced no text.")
         }
+        return translation
     }
 
     private func persistTranslation(
@@ -410,37 +401,9 @@ extension OnDeviceMessageProcessor {
         return true
     }
 
-    func moderateReviewText(
-        _ input: String,
-        policy: ModerationPolicy
-    ) async throws -> ModerationVerdict {
-        do {
-            return try await moderator.moderate(input, policy: policy)
-        } catch where Self.isModelSafetyGuardrail(error) {
-            return OnDeviceReviewLogic.inconclusiveModeration(
-                model: "apple-foundation-models",
-                reasonSummary: Self.modelSafetyGuardrailReason(stage: "Moderation service", error: error)
-            )
-        }
-    }
-
     private func fail(_ message: String) {
         stage = .failed(message)
         logger.error("On-device processing failed without logging message content")
-    }
-
-    static func isModelSafetyGuardrail(_ error: any Error) -> Bool {
-        let description = error.localizedDescription.localizedLowercase
-        return description.contains("guardrail")
-            || description.contains("safety")
-            || description.contains("declined")
-            || description.contains("refusal")
-    }
-
-    static func modelSafetyGuardrailReason(stage: String, error: any Error) -> String {
-        let message = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        let detail = message.isEmpty ? "The model declined to process this message." : message
-        return "\(stage): \(detail) The message needs human review."
     }
 
     private static func trimmed(_ value: String?) -> String? {

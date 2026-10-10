@@ -143,11 +143,6 @@ private struct RecordingModerator: TextModerating {
 private enum StubFailure: Error {
     case requested
 }
-private struct SafetyGuardrailFailure: LocalizedError {
-    var errorDescription: String? {
-        "The model's safety guardrails were triggered."
-    }
-}
 private struct SubmissionCounts {
     let transcriptions: Int
     let translations: Int
@@ -967,46 +962,6 @@ extension OnDeviceReviewTests {
         XCTAssertEqual(result.translation?.translatedLanguage, "en")
         XCTAssertEqual(result.translation?.model, "same-language-pass-through")
         XCTAssertEqual(result.moderation?.inputSha256, ReviewTextSnapshot.sha256(sourceText))
-    }
-    @MainActor
-    @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
-    func testClaimedModerationGuardrailCompletesAsReview() async throws {
-        let sourceText = "The model declines this transcript."
-        let transcription = Transcription(
-            id: "guardrail-transcript",
-            messageId: "demo-message-3",
-            provider: .onDevice,
-            model: "apple-speech-analyzer",
-            status: .succeeded,
-            text: sourceText,
-            language: "en-US",
-            durationMs: nil,
-            latencyMs: nil,
-            error: nil,
-            requestedById: nil,
-            createdAt: .distantPast,
-            completedAt: .distantPast
-        )
-        let message = DemoData.message(id: "demo-message-3")
-            .replacingLatestTranscription(transcription)
-        let claim = MessageProcessingClaim(
-            message: message,
-            needs: [.moderation],
-            leaseToken: String(repeating: "g", count: 32),
-            leaseExpiresAt: Date().addingTimeInterval(300),
-            defaultTranscriptionLanguage: nil
-        )
-        let processor = makeProcessor(
-            moderator: StubModerator { throw SafetyGuardrailFailure() }
-        )
-
-        let result = try await processor.process(claim: claim)
-
-        XCTAssertEqual(result.moderation?.recommendation, .review)
-        XCTAssertEqual(
-            result.moderation?.reasonSummary,
-            "Moderation service: The model's safety guardrails were triggered. The message needs human review."
-        )
     }
     @MainActor
     @available(macOS 26.0, iOS 26.0, visionOS 26.0, *)
