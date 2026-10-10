@@ -565,7 +565,7 @@ final class OnDeviceReviewTests: XCTestCase {
     }
     func testUnrelatedErrorsAreNotConvertedToGuardrailFallback() {
         XCTAssertThrowsError(
-            FoundationModelsSupport.safetyGuardrailFallback(
+            try FoundationModelsSupport.safetyGuardrailFallback(
                 StubFailure.requested,
                 stage: "Moderation classifier",
                 model: "test-model"
@@ -574,7 +574,7 @@ final class OnDeviceReviewTests: XCTestCase {
             XCTAssertTrue(error is StubFailure)
         }
         XCTAssertThrowsError(
-            FoundationModelsSupport.safetyGuardrailFallback(
+            try FoundationModelsSupport.safetyGuardrailFallback(
                 StubFailure.requested,
                 stage: "Moderation adjudicator",
                 model: "test-model"
