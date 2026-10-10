@@ -79,13 +79,21 @@ private struct StubTranslator: TextTranslating {
     }
 }
 private struct StubModerator: TextModerating {
-    func moderate(_ input: String, policy: ModerationPolicy) async throws -> ModerationVerdict {
+    let operation: @Sendable () async throws -> ModerationVerdict
+
+    init(operation: @escaping @Sendable () async throws -> ModerationVerdict = {
         ModerationVerdict(
             flagged: false,
             recommendation: .approve,
             maxScore: 0.1,
             model: "apple-foundation-models"
         )
+    }) {
+        self.operation = operation
+    }
+
+    func moderate(_ input: String, policy: ModerationPolicy) async throws -> ModerationVerdict {
+        try await operation()
     }
 }
 private actor ProcessingOrderRecorder {
