@@ -353,6 +353,14 @@ public actor AppleModerationService: TextModerating {
                     error: error
                 )
             )
+        } catch where FoundationModelsSupport.isSafetyGuardrail(error) {
+            return OnDeviceReviewLogic.inconclusiveModeration(
+                model: Self.modelIdentifier,
+                reasonSummary: FoundationModelsSupport.declineReason(
+                    stage: "Moderation classifier",
+                    error: error
+                )
+            )
         }
 
         if baseline.recommendation == .approve {
@@ -383,6 +391,16 @@ public actor AppleModerationService: TextModerating {
                     )
             }
             throw FoundationModelsSupport.map(error)
+        } catch where FoundationModelsSupport.isSafetyGuardrail(error) {
+            return baseline.recommendation == .reject
+                ? baseline
+                : OnDeviceReviewLogic.inconclusiveModeration(
+                    model: Self.modelIdentifier,
+                    reasonSummary: FoundationModelsSupport.declineReason(
+                        stage: "Moderation adjudicator",
+                        error: error
+                    )
+                )
         }
     }
 
@@ -477,11 +495,19 @@ private enum FoundationModelsSupport {
 
     static func declineReason(
         stage: String,
-        error: LanguageModelSession.GenerationError
+        error: any Error
     ) -> String {
         let message = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         let detail = message.isEmpty ? "The model declined to process this message." : message
         return "\(stage): \(detail) The message needs human review."
+    }
+
+    static func isSafetyGuardrail(_ error: any Error) -> Bool {
+        let message = error.localizedDescription.localizedLowercase
+        return message.contains("guardrail")
+            || message.contains("safety")
+            || message.contains("refusal")
+            || message.contains("declined")
     }
 
     static func map(_ error: LanguageModelSession.GenerationError) -> OnDeviceServiceError {
