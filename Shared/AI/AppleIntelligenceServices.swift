@@ -261,8 +261,16 @@ private struct ModerationOutput {
     var flagged: Bool
 
     @Guide(description: """
+    true when an operator should listen before public playback, including for \
+    strong language, insults, threats, private details, unclear content, or \
+    uncertainty. This is broader than flagged.
+    """)
+    var needsHumanReview: Bool
+
+    @Guide(description: """
     A confidence from 0.0 to 1.0 that the transcript itself is unsuitable to \
-    share. Use 0.0 for ordinary, harmless messages.
+    share. Use 0.0 only for ordinary messages suitable for all audiences. Use \
+    at least 0.6 when needsHumanReview is true.
     """)
     var severityScore: Double
 }
@@ -417,6 +425,7 @@ public actor AppleModerationService: TextModerating {
         )
         return OnDeviceReviewLogic.moderation(
             flagged: response.content.flagged,
+            needsHumanReview: response.content.needsHumanReview,
             severityScore: response.content.severityScore,
             model: Self.modelIdentifier
         )

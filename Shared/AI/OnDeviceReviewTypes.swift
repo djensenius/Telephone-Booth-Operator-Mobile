@@ -188,6 +188,7 @@ public enum OnDeviceReviewLogic {
 
     public static func moderation(
         flagged: Bool,
+        needsHumanReview: Bool = false,
         severityScore: Double,
         model: String
     ) -> ModerationVerdict {
@@ -197,6 +198,9 @@ public enum OnDeviceReviewLogic {
         if flagged {
             recommendation = .reject
             reasonSummary = "The message appears unsuitable for public playback."
+        } else if needsHumanReview {
+            recommendation = .review
+            reasonSummary = "The message needs human review before public playback."
         } else if score > 0.5 {
             recommendation = .review
             reasonSummary = "The on-device model was not confident enough to recommend approval."

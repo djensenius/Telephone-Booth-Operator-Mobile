@@ -408,6 +408,18 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(verdict.recommendation, .review)
         XCTAssertEqual(verdict.maxScore, 0.75)
         XCTAssertNotNil(verdict.reasonSummary)
+        let needsReview = OnDeviceReviewLogic.moderation(
+            flagged: false,
+            needsHumanReview: true,
+            severityScore: 0.2,
+            model: "test-model"
+        )
+        XCTAssertEqual(needsReview.recommendation, .review)
+        XCTAssertEqual(needsReview.maxScore, 0.2)
+        XCTAssertEqual(
+            needsReview.reasonSummary,
+            "The message needs human review before public playback."
+        )
         let invalid = OnDeviceReviewLogic.moderation(
             flagged: false,
             severityScore: .infinity,
