@@ -1,1 +1,1 @@
-Fixes themed background colours in the iOS navigation and list areas, and shows the signed-in account avatar when available.
+Fixes the dashboard account avatar sizing, improves on-device message processing retry behaviour, and adds support for editable moderation policy instructions from the operator server.
