@@ -43,6 +43,10 @@ private struct StubTranscriber: AudioTranscribing {
         try await operation()
     }
 }
+
+private struct LocalizedSafetyError: LocalizedError {
+    var errorDescription: String? { "The model's safety guardrails were triggered." }
+}
 private actor TransientTranscriberState {
     private var remainingFailures: Int
 
@@ -529,12 +533,55 @@ final class OnDeviceReviewTests: XCTestCase {
         XCTAssertEqual(verdict.model, "test-model")
         XCTAssertNotNil(verdict.reasonSummary)
     }
-    func testLocalizedSafetyGuardrailDetection() {
-        struct LocalizedSafetyError: LocalizedError {
-            var errorDescription: String? { "The model's safety guardrails were triggered." }
+    func testLocalizedClassifierGuardrailFailureNeedsReviewWithStageAndDetail() throws {
+        let error = LocalizedSafetyError()
+        let verdict = try FoundationModelsSupport.safetyGuardrailFallback(
+            error,
+            stage: "Moderation classifier",
+            model: "test-model"
+        )
+        XCTAssertFalse(verdict.flagged)
+        XCTAssertEqual(verdict.recommendation, .review)
+        XCTAssertEqual(verdict.maxScore, 0)
+        XCTAssertEqual(
+            verdict.reasonSummary,
+            "Moderation classifier: \(error.localizedDescription) The message needs human review."
+        )
+    }
+    func testLocalizedAdjudicatorGuardrailFailureNeedsReviewWithStageAndDetail() throws {
+        let error = LocalizedSafetyError()
+        let verdict = try FoundationModelsSupport.safetyGuardrailFallback(
+            error,
+            stage: "Moderation adjudicator",
+            model: "test-model"
+        )
+        XCTAssertFalse(verdict.flagged)
+        XCTAssertEqual(verdict.recommendation, .review)
+        XCTAssertEqual(verdict.maxScore, 0)
+        XCTAssertEqual(
+            verdict.reasonSummary,
+            "Moderation adjudicator: \(error.localizedDescription) The message needs human review."
+        )
+    }
+    func testUnrelatedErrorsAreNotConvertedToGuardrailFallback() {
+        XCTAssertThrowsError(
+            FoundationModelsSupport.safetyGuardrailFallback(
+                StubFailure.requested,
+                stage: "Moderation classifier",
+                model: "test-model"
+            )
+        ) { error in
+            XCTAssertTrue(error is StubFailure)
         }
-        XCTAssertTrue(FoundationModelsSupport.isSafetyGuardrail(LocalizedSafetyError()))
-        XCTAssertFalse(FoundationModelsSupport.isSafetyGuardrail(StubFailure.requested))
+        XCTAssertThrowsError(
+            FoundationModelsSupport.safetyGuardrailFallback(
+                StubFailure.requested,
+                stage: "Moderation adjudicator",
+                model: "test-model"
+            )
+        ) { error in
+            XCTAssertTrue(error is StubFailure)
+        }
     }
     func testNoSpeechAtThreeSecondsIsLikelyHangup() {
         let result = OnDeviceReviewLogic.noSpeechReview(durationMs: 3_000)
