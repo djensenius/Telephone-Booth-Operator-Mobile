@@ -81,6 +81,7 @@ public struct SystemVitalsStrip: View {
                 value: SystemVitals.formatPercent(snapshot?.memoryUsedRatio),
                 severity: SystemVitals.memorySeverity(snapshot?.memoryUsedRatio)
             )
+            if let heaterValue { VitalTile(label: "Heater", value: heaterValue, severity: .nominal) }
         }
     }
 
@@ -122,7 +123,6 @@ public struct SystemVitalsStrip: View {
         )
     }
 
-    @ViewBuilder
     private func tilesGrid(now: Date) -> some View {
         let routerBatteryTemperatureCelsius = SystemVitals.routerBatteryTemperature(
             in: componentSources,
@@ -130,7 +130,7 @@ public struct SystemVitalsStrip: View {
             now: now
         )
         let columns = [GridItem(.adaptive(minimum: 110), spacing: Theme.Spacing.small)]
-        LazyVGrid(columns: columns, alignment: .leading, spacing: Theme.Spacing.small) {
+        return LazyVGrid(columns: columns, alignment: .leading, spacing: Theme.Spacing.small) {
             VitalTile(
                 label: "CPU temp",
                 value: temperatureValue,
@@ -155,6 +155,7 @@ public struct SystemVitalsStrip: View {
                 value: SystemVitals.formatPercent(snapshot?.memoryUsedRatio),
                 severity: SystemVitals.memorySeverity(snapshot?.memoryUsedRatio)
             )
+            if let heaterValue { VitalTile(label: "Heater", value: heaterValue, severity: .nominal) }
             VitalTile(
                 label: "Uptime",
                 value: SystemVitals.formatUptime(snapshot?.uptimeSeconds),
@@ -173,7 +174,6 @@ public struct SystemVitalsStrip: View {
         }
     }
 
-    @ViewBuilder
     private var footer: some View {
         Text(footerText)
             .font(Theme.Fonts.caption)
@@ -199,6 +199,7 @@ public struct SystemVitalsStrip: View {
         let bounded = max(0, min(1, ratio))
         return String(format: "%.0f%%", bounded * 100)
     }
+    private var heaterValue: String? { snapshot?.vivosunHeatMat?.heaterSummaryDescription }
 }
 
 private struct FanVitalTile: View {
