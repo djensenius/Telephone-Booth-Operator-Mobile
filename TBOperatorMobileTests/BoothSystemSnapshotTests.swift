@@ -269,6 +269,30 @@ final class BoothSystemSnapshotTests: XCTestCase {
         XCTAssertEqual(unknownPower.heaterSummaryDescription, "Heater unknown · —")
     }
 
+    func testCurrentHeaterSummaryRejectsExpiredReadingDespiteFreshEnvelope() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let expiredFetchedAt = now.timeIntervalSince1970
+            - BoothSystemSnapshot.ShellyStats.heaterReadingFreshnessSeconds
+            - 1
+        let expiredHeating = BoothSystemSnapshot.ShellyStats(
+            device: BoothSystemSnapshot.vivosunHeatMatDevice,
+            outputOn: true,
+            powerWatts: 30.5,
+            fetchedAtUnixSeconds: expiredFetchedAt
+        )
+        let envelope = BoothSystemSnapshotEnvelope(
+            boothId: "booth-a",
+            snapshot: BoothSystemSnapshot(shelly: [expiredHeating]),
+            receivedAt: now
+        )
+
+        XCTAssertEqual(envelope.receivedAt, now)
+        XCTAssertEqual(
+            envelope.snapshot.vivosunHeatMat?.currentHeaterSummaryDescription(now: now),
+            "Heater unknown · stale"
+        )
+    }
+
     func testOverallSystemSeverityCombinesDashboardSignals() {
         let empty = BoothSystemSnapshot()
         XCTAssertNil(SystemVitals.overallSeverity(snapshot: empty))

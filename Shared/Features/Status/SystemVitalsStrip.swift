@@ -81,7 +81,7 @@ public struct SystemVitalsStrip: View {
                 value: SystemVitals.formatPercent(snapshot?.memoryUsedRatio),
                 severity: SystemVitals.memorySeverity(snapshot?.memoryUsedRatio)
             )
-            if let heaterValue { VitalTile(label: "Heater", value: heaterValue, severity: .nominal) }
+            if let heat = heatText(now: now) { VitalTile(label: "Heater", value: heat, severity: .nominal) }
         }
     }
 
@@ -155,7 +155,7 @@ public struct SystemVitalsStrip: View {
                 value: SystemVitals.formatPercent(snapshot?.memoryUsedRatio),
                 severity: SystemVitals.memorySeverity(snapshot?.memoryUsedRatio)
             )
-            if let heaterValue { VitalTile(label: "Heater", value: heaterValue, severity: .nominal) }
+            if let heat = heatText(now: now) { VitalTile(label: "Heater", value: heat, severity: .nominal) }
             VitalTile(
                 label: "Uptime",
                 value: SystemVitals.formatUptime(snapshot?.uptimeSeconds),
@@ -199,7 +199,7 @@ public struct SystemVitalsStrip: View {
         let bounded = max(0, min(1, ratio))
         return String(format: "%.0f%%", bounded * 100)
     }
-    private var heaterValue: String? { snapshot?.vivosunHeatMat?.heaterSummaryDescription }
+    private func heatText(now: Date) -> String? { snapshot?.vivosunHeatMat?.currentHeaterSummaryDescription(now: now) }
 }
 
 private struct FanVitalTile: View {

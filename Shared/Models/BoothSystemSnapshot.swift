@@ -254,6 +254,7 @@ public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
     /// The Vivosun heat mat is considered actively heating only when it draws
     /// positive wattage; `outputOn` is relay state and is not a heat signal.
     public struct ShellyStats: Codable, Sendable, Equatable {
+        public static let heaterReadingFreshnessSeconds: TimeInterval = 5 * 60
         public let device: String?
         public let endpoint: String?
         public let outputOn: Bool?
@@ -297,6 +298,15 @@ public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
         public var heaterSummaryDescription: String {
             let state = isHeating.map { $0 ? "Heating" : "Heater off" } ?? "Heater unknown"
             return "\(state) · \(powerWattsDescription)"
+        }
+
+        public func currentHeaterSummaryDescription(now: Date) -> String {
+            guard let fetchedAtUnixSeconds, fetchedAtUnixSeconds.isFinite else { return "Heater unknown · —" }
+            let fetchedAt = Date(timeIntervalSince1970: fetchedAtUnixSeconds)
+            guard now.timeIntervalSince(fetchedAt) < Self.heaterReadingFreshnessSeconds else {
+                return "Heater unknown · stale"
+            }
+            return heaterSummaryDescription
         }
 
         public var powerWattsDescription: String {
