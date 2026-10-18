@@ -5,8 +5,8 @@
 //  Mirrors the operator's `BoothSystemSnapshotSchema` from
 //  `packages/shared/src/index.ts`. The canonical wire format groups
 //  metrics into sub-objects (`cpu`, `memory`, `disks[]`, `networks[]`,
-//  `process`, `audio`, `tailscale`, `fan`, `throttling`) matching the Rust
-//  `booth-hal::SystemSnapshot` struct that the booth client serialises.
+//  `process`, `audio`, `tailscale`, `fan`, `shelly[]`, `throttling`) matching
+//  the Rust `booth-hal::SystemSnapshot` struct that the booth client serialises.
 //
 //  All fields are optional so the schema is forward-compatible with
 //  adapters that fill in only a subset of metrics. The snapshot itself
@@ -22,6 +22,8 @@
 import Foundation
 
 public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
+    public static let vivosunHeatMatDevice = "vivosun_heat_mat"
+
     public let cpu: CPUStats?
     public let temperatureCelsius: Double?
     public let memory: MemoryStats?
@@ -32,6 +34,7 @@ public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
     public let audio: AudioStats?
     public let tailscale: TailscaleStats?
     public let fan: FanStats?
+    public let shelly: [ShellyStats]?
     public let throttling: ThrottlingFlags?
     public let runtimeMode: RuntimeMode?
     // Host-identity fields are not in the narrowed operator schema, but
@@ -247,6 +250,73 @@ public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
         }
     }
 
+    /// Shelly telemetry, including relay state and measured outlet power.
+    /// The Vivosun heat mat is considered actively heating only when it draws
+    /// positive wattage; `outputOn` is relay state and is not a heat signal.
+    public struct ShellyStats: Codable, Sendable, Equatable {
+        public static let heaterReadingFreshnessSeconds: TimeInterval = 5 * 60
+        public let device: String?
+        public let endpoint: String?
+        public let outputOn: Bool?
+        public let powerWatts: Double?
+        public let voltageVolts: Double?
+        public let frequencyHertz: Double?
+        public let currentAmperes: Double?
+        public let energyWattHours: Double?
+        public let temperatureCelsius: Double?
+        public let fetchedAtUnixSeconds: Double?
+
+        public init(
+            device: String? = nil,
+            endpoint: String? = nil,
+            outputOn: Bool? = nil,
+            powerWatts: Double? = nil,
+            voltageVolts: Double? = nil,
+            frequencyHertz: Double? = nil,
+            currentAmperes: Double? = nil,
+            energyWattHours: Double? = nil,
+            temperatureCelsius: Double? = nil,
+            fetchedAtUnixSeconds: Double? = nil
+        ) {
+            self.device = device
+            self.endpoint = endpoint
+            self.outputOn = outputOn
+            self.powerWatts = powerWatts
+            self.voltageVolts = voltageVolts
+            self.frequencyHertz = frequencyHertz
+            self.currentAmperes = currentAmperes
+            self.energyWattHours = energyWattHours
+            self.temperatureCelsius = temperatureCelsius
+            self.fetchedAtUnixSeconds = fetchedAtUnixSeconds
+        }
+
+        public var isHeating: Bool? {
+            guard let powerWatts, powerWatts.isFinite else { return nil }
+            return powerWatts > 0
+        }
+
+        public var heaterSummaryDescription: String {
+            let state = isHeating.map { $0 ? "Heating" : "Heater off" } ?? "Heater unknown"
+            return "\(state) · \(powerWattsDescription)"
+        }
+
+        public func currentHeaterSummaryDescription(now: Date) -> String {
+            guard let fetchedAtUnixSeconds, fetchedAtUnixSeconds.isFinite else { return "Heater unknown · —" }
+            let fetchedAt = Date(timeIntervalSince1970: fetchedAtUnixSeconds)
+            guard now.timeIntervalSince(fetchedAt) < Self.heaterReadingFreshnessSeconds else {
+                return "Heater unknown · stale"
+            }
+            return heaterSummaryDescription
+        }
+
+        public var powerWattsDescription: String {
+            guard let powerWatts, powerWatts.isFinite else { return "—" }
+            let rounded = powerWatts.rounded()
+            if abs(powerWatts - rounded) < 0.05 { return String(format: "%.0f W", rounded) }
+            return String(format: "%.1f W", powerWatts)
+        }
+    }
+
     /// Six boolean Pi throttling flags returned by `vcgencmd get_throttled`.
     /// Adapters that can't read these (non-Pi hosts) omit the whole object.
     public struct ThrottlingFlags: Codable, Sendable, Equatable {
@@ -299,6 +369,7 @@ public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
         audio: AudioStats? = nil,
         tailscale: TailscaleStats? = nil,
         fan: FanStats? = nil,
+        shelly: [ShellyStats]? = nil,
         throttling: ThrottlingFlags? = nil,
         runtimeMode: RuntimeMode? = nil,
         hostname: String? = nil,
@@ -315,6 +386,7 @@ public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
         self.audio = audio
         self.tailscale = tailscale
         self.fan = fan
+        self.shelly = shelly
         self.throttling = throttling
         self.runtimeMode = runtimeMode
         self.hostname = hostname
@@ -350,6 +422,12 @@ public struct BoothSystemSnapshot: Codable, Sendable, Equatable {
     public var audioOutputDbfs: Double? { nil }
     /// Alias preserving the pre-rename `networkInterfaces` array name.
     public var networkInterfaces: [NetworkInterface]? { networks }
+    /// Preferred Shelly source for the Vivosun heat mat power readout.
+    public var vivosunHeatMat: ShellyStats? {
+        shelly?.first { stats in
+            stats.device?.caseInsensitiveCompare(Self.vivosunHeatMatDevice) == .orderedSame
+        }
+    }
     /// Names of currently-asserted Pi throttling flags. Returns nil when no
     /// throttling sub-object was reported so absent-data and zero-asserted
     /// states render differently.

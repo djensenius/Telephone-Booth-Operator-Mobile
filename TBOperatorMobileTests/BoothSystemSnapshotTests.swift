@@ -45,6 +45,18 @@ final class BoothSystemSnapshotTests: XCTestCase {
         XCTAssertEqual(snapshot.fan?.rpm, 4250)
         XCTAssertEqual(snapshot.fan?.coolingState, 2)
         XCTAssertEqual(snapshot.fan?.maxCoolingState, 3)
+        XCTAssertEqual(snapshot.shelly?.count, 1)
+        XCTAssertEqual(snapshot.vivosunHeatMat?.device, "vivosun_heat_mat")
+        XCTAssertEqual(snapshot.vivosunHeatMat?.endpoint, "switch:0")
+        XCTAssertEqual(snapshot.vivosunHeatMat?.outputOn, true)
+        XCTAssertEqual(snapshot.vivosunHeatMat?.powerWatts, 30.5)
+        XCTAssertEqual(snapshot.vivosunHeatMat?.voltageVolts, 121.2)
+        XCTAssertEqual(snapshot.vivosunHeatMat?.frequencyHertz, 60.0)
+        XCTAssertEqual(snapshot.vivosunHeatMat?.currentAmperes, 0.25)
+        XCTAssertEqual(snapshot.vivosunHeatMat?.energyWattHours, 42.75)
+        XCTAssertEqual(snapshot.vivosunHeatMat?.temperatureCelsius, 31.5)
+        XCTAssertEqual(snapshot.vivosunHeatMat?.fetchedAtUnixSeconds, 1_780_310_400)
+        XCTAssertEqual(snapshot.vivosunHeatMat?.isHeating, true)
         XCTAssertEqual(snapshot.throttling?.throttled, true)
         XCTAssertEqual(snapshot.process?.threads, 6)
         XCTAssertEqual(snapshot.runtimeMode, .real)
@@ -122,6 +134,20 @@ final class BoothSystemSnapshotTests: XCTestCase {
           "coolingState": 2,
           "maxCoolingState": 3
         },
+        "shelly": [
+          {
+            "device": "vivosun_heat_mat",
+            "endpoint": "switch:0",
+            "outputOn": true,
+            "powerWatts": 30.5,
+            "voltageVolts": 121.2,
+            "frequencyHertz": 60.0,
+            "currentAmperes": 0.25,
+            "energyWattHours": 42.75,
+            "temperatureCelsius": 31.5,
+            "fetchedAtUnixSeconds": 1780310400
+          }
+        ],
         "throttling": {
           "undervoltage": false,
           "armFreqCapped": false,
@@ -216,6 +242,55 @@ final class BoothSystemSnapshotTests: XCTestCase {
         // distinguishing "throttling subsystem reporting cleanly" from
         // "throttling subsystem not available".
         XCTAssertEqual(snapshot.throttlingFlags, [])
+    }
+
+    func testHeaterPowerFormattingUsesWattageAsHeatSignal() {
+        let heating = BoothSystemSnapshot.ShellyStats(
+            device: BoothSystemSnapshot.vivosunHeatMatDevice,
+            outputOn: false,
+            powerWatts: 30.5
+        )
+        XCTAssertEqual(heating.isHeating, true)
+        XCTAssertEqual(heating.heaterSummaryDescription, "Heating · 30.5 W")
+
+        let idleRelay = BoothSystemSnapshot.ShellyStats(
+            device: BoothSystemSnapshot.vivosunHeatMatDevice,
+            outputOn: true,
+            powerWatts: 0
+        )
+        XCTAssertEqual(idleRelay.isHeating, false)
+        XCTAssertEqual(idleRelay.heaterSummaryDescription, "Heater off · 0 W")
+
+        let unknownPower = BoothSystemSnapshot.ShellyStats(
+            device: BoothSystemSnapshot.vivosunHeatMatDevice,
+            outputOn: true
+        )
+        XCTAssertNil(unknownPower.isHeating)
+        XCTAssertEqual(unknownPower.heaterSummaryDescription, "Heater unknown · —")
+    }
+
+    func testCurrentHeaterSummaryRejectsExpiredReadingDespiteFreshEnvelope() {
+        let now = Date(timeIntervalSince1970: 2_000_000_000)
+        let expiredFetchedAt = now.timeIntervalSince1970
+            - BoothSystemSnapshot.ShellyStats.heaterReadingFreshnessSeconds
+            - 1
+        let expiredHeating = BoothSystemSnapshot.ShellyStats(
+            device: BoothSystemSnapshot.vivosunHeatMatDevice,
+            outputOn: true,
+            powerWatts: 30.5,
+            fetchedAtUnixSeconds: expiredFetchedAt
+        )
+        let envelope = BoothSystemSnapshotEnvelope(
+            boothId: "booth-a",
+            snapshot: BoothSystemSnapshot(shelly: [expiredHeating]),
+            receivedAt: now
+        )
+
+        XCTAssertEqual(envelope.receivedAt, now)
+        XCTAssertEqual(
+            envelope.snapshot.vivosunHeatMat?.currentHeaterSummaryDescription(now: now),
+            "Heater unknown · stale"
+        )
     }
 
     func testOverallSystemSeverityCombinesDashboardSignals() {
