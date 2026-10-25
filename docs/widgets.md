@@ -70,8 +70,13 @@ sections for:
 - system health;
 - rolling 24-hour activity.
 
-Live dashboard and pending-count updates merge only the sections they own.
-Full refreshes fetch the summary, latest message, system telemetry, component
+On iOS/iPadOS and visionOS, live dashboard and pending-count updates merge
+only the sections they own. On macOS, UI/socket changes request a REST refresh
+(at most once per minute) instead of publishing cached UI observations. Full
+Mac refreshes in the host and extension share an observation lease held from
+before fetching/authentication through persistence, so observations of the same
+section cannot overlap and complete out of order. Versioned count-only updates
+remain independent. Full refreshes fetch the summary, latest message, system telemetry, component
 telemetry, and 24-hour overview without discarding a successful older section
 when an unrelated endpoint fails.
 
@@ -106,7 +111,10 @@ never presents a login prompt. Access tokens, refresh tokens, and the enabled
 session's server configuration live in the Keychain, not the App Group snapshot.
 
 A cross-process file lock serializes host/extension token renewal so rotating
-refresh tokens cannot be reused concurrently. A separate short state lock guards
+refresh tokens cannot be reused concurrently. Another observation lease serializes
+complete widget reads across both processes; read-start/completion timestamps
+alone are not used as a substitute for ordering overlapping requests.
+A separate short state lock guards
 session invalidation and snapshot writes; no network request holds that lock.
 Late data responses must match the enabled widget session. Credential renewal
 uses a separate signed-in lineage: demo mode or a same-host API-path change can

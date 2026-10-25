@@ -357,7 +357,7 @@ final class MacWidgetRefreshTests: XCTestCase {
                 writes.withLock { $0 += 1 }
                 cache.withLock { $0 = snapshot }
                 return true
-            }, now: { after }
+            }, now: { after }, observationLease: { nil }
         )
         _ = await coordinator.refresh(using: client)
         XCTAssertEqual(writes.withLock { $0 }, 1)

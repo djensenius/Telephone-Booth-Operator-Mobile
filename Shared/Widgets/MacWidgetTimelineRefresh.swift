@@ -29,7 +29,8 @@ enum MacWidgetTimelineRefresh {
                     return true
                 }) ?? false
             },
-            isCurrent: { context.isCurrent() }
+            isCurrent: { context.isCurrent() },
+            observationLease: { try await MacWidgetFileLock.observationLock() }
         )
     }
 
@@ -37,13 +38,14 @@ enum MacWidgetTimelineRefresh {
         using client: any WidgetDataFetching,
         readSnapshot: @escaping @Sendable () -> WidgetSnapshot?,
         writeSnapshot: @escaping @Sendable (WidgetSnapshot) -> Bool,
-        isCurrent: @escaping @Sendable () -> Bool
+        isCurrent: @escaping @Sendable () -> Bool,
+        observationLease: @escaping @Sendable () async throws -> (any WidgetObservationLease)? = { nil }
     ) async -> WidgetSnapshot? {
         guard isCurrent() else { return nil }
         let coordinator = WidgetRefreshCoordinator(readSnapshot: readSnapshot, writeSnapshot: { snapshot in
             guard isCurrent() else { return false }
             return writeSnapshot(snapshot)
-        })
+        }, observationLease: observationLease)
         _ = await coordinator.refresh(using: client)
         // Sign-out, demo mode, or a server change must invalidate in-flight work.
         guard isCurrent() else { return nil }

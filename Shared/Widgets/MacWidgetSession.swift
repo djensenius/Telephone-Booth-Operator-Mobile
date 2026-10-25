@@ -10,7 +10,7 @@ import LocalAuthentication
 import Security
 
 /// Cross-process locks: never hold the short state lock across a network await.
-final class MacWidgetFileLock: @unchecked Sendable {
+final class MacWidgetFileLock: WidgetObservationLease {
     private let descriptor: Int32
 
     private init(descriptor: Int32) { self.descriptor = descriptor }
@@ -34,11 +34,19 @@ final class MacWidgetFileLock: @unchecked Sendable {
     }
 
     static func refreshLock() async throws -> MacWidgetFileLock {
+        try await acquireAsync(name: "widget-auth.lock")
+    }
+
+    static func observationLock() async throws -> MacWidgetFileLock {
+        try await acquireAsync(name: "widget-observations.lock")
+    }
+
+    private static func acquireAsync(name: String) async throws -> MacWidgetFileLock {
         // Bound contention to fit a WidgetKit timeline request; the OS releases
         // flock automatically if either the app or extension is terminated.
         for _ in 0..<100 {
             try Task.checkCancellation()
-            if let lock = try? acquire(name: "widget-auth.lock", wait: false) { return lock }
+            if let lock = try? acquire(name: name, wait: false) { return lock }
             try await Task.sleep(for: .milliseconds(100))
         }
         throw URLError(.timedOut)

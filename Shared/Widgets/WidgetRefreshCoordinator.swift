@@ -47,6 +47,7 @@ public actor WidgetRefreshCoordinator {
     private let writeSnapshot: @Sendable (WidgetSnapshot) -> Bool
     private let clearSnapshot: @Sendable () -> Bool
     private let now: @Sendable () -> Date
+    private let makeObservationLease: @Sendable () async throws -> (any WidgetObservationLease)?
     private var cachedSnapshot: WidgetSnapshot?
     private var lastPersistedAt: Date?
     private var acceptsCachedFile = true
@@ -71,12 +72,22 @@ public actor WidgetRefreshCoordinator {
         clearSnapshot: @escaping @Sendable () -> Bool = {
             WidgetSnapshotStore.clear()
         },
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        observationLease: (@Sendable () async throws -> (any WidgetObservationLease)?)? = nil
     ) {
         self.readSnapshot = readSnapshot
         self.writeSnapshot = writeSnapshot
         self.clearSnapshot = clearSnapshot
         self.now = now
+        self.makeObservationLease = observationLease ?? { try await Self.liveObservationLease() }
+    }
+
+    private static func liveObservationLease() async throws -> (any WidgetObservationLease)? {
+        #if os(macOS)
+        return try await MacWidgetFileLock.observationLock()
+        #else
+        return nil
+        #endif
     }
 
     @discardableResult
@@ -181,6 +192,14 @@ public actor WidgetRefreshCoordinator {
         guard acceptsUpdates else { return .failed }
         let refreshAPIRevision = synchronizeAPIRevision()
         let refreshGeneration = generation
+        let lease: (any WidgetObservationLease)?
+        do {
+            lease = try await makeObservationLease()
+            try Task.checkCancellation()
+        } catch { return .failed }
+        defer { withExtendedLifetime(lease) {} }
+        guard acceptsUpdates, generation == refreshGeneration,
+              Self.currentAPIRevision == refreshAPIRevision else { return .failed }
         let refreshDate = now()
 
         async let summaryResult = captureWidgetFetch {

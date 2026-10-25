@@ -53,6 +53,8 @@ public final class BoothStatusLiveStore {
     /// state during an outage instead of a permanent "no snapshot yet".
     public private(set) var systemUnavailable: Bool = false
 
+    var shouldPublishWidgetChanges: Bool { !demoMode && !client.demoMode && !config.isDemoMode }
+
     let client: OperatorClient
     private let socket: StatusSocket
     private let config: AppConfig
@@ -421,27 +423,6 @@ public final class BoothStatusLiveStore {
         )
         stats = merged
         writeWidgetSnapshotIfPossible()
-    }
-
-    private func writeWidgetSnapshotIfPossible() {
-        guard !demoMode, !config.isDemoMode, let stats else { return }
-        let systemEnvelope = self.systemEnvelope
-        let componentSources = self.componentSources
-        let componentsObservedAt = self.componentsObservedAt
-        let systemObservedAt = self.systemObservedAt
-        let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
-        let observedAt = Date()
-        Task {
-            await WidgetRefreshCoordinator.shared.apply(
-                stats: stats,
-                systemEnvelope: systemEnvelope,
-                components: componentSources,
-                systemObservedAt: systemObservedAt,
-                componentsObservedAt: componentsObservedAt,
-                apiRevision: apiRevision,
-                observedAt: observedAt
-            )
-        }
     }
 
 }

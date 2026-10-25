@@ -5,6 +5,9 @@
 
 import Foundation
 
+/// Keeps a cross-process observation lease alive through fetching and persistence.
+public protocol WidgetObservationLease: Sendable {}
+
 enum WidgetFetchResult<Value: Sendable>: Sendable {
     case success(Value)
     case failure(String)
