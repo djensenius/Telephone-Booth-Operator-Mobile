@@ -162,6 +162,23 @@ final class MacWidgetRefreshTests: XCTestCase {
         XCTAssertEqual(newer.mergingNewerSections(from: older), merged)
     }
 
+    func testLaterFetchCannotReplaceNewerBoothSourceData() {
+        let source = Date(timeIntervalSince1970: 2_000_000_000)
+        func snapshot(source: Date, fetched: Date) -> WidgetSnapshot {
+            WidgetSnapshot(summary: .init(
+                boothState: .idle, boothUpdatedAt: source, pendingMessages: 1, receivedToday: 1,
+                interactionsToday: 1, interactionsInProgress: 0, wsClients: 1, runtimeMode: nil,
+                sourceGeneratedAt: source, refreshedAt: fetched
+            ), writtenAt: fetched)
+        }
+        let live = snapshot(source: source, fetched: source)
+        let cachedServerResponse = snapshot(
+            source: source.addingTimeInterval(-10), fetched: source.addingTimeInterval(5)
+        )
+        XCTAssertEqual(cachedServerResponse.mergingNewerSections(from: live).summary, live.summary)
+        XCTAssertEqual(live.mergingNewerSections(from: cachedServerResponse).summary, live.summary)
+    }
+
     func testEmptyMessageRefreshCannotResurrectDeletedMetadata() throws {
         let previous = WidgetSnapshot.placeholder
         let checkedAt = previous.writtenAt.addingTimeInterval(60)

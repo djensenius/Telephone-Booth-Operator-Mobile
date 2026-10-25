@@ -322,7 +322,9 @@ public struct RootContainerView: View {
             }
             if AuthManager.shared.authState == .signedIn {
                 await refreshWidgetSnapshot()
-            } else {
+            } else if AuthManager.shared.authState == .signedOut {
+                // A transient restore failure retains the last signed-in widget
+                // session, allowing independent Mac refresh to recover later.
                 AuthManager.shared.suspendWidgetRefreshUntilSignIn()
             }
         }
