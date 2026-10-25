@@ -325,6 +325,46 @@ final class MacWidgetRefreshTests: XCTestCase {
         XCTAssertEqual(store.systemObservedAt, observedAt)
     }
 
+    @MainActor
+    func testCachedLightweightPollDoesNotBecomeANewSystemObservation() async {
+        let store = BoothStatusLiveStore(client: .demo, socket: .demo)
+        await store.refreshNow()
+        let observedAt = store.systemObservedAt
+        XCTAssertNotNil(observedAt)
+        await store.refreshLightweightForTesting()
+        XCTAssertEqual(store.systemObservedAt, observedAt)
+    }
+
+    func testNewerEmptyObservationsBypassTheFreshnessWriteThrottle() async {
+        let before = Date(timeIntervalSince1970: 2_000_000_000)
+        let after = before.addingTimeInterval(5)
+        let cache = OSAllocatedUnfairLock(initialState: WidgetSnapshot(
+            summary: .init(stats: DemoData.statsSummary, refreshedAt: before),
+            latestMessageRefreshedAt: before, systemHealthRefreshedAt: before, writtenAt: before
+        ))
+        let writes = OSAllocatedUnfairLock(initialState: 0)
+        let fixture = WidgetSessionFixture()
+        let client = fixture.client { request in
+            switch request.url?.lastPathComponent {
+            case "summary": return (200, try OperatorJSON.encoder.encode(DemoData.statsSummary))
+            case "current", "messages": return (200, Data("{\"items\":[]}".utf8))
+            default: return (503, Data())
+            }
+        }
+        let coordinator = WidgetRefreshCoordinator(
+            readSnapshot: { cache.withLock { $0 } },
+            writeSnapshot: { snapshot in
+                writes.withLock { $0 += 1 }
+                cache.withLock { $0 = snapshot }
+                return true
+            }, now: { after }
+        )
+        _ = await coordinator.refresh(using: client)
+        XCTAssertEqual(writes.withLock { $0 }, 1)
+        XCTAssertEqual(cache.withLock { $0.latestMessageRefreshedAt }, after)
+        XCTAssertEqual(cache.withLock { $0.systemHealthRefreshedAt }, after)
+    }
+
     func testDefaultWidgetClientsReuseOneNetworkSession() async {
         let context = MacWidgetSession(
             id: UUID(), credentialID: UUID(), apiBaseURL: URL(string: "https://example.test")!,

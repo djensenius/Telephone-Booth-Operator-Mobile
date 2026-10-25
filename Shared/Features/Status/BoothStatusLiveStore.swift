@@ -199,7 +199,7 @@ public final class BoothStatusLiveStore {
         guard !Task.isCancelled else { return }
         let fullRefresh = fullRefresh || changedAPI || needsFullRefresh
         let client = self.client
-        let cachedSystem = systemEnvelope
+        let shouldFetchSystem = fullRefresh || systemEnvelope == nil
         let requestKey = lifecycleKey
         let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
         let revision = lifecycleRevision
@@ -208,8 +208,8 @@ public final class BoothStatusLiveStore {
         async let statusResult = attempt { try await client.fetchBoothStatus() }
         async let historyResult: StatusHistory? = fullRefresh
             ? attempt { try await client.fetchStatusHistory(limit: 200) } : nil
-        async let systemResult: BoothSystemSnapshotEnvelope?? = fullRefresh || cachedSystem == nil
-            ? attempt { try await client.fetchCurrentSystemEnvelope() } : .some(cachedSystem)
+        async let systemResult: (envelope: BoothSystemSnapshotEnvelope?, observedAt: Date)? = shouldFetchSystem
+            ? attempt { (try await client.fetchCurrentSystemEnvelope(), Date()) } : nil
         async let componentsResult = attempt { try await client.fetchCurrentSystemComponents() }
         async let summaryResult = fetchSummaryAndSessions()
 
@@ -232,7 +232,9 @@ public final class BoothStatusLiveStore {
             mergeHistory(newHistory.items)
             needsFullRefresh = false
         }
-        applySystemResult(newSystem)
+        if shouldFetchSystem {
+            applySystemResult(newSystem.map { $0.envelope }, observedAt: newSystem?.observedAt)
+        }
         if let newComponents { componentSources = newComponents }
         apply(summary, reconcileLifecycle: revision == lifecycleRevision && newStatus == nil
             && requestRevision == appliedStatusRevision)
@@ -302,7 +304,7 @@ public final class BoothStatusLiveStore {
     /// Applies the outcome of the `/v1/system/current` REST request. The double
     /// optional distinguishes a thrown error (`.none`) from a successful-but-
     /// empty response (`.some(.none)`), which stays an empty state.
-    private func applySystemResult(_ newSystem: BoothSystemSnapshotEnvelope??) {
+    private func applySystemResult(_ newSystem: BoothSystemSnapshotEnvelope??, observedAt: Date?) {
         switch newSystem {
         case .some(let envelope?):
             // The REST seed races the live socket; don't let an older REST
@@ -311,7 +313,7 @@ public final class BoothStatusLiveStore {
                 // Keep the fresher cached snapshot.
             } else {
                 systemEnvelope = envelope
-                systemObservedAt = Date()
+                systemObservedAt = observedAt
                 writeWidgetSnapshotIfPossible()
             }
             systemUnavailable = false
@@ -470,6 +472,10 @@ extension BoothStatusLiveStore {
 
 #if DEBUG
 extension BoothStatusLiveStore {
+    func refreshLightweightForTesting() async {
+        await refreshFromREST(fullRefresh: false)
+    }
+
     func applyStatusForTesting(_ newStatus: BoothStatus) {
         apply(status: newStatus)
     }

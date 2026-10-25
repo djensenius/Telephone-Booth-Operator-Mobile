@@ -318,10 +318,17 @@ public actor WidgetRefreshCoordinator {
         // Serialize writes with synchronous API invalidation so an old
         // response cannot land after the old server's file was cleared.
         let hasNewContent = !previous.hasSameContent(as: updated)
+        // Empty observations are deletion fences, not just freshness chrome.
+        // Never throttle a newer fence behind a competing writer's old data.
+        let newerEmptyMessage = updated.latestMessage == nil
+            && (updated.latestMessageRefreshedAt ?? .distantPast) > (previous.latestMessageRefreshedAt ?? .distantPast)
+        let newerEmptyHealth = updated.systemHealth == nil
+            && (updated.systemHealthRefreshedAt ?? .distantPast) > (previous.systemHealthRefreshedAt ?? .distantPast)
         let timeSinceWrite = updated.writtenAt.timeIntervalSince(previous.writtenAt)
         let outcome: (result: WidgetRefreshResult, written: Bool) = Self.apiRevision.withLock { revision in
             guard revision == apiRevision else { return (.failed, false) }
-            if !hasNewContent, timeSinceWrite < Self.minimumFreshnessWriteInterval {
+            if !hasNewContent, !newerEmptyMessage, !newerEmptyHealth,
+               timeSinceWrite < Self.minimumFreshnessWriteInterval {
                 return (.noData, false)
             }
             guard writeSnapshot(updated) else {
