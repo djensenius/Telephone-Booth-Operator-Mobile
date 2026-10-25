@@ -108,7 +108,12 @@ session's server configuration live in the Keychain, not the App Group snapshot.
 A cross-process file lock serializes host/extension token renewal so rotating
 refresh tokens cannot be reused concurrently. A separate short state lock guards
 session invalidation and snapshot writes; no network request holds that lock.
-Late responses must match the enabled session before writing tokens or data.
+Late data responses must match the enabled widget session. Credential renewal
+uses a separate signed-in lineage: demo mode or a same-host API-path change can
+disable widget data without discarding a provider's rotated refresh token.
+Explicit sign-out revokes that lineage under the state lock, blocking late token
+writes. Cached host telemetry retains its original local observation time, so a
+status update cannot resurrect health cleared by a newer successful empty fetch.
 Snapshot writes merge independently dated sections to preserve newer updates
 from the other process. Network calls have bounded timeouts and reject redirects;
 a 401 renews authentication and retries once. Offline and partial failures keep

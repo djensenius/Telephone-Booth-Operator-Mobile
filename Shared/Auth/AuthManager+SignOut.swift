@@ -8,6 +8,9 @@ import Foundation
 extension AuthManager {
     public func signOut() {
         sessionGeneration &+= 1
+        #if os(macOS)
+        MacWidgetSession.revokeCredentials()
+        #endif
         #if os(watchOS)
         UserDefaults.standard.set(true, forKey: WatchAuthSync.autoSignInPausedKey)
         #endif

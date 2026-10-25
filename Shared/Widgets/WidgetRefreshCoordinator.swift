@@ -105,6 +105,7 @@ public actor WidgetRefreshCoordinator {
         stats: StatsSummary,
         systemEnvelope: BoothSystemSnapshotEnvelope?,
         components: [SystemComponentCurrentEnvelope],
+        systemObservedAt: Date? = nil,
         apiRevision: UInt? = nil,
         observedAt: Date? = nil
     ) async -> WidgetRefreshResult {
@@ -130,23 +131,17 @@ public actor WidgetRefreshCoordinator {
             WidgetSnapshot.SystemHealth(
                 envelope: $0,
                 components: components,
-                refreshedAt: refreshDate
+                refreshedAt: systemObservedAt ?? refreshDate
             )
         }
-        let health: WidgetSnapshot.SystemHealth?
-        if let current = previous.systemHealth,
-           let candidateHealth,
-           current.sourceUpdatedAt > candidateHealth.sourceUpdatedAt {
-            health = current
-        } else {
-            health = candidateHealth ?? previous.systemHealth
-        }
+        let healthUpdate = WidgetSnapshot(systemHealth: candidateHealth, writtenAt: refreshDate)
+            .mergingNewerSections(from: previous)
         let updated = WidgetSnapshot(
             summary: summary,
             latestMessage: previous.latestMessage,
             latestMessageRefreshedAt: previous.latestMessageRefreshedAt,
-            systemHealth: health,
-            systemHealthRefreshedAt: candidateHealth == nil ? previous.systemHealthRefreshedAt : refreshDate,
+            systemHealth: healthUpdate.systemHealth,
+            systemHealthRefreshedAt: healthUpdate.systemHealthRefreshedAt,
             activity: previous.activity,
             writtenAt: refreshDate
         )

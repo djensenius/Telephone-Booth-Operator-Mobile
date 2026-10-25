@@ -27,6 +27,7 @@ public final class BoothStatusLiveStore {
     public private(set) var status: BoothStatus?
     public private(set) var history: [BoothStatus] = []
     public private(set) var systemEnvelope: BoothSystemSnapshotEnvelope?
+    private(set) var systemObservedAt: Date?
     public private(set) var componentSources: [SystemComponentCurrentEnvelope] = []
     public private(set) var stats: StatsSummary?
     public internal(set) var callsTodaySessions: [CallSession] = []
@@ -270,6 +271,7 @@ public final class BoothStatusLiveStore {
         stats = nil
         history = []
         systemEnvelope = nil
+        systemObservedAt = nil
         componentSources = []
         systemUnavailable = false
         callsTodaySessions = []
@@ -305,10 +307,11 @@ public final class BoothStatusLiveStore {
         case .some(let envelope?):
             // The REST seed races the live socket; don't let an older REST
             // envelope replace a fresher snapshot the socket already applied.
-            if let current = systemEnvelope, current.receivedAt >= envelope.receivedAt {
+            if let current = systemEnvelope, current.receivedAt > envelope.receivedAt {
                 // Keep the fresher cached snapshot.
             } else {
                 systemEnvelope = envelope
+                systemObservedAt = Date()
                 writeWidgetSnapshotIfPossible()
             }
             systemUnavailable = false
@@ -333,6 +336,7 @@ public final class BoothStatusLiveStore {
             apply(status: status)
         case .system(let envelope):
             systemEnvelope = envelope
+            systemObservedAt = Date()
             systemUnavailable = false
             writeWidgetSnapshotIfPossible()
         case .message:
@@ -410,24 +414,11 @@ public final class BoothStatusLiveStore {
         writeWidgetSnapshotIfPossible()
     }
 
-    private func mergeIntoHistory(_ newStatus: BoothStatus) {
-        guard newStatus.hasTelemetry else { return }
-        mergeHistory([newStatus])
-    }
-
-    private func mergeHistory(_ items: [BoothStatus]) {
-        let reports = items.filter(\.hasTelemetry).map { item in
-            var report = item
-            report.installationState = nil
-            return report
-        }
-        history = Self.merging(reports, into: history)
-    }
-
     private func writeWidgetSnapshotIfPossible() {
         guard !demoMode, !config.isDemoMode, let stats else { return }
         let systemEnvelope = self.systemEnvelope
         let componentSources = self.componentSources
+        let systemObservedAt = self.systemObservedAt
         let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
         let observedAt = Date()
         Task {
@@ -435,6 +426,7 @@ public final class BoothStatusLiveStore {
                 stats: stats,
                 systemEnvelope: systemEnvelope,
                 components: componentSources,
+                systemObservedAt: systemObservedAt,
                 apiRevision: apiRevision,
                 observedAt: observedAt
             )
@@ -457,6 +449,22 @@ public final class BoothStatusLiveStore {
         lastError = nil
         systemUnavailable = false
         writeWidgetSnapshotIfPossible()
+    }
+}
+
+extension BoothStatusLiveStore {
+    private func mergeIntoHistory(_ newStatus: BoothStatus) {
+        guard newStatus.hasTelemetry else { return }
+        mergeHistory([newStatus])
+    }
+
+    private func mergeHistory(_ items: [BoothStatus]) {
+        let reports = items.filter(\.hasTelemetry).map { item in
+            var report = item
+            report.installationState = nil
+            return report
+        }
+        history = Self.merging(reports, into: history)
     }
 }
 

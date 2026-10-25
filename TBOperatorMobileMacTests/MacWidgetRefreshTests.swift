@@ -82,6 +82,7 @@ final class MacWidgetRefreshTests: XCTestCase {
         let client = fixture.client { request in
             XCTAssertEqual(request.httpMethod, "POST")
             fixture.current.withLock { $0 = false }
+            fixture.credentialsCurrent.withLock { $0 = false }
             return (200, Self.tokenResponse)
         }
         do {
@@ -90,6 +91,21 @@ final class MacWidgetRefreshTests: XCTestCase {
         } catch {}
         XCTAssertEqual(fixture.saved.withLock { $0 }, 0)
         XCTAssertEqual(fixture.values.withLock { $0["oidc_access_token"] }, "cached-access")
+    }
+
+    func testDisplayTransitionPreservesRotatedCredentialsWithoutFetchingData() async {
+        let fixture = WidgetSessionFixture(expiry: -60)
+        let client = fixture.client { request in
+            XCTAssertEqual(request.httpMethod, "POST", "An invalidated display must not fetch API data")
+            fixture.current.withLock { $0 = false }
+            return (200, Self.tokenResponse)
+        }
+        do {
+            _ = try await client.fetchStatsSummary(timeZone: .gmt)
+            XCTFail("Display transitions invalidate widget data")
+        } catch {}
+        XCTAssertEqual(fixture.saved.withLock { $0 }, 1)
+        XCTAssertEqual(fixture.values.withLock { $0["oidc_refresh_token"] }, "renewed-refresh")
     }
 
     func testSessionInvalidatedWhileWaitingForRefreshLockDoesNotRequest() async {
@@ -276,9 +292,42 @@ final class MacWidgetRefreshTests: XCTestCase {
         XCTAssertEqual(decoded.systemHealthRefreshedAt, result?.systemHealthRefreshedAt)
     }
 
+    func testCachedTelemetryCannotUndoANewerEmptyObservation() async {
+        let emptyAt = Date(timeIntervalSince1970: 2_000_000_000)
+        let cache = OSAllocatedUnfairLock(initialState: WidgetSnapshot(
+            systemHealthRefreshedAt: emptyAt, writtenAt: emptyAt
+        ))
+        let coordinator = WidgetRefreshCoordinator(
+            readSnapshot: { cache.withLock { $0 } },
+            writeSnapshot: { snapshot in cache.withLock { $0 = snapshot }; return true }
+        )
+        _ = await coordinator.apply(
+            stats: DemoData.statsSummary, systemEnvelope: DemoData.systemEnvelope, components: [],
+            systemObservedAt: emptyAt.addingTimeInterval(-10), observedAt: emptyAt.addingTimeInterval(10)
+        )
+        XCTAssertNil(cache.withLock { $0.systemHealth })
+        XCTAssertEqual(cache.withLock { $0.systemHealthRefreshedAt }, emptyAt)
+        _ = await coordinator.apply(
+            stats: DemoData.statsSummary, systemEnvelope: DemoData.systemEnvelope, components: [],
+            systemObservedAt: emptyAt.addingTimeInterval(20), observedAt: emptyAt.addingTimeInterval(20)
+        )
+        XCTAssertNotNil(cache.withLock { $0.systemHealth })
+    }
+
+    @MainActor
+    func testStatusUpdatesDoNotAdvanceCachedTelemetryObservationTime() {
+        let store = BoothStatusLiveStore(client: .demo, socket: .demo, demoMode: true)
+        store.apply(.system(DemoData.systemEnvelope))
+        let observedAt = store.systemObservedAt
+        store.applyStats(DemoData.statsSummary)
+        store.apply(.status(DemoData.boothStatus))
+        XCTAssertNotNil(observedAt)
+        XCTAssertEqual(store.systemObservedAt, observedAt)
+    }
+
     func testDefaultWidgetClientsReuseOneNetworkSession() async {
         let context = MacWidgetSession(
-            id: UUID(), apiBaseURL: URL(string: "https://example.test")!,
+            id: UUID(), credentialID: UUID(), apiBaseURL: URL(string: "https://example.test")!,
             tokenURL: URL(string: "https://example.test/token/")!, clientID: "test", scopes: "openid"
         )
         let first = MacWidgetAPIClient(context: context)
@@ -302,6 +351,7 @@ final class MacWidgetRefreshTests: XCTestCase {
 private struct WidgetSessionFixture: Sendable {
     let values: OSAllocatedUnfairLock<[String: String]>
     let current = OSAllocatedUnfairLock(initialState: true)
+    let credentialsCurrent = OSAllocatedUnfairLock(initialState: true)
     let saved = OSAllocatedUnfairLock(initialState: 0)
 
     init(expiry: TimeInterval = 3_600) {
@@ -320,7 +370,7 @@ private struct WidgetSessionFixture: Sendable {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [WidgetHTTPStub.self]
         let context = MacWidgetSession(
-            id: UUID(), apiBaseURL: URL(string: "https://\(identifier)/operator")!,
+            id: UUID(), credentialID: UUID(), apiBaseURL: URL(string: "https://\(identifier)/operator")!,
             tokenURL: URL(string: "https://\(identifier)/token/")!,
             clientID: "test-client", scopes: "openid offline_access"
         )
@@ -330,7 +380,7 @@ private struct WidgetSessionFixture: Sendable {
                 isCurrent: { current.withLock { $0 } },
                 readToken: { account in values.withLock { $0[account] } },
                 saveTokens: { tokens in
-                    guard current.withLock({ $0 }) else { throw URLError(.cancelled) }
+                    guard credentialsCurrent.withLock({ $0 }) else { throw URLError(.cancelled) }
                     saved.withLock { $0 += 1 }
                     values.withLock {
                         $0["oidc_access_token"] = tokens.accessToken

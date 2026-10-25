@@ -188,8 +188,11 @@ actor MacWidgetAPIClient: WidgetDataFetching {
             throw URLError(.userAuthenticationRequired)
         }
         let tokens = try JSONDecoder().decode(OIDCTokens.self, from: data)
-        guard access.isCurrent() else { throw WidgetRequestError.signedOut }
+        // A display-only transition must not lose a rotated refresh token.
+        // The atomic save separately verifies the credential lineage, so late
+        // replies after explicit sign-out or a new login remain rejected.
         try access.saveTokens(tokens)
+        guard access.isCurrent() else { throw WidgetRequestError.signedOut }
         return tokens.accessToken
     }
 

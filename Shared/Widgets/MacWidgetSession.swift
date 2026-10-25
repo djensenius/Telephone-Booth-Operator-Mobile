@@ -103,16 +103,20 @@ enum MacWidgetKeychain {
 
 struct MacWidgetSession: Codable, Equatable, Sendable {
     let id: UUID
+    let credentialID: UUID
     let apiBaseURL: URL
     let tokenURL: URL
     let clientID: String
     let scopes: String
 
     private static let account = "widget-session"
+    private static let credentialAccount = "widget-credential-session"
 
     static func read() -> MacWidgetSession? {
         guard let value = MacWidgetKeychain.read(account: account) else { return nil }
-        return try? JSONDecoder().decode(Self.self, from: Data(value.utf8))
+        guard let context = try? JSONDecoder().decode(Self.self, from: Data(value.utf8)),
+              context.hasCurrentCredentials() else { return nil }
+        return context
     }
 
     /// Called only by the signed-in host, after session restoration.
@@ -120,8 +124,12 @@ struct MacWidgetSession: Codable, Equatable, Sendable {
         _ = try? MacWidgetFileLock.withStateLock {
             if let current = read(), current.apiBaseURL == apiBaseURL,
                current.tokenURL == tokenURL, current.clientID == clientID, current.scopes == scopes { return }
+            let credentialID = MacWidgetKeychain.read(account: credentialAccount)
+                .flatMap(UUID.init(uuidString:)) ?? UUID()
+            guard MacWidgetKeychain.write(account: credentialAccount, value: credentialID.uuidString) else { return }
             let session = Self(
-                id: UUID(), apiBaseURL: apiBaseURL, tokenURL: tokenURL, clientID: clientID, scopes: scopes
+                id: UUID(), credentialID: credentialID,
+                apiBaseURL: apiBaseURL, tokenURL: tokenURL, clientID: clientID, scopes: scopes
             )
             let data = try JSONEncoder().encode(session)
             guard let value = String(data: data, encoding: .utf8) else { return }
@@ -135,11 +143,24 @@ struct MacWidgetSession: Codable, Equatable, Sendable {
         }
     }
 
+    /// Explicit sign-out revokes the credential lineage; display-only changes
+    /// disable widget data without throwing away a provider's rotated tokens.
+    static func revokeCredentials() {
+        _ = try? MacWidgetFileLock.withStateLock {
+            MacWidgetKeychain.delete(account: credentialAccount)
+            MacWidgetKeychain.delete(account: account)
+        }
+    }
+
     func isCurrent() -> Bool { Self.read() == self }
+
+    func hasCurrentCredentials() -> Bool {
+        MacWidgetKeychain.read(account: Self.credentialAccount) == credentialID.uuidString
+    }
 
     func save(_ tokens: OIDCTokens) throws {
         try MacWidgetFileLock.withStateLock {
-            guard isCurrent() else { throw URLError(.userAuthenticationRequired) }
+            guard hasCurrentCredentials() else { throw URLError(.userAuthenticationRequired) }
             // Persist rotation before the access token so partial writes remain recoverable.
             if let refresh = tokens.refreshToken,
                !MacWidgetKeychain.write(account: "oidc_refresh_token", value: refresh) {
