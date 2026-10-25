@@ -167,6 +167,8 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         public let tailscaleConnected: Bool?
         public let sourceUpdatedAt: Date
         public let refreshedAt: Date
+        /// Aging is evaluated independently from the last real booth observation.
+        public let evaluatedAt: Date?
 
         public init(
             boothId: String,
@@ -176,7 +178,8 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             routerTemperatureCelsius: Double?,
             tailscaleConnected: Bool?,
             sourceUpdatedAt: Date,
-            refreshedAt: Date
+            refreshedAt: Date,
+            evaluatedAt: Date? = nil
         ) {
             self.boothId = boothId
             self.severity = severity
@@ -186,18 +189,21 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             self.tailscaleConnected = tailscaleConnected
             self.sourceUpdatedAt = sourceUpdatedAt
             self.refreshedAt = refreshedAt
+            self.evaluatedAt = evaluatedAt ?? refreshedAt
         }
 
         public init(
             envelope: BoothSystemSnapshotEnvelope,
             components: [SystemComponentCurrentEnvelope],
-            refreshedAt: Date
+            refreshedAt: Date,
+            evaluatedAt: Date? = nil
         ) {
+            let evaluationDate = evaluatedAt ?? refreshedAt
             let snapshot = envelope.snapshot
             let routerTemperature = Self.routerTemperature(
                 in: components,
                 boothId: envelope.boothId,
-                now: refreshedAt
+                now: evaluationDate
             )
             self.init(
                 boothId: envelope.boothId,
@@ -205,14 +211,15 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
                     snapshot: snapshot,
                     routerTemperature: routerTemperature,
                     sourceUpdatedAt: envelope.receivedAt,
-                    now: refreshedAt
+                    now: evaluationDate
                 ),
                 cpuTemperatureCelsius: snapshot.cpuTemperatureCelsius,
                 memoryUsedRatio: snapshot.memoryUsedRatio,
                 routerTemperatureCelsius: routerTemperature,
                 tailscaleConnected: snapshot.tailscaleConnected,
                 sourceUpdatedAt: envelope.receivedAt,
-                refreshedAt: refreshedAt
+                refreshedAt: refreshedAt,
+                evaluatedAt: evaluationDate
             )
         }
 

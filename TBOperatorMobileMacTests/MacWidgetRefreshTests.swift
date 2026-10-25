@@ -365,6 +365,33 @@ final class MacWidgetRefreshTests: XCTestCase {
         XCTAssertEqual(cache.withLock { $0.systemHealthRefreshedAt }, after)
     }
 
+    func testRouterAgesAgainstEvaluationClockWithoutAdvancingBoothObservation() async {
+        let observed = Date(timeIntervalSince1970: 2_000_000_000)
+        let laterObservation = observed.addingTimeInterval(60)
+        let envelope = DemoData.rebasedSystemEnvelope(to: observed)
+        let router = SystemComponentCurrentEnvelope(
+            source: DemoData.systemComponentSources[0].source,
+            latestSnapshot: .init(battery: .init(temperatureCelsius: 85)),
+            capturedAt: observed, receivedAt: observed
+        )
+        let fresh = WidgetSnapshot.SystemHealth(envelope: envelope, components: [router], refreshedAt: laterObservation)
+        XCTAssertEqual(fresh.severity, .critical)
+        let cache = OSAllocatedUnfairLock(initialState: WidgetSnapshot(
+            systemHealth: fresh, writtenAt: laterObservation
+        ))
+        let coordinator = WidgetRefreshCoordinator(
+            readSnapshot: { cache.withLock { $0 } },
+            writeSnapshot: { snapshot in cache.withLock { $0 = snapshot }; return true },
+            now: { observed.addingTimeInterval(301) }
+        )
+        _ = await coordinator.apply(
+            stats: DemoData.statsSummary, systemEnvelope: envelope, components: [router], systemObservedAt: observed
+        )
+        XCTAssertNil(cache.withLock { $0.systemHealth?.routerTemperatureCelsius })
+        XCTAssertNotEqual(cache.withLock { $0.systemHealth?.severity }, .critical)
+        XCTAssertEqual(cache.withLock { $0.systemHealthRefreshedAt }, laterObservation)
+    }
+
     func testDefaultWidgetClientsReuseOneNetworkSession() async {
         let context = MacWidgetSession(
             id: UUID(), credentialID: UUID(), apiBaseURL: URL(string: "https://example.test")!,

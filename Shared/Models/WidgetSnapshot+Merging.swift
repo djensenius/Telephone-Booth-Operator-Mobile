@@ -13,22 +13,38 @@ extension WidgetSnapshot {
         let otherMessageIsNewer = (other.latestMessageRefreshedAt ?? .distantPast)
             > (latestMessageRefreshedAt ?? .distantPast)
         let otherHealthIsNewer = healthFromOtherIsNewer(other)
+        let healthObservedAt = [systemHealthRefreshedAt, other.systemHealthRefreshedAt].compactMap { $0 }.max()
+        let health = otherHealthIsNewer ? other.systemHealth : systemHealth
         return WidgetSnapshot(
             summary: mergedSummary(with: other.summary),
             latestMessage: otherMessageIsNewer ? other.latestMessage : latestMessage,
             latestMessageRefreshedAt: otherMessageIsNewer ? other.latestMessageRefreshedAt : latestMessageRefreshedAt,
-            systemHealth: otherHealthIsNewer ? other.systemHealth : systemHealth,
-            systemHealthRefreshedAt: otherHealthIsNewer ? other.systemHealthRefreshedAt : systemHealthRefreshedAt,
+            systemHealth: Self.updatingHealth(health, observedAt: healthObservedAt),
+            systemHealthRefreshedAt: healthObservedAt,
             activity: Self.newer(activity, other.activity, source: \.rangeEnd, date: \.refreshedAt),
             writtenAt: max(writtenAt, other.writtenAt)
         )
     }
 
     private func healthFromOtherIsNewer(_ other: WidgetSnapshot) -> Bool {
-        if let first = systemHealth, let second = other.systemHealth, first.sourceUpdatedAt != second.sourceUpdatedAt {
-            return second.sourceUpdatedAt > first.sourceUpdatedAt
+        if let first = systemHealth, let second = other.systemHealth {
+            if first.sourceUpdatedAt != second.sourceUpdatedAt { return second.sourceUpdatedAt > first.sourceUpdatedAt }
+            let firstEvaluation = first.evaluatedAt ?? first.refreshedAt
+            let secondEvaluation = second.evaluatedAt ?? second.refreshedAt
+            if firstEvaluation != secondEvaluation { return secondEvaluation > firstEvaluation }
         }
         return (other.systemHealthRefreshedAt ?? .distantPast) > (systemHealthRefreshedAt ?? .distantPast)
+    }
+
+    private static func updatingHealth(_ health: SystemHealth?, observedAt: Date?) -> SystemHealth? {
+        guard let health, let observedAt, observedAt > health.refreshedAt else { return health }
+        return SystemHealth(
+            boothId: health.boothId, severity: health.severity,
+            cpuTemperatureCelsius: health.cpuTemperatureCelsius, memoryUsedRatio: health.memoryUsedRatio,
+            routerTemperatureCelsius: health.routerTemperatureCelsius, tailscaleConnected: health.tailscaleConnected,
+            sourceUpdatedAt: health.sourceUpdatedAt, refreshedAt: observedAt,
+            evaluatedAt: health.evaluatedAt ?? health.refreshedAt
+        )
     }
 
     private func mergedSummary(with other: Summary?) -> Summary? {

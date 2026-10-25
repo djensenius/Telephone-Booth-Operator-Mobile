@@ -131,7 +131,8 @@ public actor WidgetRefreshCoordinator {
             WidgetSnapshot.SystemHealth(
                 envelope: $0,
                 components: components,
-                refreshedAt: systemObservedAt ?? refreshDate
+                refreshedAt: systemObservedAt ?? refreshDate,
+                evaluatedAt: refreshDate
             )
         }
         let healthUpdate = WidgetSnapshot(systemHealth: candidateHealth, writtenAt: refreshDate)
