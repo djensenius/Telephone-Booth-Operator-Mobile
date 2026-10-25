@@ -23,6 +23,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         public let wsClients: Int
         public let runtimeMode: RuntimeMode?
         public let sourceGeneratedAt: Date?
+        public let countsSourceGeneratedAt: Date?
         public let refreshedAt: Date
         public var installationState: InstallationState?
         public let isSynthetic: Bool?
@@ -46,7 +47,8 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             sourceGeneratedAt: Date? = nil,
             refreshedAt: Date,
             installationState: InstallationState? = nil,
-            isSynthetic: Bool? = nil
+            isSynthetic: Bool? = nil,
+            countsSourceGeneratedAt: Date? = nil
         ) {
             self.boothState = boothState
             self.boothUpdatedAt = boothUpdatedAt
@@ -57,6 +59,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             self.wsClients = wsClients
             self.runtimeMode = runtimeMode
             self.sourceGeneratedAt = sourceGeneratedAt
+            self.countsSourceGeneratedAt = countsSourceGeneratedAt ?? sourceGeneratedAt ?? refreshedAt
             self.refreshedAt = refreshedAt
             self.installationState = installationState
             self.isSynthetic = isSynthetic
@@ -86,7 +89,8 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
                 interactionsToday: stats.interactionsToday, interactionsInProgress: stats.interactionsInProgress,
                 wsClients: stats.realtime.wsClients, runtimeMode: runtimeMode,
                 sourceGeneratedAt: sourceGeneratedAt, refreshedAt: refreshedAt,
-                installationState: installationState, isSynthetic: isSynthetic
+                installationState: installationState, isSynthetic: isSynthetic,
+                countsSourceGeneratedAt: stats.generatedAt
             )
         }
 
@@ -169,6 +173,9 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         public let refreshedAt: Date
         /// Aging is evaluated independently from the last real booth observation.
         public let evaluatedAt: Date?
+        public let routerSourceUpdatedAt: Date?
+        public let routerObservedAt: Date?
+        public let boothSeverity: HealthSeverity?
 
         public init(
             boothId: String,
@@ -179,7 +186,10 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             tailscaleConnected: Bool?,
             sourceUpdatedAt: Date,
             refreshedAt: Date,
-            evaluatedAt: Date? = nil
+            evaluatedAt: Date? = nil,
+            routerSourceUpdatedAt: Date? = nil,
+            routerObservedAt: Date? = nil,
+            boothSeverity: HealthSeverity? = nil
         ) {
             self.boothId = boothId
             self.severity = severity
@@ -190,13 +200,17 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             self.sourceUpdatedAt = sourceUpdatedAt
             self.refreshedAt = refreshedAt
             self.evaluatedAt = evaluatedAt ?? refreshedAt
+            self.routerSourceUpdatedAt = routerSourceUpdatedAt
+            self.routerObservedAt = routerObservedAt
+            self.boothSeverity = boothSeverity ?? severity
         }
 
         public init(
             envelope: BoothSystemSnapshotEnvelope,
             components: [SystemComponentCurrentEnvelope],
             refreshedAt: Date,
-            evaluatedAt: Date? = nil
+            evaluatedAt: Date? = nil,
+            componentsObservedAt: Date? = nil
         ) {
             let evaluationDate = evaluatedAt ?? refreshedAt
             let snapshot = envelope.snapshot
@@ -219,7 +233,15 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
                 tailscaleConnected: snapshot.tailscaleConnected,
                 sourceUpdatedAt: envelope.receivedAt,
                 refreshedAt: refreshedAt,
-                evaluatedAt: evaluationDate
+                evaluatedAt: evaluationDate,
+                routerSourceUpdatedAt: components
+                    .filter { $0.source.boothId == envelope.boothId && $0.source.isRouter }
+                    .compactMap(\.freshnessDate).max(),
+                routerObservedAt: componentsObservedAt,
+                boothSeverity: Self.evaluate(
+                    snapshot: snapshot, routerTemperature: nil,
+                    sourceUpdatedAt: envelope.receivedAt, now: evaluationDate
+                )
             )
         }
 
@@ -243,6 +265,52 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
                 && routerTemperatureCelsius == other.routerTemperatureCelsius
                 && tailscaleConnected == other.tailscaleConnected
                 && sourceUpdatedAt == other.sourceUpdatedAt
+                && routerSourceUpdatedAt == other.routerSourceUpdatedAt
+                && boothSeverity == other.boothSeverity
+        }
+
+        func mergingRouter(from other: Self) -> Self {
+            guard boothId == other.boothId else { return self }
+            let thisDate = routerSourceUpdatedAt ?? .distantPast
+            let otherDate = other.routerSourceUpdatedAt ?? .distantPast
+            let thisEvaluation = evaluatedAt ?? refreshedAt
+            let otherEvaluation = other.evaluatedAt ?? other.refreshedAt
+            let thisObservation = routerObservedAt
+                ?? (routerSourceUpdatedAt != nil || routerTemperatureCelsius != nil ? refreshedAt : .distantPast)
+            let otherObservation = other.routerObservedAt
+                ?? (other.routerSourceUpdatedAt != nil || other.routerTemperatureCelsius != nil
+                    ? other.refreshedAt : .distantPast)
+            let router: Self
+            if routerSourceUpdatedAt != nil, other.routerSourceUpdatedAt != nil, thisDate != otherDate {
+                router = otherDate > thisDate ? other : self
+            } else if routerSourceUpdatedAt != nil, other.routerSourceUpdatedAt == nil, other.routerObservedAt == nil {
+                router = self
+            } else if other.routerSourceUpdatedAt != nil, routerSourceUpdatedAt == nil, routerObservedAt == nil {
+                router = other
+            } else if thisObservation != otherObservation {
+                router = otherObservation > thisObservation ? other : self
+            } else {
+                router = otherEvaluation > thisEvaluation ? other : self
+            }
+            let evaluation = max(thisEvaluation, otherEvaluation)
+            let routerDate = router.routerSourceUpdatedAt
+            let ageDate = routerDate ?? router.refreshedAt
+            let temperature = evaluation.timeIntervalSince(ageDate) <= WidgetSnapshot.sourceStaleInterval
+                ? router.routerTemperatureCelsius : nil
+            var baseSeverity = boothSeverity ?? severity
+            if evaluation.timeIntervalSince(sourceUpdatedAt) >= WidgetSnapshot.sourceStaleInterval {
+                baseSeverity = HealthSeverity.maximum([baseSeverity, .warning])
+            }
+            let combined = temperature == nil ? baseSeverity
+                : HealthSeverity.maximum([baseSeverity, Self.temperatureSeverity(temperature)])
+            return Self(
+                boothId: boothId, severity: combined,
+                cpuTemperatureCelsius: cpuTemperatureCelsius, memoryUsedRatio: memoryUsedRatio,
+                routerTemperatureCelsius: temperature, tailscaleConnected: tailscaleConnected,
+                sourceUpdatedAt: sourceUpdatedAt, refreshedAt: refreshedAt, evaluatedAt: evaluation,
+                routerSourceUpdatedAt: routerDate, routerObservedAt: router.routerObservedAt,
+                boothSeverity: baseSeverity
+            )
         }
 
         private static func evaluate(

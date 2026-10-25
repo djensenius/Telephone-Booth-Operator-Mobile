@@ -115,7 +115,14 @@ Explicit sign-out revokes that lineage under the state lock, blocking late token
 writes. Cached host telemetry retains its original local observation time, so a
 status update cannot resurrect health cleared by a newer successful empty fetch.
 Snapshot writes merge independently dated sections to preserve newer updates
-from the other process. Network calls have bounded timeouts and reject redirects;
+from the other process. Counts carry their own server generation time rather
+than borrowing a cached booth timestamp. Router sample timestamps are compared
+separately from the booth source and evaluation clocks: re-evaluating an old
+host sample cannot replace a newer critical router sample, while the selected
+sample can still age out without advancing its actual observation time. Mac
+writers persist ordering metadata even when visible content is unchanged;
+WidgetKit reload requests remain throttled to once per minute. Network calls
+have bounded timeouts and reject redirects;
 a 401 renews authentication and retries once. Offline and partial failures keep
 successful cached sections, with their original freshness dates.
 

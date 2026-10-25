@@ -48,6 +48,7 @@ public actor WidgetRefreshCoordinator {
     private let clearSnapshot: @Sendable () -> Bool
     private let now: @Sendable () -> Date
     private var cachedSnapshot: WidgetSnapshot?
+    private var lastPersistedAt: Date?
     private var acceptsCachedFile = true
     private var generation: UInt = 0
     private var acceptsUpdates = true
@@ -88,6 +89,8 @@ public actor WidgetRefreshCoordinator {
         guard acceptsUpdates, apiRevision == revision else { return .failed }
         let previous = snapshot()
         guard let summary = previous.summary else { return .noData }
+        let countsDate = summary.countsSourceGeneratedAt ?? summary.sourceGeneratedAt ?? .distantPast
+        guard stats.generatedAt >= countsDate else { return .noData }
         let refreshedAt = now()
         let updated = WidgetSnapshot(
             summary: summary.replacingCounts(with: stats),
@@ -106,6 +109,7 @@ public actor WidgetRefreshCoordinator {
         systemEnvelope: BoothSystemSnapshotEnvelope?,
         components: [SystemComponentCurrentEnvelope],
         systemObservedAt: Date? = nil,
+        componentsObservedAt: Date? = nil,
         apiRevision: UInt? = nil,
         observedAt: Date? = nil
     ) async -> WidgetRefreshResult {
@@ -119,20 +123,16 @@ public actor WidgetRefreshCoordinator {
             refreshedAt: refreshDate
         )
         candidateSummary.installationState = candidateSummary.installationState ?? previous.summary?.installationState
-        let summary: WidgetSnapshot.Summary
-        if let current = previous.summary,
-           summaryIsNewer(current, than: candidateSummary) {
-            summary = current
-        } else {
-            summary = candidateSummary
-        }
+        let summary = WidgetSnapshot(summary: candidateSummary, writtenAt: refreshDate)
+            .mergingNewerSections(from: previous).summary ?? candidateSummary
 
         let candidateHealth = systemEnvelope.map {
             WidgetSnapshot.SystemHealth(
                 envelope: $0,
                 components: components,
                 refreshedAt: systemObservedAt ?? refreshDate,
-                evaluatedAt: refreshDate
+                evaluatedAt: refreshDate,
+                componentsObservedAt: componentsObservedAt
             )
         }
         let healthUpdate = WidgetSnapshot(systemHealth: candidateHealth, writtenAt: refreshDate)
@@ -277,6 +277,7 @@ public actor WidgetRefreshCoordinator {
         activeRefreshID &+= 1
         activeRefresh = nil
         cachedSnapshot = nil
+        lastPersistedAt = nil
         acceptsCachedFile = false
         return clearSnapshot()
     }
@@ -291,6 +292,7 @@ public actor WidgetRefreshCoordinator {
             cancelActiveRefresh()
             cachedAPIRevision = revision
             cachedSnapshot = nil
+            lastPersistedAt = nil
             acceptsCachedFile = false
         }
         return revision
@@ -307,6 +309,7 @@ public actor WidgetRefreshCoordinator {
         // Another process may have refreshed sections since our last write.
         if acceptsCachedFile, let stored = readSnapshot() {
             cachedSnapshot = stored.mergingNewerSections(from: cachedSnapshot)
+            lastPersistedAt = max(lastPersistedAt ?? .distantPast, stored.writtenAt)
         }
         return cachedSnapshot ?? WidgetSnapshot(writtenAt: now())
     }
@@ -319,27 +322,27 @@ public actor WidgetRefreshCoordinator {
         // Serialize writes with synchronous API invalidation so an old
         // response cannot land after the old server's file was cleared.
         let hasNewContent = !previous.hasSameContent(as: updated)
-        // Empty observations are deletion fences, not just freshness chrome.
-        // Never throttle a newer fence behind a competing writer's old data.
-        let newerEmptyMessage = updated.latestMessage == nil
-            && (updated.latestMessageRefreshedAt ?? .distantPast) > (previous.latestMessageRefreshedAt ?? .distantPast)
-        let newerEmptyHealth = updated.systemHealth == nil
-            && (updated.systemHealthRefreshedAt ?? .distantPast) > (previous.systemHealthRefreshedAt ?? .distantPast)
-        let timeSinceWrite = updated.writtenAt.timeIntervalSince(previous.writtenAt)
+        #if !os(macOS)
+        let timeSinceWrite = updated.writtenAt.timeIntervalSince(lastPersistedAt ?? previous.writtenAt)
+        #endif
         let outcome: (result: WidgetRefreshResult, written: Bool) = Self.apiRevision.withLock { revision in
             guard revision == apiRevision else { return (.failed, false) }
-            if !hasNewContent, !newerEmptyMessage, !newerEmptyHealth,
-               timeSinceWrite < Self.minimumFreshnessWriteInterval {
+            #if !os(macOS)
+            if !hasNewContent, timeSinceWrite < Self.minimumFreshnessWriteInterval {
                 return (.noData, false)
             }
+            #endif
+            // On Mac every writer must see the newest ordering fences, even
+            // for unchanged content. WidgetKit reloads remain throttled by the store.
             guard writeSnapshot(updated) else {
                 logger.error("Failed to persist refreshed widget snapshot")
                 return (.failed, false)
             }
             return (hasNewContent ? .newData : .noData, true)
         }
+        if outcome.result != .failed { cachedSnapshot = updated }
         if outcome.written {
-            cachedSnapshot = updated
+            lastPersistedAt = updated.writtenAt
             acceptsCachedFile = true
         }
         return outcome.result
@@ -366,10 +369,9 @@ extension WidgetRefreshCoordinator {
                 refreshedAt: refreshedAt
             )
             candidate.installationState = candidate.installationState ?? current?.installationState
-            if let current, summaryIsNewer(current, than: candidate) {
-                return (current, true)
-            }
-            return (candidate, true)
+            let merged = WidgetSnapshot(summary: candidate, writtenAt: refreshedAt)
+                .mergingNewerSections(from: WidgetSnapshot(summary: current)).summary
+            return (merged, true)
         case .failure(let message):
             logFailure(endpoint: "/v1/stats/summary", message: message)
             return (current, false)
@@ -425,7 +427,8 @@ extension WidgetRefreshCoordinator {
                 WidgetSnapshot.SystemHealth(
                     envelope: $0,
                     components: components ?? [],
-                    refreshedAt: refreshedAt
+                    refreshedAt: refreshedAt,
+                    componentsObservedAt: components == nil ? nil : refreshedAt
                 )
             }
             if let current,
@@ -462,38 +465,4 @@ extension WidgetRefreshCoordinator {
         }
     }
 
-    private func summaryIsNewer(
-        _ current: WidgetSnapshot.Summary,
-        than candidate: WidgetSnapshot.Summary
-    ) -> Bool {
-        // Lifecycle belongs to the REST observation, not the booth heartbeat.
-        // A synthetic epoch snapshot must replace an older active observation.
-        if current.installationState != candidate.installationState
-            || current.isSynthetic != candidate.isSynthetic {
-            return current.refreshedAt > candidate.refreshedAt
-        }
-        let currentGeneratedAt = current.sourceGeneratedAt ?? .distantPast
-        let candidateGeneratedAt = candidate.sourceGeneratedAt ?? .distantPast
-        if currentGeneratedAt != candidateGeneratedAt {
-            return currentGeneratedAt > candidateGeneratedAt
-        }
-        return current.boothUpdatedAt > candidate.boothUpdatedAt
-    }
-}
-
-private enum WidgetFetchResult<Value: Sendable>: Sendable {
-    case success(Value)
-    case failure(String)
-}
-
-private func captureWidgetFetch<Value: Sendable>(
-    _ operation: @escaping @Sendable () async throws -> Value
-) async -> WidgetFetchResult<Value> {
-    do {
-        return .success(try await operation())
-    } catch is CancellationError {
-        return .failure("cancelled")
-    } catch {
-        return .failure(error.localizedDescription)
-    }
 }

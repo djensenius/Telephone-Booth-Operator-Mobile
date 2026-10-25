@@ -126,6 +126,7 @@ targets:
       - path: Shared/Widgets/MacWidgetSession.swift
       - path: Shared/Widgets/MacWidgetTimelineRefresh.swift
       - path: Shared/Widgets/WidgetRefreshCoordinator.swift
+      - path: Shared/Widgets/WidgetFetchResult.swift
       - path: Shared/Auth/OIDCTokens.swift
       - path: Shared/Networking/OperatorJSON.swift
       - path: TBOperatorMobileWidgets

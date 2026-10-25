@@ -14,7 +14,10 @@ extension WidgetSnapshot {
             > (latestMessageRefreshedAt ?? .distantPast)
         let otherHealthIsNewer = healthFromOtherIsNewer(other)
         let healthObservedAt = [systemHealthRefreshedAt, other.systemHealthRefreshedAt].compactMap { $0 }.max()
-        let health = otherHealthIsNewer ? other.systemHealth : systemHealth
+        var health = otherHealthIsNewer ? other.systemHealth : systemHealth
+        if let selected = health, let first = systemHealth, let second = other.systemHealth {
+            health = selected.mergingRouter(from: otherHealthIsNewer ? first : second)
+        }
         return WidgetSnapshot(
             summary: mergedSummary(with: other.summary),
             latestMessage: otherMessageIsNewer ? other.latestMessage : latestMessage,
@@ -43,24 +46,42 @@ extension WidgetSnapshot {
             cpuTemperatureCelsius: health.cpuTemperatureCelsius, memoryUsedRatio: health.memoryUsedRatio,
             routerTemperatureCelsius: health.routerTemperatureCelsius, tailscaleConnected: health.tailscaleConnected,
             sourceUpdatedAt: health.sourceUpdatedAt, refreshedAt: observedAt,
-            evaluatedAt: health.evaluatedAt ?? health.refreshedAt
+            evaluatedAt: health.evaluatedAt ?? health.refreshedAt,
+            routerSourceUpdatedAt: health.routerSourceUpdatedAt,
+            routerObservedAt: health.routerObservedAt, boothSeverity: health.boothSeverity
         )
     }
 
     private func mergedSummary(with other: Summary?) -> Summary? {
         guard let summary else { return other }
         guard let other else { return summary }
+        let status = Self.newerStatus(summary, other)
+        let firstCountsDate = summary.countsSourceGeneratedAt ?? summary.sourceGeneratedAt ?? summary.refreshedAt
+        let otherCountsDate = other.countsSourceGeneratedAt ?? other.sourceGeneratedAt ?? other.refreshedAt
+        let counts = otherCountsDate > firstCountsDate ? other : summary
+        return Summary(
+            boothState: status.boothState, boothUpdatedAt: status.boothUpdatedAt,
+            pendingMessages: counts.pendingMessages, receivedToday: counts.receivedToday,
+            interactionsToday: counts.interactionsToday, interactionsInProgress: counts.interactionsInProgress,
+            wsClients: counts.wsClients, runtimeMode: status.runtimeMode,
+            sourceGeneratedAt: status.sourceGeneratedAt, refreshedAt: status.refreshedAt,
+            installationState: status.installationState, isSynthetic: status.isSynthetic,
+            countsSourceGeneratedAt: max(firstCountsDate, otherCountsDate)
+        )
+    }
+
+    private static func newerStatus(_ first: Summary, _ second: Summary) -> Summary {
         // Lifecycle belongs to the observation, not a synthetic epoch heartbeat.
-        if summary.installationState != other.installationState || summary.isSynthetic != other.isSynthetic {
-            return other.refreshedAt > summary.refreshedAt ? other : summary
+        if first.installationState != second.installationState || first.isSynthetic != second.isSynthetic {
+            return second.refreshedAt > first.refreshedAt ? second : first
         }
-        let firstSource = summary.sourceGeneratedAt ?? summary.boothUpdatedAt
-        let secondSource = other.sourceGeneratedAt ?? other.boothUpdatedAt
-        if firstSource != secondSource { return secondSource > firstSource ? other : summary }
-        if summary.boothUpdatedAt != other.boothUpdatedAt {
-            return other.boothUpdatedAt > summary.boothUpdatedAt ? other : summary
+        if first.boothUpdatedAt != second.boothUpdatedAt {
+            return second.boothUpdatedAt > first.boothUpdatedAt ? second : first
         }
-        return other.refreshedAt > summary.refreshedAt ? other : summary
+        let firstSource = first.sourceGeneratedAt ?? .distantPast
+        let secondSource = second.sourceGeneratedAt ?? .distantPast
+        if firstSource != secondSource { return secondSource > firstSource ? second : first }
+        return second.refreshedAt > first.refreshedAt ? second : first
     }
 
     private static func newer<Value>(

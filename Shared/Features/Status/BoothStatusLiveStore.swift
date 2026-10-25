@@ -29,6 +29,7 @@ public final class BoothStatusLiveStore {
     public private(set) var systemEnvelope: BoothSystemSnapshotEnvelope?
     private(set) var systemObservedAt: Date?
     public private(set) var componentSources: [SystemComponentCurrentEnvelope] = []
+    private(set) var componentsObservedAt: Date?
     public private(set) var stats: StatsSummary?
     public internal(set) var callsTodaySessions: [CallSession] = []
     public internal(set) var callsTodayStartedAt: Date?
@@ -210,7 +211,9 @@ public final class BoothStatusLiveStore {
             ? attempt { try await client.fetchStatusHistory(limit: 200) } : nil
         async let systemResult: (envelope: BoothSystemSnapshotEnvelope?, observedAt: Date)? = shouldFetchSystem
             ? attempt { (try await client.fetchCurrentSystemEnvelope(), Date()) } : nil
-        async let componentsResult = attempt { try await client.fetchCurrentSystemComponents() }
+        async let componentsResult = attempt {
+            (sources: try await client.fetchCurrentSystemComponents(), observedAt: Date())
+        }
         async let summaryResult = fetchSummaryAndSessions()
 
         let newStatus = await statusResult
@@ -235,7 +238,10 @@ public final class BoothStatusLiveStore {
         if shouldFetchSystem {
             applySystemResult(newSystem.map { $0.envelope }, observedAt: newSystem?.observedAt)
         }
-        if let newComponents { componentSources = newComponents }
+        if let newComponents {
+            componentSources = newComponents.sources
+            componentsObservedAt = newComponents.observedAt
+        }
         apply(summary, reconcileLifecycle: revision == lifecycleRevision && newStatus == nil
             && requestRevision == appliedStatusRevision)
     }
@@ -275,6 +281,7 @@ public final class BoothStatusLiveStore {
         systemEnvelope = nil
         systemObservedAt = nil
         componentSources = []
+        componentsObservedAt = nil
         systemUnavailable = false
         callsTodaySessions = []
         callsTodayStartedAt = nil
@@ -420,6 +427,7 @@ public final class BoothStatusLiveStore {
         guard !demoMode, !config.isDemoMode, let stats else { return }
         let systemEnvelope = self.systemEnvelope
         let componentSources = self.componentSources
+        let componentsObservedAt = self.componentsObservedAt
         let systemObservedAt = self.systemObservedAt
         let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
         let observedAt = Date()
@@ -429,12 +437,16 @@ public final class BoothStatusLiveStore {
                 systemEnvelope: systemEnvelope,
                 components: componentSources,
                 systemObservedAt: systemObservedAt,
+                componentsObservedAt: componentsObservedAt,
                 apiRevision: apiRevision,
                 observedAt: observedAt
             )
         }
     }
 
+}
+
+extension BoothStatusLiveStore {
     private func applyDemoData() {
         let demoNow = Date()
         status = DemoData.liveStatus(now: demoNow)
@@ -452,9 +464,7 @@ public final class BoothStatusLiveStore {
         systemUnavailable = false
         writeWidgetSnapshotIfPossible()
     }
-}
 
-extension BoothStatusLiveStore {
     private func mergeIntoHistory(_ newStatus: BoothStatus) {
         guard newStatus.hasTelemetry else { return }
         mergeHistory([newStatus])
