@@ -39,6 +39,14 @@ public struct WidgetSnapshotFileStore: Sendable {
         return true
     }
 
+    /// A damaged old cache must not prevent a successful fetch from repairing it.
+    /// Call under the cross-process state lock when sharing a file on macOS.
+    @discardableResult
+    func writeMergingNewerSections(_ snapshot: WidgetSnapshot) throws -> Bool {
+        let previous = try? read()
+        return try write(snapshot.mergingNewerSections(from: previous))
+    }
+
     /// Returns true when a file was removed.
     @discardableResult
     public func clear() throws -> Bool {
@@ -51,14 +59,27 @@ public struct WidgetSnapshotFileStore: Sendable {
 
     private static var encoder: JSONEncoder {
         let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
+        // ISO8601's default encoding truncates to whole seconds, which breaks
+        // ordering between independent writers within the same second.
+        encoder.dateEncodingStrategy = .secondsSince1970
         encoder.outputFormatting = [.sortedKeys]
         return encoder
     }
 
     private static var decoder: JSONDecoder {
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            if let seconds = try? container.decode(Double.self) { return Date(timeIntervalSince1970: seconds) }
+            // Existing installed snapshots used ISO8601 strings.
+            let raw = try container.decode(String.self)
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatter.date(from: raw) { return date }
+            formatter.formatOptions = [.withInternetDateTime]
+            if let date = formatter.date(from: raw) { return date }
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid snapshot date")
+        }
         return decoder
     }
 }
@@ -93,7 +114,7 @@ public enum WidgetSnapshotStore {
             do {
                 #if os(macOS)
                 let changed = try MacWidgetFileLock.withStateLock {
-                    try store.write(snapshot.mergingNewerSections(from: store.read()))
+                    try store.writeMergingNewerSections(snapshot)
                 }
                 #else
                 let changed = try store.write(snapshot)

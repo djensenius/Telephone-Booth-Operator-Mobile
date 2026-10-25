@@ -94,6 +94,7 @@ public actor WidgetRefreshCoordinator {
             latestMessage: previous.latestMessage,
             latestMessageRefreshedAt: previous.latestMessageRefreshedAt,
             systemHealth: previous.systemHealth,
+            systemHealthRefreshedAt: previous.systemHealthRefreshedAt,
             activity: previous.activity, writtenAt: refreshedAt
         )
         return persist(updated, replacing: previous, apiRevision: revision)
@@ -145,6 +146,7 @@ public actor WidgetRefreshCoordinator {
             latestMessage: previous.latestMessage,
             latestMessageRefreshedAt: previous.latestMessageRefreshedAt,
             systemHealth: health,
+            systemHealthRefreshedAt: candidateHealth == nil ? previous.systemHealthRefreshedAt : refreshDate,
             activity: previous.activity,
             writtenAt: refreshDate
         )
@@ -250,6 +252,8 @@ public actor WidgetRefreshCoordinator {
             latestMessage: latestMessage.value,
             latestMessageRefreshedAt: latestMessage.succeeded ? refreshDate : previous.latestMessageRefreshedAt,
             systemHealth: systemHealth.value,
+            systemHealthRefreshedAt: systemHealth.succeeded && components.succeeded
+                ? refreshDate : previous.systemHealthRefreshedAt,
             activity: activity.value,
             writtenAt: refreshDate
         )

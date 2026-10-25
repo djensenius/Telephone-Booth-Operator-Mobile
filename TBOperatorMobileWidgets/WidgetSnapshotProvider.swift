@@ -50,7 +50,12 @@ struct WidgetSnapshotProvider: TimelineProvider {
         if context.isPreview {
             completion(WidgetSnapshotEntry(date: now(), snapshot: .placeholder, isPlaceholder: true))
         } else {
-            completion(WidgetSnapshotEntry(date: now(), snapshot: readSnapshot()))
+            #if os(macOS)
+            let snapshot = MacWidgetSession.read() == nil ? nil : readSnapshot()
+            #else
+            let snapshot = readSnapshot()
+            #endif
+            completion(WidgetSnapshotEntry(date: now(), snapshot: snapshot))
         }
     }
 

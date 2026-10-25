@@ -397,6 +397,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
     /// Includes successful empty responses, so another process cannot resurrect a deleted message.
     public let latestMessageRefreshedAt: Date?
     public let systemHealth: SystemHealth?
+    public let systemHealthRefreshedAt: Date?
     public let activity: Activity?
     public let writtenAt: Date
 
@@ -406,6 +407,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         latestMessage: LatestMessage? = nil,
         latestMessageRefreshedAt: Date? = nil,
         systemHealth: SystemHealth? = nil,
+        systemHealthRefreshedAt: Date? = nil,
         activity: Activity? = nil,
         writtenAt: Date = Date()
     ) {
@@ -414,6 +416,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         self.latestMessage = latestMessage
         self.latestMessageRefreshedAt = latestMessageRefreshedAt ?? latestMessage?.refreshedAt
         self.systemHealth = systemHealth
+        self.systemHealthRefreshedAt = systemHealthRefreshedAt ?? systemHealth?.refreshedAt
         self.activity = activity
         self.writtenAt = writtenAt
     }
@@ -501,6 +504,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         case latestMessage
         case latestMessageRefreshedAt
         case systemHealth
+        case systemHealthRefreshedAt
         case activity
         case writtenAt
 
@@ -544,6 +548,8 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         latestMessageRefreshedAt = try container.decodeIfPresent(Date.self, forKey: .latestMessageRefreshedAt)
             ?? latestMessage?.refreshedAt
         systemHealth = try container.decodeIfPresent(SystemHealth.self, forKey: .systemHealth)
+        systemHealthRefreshedAt = try container.decodeIfPresent(Date.self, forKey: .systemHealthRefreshedAt)
+            ?? systemHealth?.refreshedAt
         activity = try container.decodeIfPresent(Activity.self, forKey: .activity)
         writtenAt = try container.decodeIfPresent(Date.self, forKey: .writtenAt)
             ?? summary?.refreshedAt
@@ -557,6 +563,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         try container.encodeIfPresent(latestMessage, forKey: .latestMessage)
         try container.encodeIfPresent(latestMessageRefreshedAt, forKey: .latestMessageRefreshedAt)
         try container.encodeIfPresent(systemHealth, forKey: .systemHealth)
+        try container.encodeIfPresent(systemHealthRefreshedAt, forKey: .systemHealthRefreshedAt)
         try container.encodeIfPresent(activity, forKey: .activity)
         try container.encode(writtenAt, forKey: .writtenAt)
     }

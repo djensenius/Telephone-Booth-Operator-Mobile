@@ -12,14 +12,23 @@ extension WidgetSnapshot {
         guard let other else { return self }
         let otherMessageIsNewer = (other.latestMessageRefreshedAt ?? .distantPast)
             > (latestMessageRefreshedAt ?? .distantPast)
+        let otherHealthIsNewer = healthFromOtherIsNewer(other)
         return WidgetSnapshot(
             summary: mergedSummary(with: other.summary),
             latestMessage: otherMessageIsNewer ? other.latestMessage : latestMessage,
             latestMessageRefreshedAt: otherMessageIsNewer ? other.latestMessageRefreshedAt : latestMessageRefreshedAt,
-            systemHealth: Self.newer(systemHealth, other.systemHealth, source: \.sourceUpdatedAt, date: \.refreshedAt),
+            systemHealth: otherHealthIsNewer ? other.systemHealth : systemHealth,
+            systemHealthRefreshedAt: otherHealthIsNewer ? other.systemHealthRefreshedAt : systemHealthRefreshedAt,
             activity: Self.newer(activity, other.activity, source: \.rangeEnd, date: \.refreshedAt),
             writtenAt: max(writtenAt, other.writtenAt)
         )
+    }
+
+    private func healthFromOtherIsNewer(_ other: WidgetSnapshot) -> Bool {
+        if let first = systemHealth, let second = other.systemHealth, first.sourceUpdatedAt != second.sourceUpdatedAt {
+            return second.sourceUpdatedAt > first.sourceUpdatedAt
+        }
+        return (other.systemHealthRefreshedAt ?? .distantPast) > (systemHealthRefreshedAt ?? .distantPast)
     }
 
     private func mergedSummary(with other: Summary?) -> Summary? {

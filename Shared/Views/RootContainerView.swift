@@ -310,13 +310,14 @@ public struct RootContainerView: View {
         // colors already pick up via `preferredColorScheme`.
         .id(config.iosThemeMode)
         #endif
-        .task {
+        .task(id: effectiveDemoMode) {
             guard !effectiveDemoMode else {
                 AuthManager.shared.suspendWidgetRefreshUntilSignIn()
                 return
             }
             let wasAlreadySignedIn = AuthManager.shared.authState == .signedIn
             await AuthManager.shared.validateSessionOnLaunch()
+            guard !Task.isCancelled, !effectiveDemoMode else { return }
             if wasAlreadySignedIn, AuthManager.shared.authState == .signedIn {
                 await NotificationManager.shared.synchronizeRegistrationIfAuthorized()
             }
@@ -338,6 +339,12 @@ public struct RootContainerView: View {
                 guard AuthManager.shared.authState == .signedIn else { return }
                 _ = await AuthManager.shared.ensureValidToken()
                 await PendingMessagesStore.shared.refresh(using: .shared)
+                await refreshWidgetSnapshot()
+            }
+        }
+        .onChange(of: config.apiBaseURL) {
+            Task { @MainActor in
+                guard !effectiveDemoMode, auth.authState == .signedIn else { return }
                 await refreshWidgetSnapshot()
             }
         }

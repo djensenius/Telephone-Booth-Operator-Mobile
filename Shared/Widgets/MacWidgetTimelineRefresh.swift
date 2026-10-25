@@ -25,8 +25,7 @@ enum MacWidgetTimelineRefresh {
                 (try? MacWidgetFileLock.withStateLock {
                     guard context.isCurrent(), let url = WidgetSnapshotStore.snapshotURL else { return false }
                     let store = WidgetSnapshotFileStore(directoryURL: url.deletingLastPathComponent())
-                    let merged = snapshot.mergingNewerSections(from: try store.read())
-                    _ = try store.write(merged)
+                    _ = try store.writeMergingNewerSections(snapshot)
                     return true
                 }) ?? false
             },
@@ -71,18 +70,20 @@ actor MacWidgetAPIClient: WidgetDataFetching {
     private let access: MacWidgetSessionAccess
     private var bearer: String?
 
+    // Delegate-backed sessions retain their resources until invalidated. Reuse
+    // one bounded, ephemeral session for the extension process's lifetime.
+    private static let widgetSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 8
+        configuration.timeoutIntervalForResource = 20
+        configuration.httpShouldSetCookies = false
+        return URLSession(configuration: configuration, delegate: NoWidgetRedirects(), delegateQueue: nil)
+    }()
+
     init(context: MacWidgetSession, session: URLSession? = nil, access: MacWidgetSessionAccess? = nil) {
         self.context = context
         self.access = access ?? .live(context)
-        if let session {
-            self.session = session
-        } else {
-            let configuration = URLSessionConfiguration.ephemeral
-            configuration.timeoutIntervalForRequest = 8
-            configuration.timeoutIntervalForResource = 20
-            configuration.httpShouldSetCookies = false
-            self.session = URLSession(configuration: configuration, delegate: NoWidgetRedirects(), delegateQueue: nil)
-        }
+        self.session = session ?? Self.widgetSession
     }
 
     func fetchStatsSummary(timeZone: TimeZone) async throws -> StatsSummary {

@@ -209,6 +209,91 @@ final class MacWidgetRefreshTests: XCTestCase {
                        "refresh_token=a%2Bb%26c%3Dd%20%2F%3F&scope=openid%20offline_access")
     }
 
+    func testSubsecondCacheOrderingPreservesSuccessfulEmptyMessageRefresh() throws {
+        let store = try temporaryStore()
+        defer { try? FileManager.default.removeItem(at: store.snapshotURL.deletingLastPathComponent()) }
+        let base = Date(timeIntervalSince1970: 2_000_000_000)
+        let older = WidgetSnapshot(latestMessage: .init(
+            id: "deleted", status: .received, occurredAt: base, refreshedAt: base.addingTimeInterval(0.1)
+        ), writtenAt: base.addingTimeInterval(0.1))
+        let newer = WidgetSnapshot(latestMessageRefreshedAt: base.addingTimeInterval(0.8),
+                                   writtenAt: base.addingTimeInterval(0.8))
+        _ = try store.writeMergingNewerSections(older)
+        _ = try store.writeMergingNewerSections(newer)
+        _ = try store.writeMergingNewerSections(older)
+        let read = try XCTUnwrap(store.read())
+        XCTAssertNil(read.latestMessage)
+        XCTAssertEqual(try XCTUnwrap(read.latestMessageRefreshedAt).timeIntervalSince1970,
+                       base.timeIntervalSince1970 + 0.8, accuracy: 0.000001)
+    }
+
+    func testCacheStillDecodesInstalledISO8601Snapshots() throws {
+        let store = try temporaryStore()
+        defer { try? FileManager.default.removeItem(at: store.snapshotURL.deletingLastPathComponent()) }
+        let data = Data("""
+        {"schemaVersion":2,"writtenAt":"2023-11-14T22:13:20Z"}
+        """.utf8)
+        try data.write(to: store.snapshotURL)
+        XCTAssertEqual(try store.read()?.writtenAt, Date(timeIntervalSince1970: 1_700_000_000))
+    }
+
+    func testMalformedCacheIsRepairedByFreshData() throws {
+        let store = try temporaryStore()
+        defer { try? FileManager.default.removeItem(at: store.snapshotURL.deletingLastPathComponent()) }
+        try Data("{damaged".utf8).write(to: store.snapshotURL)
+        XCTAssertTrue(try store.writeMergingNewerSections(.placeholder))
+        XCTAssertEqual(try store.read(), .placeholder)
+    }
+
+    func testCacheMergeStillPropagatesWriteFailures() throws {
+        let store = try temporaryStore()
+        defer { try? FileManager.default.removeItem(at: store.snapshotURL.deletingLastPathComponent()) }
+        try FileManager.default.createDirectory(at: store.snapshotURL, withIntermediateDirectories: false)
+        XCTAssertThrowsError(try store.writeMergingNewerSections(.placeholder))
+    }
+
+    func testSuccessfulEmptyTelemetryResponseClearsOldHealthAcrossWriters() async throws {
+        let fixture = WidgetSessionFixture()
+        let cache = OSAllocatedUnfairLock(initialState: WidgetSnapshot.placeholder)
+        let client = fixture.client { request in
+            switch request.url?.lastPathComponent {
+            case "summary": return (200, try OperatorJSON.encoder.encode(DemoData.rebasedStats()))
+            case "current", "messages": return (200, Data("{\"items\":[]}".utf8))
+            default: return (503, Data())
+            }
+        }
+        let result = await MacWidgetTimelineRefresh.snapshot(
+            using: client, readSnapshot: { cache.withLock { $0 } },
+            writeSnapshot: { snapshot in
+                cache.withLock { $0 = snapshot.mergingNewerSections(from: $0) }
+                return true
+            }, isCurrent: { true }
+        )
+        XCTAssertNil(result?.systemHealth)
+        XCTAssertNotNil(result?.systemHealthRefreshedAt)
+        XCTAssertNil(result?.mergingNewerSections(from: .placeholder).systemHealth)
+        let decoded = try JSONDecoder().decode(WidgetSnapshot.self, from: JSONEncoder().encode(result))
+        XCTAssertEqual(decoded.systemHealthRefreshedAt, result?.systemHealthRefreshedAt)
+    }
+
+    func testDefaultWidgetClientsReuseOneNetworkSession() async {
+        let context = MacWidgetSession(
+            id: UUID(), apiBaseURL: URL(string: "https://example.test")!,
+            tokenURL: URL(string: "https://example.test/token/")!, clientID: "test", scopes: "openid"
+        )
+        let first = MacWidgetAPIClient(context: context)
+        let second = MacWidgetAPIClient(context: context)
+        let firstSession = await first.session
+        let secondSession = await second.session
+        XCTAssertTrue(firstSession === secondSession)
+    }
+
+    private func temporaryStore() throws -> WidgetSnapshotFileStore {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return WidgetSnapshotFileStore(directoryURL: directory)
+    }
+
     private static let tokenResponse = Data("""
     {"access_token":"renewed-access","refresh_token":"renewed-refresh","expires_in":3600,"token_type":"Bearer"}
     """.utf8)

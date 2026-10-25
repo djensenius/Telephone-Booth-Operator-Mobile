@@ -48,13 +48,17 @@ extension AuthManager {
     func prepareWidgetRefresh() async -> Bool {
         let cleanup = widgetCleanupTask
         _ = await cleanup?.value
+        #if os(macOS)
+        guard !AppConfig.shared.isDemoMode else { return false }
+        #endif
         guard await ensureValidToken() else { return false }
         if authState == .unknown {
             sessionRestored()
         }
         guard authState == .signedIn else { return false }
         #if os(macOS)
-        if keychainStore is SystemKeychainStore, !AppConfig.shared.isDemoMode {
+        guard !AppConfig.shared.isDemoMode else { return false }
+        if keychainStore is SystemKeychainStore {
             MacWidgetSession.publish(
                 apiBaseURL: AppConfig.shared.apiBaseURL,
                 tokenURL: tokenURL,
