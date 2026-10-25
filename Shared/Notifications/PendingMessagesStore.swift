@@ -60,7 +60,11 @@ public final class PendingMessagesStore {
     /// Starts the background poll loop. Idempotent: a second call while a
     /// loop is already running (e.g. a second iPad window) is a no-op.
     public func startPolling(using client: OperatorClient) {
-        if let pollingTask, !pollingTask.isCancelled { return }
+        if let pollingTask, !pollingTask.isCancelled {
+            if pollingClient === client { return }
+            pollingTask.cancel()
+            countRevision &+= 1
+        }
         pollingClient = client
         pollingTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -98,16 +102,17 @@ public final class PendingMessagesStore {
 
     /// Fetches the latest count once and updates the badge + widget snapshot.
     public func refresh(using client: OperatorClient) async {
-        await refresh { try await client.fetchStatsSummary() }
+        await refresh(updatesWidgets: !client.demoMode) { try await client.fetchStatsSummary() }
     }
 
-    func refresh(fetchStats: () async throws -> StatsSummary) async {
+    func refresh(updatesWidgets: Bool = true, fetchStats: () async throws -> StatsSummary) async {
         countRevision &+= 1
         let revision = countRevision
         let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
         do {
             let stats = try await fetchStats()
-            await applyCount(stats.messages.badgeCount, stats: stats, revision: revision, apiRevision: apiRevision)
+            await applyCount(stats.messages.badgeCount, stats: updatesWidgets ? stats : nil,
+                             revision: revision, apiRevision: apiRevision)
         } catch {
             // Transient failures (offline, token refresh) are expected; keep
             // the last known count rather than zeroing the badge.

@@ -135,7 +135,8 @@ private struct OperatorShell: View {
                 #else
                 Tab(value: tab) { tabContent(for: tab) } label: {
                     Label(tab.title, systemImage: tab.systemImage)
-                        .labelStyle(.iconOnly)
+                        // Only the compact phone tab bar should hide navigation titles.
+                        .labelStyle(.titleAndIcon)
                 }
                     .badge(tab == .messages ? pending.pendingCount : 0)
                 #endif

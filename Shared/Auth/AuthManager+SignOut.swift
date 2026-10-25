@@ -8,6 +8,9 @@ import Foundation
 extension AuthManager {
     public func signOut() {
         sessionGeneration &+= 1
+        #if os(macOS)
+        MacWidgetSession.revokeCredentials()
+        #endif
         #if os(watchOS)
         UserDefaults.standard.set(true, forKey: WatchAuthSync.autoSignInPausedKey)
         #endif
@@ -24,6 +27,9 @@ extension AuthManager {
     }
 
     func suspendWidgetRefreshUntilSignIn() {
+        #if os(macOS)
+        MacWidgetSession.disable()
+        #endif
         WidgetSnapshotStore.disableWritesAndClear()
         widgetCleanupGeneration &+= 1
         let generation = widgetCleanupGeneration
@@ -45,11 +51,25 @@ extension AuthManager {
     func prepareWidgetRefresh() async -> Bool {
         let cleanup = widgetCleanupTask
         _ = await cleanup?.value
+        #if os(macOS)
+        guard !AppConfig.shared.isDemoMode else { return false }
+        #endif
         guard await ensureValidToken() else { return false }
         if authState == .unknown {
             sessionRestored()
         }
         guard authState == .signedIn else { return false }
+        #if os(macOS)
+        guard !AppConfig.shared.isDemoMode else { return false }
+        if keychainStore is SystemKeychainStore {
+            MacWidgetSession.publish(
+                apiBaseURL: AppConfig.shared.apiBaseURL,
+                tokenURL: tokenURL,
+                clientID: AppConfig.shared.oidcClientID,
+                scopes: AppConfig.shared.oidcScopes
+            )
+        }
+        #endif
         WidgetSnapshotStore.enableWrites()
         await WidgetRefreshCoordinator.shared.activate()
         return true

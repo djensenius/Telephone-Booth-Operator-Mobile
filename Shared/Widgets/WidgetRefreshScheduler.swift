@@ -58,6 +58,7 @@ public enum WidgetRefreshScheduler {
         isSchedulingEnabled = false
         macScheduler?.invalidate()
         macScheduler = nil
+        lastLiveRefreshRequestedAt = nil
         logger.debug("Stopped macOS widget background refresh scheduling")
         #endif
 
@@ -202,6 +203,14 @@ extension WidgetRefreshScheduler {
     private static var hasRegistered = false
     private static var isSchedulingEnabled = false
     private static var macScheduler: NSBackgroundActivityScheduler?
+    private static var lastLiveRefreshRequestedAt: Date?
+
+    static func refreshForLiveChange() {
+        let now = Date()
+        guard lastLiveRefreshRequestedAt.map({ now.timeIntervalSince($0) >= 60 }) ?? true else { return }
+        lastLiveRefreshRequestedAt = now
+        Task { _ = await refreshNow() }
+    }
 
     public static func register() {
         guard !hasRegistered else {

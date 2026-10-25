@@ -20,7 +20,9 @@ public protocol WidgetDataFetching: Sendable {
     func fetchCurrentSystemComponents() async throws -> [SystemComponentCurrentEnvelope]
 }
 
+#if !WIDGET_EXTENSION
 extension OperatorClient: WidgetDataFetching {}
+#endif
 
 public enum WidgetRefreshResult: Sendable, Equatable {
     case newData
@@ -45,8 +47,10 @@ public actor WidgetRefreshCoordinator {
     private let writeSnapshot: @Sendable (WidgetSnapshot) -> Bool
     private let clearSnapshot: @Sendable () -> Bool
     private let now: @Sendable () -> Date
+    private let makeObservationLease: @Sendable () async throws -> (any WidgetObservationLease)?
     private var cachedSnapshot: WidgetSnapshot?
-    private var hasLoadedSnapshot = false
+    private var lastPersistedAt: Date?
+    private var acceptsCachedFile = true
     private var generation: UInt = 0
     private var acceptsUpdates = true
     private var activeRefresh: Task<WidgetRefreshResult, Never>?
@@ -68,12 +72,22 @@ public actor WidgetRefreshCoordinator {
         clearSnapshot: @escaping @Sendable () -> Bool = {
             WidgetSnapshotStore.clear()
         },
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        observationLease: (@Sendable () async throws -> (any WidgetObservationLease)?)? = nil
     ) {
         self.readSnapshot = readSnapshot
         self.writeSnapshot = writeSnapshot
         self.clearSnapshot = clearSnapshot
         self.now = now
+        self.makeObservationLease = observationLease ?? { try await Self.liveObservationLease() }
+    }
+
+    private static func liveObservationLease() async throws -> (any WidgetObservationLease)? {
+        #if os(macOS)
+        return try await MacWidgetFileLock.observationLock()
+        #else
+        return nil
+        #endif
     }
 
     @discardableResult
@@ -86,10 +100,15 @@ public actor WidgetRefreshCoordinator {
         guard acceptsUpdates, apiRevision == revision else { return .failed }
         let previous = snapshot()
         guard let summary = previous.summary else { return .noData }
+        let countsDate = summary.countsSourceGeneratedAt ?? summary.sourceGeneratedAt ?? .distantPast
+        guard stats.generatedAt >= countsDate else { return .noData }
         let refreshedAt = now()
         let updated = WidgetSnapshot(
             summary: summary.replacingCounts(with: stats),
-            latestMessage: previous.latestMessage, systemHealth: previous.systemHealth,
+            latestMessage: previous.latestMessage,
+            latestMessageRefreshedAt: previous.latestMessageRefreshedAt,
+            systemHealth: previous.systemHealth,
+            systemHealthRefreshedAt: previous.systemHealthRefreshedAt,
             activity: previous.activity, writtenAt: refreshedAt
         )
         return persist(updated, replacing: previous, apiRevision: revision)
@@ -100,6 +119,8 @@ public actor WidgetRefreshCoordinator {
         stats: StatsSummary,
         systemEnvelope: BoothSystemSnapshotEnvelope?,
         components: [SystemComponentCurrentEnvelope],
+        systemObservedAt: Date? = nil,
+        componentsObservedAt: Date? = nil,
         apiRevision: UInt? = nil,
         observedAt: Date? = nil
     ) async -> WidgetRefreshResult {
@@ -113,33 +134,26 @@ public actor WidgetRefreshCoordinator {
             refreshedAt: refreshDate
         )
         candidateSummary.installationState = candidateSummary.installationState ?? previous.summary?.installationState
-        let summary: WidgetSnapshot.Summary
-        if let current = previous.summary,
-           summaryIsNewer(current, than: candidateSummary) {
-            summary = current
-        } else {
-            summary = candidateSummary
-        }
+        let summary = WidgetSnapshot(summary: candidateSummary, writtenAt: refreshDate)
+            .mergingNewerSections(from: previous).summary ?? candidateSummary
 
         let candidateHealth = systemEnvelope.map {
             WidgetSnapshot.SystemHealth(
                 envelope: $0,
                 components: components,
-                refreshedAt: refreshDate
+                refreshedAt: systemObservedAt ?? refreshDate,
+                evaluatedAt: refreshDate,
+                componentsObservedAt: componentsObservedAt
             )
         }
-        let health: WidgetSnapshot.SystemHealth?
-        if let current = previous.systemHealth,
-           let candidateHealth,
-           current.sourceUpdatedAt > candidateHealth.sourceUpdatedAt {
-            health = current
-        } else {
-            health = candidateHealth ?? previous.systemHealth
-        }
+        let healthUpdate = WidgetSnapshot(systemHealth: candidateHealth, writtenAt: refreshDate)
+            .mergingNewerSections(from: previous)
         let updated = WidgetSnapshot(
             summary: summary,
             latestMessage: previous.latestMessage,
-            systemHealth: health,
+            latestMessageRefreshedAt: previous.latestMessageRefreshedAt,
+            systemHealth: healthUpdate.systemHealth,
+            systemHealthRefreshedAt: healthUpdate.systemHealthRefreshedAt,
             activity: previous.activity,
             writtenAt: refreshDate
         )
@@ -178,6 +192,14 @@ public actor WidgetRefreshCoordinator {
         guard acceptsUpdates else { return .failed }
         let refreshAPIRevision = synchronizeAPIRevision()
         let refreshGeneration = generation
+        let lease: (any WidgetObservationLease)?
+        do {
+            lease = try await makeObservationLease()
+            try Task.checkCancellation()
+        } catch { return .failed }
+        defer { withExtendedLifetime(lease) {} }
+        guard acceptsUpdates, generation == refreshGeneration,
+              Self.currentAPIRevision == refreshAPIRevision else { return .failed }
         let refreshDate = now()
 
         async let summaryResult = captureWidgetFetch {
@@ -243,7 +265,10 @@ public actor WidgetRefreshCoordinator {
         let updated = WidgetSnapshot(
             summary: summary.value,
             latestMessage: latestMessage.value,
+            latestMessageRefreshedAt: latestMessage.succeeded ? refreshDate : previous.latestMessageRefreshedAt,
             systemHealth: systemHealth.value,
+            systemHealthRefreshedAt: systemHealth.succeeded && components.succeeded
+                ? refreshDate : previous.systemHealthRefreshedAt,
             activity: activity.value,
             writtenAt: refreshDate
         )
@@ -271,7 +296,8 @@ public actor WidgetRefreshCoordinator {
         activeRefreshID &+= 1
         activeRefresh = nil
         cachedSnapshot = nil
-        hasLoadedSnapshot = true
+        lastPersistedAt = nil
+        acceptsCachedFile = false
         return clearSnapshot()
     }
 
@@ -285,7 +311,8 @@ public actor WidgetRefreshCoordinator {
             cancelActiveRefresh()
             cachedAPIRevision = revision
             cachedSnapshot = nil
-            hasLoadedSnapshot = true
+            lastPersistedAt = nil
+            acceptsCachedFile = false
         }
         return revision
     }
@@ -298,9 +325,10 @@ public actor WidgetRefreshCoordinator {
     }
 
     private func snapshot() -> WidgetSnapshot {
-        if !hasLoadedSnapshot {
-            cachedSnapshot = readSnapshot()
-            hasLoadedSnapshot = true
+        // Another process may have refreshed sections since our last write.
+        if acceptsCachedFile, let stored = readSnapshot() {
+            cachedSnapshot = stored.mergingNewerSections(from: cachedSnapshot)
+            lastPersistedAt = max(lastPersistedAt ?? .distantPast, stored.writtenAt)
         }
         return cachedSnapshot ?? WidgetSnapshot(writtenAt: now())
     }
@@ -313,22 +341,35 @@ public actor WidgetRefreshCoordinator {
         // Serialize writes with synchronous API invalidation so an old
         // response cannot land after the old server's file was cleared.
         let hasNewContent = !previous.hasSameContent(as: updated)
-        let timeSinceWrite = updated.writtenAt.timeIntervalSince(previous.writtenAt)
+        #if !os(macOS)
+        let timeSinceWrite = updated.writtenAt.timeIntervalSince(lastPersistedAt ?? previous.writtenAt)
+        #endif
         let outcome: (result: WidgetRefreshResult, written: Bool) = Self.apiRevision.withLock { revision in
             guard revision == apiRevision else { return (.failed, false) }
+            #if !os(macOS)
             if !hasNewContent, timeSinceWrite < Self.minimumFreshnessWriteInterval {
                 return (.noData, false)
             }
+            #endif
+            // On Mac every writer must see the newest ordering fences, even
+            // for unchanged content. WidgetKit reloads remain throttled by the store.
             guard writeSnapshot(updated) else {
                 logger.error("Failed to persist refreshed widget snapshot")
                 return (.failed, false)
             }
             return (hasNewContent ? .newData : .noData, true)
         }
-        if outcome.written { cachedSnapshot = updated }
+        if outcome.result != .failed { cachedSnapshot = updated }
+        if outcome.written {
+            lastPersistedAt = updated.writtenAt
+            acceptsCachedFile = true
+        }
         return outcome.result
     }
 
+}
+
+extension WidgetRefreshCoordinator {
     private func logFailure(endpoint: String, message: String) {
         logger.warning(
             "Widget refresh failed for \(endpoint, privacy: .public): \(message, privacy: .public)"
@@ -347,10 +388,9 @@ public actor WidgetRefreshCoordinator {
                 refreshedAt: refreshedAt
             )
             candidate.installationState = candidate.installationState ?? current?.installationState
-            if let current, summaryIsNewer(current, than: candidate) {
-                return (current, true)
-            }
-            return (candidate, true)
+            let merged = WidgetSnapshot(summary: candidate, writtenAt: refreshedAt)
+                .mergingNewerSections(from: WidgetSnapshot(summary: current)).summary
+            return (merged, true)
         case .failure(let message):
             logFailure(endpoint: "/v1/stats/summary", message: message)
             return (current, false)
@@ -406,7 +446,8 @@ public actor WidgetRefreshCoordinator {
                 WidgetSnapshot.SystemHealth(
                     envelope: $0,
                     components: components ?? [],
-                    refreshedAt: refreshedAt
+                    refreshedAt: refreshedAt,
+                    componentsObservedAt: components == nil ? nil : refreshedAt
                 )
             }
             if let current,
@@ -443,38 +484,4 @@ public actor WidgetRefreshCoordinator {
         }
     }
 
-    private func summaryIsNewer(
-        _ current: WidgetSnapshot.Summary,
-        than candidate: WidgetSnapshot.Summary
-    ) -> Bool {
-        // Lifecycle belongs to the REST observation, not the booth heartbeat.
-        // A synthetic epoch snapshot must replace an older active observation.
-        if current.installationState != candidate.installationState
-            || current.isSynthetic != candidate.isSynthetic {
-            return current.refreshedAt > candidate.refreshedAt
-        }
-        let currentGeneratedAt = current.sourceGeneratedAt ?? .distantPast
-        let candidateGeneratedAt = candidate.sourceGeneratedAt ?? .distantPast
-        if currentGeneratedAt != candidateGeneratedAt {
-            return currentGeneratedAt > candidateGeneratedAt
-        }
-        return current.boothUpdatedAt > candidate.boothUpdatedAt
-    }
-}
-
-private enum WidgetFetchResult<Value: Sendable>: Sendable {
-    case success(Value)
-    case failure(String)
-}
-
-private func captureWidgetFetch<Value: Sendable>(
-    _ operation: @escaping @Sendable () async throws -> Value
-) async -> WidgetFetchResult<Value> {
-    do {
-        return .success(try await operation())
-    } catch is CancellationError {
-        return .failure("cancelled")
-    } catch {
-        return .failure(error.localizedDescription)
-    }
 }

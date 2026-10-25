@@ -21,8 +21,9 @@ downtime cards retire when their lifecycle changes rather than finishing a stale
 playlist after an installation ends or resumes.
 
 The widget extensions render a compact snapshot written by a signed-in host
-app to the shared App Group. Extensions never open the Keychain, refresh an
-OIDC token, or call the Operator API.
+app to the shared App Group. On iOS/iPadOS and visionOS, extensions only read
+that snapshot. On macOS, timeline requests can also fetch from the Operator
+API and renew the shared OIDC session without the host app running.
 
 ## Widget catalog
 
@@ -69,8 +70,13 @@ sections for:
 - system health;
 - rolling 24-hour activity.
 
-Live dashboard and pending-count updates merge only the sections they own.
-Full refreshes fetch the summary, latest message, system telemetry, component
+On iOS/iPadOS and visionOS, live dashboard and pending-count updates merge
+only the sections they own. On macOS, UI/socket changes request a REST refresh
+(at most once per minute) instead of publishing cached UI observations. Full
+Mac refreshes in the host and extension share an observation lease held from
+before fetching/authentication through persistence, so observations of the same
+section cannot overlap and complete out of order. Versioned count-only updates
+remain independent. Full refreshes fetch the summary, latest message, system telemetry, component
 telemetry, and 24-hour overview without discarding a successful older section
 when an unrelated endpoint fails.
 
@@ -83,13 +89,55 @@ Host apps request refreshes:
 - through `NSBackgroundActivityScheduler` on macOS.
 
 Apple schedules background work at its discretion, so the requested
-15-minute cadence is not a guarantee. Timelines reread the App Group snapshot
-every 15 minutes and whenever the host asks WidgetKit to reload. Last-known
+15-minute cadence is not a guarantee. Timelines request reloads every 15 minutes
+and whenever the host asks WidgetKit to reload. On iOS/iPadOS and visionOS,
+this only rereads the App Group snapshot. On macOS, a timeline reload fetches
+fresh data independently and falls back to the shared snapshot on failure.
+Concurrent Mac timeline requests within the extension share one refresh.
+Last-known
 data remains visible with its age and a stale warning after 30 minutes.
 Telemetry source data uses the dashboard's five-minute offline threshold.
 
 Explicit sign-out, API-host changes, and demo-mode transitions clear the
-snapshot.
+snapshot. On macOS these transitions also invalidate the widget session before
+clearing the cache, so an in-flight extension request cannot restore private data.
+
+### Independent Mac refresh
+
+Open the updated Mac app once while signed in to migrate existing credentials
+and enable independent refresh. Both the sandboxed host and its extension use
+the same explicitly entitled data-protection Keychain access group. The widget
+never presents a login prompt. Access tokens, refresh tokens, and the enabled
+session's server configuration live in the Keychain, not the App Group snapshot.
+
+A cross-process file lock serializes host/extension token renewal so rotating
+refresh tokens cannot be reused concurrently. Another observation lease serializes
+complete widget reads across both processes; read-start/completion timestamps
+alone are not used as a substitute for ordering overlapping requests.
+A separate short state lock guards
+session invalidation and snapshot writes; no network request holds that lock.
+Late data responses must match the enabled widget session. Credential renewal
+uses a separate signed-in lineage: demo mode or a same-host API-path change can
+disable widget data without discarding a provider's rotated refresh token.
+Explicit sign-out revokes that lineage under the state lock, blocking late token
+writes. Cached host telemetry retains its original local observation time, so a
+status update cannot resurrect health cleared by a newer successful empty fetch.
+Snapshot writes merge independently dated sections to preserve newer updates
+from the other process. Counts carry their own server generation time rather
+than borrowing a cached booth timestamp. Router sample timestamps are compared
+separately from the booth source and evaluation clocks: re-evaluating an old
+host sample cannot replace a newer critical router sample, while the selected
+sample can still age out without advancing its actual observation time. Mac
+writers persist ordering metadata even when visible content is unchanged;
+WidgetKit reload requests remain throttled to once per minute. Network calls
+have bounded timeouts and reject redirects;
+a 401 renews authentication and retries once. Offline and partial failures keep
+successful cached sections, with their original freshness dates.
+
+Quitting Operator no longer stops widget fetching, but WidgetKit still controls
+when the extension runs. This is periodic best-effort refresh, not a continuous
+connection or a guaranteed 15-minute delivery schedule. No login item or helper
+process is installed. Other platforms' authentication and refresh paths are unchanged.
 
 ## Privacy
 

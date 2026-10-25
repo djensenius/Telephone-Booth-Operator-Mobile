@@ -252,17 +252,6 @@ public final class AuthManager {
 
     // MARK: - Token storage / refresh
 
-    public func getAccessToken() -> String? {
-        getKeychainItem(account: "oidc_access_token")
-    }
-
-    public func isTokenExpiringSoon(margin: TimeInterval = 60) -> Bool {
-        guard getAccessToken() != nil else { return false }
-        guard let expiryStr = getKeychainItem(account: "oidc_token_expiry"),
-              let interval = TimeInterval(expiryStr) else { return true }
-        return Date().addingTimeInterval(margin) >= Date(timeIntervalSince1970: interval)
-    }
-
     /// Refreshes proactively if near expiry. Returns true if a usable
     /// access token is in the Keychain after the call.
     public func ensureValidToken() async -> Bool {
@@ -321,6 +310,15 @@ public final class AuthManager {
     @discardableResult
     public func refreshSession() async -> RefreshOutcome {
         if let coalesced = await refreshCoordinator.acquireOrWait() { return coalesced }
+        let generation = sessionGeneration
+        #if os(macOS)
+        let widgetRefresh = await coordinateWidgetRefresh(generation: generation)
+        defer { withExtendedLifetime(widgetRefresh.lock) {} }
+        if let outcome = widgetRefresh.outcome {
+            await refreshCoordinator.complete(outcome)
+            return outcome
+        }
+        #endif
         #if os(watchOS)
         if getKeychainItem(account: "oidc_refresh_token") == nil {
             let renewed = await watchTokenProvider(true)
@@ -334,7 +332,6 @@ public final class AuthManager {
             await refreshCoordinator.complete(.transientFailure)
             return .transientFailure
         }
-        let generation = sessionGeneration
         do {
             let tokens = try await refreshAccessToken(refreshToken)
             guard generation == sessionGeneration else {

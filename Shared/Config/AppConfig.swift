@@ -37,6 +37,9 @@ public final class AppConfig {
         didSet {
             UserDefaults.standard.set(apiBaseURL.absoluteString, forKey: Self.apiBaseDefaultsKey)
             if oldValue != apiBaseURL {
+                #if os(macOS)
+                MacWidgetSession.disable()
+                #endif
                 WidgetRefreshCoordinator.invalidateAPIBase()
                 PendingMessagesStore.shared.resetForAPIChange()
                 BoothStatusLiveStore.shared.synchronizeAPIBase()
@@ -52,6 +55,9 @@ public final class AppConfig {
     public var isDemoMode: Bool {
         didSet {
             UserDefaults.standard.set(isDemoMode, forKey: Self.demoModeDefaultsKey)
+            #if os(macOS)
+            if isDemoMode { MacWidgetSession.disable() }
+            #endif
             logger.info("demoMode updated to \(self.isDemoMode, privacy: .public)")
         }
     }

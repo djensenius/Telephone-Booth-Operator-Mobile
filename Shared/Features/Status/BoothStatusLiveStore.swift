@@ -27,7 +27,9 @@ public final class BoothStatusLiveStore {
     public private(set) var status: BoothStatus?
     public private(set) var history: [BoothStatus] = []
     public private(set) var systemEnvelope: BoothSystemSnapshotEnvelope?
+    private(set) var systemObservedAt: Date?
     public private(set) var componentSources: [SystemComponentCurrentEnvelope] = []
+    private(set) var componentsObservedAt: Date?
     public private(set) var stats: StatsSummary?
     public internal(set) var callsTodaySessions: [CallSession] = []
     public internal(set) var callsTodayStartedAt: Date?
@@ -50,6 +52,8 @@ public final class BoothStatusLiveStore {
     /// have no cached snapshot to show, so the System tab can show its retry
     /// state during an outage instead of a permanent "no snapshot yet".
     public private(set) var systemUnavailable: Bool = false
+
+    var shouldPublishWidgetChanges: Bool { !demoMode && !client.demoMode && !config.isDemoMode }
 
     let client: OperatorClient
     private let socket: StatusSocket
@@ -198,7 +202,7 @@ public final class BoothStatusLiveStore {
         guard !Task.isCancelled else { return }
         let fullRefresh = fullRefresh || changedAPI || needsFullRefresh
         let client = self.client
-        let cachedSystem = systemEnvelope
+        let shouldFetchSystem = fullRefresh || systemEnvelope == nil
         let requestKey = lifecycleKey
         let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
         let revision = lifecycleRevision
@@ -207,9 +211,11 @@ public final class BoothStatusLiveStore {
         async let statusResult = attempt { try await client.fetchBoothStatus() }
         async let historyResult: StatusHistory? = fullRefresh
             ? attempt { try await client.fetchStatusHistory(limit: 200) } : nil
-        async let systemResult: BoothSystemSnapshotEnvelope?? = fullRefresh || cachedSystem == nil
-            ? attempt { try await client.fetchCurrentSystemEnvelope() } : .some(cachedSystem)
-        async let componentsResult = attempt { try await client.fetchCurrentSystemComponents() }
+        async let systemResult: (envelope: BoothSystemSnapshotEnvelope?, observedAt: Date)? = shouldFetchSystem
+            ? attempt { (try await client.fetchCurrentSystemEnvelope(), Date()) } : nil
+        async let componentsResult = attempt {
+            (sources: try await client.fetchCurrentSystemComponents(), observedAt: Date())
+        }
         async let summaryResult = fetchSummaryAndSessions()
 
         let newStatus = await statusResult
@@ -231,8 +237,13 @@ public final class BoothStatusLiveStore {
             mergeHistory(newHistory.items)
             needsFullRefresh = false
         }
-        applySystemResult(newSystem)
-        if let newComponents { componentSources = newComponents }
+        if shouldFetchSystem {
+            applySystemResult(newSystem.map { $0.envelope }, observedAt: newSystem?.observedAt)
+        }
+        if let newComponents {
+            componentSources = newComponents.sources
+            componentsObservedAt = newComponents.observedAt
+        }
         apply(summary, reconcileLifecycle: revision == lifecycleRevision && newStatus == nil
             && requestRevision == appliedStatusRevision)
     }
@@ -270,7 +281,9 @@ public final class BoothStatusLiveStore {
         stats = nil
         history = []
         systemEnvelope = nil
+        systemObservedAt = nil
         componentSources = []
+        componentsObservedAt = nil
         systemUnavailable = false
         callsTodaySessions = []
         callsTodayStartedAt = nil
@@ -300,15 +313,16 @@ public final class BoothStatusLiveStore {
     /// Applies the outcome of the `/v1/system/current` REST request. The double
     /// optional distinguishes a thrown error (`.none`) from a successful-but-
     /// empty response (`.some(.none)`), which stays an empty state.
-    private func applySystemResult(_ newSystem: BoothSystemSnapshotEnvelope??) {
+    private func applySystemResult(_ newSystem: BoothSystemSnapshotEnvelope??, observedAt: Date?) {
         switch newSystem {
         case .some(let envelope?):
             // The REST seed races the live socket; don't let an older REST
             // envelope replace a fresher snapshot the socket already applied.
-            if let current = systemEnvelope, current.receivedAt >= envelope.receivedAt {
+            if let current = systemEnvelope, current.receivedAt > envelope.receivedAt {
                 // Keep the fresher cached snapshot.
             } else {
                 systemEnvelope = envelope
+                systemObservedAt = observedAt
                 writeWidgetSnapshotIfPossible()
             }
             systemUnavailable = false
@@ -333,6 +347,7 @@ public final class BoothStatusLiveStore {
             apply(status: status)
         case .system(let envelope):
             systemEnvelope = envelope
+            systemObservedAt = Date()
             systemUnavailable = false
             writeWidgetSnapshotIfPossible()
         case .message:
@@ -410,37 +425,9 @@ public final class BoothStatusLiveStore {
         writeWidgetSnapshotIfPossible()
     }
 
-    private func mergeIntoHistory(_ newStatus: BoothStatus) {
-        guard newStatus.hasTelemetry else { return }
-        mergeHistory([newStatus])
-    }
+}
 
-    private func mergeHistory(_ items: [BoothStatus]) {
-        let reports = items.filter(\.hasTelemetry).map { item in
-            var report = item
-            report.installationState = nil
-            return report
-        }
-        history = Self.merging(reports, into: history)
-    }
-
-    private func writeWidgetSnapshotIfPossible() {
-        guard !demoMode, !config.isDemoMode, let stats else { return }
-        let systemEnvelope = self.systemEnvelope
-        let componentSources = self.componentSources
-        let apiRevision = WidgetRefreshCoordinator.currentAPIRevision
-        let observedAt = Date()
-        Task {
-            await WidgetRefreshCoordinator.shared.apply(
-                stats: stats,
-                systemEnvelope: systemEnvelope,
-                components: componentSources,
-                apiRevision: apiRevision,
-                observedAt: observedAt
-            )
-        }
-    }
-
+extension BoothStatusLiveStore {
     private func applyDemoData() {
         let demoNow = Date()
         status = DemoData.liveStatus(now: demoNow)
@@ -458,10 +445,28 @@ public final class BoothStatusLiveStore {
         systemUnavailable = false
         writeWidgetSnapshotIfPossible()
     }
+
+    private func mergeIntoHistory(_ newStatus: BoothStatus) {
+        guard newStatus.hasTelemetry else { return }
+        mergeHistory([newStatus])
+    }
+
+    private func mergeHistory(_ items: [BoothStatus]) {
+        let reports = items.filter(\.hasTelemetry).map { item in
+            var report = item
+            report.installationState = nil
+            return report
+        }
+        history = Self.merging(reports, into: history)
+    }
 }
 
 #if DEBUG
 extension BoothStatusLiveStore {
+    func refreshLightweightForTesting() async {
+        await refreshFromREST(fullRefresh: false)
+    }
+
     func applyStatusForTesting(_ newStatus: BoothStatus) {
         apply(status: newStatus)
     }

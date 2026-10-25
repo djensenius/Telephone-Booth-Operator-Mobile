@@ -124,6 +124,8 @@ responsibility and are not discarded by these apps.
   keep binary size down.
 - iOS, macOS, and visionOS widget extensions share one WidgetKit source
   catalog. Signed-in host apps write a versioned, privacy-bounded snapshot to
-  the App Group; widget processes never authenticate or call the API.
+  the App Group. The macOS extension additionally fetches independently using
+  an explicitly shared Keychain session and cross-process refresh coordination;
+  iOS/iPadOS and visionOS extensions remain cache-only.
 - iOS / iPadOS / macOS / visionOS / tvOS 26.0 minimum, so we can use the
   full Liquid Glass design system natively.

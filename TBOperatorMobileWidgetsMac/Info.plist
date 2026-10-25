@@ -25,5 +25,7 @@
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.widgetkit-extension</string>
 	</dict>
+	<key>WidgetKeychainAccessGroup</key>
+	<string>$(AppIdentifierPrefix)org.davidjensenius.TelephoneBoothOperatorMobile.widget-session</string>
 </dict>
 </plist>

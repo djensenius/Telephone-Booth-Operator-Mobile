@@ -39,6 +39,14 @@ struct SystemKeychainStore: KeychainStoring {
         to accessibility: KeychainAccessibility
     ) {
         for account in accounts {
+            #if os(macOS)
+            // Move legacy login-Keychain items once, without requiring a new sign-in.
+            if MacWidgetKeychain.read(service: service, account: account) == nil,
+               let legacy = legacyValue(service: service, account: account),
+               MacWidgetKeychain.write(service: service, account: account, value: legacy) {
+                deleteLegacyValue(service: service, account: account)
+            }
+            #endif
             let query: [String: Any] = [
                 kSecClass as String: kSecClassGenericPassword,
                 kSecAttrService as String: service,
@@ -64,6 +72,9 @@ struct SystemKeychainStore: KeychainStoring {
         value: String,
         accessibility: KeychainAccessibility
     ) -> Bool {
+        #if os(macOS)
+        return MacWidgetKeychain.write(service: service, account: account, value: value)
+        #else
         guard let data = value.data(using: .utf8) else { return false }
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -97,9 +108,18 @@ struct SystemKeychainStore: KeychainStoring {
             "Keychain update failed for \(account, privacy: .public): \(updateStatus)"
         )
         return false
+        #endif
     }
 
     func get(service: String, account: String) -> String? {
+        #if os(macOS)
+        return MacWidgetKeychain.read(service: service, account: account)
+        #else
+        return legacyValue(service: service, account: account)
+        #endif
+    }
+
+    private func legacyValue(service: String, account: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -114,6 +134,13 @@ struct SystemKeychainStore: KeychainStoring {
     }
 
     func delete(service: String, account: String) {
+        #if os(macOS)
+        MacWidgetKeychain.delete(service: service, account: account)
+        #endif
+        deleteLegacyValue(service: service, account: account)
+    }
+
+    private func deleteLegacyValue(service: String, account: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -133,6 +160,16 @@ struct SystemKeychainStore: KeychainStoring {
 }
 
 extension AuthManager {
+    public func getAccessToken() -> String? {
+        getKeychainItem(account: "oidc_access_token")
+    }
+
+    public func isTokenExpiringSoon(margin: TimeInterval = 60) -> Bool {
+        guard getAccessToken() != nil else { return false }
+        guard let expiryStr = getKeychainItem(account: "oidc_token_expiry"),
+              let interval = TimeInterval(expiryStr) else { return true }
+        return Date().addingTimeInterval(margin) >= Date(timeIntervalSince1970: interval)
+    }
 
     static let keychainService = "org.davidjensenius.TelephoneBoothOperatorMobile.oidc"
     static let tokenAccessibility = KeychainAccessibility.afterFirstUnlockThisDeviceOnly
