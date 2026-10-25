@@ -9,7 +9,8 @@
 //  15-minute fallback is only used when the app hasn't refreshed lately.
 //  When a section is about to flip stale sooner than that, the provider
 //  reloads at the transition instead so the "stale" chrome appears on
-//  time. Extensions never authenticate or perform network requests.
+//  time. On macOS, timeline requests also fetch fresh data independently of
+//  the host app, using the shared Keychain session and falling back to cache.
 //
 
 import Foundation
@@ -53,8 +54,16 @@ struct WidgetSnapshotProvider: TimelineProvider {
         }
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<WidgetSnapshotEntry>) -> Void) {
+    func getTimeline(in context: Context, completion: @escaping @Sendable (Timeline<WidgetSnapshotEntry>) -> Void) {
+        #if os(macOS)
+        Task {
+            let snapshot = await MacWidgetTimelineRefresh.snapshot()
+            let entry = WidgetSnapshotEntry(date: now(), snapshot: snapshot)
+            completion(Timeline(entries: [entry], policy: .after(nextReloadDate(for: entry))))
+        }
+        #else
         completion(makeTimeline())
+        #endif
     }
 
     func makeTimeline() -> Timeline<WidgetSnapshotEntry> {

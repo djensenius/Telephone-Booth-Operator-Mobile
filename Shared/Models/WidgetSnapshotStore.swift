@@ -91,7 +91,13 @@ public enum WidgetSnapshotStore {
                 return false
             }
             do {
+                #if os(macOS)
+                let changed = try MacWidgetFileLock.withStateLock {
+                    try store.write(snapshot.mergingNewerSections(from: store.read()))
+                }
+                #else
                 let changed = try store.write(snapshot)
+                #endif
                 guard changed else { return true }
                 #if canImport(WidgetKit) && !os(tvOS)
                 reloadTimelinesIfNeeded()
@@ -122,7 +128,11 @@ public enum WidgetSnapshotStore {
     public static func clear() -> Bool {
         guard let store = fileStore else { return false }
         do {
+            #if os(macOS)
+            let changed = try MacWidgetFileLock.withStateLock { try store.clear() }
+            #else
             let changed = try store.clear()
+            #endif
             guard changed else { return true }
             removeReloadTimestamp()
             #if canImport(WidgetKit) && !os(tvOS)

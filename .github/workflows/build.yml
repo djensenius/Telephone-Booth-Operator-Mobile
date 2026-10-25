@@ -79,6 +79,9 @@ jobs:
           - name: iOSUnitTests
             scheme: TBOperatorMobile
             destination: 'platform=iOS Simulator,name=iPhone 17,OS=latest'
+          - name: macOSUnitTests
+            scheme: TBOperatorMobileMac
+            destination: 'platform=macOS'
           - name: watchOSUnitTests
             scheme: TBOperatorMobileWatch
             destination: 'platform=watchOS Simulator,name=Apple Watch Series 11 (46mm),OS=latest'

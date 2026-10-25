@@ -24,6 +24,9 @@ extension AuthManager {
     }
 
     func suspendWidgetRefreshUntilSignIn() {
+        #if os(macOS)
+        MacWidgetSession.disable()
+        #endif
         WidgetSnapshotStore.disableWritesAndClear()
         widgetCleanupGeneration &+= 1
         let generation = widgetCleanupGeneration
@@ -50,6 +53,16 @@ extension AuthManager {
             sessionRestored()
         }
         guard authState == .signedIn else { return false }
+        #if os(macOS)
+        if keychainStore is SystemKeychainStore, !AppConfig.shared.isDemoMode {
+            MacWidgetSession.publish(
+                apiBaseURL: AppConfig.shared.apiBaseURL,
+                tokenURL: tokenURL,
+                clientID: AppConfig.shared.oidcClientID,
+                scopes: AppConfig.shared.oidcScopes
+            )
+        }
+        #endif
         WidgetSnapshotStore.enableWrites()
         await WidgetRefreshCoordinator.shared.activate()
         return true

@@ -2,10 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Record question prompts and instruction clips for the booth.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Transcribe message audio for review on this Mac.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -37,11 +33,17 @@
 	<false/>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Record question prompts and instruction clips for the booth.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Transcribe message audio for review on this Mac.</string>
 	<key>OIDCClientID</key>
 	<string>x0M0MleMvCSCx8MqIE2jVoYe57nAhGymIG8azTEY</string>
 	<key>OIDCIssuerBase</key>
 	<string>https://auth.fluxhaus.io/application/o/telephone-booth-operator-mobile</string>
 	<key>OperatorAPIBase</key>
 	<string>https://api.telephonebooth.io</string>
+	<key>WidgetKeychainAccessGroup</key>
+	<string>$(AppIdentifierPrefix)org.davidjensenius.TelephoneBoothOperatorMobile.widget-session</string>
 </dict>
 </plist>

@@ -8,5 +8,11 @@
 	<array>
 		<string>group.org.davidjensenius.TelephoneBoothOperatorMobile</string>
 	</array>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)org.davidjensenius.TelephoneBoothOperatorMobile.widget-session</string>
+	</array>
 </dict>
 </plist>

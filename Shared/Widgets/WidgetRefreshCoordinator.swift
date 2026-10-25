@@ -20,7 +20,9 @@ public protocol WidgetDataFetching: Sendable {
     func fetchCurrentSystemComponents() async throws -> [SystemComponentCurrentEnvelope]
 }
 
+#if !WIDGET_EXTENSION
 extension OperatorClient: WidgetDataFetching {}
+#endif
 
 public enum WidgetRefreshResult: Sendable, Equatable {
     case newData
@@ -46,7 +48,7 @@ public actor WidgetRefreshCoordinator {
     private let clearSnapshot: @Sendable () -> Bool
     private let now: @Sendable () -> Date
     private var cachedSnapshot: WidgetSnapshot?
-    private var hasLoadedSnapshot = false
+    private var acceptsCachedFile = true
     private var generation: UInt = 0
     private var acceptsUpdates = true
     private var activeRefresh: Task<WidgetRefreshResult, Never>?
@@ -89,7 +91,9 @@ public actor WidgetRefreshCoordinator {
         let refreshedAt = now()
         let updated = WidgetSnapshot(
             summary: summary.replacingCounts(with: stats),
-            latestMessage: previous.latestMessage, systemHealth: previous.systemHealth,
+            latestMessage: previous.latestMessage,
+            latestMessageRefreshedAt: previous.latestMessageRefreshedAt,
+            systemHealth: previous.systemHealth,
             activity: previous.activity, writtenAt: refreshedAt
         )
         return persist(updated, replacing: previous, apiRevision: revision)
@@ -139,6 +143,7 @@ public actor WidgetRefreshCoordinator {
         let updated = WidgetSnapshot(
             summary: summary,
             latestMessage: previous.latestMessage,
+            latestMessageRefreshedAt: previous.latestMessageRefreshedAt,
             systemHealth: health,
             activity: previous.activity,
             writtenAt: refreshDate
@@ -243,6 +248,7 @@ public actor WidgetRefreshCoordinator {
         let updated = WidgetSnapshot(
             summary: summary.value,
             latestMessage: latestMessage.value,
+            latestMessageRefreshedAt: latestMessage.succeeded ? refreshDate : previous.latestMessageRefreshedAt,
             systemHealth: systemHealth.value,
             activity: activity.value,
             writtenAt: refreshDate
@@ -271,7 +277,7 @@ public actor WidgetRefreshCoordinator {
         activeRefreshID &+= 1
         activeRefresh = nil
         cachedSnapshot = nil
-        hasLoadedSnapshot = true
+        acceptsCachedFile = false
         return clearSnapshot()
     }
 
@@ -285,7 +291,7 @@ public actor WidgetRefreshCoordinator {
             cancelActiveRefresh()
             cachedAPIRevision = revision
             cachedSnapshot = nil
-            hasLoadedSnapshot = true
+            acceptsCachedFile = false
         }
         return revision
     }
@@ -298,9 +304,9 @@ public actor WidgetRefreshCoordinator {
     }
 
     private func snapshot() -> WidgetSnapshot {
-        if !hasLoadedSnapshot {
-            cachedSnapshot = readSnapshot()
-            hasLoadedSnapshot = true
+        // Another process may have refreshed sections since our last write.
+        if acceptsCachedFile, let stored = readSnapshot() {
+            cachedSnapshot = stored.mergingNewerSections(from: cachedSnapshot)
         }
         return cachedSnapshot ?? WidgetSnapshot(writtenAt: now())
     }
@@ -325,10 +331,16 @@ public actor WidgetRefreshCoordinator {
             }
             return (hasNewContent ? .newData : .noData, true)
         }
-        if outcome.written { cachedSnapshot = updated }
+        if outcome.written {
+            cachedSnapshot = updated
+            acceptsCachedFile = true
+        }
         return outcome.result
     }
 
+}
+
+extension WidgetRefreshCoordinator {
     private func logFailure(endpoint: String, message: String) {
         logger.warning(
             "Widget refresh failed for \(endpoint, privacy: .public): \(message, privacy: .public)"

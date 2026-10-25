@@ -123,6 +123,11 @@ targets:
     type: app-extension
     platform: macOS
     sources:
+      - path: Shared/Widgets/MacWidgetSession.swift
+      - path: Shared/Widgets/MacWidgetTimelineRefresh.swift
+      - path: Shared/Widgets/WidgetRefreshCoordinator.swift
+      - path: Shared/Auth/OIDCTokens.swift
+      - path: Shared/Networking/OperatorJSON.swift
       - path: TBOperatorMobileWidgets
         excludes:
           - "**/.DS_Store"
@@ -137,6 +142,7 @@ targets:
     info:
       path: TBOperatorMobileWidgetsMac/Info.plist
       properties:
+        WidgetKeychainAccessGroup: $(AppIdentifierPrefix)org.davidjensenius.TelephoneBoothOperatorMobile.widget-session
         CFBundleDisplayName: Operator Widgets
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
@@ -150,9 +156,13 @@ targets:
         ENABLE_HARDENED_RUNTIME: true
         ENABLE_APP_SANDBOX: true
         COMBINE_HIDPI_IMAGES: true
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) WIDGET_EXTENSION
     entitlements:
       path: TBOperatorMobileWidgetsMac/TBOperatorMobileWidgetsMac.entitlements
       properties:
+        com.apple.security.network.client: true
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)org.davidjensenius.TelephoneBoothOperatorMobile.widget-session
         com.apple.security.app-sandbox: true
         com.apple.security.application-groups:
           - group.org.davidjensenius.TelephoneBoothOperatorMobile
@@ -246,6 +256,7 @@ targets:
     info:
       path: TBOperatorMobileMac/Info.plist
       properties:
+        WidgetKeychainAccessGroup: $(AppIdentifierPrefix)org.davidjensenius.TelephoneBoothOperatorMobile.widget-session
         CFBundleDisplayName: Operator
         CFBundleName: Operator
         CFBundleShortVersionString: $(MARKETING_VERSION)
@@ -276,6 +287,8 @@ targets:
     entitlements:
       path: TBOperatorMobileMac/TBOperatorMobileMac.entitlements
       properties:
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)org.davidjensenius.TelephoneBoothOperatorMobile.widget-session
         aps-environment: development
         com.apple.security.app-sandbox: true
         com.apple.security.device.audio-input: true
@@ -416,6 +429,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.davidjensenius.TelephoneBoothOperatorMobile.tests.mac
         GENERATE_INFOPLIST_FILE: true
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Operator.app/Contents/MacOS/Operator
     dependencies:
       - target: TBOperatorMobileMac
         embed: false

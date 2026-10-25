@@ -4,7 +4,7 @@
 //  TelephoneBoothOperatorMobile
 //
 //  Versioned, widget-safe data written by a signed-in host app. Widget
-//  extensions never authenticate or perform network requests.
+//  extensions share this cache; macOS can also refresh it independently.
 //
 
 import Foundation
@@ -394,6 +394,8 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
     public let schemaVersion: Int
     public let summary: Summary?
     public let latestMessage: LatestMessage?
+    /// Includes successful empty responses, so another process cannot resurrect a deleted message.
+    public let latestMessageRefreshedAt: Date?
     public let systemHealth: SystemHealth?
     public let activity: Activity?
     public let writtenAt: Date
@@ -402,6 +404,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         schemaVersion: Int = WidgetSnapshot.currentSchemaVersion,
         summary: Summary? = nil,
         latestMessage: LatestMessage? = nil,
+        latestMessageRefreshedAt: Date? = nil,
         systemHealth: SystemHealth? = nil,
         activity: Activity? = nil,
         writtenAt: Date = Date()
@@ -409,6 +412,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         self.schemaVersion = schemaVersion
         self.summary = summary
         self.latestMessage = latestMessage
+        self.latestMessageRefreshedAt = latestMessageRefreshedAt ?? latestMessage?.refreshedAt
         self.systemHealth = systemHealth
         self.activity = activity
         self.writtenAt = writtenAt
@@ -495,6 +499,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         case schemaVersion
         case summary
         case latestMessage
+        case latestMessageRefreshedAt
         case systemHealth
         case activity
         case writtenAt
@@ -536,6 +541,8 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         }
 
         latestMessage = try container.decodeIfPresent(LatestMessage.self, forKey: .latestMessage)
+        latestMessageRefreshedAt = try container.decodeIfPresent(Date.self, forKey: .latestMessageRefreshedAt)
+            ?? latestMessage?.refreshedAt
         systemHealth = try container.decodeIfPresent(SystemHealth.self, forKey: .systemHealth)
         activity = try container.decodeIfPresent(Activity.self, forKey: .activity)
         writtenAt = try container.decodeIfPresent(Date.self, forKey: .writtenAt)
@@ -548,6 +555,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         try container.encode(schemaVersion, forKey: .schemaVersion)
         try container.encodeIfPresent(summary, forKey: .summary)
         try container.encodeIfPresent(latestMessage, forKey: .latestMessage)
+        try container.encodeIfPresent(latestMessageRefreshedAt, forKey: .latestMessageRefreshedAt)
         try container.encodeIfPresent(systemHealth, forKey: .systemHealth)
         try container.encodeIfPresent(activity, forKey: .activity)
         try container.encode(writtenAt, forKey: .writtenAt)
