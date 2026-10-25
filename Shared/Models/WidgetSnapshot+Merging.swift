@@ -47,7 +47,7 @@ extension WidgetSnapshot {
             routerTemperatureCelsius: health.routerTemperatureCelsius, tailscaleConnected: health.tailscaleConnected,
             sourceUpdatedAt: health.sourceUpdatedAt, refreshedAt: observedAt,
             evaluatedAt: health.evaluatedAt ?? health.refreshedAt,
-            routerSourceUpdatedAt: health.routerSourceUpdatedAt,
+            routerSourceUpdatedAt: health.routerSourceUpdatedAt, routerComponentID: health.routerComponentID,
             routerObservedAt: health.routerObservedAt, boothSeverity: health.boothSeverity
         )
     }

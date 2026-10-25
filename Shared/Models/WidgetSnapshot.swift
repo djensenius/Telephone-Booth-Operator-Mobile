@@ -9,6 +9,12 @@
 
 import Foundation
 
+private struct WidgetRouterSample {
+    let temperature: Double?
+    let updatedAt: Date?
+    let id: String?
+}
+
 // swiftlint:disable:next type_body_length
 public struct WidgetSnapshot: Codable, Sendable, Equatable {
     public static let currentSchemaVersion = 2
@@ -174,6 +180,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         /// Aging is evaluated independently from the last real booth observation.
         public let evaluatedAt: Date?
         public let routerSourceUpdatedAt: Date?
+        public let routerComponentID: String?
         public let routerObservedAt: Date?
         public let boothSeverity: HealthSeverity?
 
@@ -188,6 +195,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             refreshedAt: Date,
             evaluatedAt: Date? = nil,
             routerSourceUpdatedAt: Date? = nil,
+            routerComponentID: String? = nil,
             routerObservedAt: Date? = nil,
             boothSeverity: HealthSeverity? = nil
         ) {
@@ -201,6 +209,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             self.refreshedAt = refreshedAt
             self.evaluatedAt = evaluatedAt ?? refreshedAt
             self.routerSourceUpdatedAt = routerSourceUpdatedAt
+            self.routerComponentID = routerComponentID
             self.routerObservedAt = routerObservedAt
             self.boothSeverity = boothSeverity ?? severity
         }
@@ -214,7 +223,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
         ) {
             let evaluationDate = evaluatedAt ?? refreshedAt
             let snapshot = envelope.snapshot
-            let routerTemperature = Self.routerTemperature(
+            let router = Self.routerSample(
                 in: components,
                 boothId: envelope.boothId,
                 now: evaluationDate
@@ -223,20 +232,19 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
                 boothId: envelope.boothId,
                 severity: Self.evaluate(
                     snapshot: snapshot,
-                    routerTemperature: routerTemperature,
+                    routerTemperature: router.temperature,
                     sourceUpdatedAt: envelope.receivedAt,
                     now: evaluationDate
                 ),
                 cpuTemperatureCelsius: snapshot.cpuTemperatureCelsius,
                 memoryUsedRatio: snapshot.memoryUsedRatio,
-                routerTemperatureCelsius: routerTemperature,
+                routerTemperatureCelsius: router.temperature,
                 tailscaleConnected: snapshot.tailscaleConnected,
                 sourceUpdatedAt: envelope.receivedAt,
                 refreshedAt: refreshedAt,
                 evaluatedAt: evaluationDate,
-                routerSourceUpdatedAt: components
-                    .filter { $0.source.boothId == envelope.boothId && $0.source.isRouter }
-                    .compactMap(\.freshnessDate).max(),
+                routerSourceUpdatedAt: router.updatedAt,
+                routerComponentID: router.id,
                 routerObservedAt: componentsObservedAt,
                 boothSeverity: Self.evaluate(
                     snapshot: snapshot, routerTemperature: nil,
@@ -266,6 +274,7 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
                 && tailscaleConnected == other.tailscaleConnected
                 && sourceUpdatedAt == other.sourceUpdatedAt
                 && routerSourceUpdatedAt == other.routerSourceUpdatedAt
+                && routerComponentID == other.routerComponentID
                 && boothSeverity == other.boothSeverity
         }
 
@@ -280,8 +289,9 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             let otherObservation = other.routerObservedAt
                 ?? (other.routerSourceUpdatedAt != nil || other.routerTemperatureCelsius != nil
                     ? other.refreshedAt : .distantPast)
-            let router: Self
-            if routerSourceUpdatedAt != nil, other.routerSourceUpdatedAt != nil, thisDate != otherDate {
+            var router: Self
+            if routerComponentID == other.routerComponentID,
+               routerSourceUpdatedAt != nil, other.routerSourceUpdatedAt != nil, thisDate != otherDate {
                 router = otherDate > thisDate ? other : self
             } else if routerSourceUpdatedAt != nil, other.routerSourceUpdatedAt == nil, other.routerObservedAt == nil {
                 router = self
@@ -293,6 +303,14 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
                 router = otherEvaluation > thisEvaluation ? other : self
             }
             let evaluation = max(thisEvaluation, otherEvaluation)
+            let alternate = router == self ? other : self
+            if let selectedDate = router.routerSourceUpdatedAt,
+               evaluation.timeIntervalSince(selectedDate) > WidgetSnapshot.sourceStaleInterval,
+               let alternateDate = alternate.routerSourceUpdatedAt,
+               evaluation.timeIntervalSince(alternateDate) <= WidgetSnapshot.sourceStaleInterval,
+               alternate.routerTemperatureCelsius != nil {
+                router = alternate
+            }
             let routerDate = router.routerSourceUpdatedAt
             let ageDate = routerDate ?? router.refreshedAt
             let temperature = evaluation.timeIntervalSince(ageDate) <= WidgetSnapshot.sourceStaleInterval
@@ -308,7 +326,8 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
                 cpuTemperatureCelsius: cpuTemperatureCelsius, memoryUsedRatio: memoryUsedRatio,
                 routerTemperatureCelsius: temperature, tailscaleConnected: tailscaleConnected,
                 sourceUpdatedAt: sourceUpdatedAt, refreshedAt: refreshedAt, evaluatedAt: evaluation,
-                routerSourceUpdatedAt: routerDate, routerObservedAt: router.routerObservedAt,
+                routerSourceUpdatedAt: routerDate, routerComponentID: router.routerComponentID,
+                routerObservedAt: router.routerObservedAt,
                 boothSeverity: baseSeverity
             )
         }
@@ -369,30 +388,29 @@ public struct WidgetSnapshot: Codable, Sendable, Equatable {
             return .nominal
         }
 
-        private static func routerTemperature(
-            in components: [SystemComponentCurrentEnvelope],
-            boothId: String,
-            now: Date
-        ) -> Double? {
-            components
+        private static func routerSample(
+            in components: [SystemComponentCurrentEnvelope], boothId: String, now: Date
+        ) -> WidgetRouterSample {
+            let routers = components
                 .filter { $0.source.boothId == boothId && $0.source.isRouter }
                 .sorted {
                     let nameOrder = $0.source.effectiveDisplayName.localizedCaseInsensitiveCompare(
                         $1.source.effectiveDisplayName
                     )
-                    if nameOrder != .orderedSame { return nameOrder == .orderedAscending }
-                    return $0.id < $1.id
+                    return nameOrder == .orderedSame ? $0.id < $1.id : nameOrder == .orderedAscending
                 }
-                .compactMap { component -> Double? in
-                    guard let freshnessDate = component.freshnessDate,
-                          now.timeIntervalSince(freshnessDate) <= WidgetSnapshot.sourceStaleInterval,
-                          let value = component.latestSnapshot?.battery?.temperatureCelsius,
-                          value.isFinite else {
-                        return nil
-                    }
-                    return value
-                }
-                .first
+            let fresh = routers.first { component in
+                guard let date = component.freshnessDate,
+                      now.timeIntervalSince(date) <= WidgetSnapshot.sourceStaleInterval else { return false }
+                return component.latestSnapshot?.battery?.temperatureCelsius?.isFinite == true
+            }
+            guard let selected = fresh ?? routers.first(where: { $0.freshnessDate != nil }) ?? routers.first else {
+                return WidgetRouterSample(temperature: nil, updatedAt: nil, id: nil)
+            }
+            return WidgetRouterSample(
+                temperature: fresh?.latestSnapshot?.battery?.temperatureCelsius,
+                updatedAt: selected.freshnessDate, id: selected.source.componentId
+            )
         }
 
         private static func finite(_ value: Double?) -> Double? {

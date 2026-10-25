@@ -91,6 +91,36 @@ final class WidgetMergeOrderingTests: XCTestCase {
         XCTAssertEqual(cache.withLock { $0.systemHealth?.routerObservedAt }, after)
     }
 
+    func testRouterTimestampBelongsToTheSelectedSensorAndFreshFallbackIsPreserved() {
+        func router(_ id: String, temperature: Double, age: TimeInterval) -> SystemComponentCurrentEnvelope {
+            SystemComponentCurrentEnvelope(
+                source: .init(boothId: DemoData.boothId, componentId: id, displayName: id,
+                              kind: "router", prometheusJob: "router", prometheusInstance: id),
+                latestSnapshot: .init(battery: .init(temperatureCelsius: temperature)),
+                capturedAt: base.addingTimeInterval(-age), receivedAt: base.addingTimeInterval(-age)
+            )
+        }
+        let sources = [router("a", temperature: 85, age: 100), router("b", temperature: 80, age: 50)]
+        let envelope = BoothSystemSnapshotEnvelope(
+            boothId: DemoData.boothId, snapshot: BoothSystemSnapshot(temperatureCelsius: 45), receivedAt: base
+        )
+        let widget = WidgetSnapshot(systemHealth: .init(
+            envelope: envelope, components: sources, refreshedAt: base.addingTimeInterval(20),
+            evaluatedAt: base.addingTimeInterval(20), componentsObservedAt: base.addingTimeInterval(20)
+        ))
+        XCTAssertEqual(widget.systemHealth?.routerComponentID, "a")
+        XCTAssertEqual(widget.systemHealth?.routerSourceUpdatedAt, base.addingTimeInterval(-100))
+        let host = WidgetSnapshot(systemHealth: .init(
+            envelope: envelope, components: sources, refreshedAt: base,
+            evaluatedAt: base.addingTimeInterval(201), componentsObservedAt: base
+        ))
+        let merged = host.mergingNewerSections(from: widget)
+        XCTAssertEqual(merged.systemHealth?.routerComponentID, "b")
+        XCTAssertEqual(merged.systemHealth?.routerSourceUpdatedAt, base.addingTimeInterval(-50))
+        XCTAssertEqual(merged.systemHealth?.routerTemperatureCelsius, 80)
+        XCTAssertEqual(merged.systemHealth?.severity, .critical)
+    }
+
     func testCountsAndBoothStateUseIndependentSourceVersions() throws {
         let initial = WidgetSnapshot.Summary(stats: stats(generated: 0, count: 1))
         let countOnly = initial.replacingCounts(with: stats(generated: 20, count: 99))
