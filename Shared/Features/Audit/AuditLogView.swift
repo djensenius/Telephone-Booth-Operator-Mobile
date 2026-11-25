@@ -119,9 +119,11 @@ public struct AuditLogView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
-            ForEach(entries) { entry in
-                AuditLogRow(entry: entry)
-                    .operatorListRowBackground()
+            operatorInsetListSection {
+                ForEach(entries) { entry in
+                    AuditLogRow(entry: entry)
+                        .operatorListRowBackground()
+                }
             }
             if nextCursor != nil {
                 loadMoreFooter

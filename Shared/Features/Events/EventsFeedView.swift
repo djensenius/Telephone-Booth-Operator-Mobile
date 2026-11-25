@@ -54,9 +54,11 @@ public struct EventsFeedView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             } else {
-                ForEach(filteredEvents) { event in
-                    BoothEventFeedRow(event: event)
-                        .operatorListRowBackground()
+                operatorInsetListSection {
+                    ForEach(filteredEvents) { event in
+                        BoothEventFeedRow(event: event)
+                            .operatorListRowBackground()
+                    }
                 }
             }
         }

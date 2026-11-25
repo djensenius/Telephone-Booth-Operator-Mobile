@@ -460,7 +460,9 @@ public struct MessageListView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
-        messageRows(onSelect: onSelect, isSplit: isSplit)
+        operatorInsetListSection(enabled: !isSplit) {
+            messageRows(onSelect: onSelect, isSplit: isSplit)
+        }
     }
 
     private var questionList: some View {
@@ -479,8 +481,13 @@ public struct MessageListView: View {
                     .listRowSeparator(.hidden)
             }
 
+            #if os(iOS)
+            messageBanners
+            #endif
             Section {
+                #if !os(iOS)
                 messageBanners
+                #endif
                 if loading && messages.isEmpty {
                     HStack {
                         Spacer()
@@ -498,11 +505,9 @@ public struct MessageListView: View {
                     messageRows(onSelect: nil, isSplit: false)
                 }
 
-                if nextCursor != nil {
-                    loadMoreFooter
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                }
+                #if !os(iOS)
+                questionLoadMoreFooter
+                #endif
             } header: {
                 HStack {
                     Text("Answers")
@@ -512,8 +517,20 @@ public struct MessageListView: View {
                     }
                 }
             }
+            #if os(iOS)
+            questionLoadMoreFooter
+            #endif
         }
         .operatorListStyle()
+    }
+
+    @ViewBuilder
+    private var questionLoadMoreFooter: some View {
+        if nextCursor != nil {
+            loadMoreFooter
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
     }
 
     @ViewBuilder

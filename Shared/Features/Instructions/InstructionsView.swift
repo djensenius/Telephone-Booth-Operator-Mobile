@@ -140,17 +140,19 @@ public struct InstructionsView: View {
                     .font(Theme.Fonts.bodySmall)
                     .foregroundStyle(Theme.Colors.textSecondary)
             }
-            ForEach(instructions) { instruction in
-                InstructionRow(
-                    instruction: instruction,
-                    isExpanded: expandedId == instruction.id,
-                    onToggle: { toggle(instruction.id) },
-                    onEdit: { editing = instruction },
-                    onActivate: { Task { await activate(instruction) } },
-                    onDeactivate: { Task { await deactivate(instruction) } },
-                    onDelete: { pendingDelete = instruction }
-                )
-                .operatorListRowBackground()
+            operatorInsetListSection {
+                ForEach(instructions) { instruction in
+                    InstructionRow(
+                        instruction: instruction,
+                        isExpanded: expandedId == instruction.id,
+                        onToggle: { toggle(instruction.id) },
+                        onEdit: { editing = instruction },
+                        onActivate: { Task { await activate(instruction) } },
+                        onDeactivate: { Task { await deactivate(instruction) } },
+                        onDelete: { pendingDelete = instruction }
+                    )
+                    .operatorListRowBackground()
+                }
             }
             if nextCursor != nil {
                 loadMoreFooter

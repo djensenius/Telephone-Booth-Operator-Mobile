@@ -163,6 +163,22 @@ func operatorSelectableListRowBackground<Content: View>(_ content: Content, acti
     }
 }
 
+@MainActor @ViewBuilder
+func operatorInsetListSection<Content: View>(
+    enabled: Bool = true,
+    @ViewBuilder content: () -> Content
+) -> some View {
+    #if os(iOS)
+    if enabled {
+        Section(content: content)
+    } else {
+        content()
+    }
+    #else
+    content()
+    #endif
+}
+
 private struct AutoRefreshModifier<ID: Equatable>: ViewModifier {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.automaticRefreshEnabled) private var automaticRefreshEnabled
