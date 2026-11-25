@@ -148,38 +148,40 @@ public struct QuestionsView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             }
-            ForEach(questions) { question in
-                QuestionRow(
-                    question: question,
-                    canManage: isAdmin,
-                    onActivate: { Task { await activate(question) } },
-                    onDeactivate: { Task { await deactivate(question) } },
-                    onDelete: { Task { await retire(question) } }
-                )
-                .operatorListRowBackground()
-                .swipeActions(edge: .trailing) {
-                    if isAdmin {
-                        if question.status != .archived {
-                            Button(role: .destructive) {
-                                Task { await retire(question) }
-                            } label: {
-                                Label("Retire", systemImage: "trash")
+            operatorInsetListSection {
+                ForEach(questions) { question in
+                    QuestionRow(
+                        question: question,
+                        canManage: isAdmin,
+                        onActivate: { Task { await activate(question) } },
+                        onDeactivate: { Task { await deactivate(question) } },
+                        onDelete: { Task { await retire(question) } }
+                    )
+                    .operatorListRowBackground()
+                    .swipeActions(edge: .trailing) {
+                        if isAdmin {
+                            if question.status != .archived {
+                                Button(role: .destructive) {
+                                    Task { await retire(question) }
+                                } label: {
+                                    Label("Retire", systemImage: "trash")
+                                }
                             }
-                        }
-                        if question.status == .active {
-                            Button {
-                                Task { await deactivate(question) }
-                            } label: {
-                                Label("Deactivate", systemImage: "pause.circle")
+                            if question.status == .active {
+                                Button {
+                                    Task { await deactivate(question) }
+                                } label: {
+                                    Label("Deactivate", systemImage: "pause.circle")
+                                }
+                                .tint(Theme.Colors.warning)
+                            } else {
+                                Button {
+                                    Task { await activate(question) }
+                                } label: {
+                                    Label("Activate", systemImage: "checkmark.circle")
+                                }
+                                .tint(Theme.Colors.success)
                             }
-                            .tint(Theme.Colors.warning)
-                        } else {
-                            Button {
-                                Task { await activate(question) }
-                            } label: {
-                                Label("Activate", systemImage: "checkmark.circle")
-                            }
-                            .tint(Theme.Colors.success)
                         }
                     }
                 }

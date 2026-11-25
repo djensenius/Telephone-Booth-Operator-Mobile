@@ -460,7 +460,9 @@ public struct MessageListView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
-        messageRows(onSelect: onSelect, isSplit: isSplit)
+        operatorInsetListSection(enabled: !isSplit) {
+            messageRows(onSelect: onSelect, isSplit: isSplit)
+        }
     }
 
     private var questionList: some View {

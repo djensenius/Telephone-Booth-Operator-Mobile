@@ -181,29 +181,31 @@ public struct SessionListView: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
-        ForEach(sessions) { session in
-            if isSplit {
-                operatorSelectableListRowBackground(
+        operatorInsetListSection(enabled: !isSplit) {
+            ForEach(sessions) { session in
+                if isSplit {
+                    operatorSelectableListRowBackground(
+                        NavigationLink(value: session.id) {
+                            SessionRow(session: session)
+                        },
+                        active: true
+                    )
+                    .tag(session.id)
+                } else if let onSelect {
+                    Button {
+                        onSelect(session.id)
+                    } label: {
+                        SessionRow(session: session)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .operatorListRowBackground()
+                } else {
                     NavigationLink(value: session.id) {
                         SessionRow(session: session)
-                    },
-                    active: true
-                )
-                .tag(session.id)
-            } else if let onSelect {
-                Button {
-                    onSelect(session.id)
-                } label: {
-                    SessionRow(session: session)
-                        .contentShape(Rectangle())
+                    }
+                    .operatorListRowBackground()
                 }
-                .buttonStyle(.plain)
-                .operatorListRowBackground()
-            } else {
-                NavigationLink(value: session.id) {
-                    SessionRow(session: session)
-                }
-                .operatorListRowBackground()
             }
         }
         if nextCursor != nil {

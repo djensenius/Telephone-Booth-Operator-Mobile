@@ -33,7 +33,11 @@ public extension View {
 
     @ViewBuilder
     func operatorListStyle() -> some View {
-        #if os(macOS)
+        #if os(iOS)
+        self.listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .background(Theme.Colors.background)
+        #elseif os(macOS)
         self.listStyle(.inset)
         #elseif os(tvOS)
         self.listStyle(.plain)
